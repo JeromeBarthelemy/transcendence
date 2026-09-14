@@ -44,8 +44,9 @@ not by the development server.
 make check
 ```
 
-Runs Ruff (lint and formatting) and mypy, from the activated virtual
-environment. It must pass before every commit.
+Runs Ruff (lint and formatting), mypy, and a check that no model change
+is missing its migration, from the activated virtual environment. It must
+pass before every commit.
 
 ## What is here so far
 
