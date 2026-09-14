@@ -1,0 +1,28 @@
+name: check
+
+on:
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/requirements*.txt
+
+      - run: pip install -r backend/requirements-dev.txt
+
+      # settings.py refuses to start without a secret key; mypy's Django plugin
+      # and makemigrations both import it.
+      - name: Create a throwaway .env
+        run: |
+          cp backend/.env.example backend/.env
+          key=$(python -c "import secrets; print(secrets.token_urlsafe(64))")
+          sed -i "s|^DJANGO_SECRET_KEY=.*|DJANGO_SECRET_KEY=$key|" backend/.env
+
+      - run: make check
