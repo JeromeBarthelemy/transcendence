@@ -6,6 +6,7 @@ the subject asks us to create, edit and delete is the team.
 
 from django.conf import settings
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
+from django.core.validators import MinValueValidator
 from django.db import models
 from django.db.models import Q
 from django.utils import timezone
@@ -109,7 +110,7 @@ class Season(models.Model):
 
 class Team(models.Model):
     # Assigned by FIRST, unique worldwide.
-    number = models.PositiveIntegerField(unique=True)
+    number = models.PositiveIntegerField(unique=True, validators=[MinValueValidator(1)])
     name = models.CharField(max_length=120)
 
     class Meta:
