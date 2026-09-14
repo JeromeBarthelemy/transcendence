@@ -62,7 +62,7 @@ class User(AbstractBaseUser, PermissionsMixin):
         STUDENT = "student", "élève"
         MENTOR = "mentor", "mentor"
 
-    email = models.EmailField(unique=True)
+    email = models.EmailField("adresse e-mail", unique=True)
     display_name = models.CharField("nom d'affichage", max_length=80)
     avatar = models.ImageField(upload_to="avatars/", blank=True)
 
@@ -81,9 +81,9 @@ class User(AbstractBaseUser, PermissionsMixin):
     # therefore the raw database.
     is_club_admin = models.BooleanField("administrateur du club", default=False)
 
-    is_active = models.BooleanField(default=True)
-    is_staff = models.BooleanField(default=False)
-    date_joined = models.DateTimeField(default=timezone.now)
+    is_active = models.BooleanField("actif", default=True)
+    is_staff = models.BooleanField("accès à l'admin", default=False)
+    date_joined = models.DateTimeField("date d'inscription", default=timezone.now)
 
     objects = UserManager()
 
