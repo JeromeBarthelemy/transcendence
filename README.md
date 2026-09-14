@@ -8,9 +8,6 @@ is French: model, field and function names, comments and docstrings are
 English, while `verbose_name`, choice labels and validation messages stay
 French because they are displayed as-is.
 
-The concept note, the module table and the schema live in a separate
-repository: [transcendence-notes](https://github.com/JeromeBarthelemy/transcendence-notes).
-
 ## Getting started
 
 ```sh
