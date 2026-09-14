@@ -24,6 +24,20 @@ python backend/manage.py runserver
 
 `.env` is never versioned: everyone keeps their own.
 
+## Trying it out
+
+With the server running, open <http://127.0.0.1:8000/admin/> and sign in
+with the email and password given to `createsuperuser`.
+
+- Type the address with `http://`. The development server only speaks HTTP;
+  a browser that tries HTTPS reports an SSL error. If it keeps switching to
+  HTTPS, use <http://localhost:8000/admin/> instead.
+- The site root returns 404: `admin/` is the only route so far.
+
+HTTPS, which the subject requires on every connection to the backend, will
+be handled by a proxy in front of Django once the project runs in Docker —
+not by the development server.
+
 ## Checking
 
 ```sh
