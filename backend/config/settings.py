@@ -20,11 +20,20 @@ load_dotenv(BASE_DIR / ".env")
 
 
 def env_bool(name, default=False):
-    return os.environ.get(name, str(default)).strip().lower() in {"1", "true", "yes", "on"}
+    return os.environ.get(name, str(default)).strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
 
 
 def env_list(name, default=""):
-    return [item.strip() for item in os.environ.get(name, default).split(",") if item.strip()]
+    return [
+        item.strip()
+        for item in os.environ.get(name, default).split(",")
+        if item.strip()
+    ]
 
 
 # ---------------------------------------------------------------------------
@@ -116,7 +125,9 @@ AUTH_USER_MODEL = "club.User"
 # Django's defaults. They are what satisfies the subject's requirement that
 # passwords be hashed and salted — nothing here is hand-rolled.
 AUTH_PASSWORD_VALIDATORS = [
-    {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
+    {
+        "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"
+    },
     {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"},
     {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},

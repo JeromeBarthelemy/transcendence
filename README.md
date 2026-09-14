@@ -15,7 +15,7 @@ repository: [transcendence-notes](https://github.com/JeromeBarthelemy/transcende
 
 ```sh
 python3 -m venv .venv && source .venv/bin/activate
-pip install -r backend/requirements.txt
+pip install -r backend/requirements-dev.txt
 
 cp backend/.env.example backend/.env
 # Fill in DJANGO_SECRET_KEY — see the comment in the file.
@@ -26,6 +26,15 @@ python backend/manage.py runserver
 ```
 
 `.env` is never versioned: everyone keeps their own.
+
+## Checking
+
+```sh
+make check
+```
+
+Runs Ruff (lint and formatting) and mypy, from the activated virtual
+environment. It must pass before every commit.
 
 ## What is here so far
 

@@ -1,0 +1,15 @@
+[tool.ruff]
+extend-exclude = ["backend/*/migrations"]
+
+[tool.ruff.lint]
+# Django declares its configuration as mutable class attributes
+# (Meta.ordering, REQUIRED_FIELDS), which this rule misreads.
+ignore = ["RUF012"]
+
+[tool.mypy]
+plugins = ["mypy_django_plugin.main"]
+mypy_path = "backend"
+exclude = ["migrations/"]
+
+[tool.django-stubs]
+django_settings_module = "config.settings"

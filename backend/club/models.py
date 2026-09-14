@@ -5,7 +5,11 @@ the subject asks us to create, edit and delete is the team.
 """
 
 from django.conf import settings
-from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
+from django.contrib.auth.models import (
+    AbstractBaseUser,
+    BaseUserManager,
+    PermissionsMixin,
+)
 from django.core.validators import MinValueValidator
 from django.db import models
 from django.db.models import Q
@@ -20,8 +24,10 @@ class UserManager(BaseUserManager):
 
     def create_user(self, email, display_name, password=None, **extra):
         if not email:
-            raise ValueError("Un compte exige une adresse e-mail : c'est la clé "
-                             "de réconciliation avec AssoConnect.")
+            raise ValueError(
+                "Un compte exige une adresse e-mail : c'est la clé "
+                "de réconciliation avec AssoConnect."
+            )
         user = self.model(
             email=self.normalize_email(email),
             display_name=display_name,
@@ -63,9 +69,12 @@ class User(AbstractBaseUser, PermissionsMixin):
     # Adulthood is established, never assumed.
     is_minor = models.BooleanField("mineur", default=True)
 
-    club_role = models.CharField("rôle au club", max_length=10,
-                                 choices=ClubRole.choices,
-                                 default=ClubRole.STUDENT)
+    club_role = models.CharField(
+        "rôle au club",
+        max_length=10,
+        choices=ClubRole.choices,
+        default=ClubRole.STUDENT,
+    )
 
     # A flag rather than a third role: administrators are mentors who also
     # administrate. Distinct from `is_staff`, which opens the Django admin and
@@ -128,14 +137,17 @@ class TeamSeason(models.Model):
     # PROTECT: deleting a team or a season must not cascade through seasons of
     # work. A team with no history can still be deleted.
     team = models.ForeignKey(Team, on_delete=models.PROTECT, related_name="seasons")
-    season = models.ForeignKey(Season, on_delete=models.PROTECT, related_name="team_seasons")
+    season = models.ForeignKey(
+        Season, on_delete=models.PROTECT, related_name="team_seasons"
+    )
 
     class Meta:
         ordering = ["-season__label", "team__number"]
         verbose_name = "équipe-saison"
         constraints = [
-            models.UniqueConstraint(fields=["team", "season"],
-                                    name="unique_team_per_season"),
+            models.UniqueConstraint(
+                fields=["team", "season"], name="unique_team_per_season"
+            ),
         ]
 
     def __str__(self):
@@ -147,16 +159,19 @@ class Membership(models.Model):
     An explicit model rather than a ManyToManyField, so a column can be added
     without converting the join table."""
 
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
-                             related_name="memberships")
-    team_season = models.ForeignKey(TeamSeason, on_delete=models.CASCADE,
-                                    related_name="memberships")
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="memberships"
+    )
+    team_season = models.ForeignKey(
+        TeamSeason, on_delete=models.CASCADE, related_name="memberships"
+    )
 
     class Meta:
         verbose_name = "adhésion"
         constraints = [
-            models.UniqueConstraint(fields=["user", "team_season"],
-                                    name="unique_membership_per_team_season"),
+            models.UniqueConstraint(
+                fields=["user", "team_season"], name="unique_membership_per_team_season"
+            ),
         ]
 
     def __str__(self):
@@ -180,10 +195,10 @@ class Consent(models.Model):
         LEGAL_GUARDIAN = "legal_guardian", "représentant légal"
 
     # Deleting an account deletes its consents, as the GDPR module expects.
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
-                             related_name="consents")
-    granted_by = models.CharField("signé par", max_length=15,
-                                  choices=GrantedBy.choices)
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="consents"
+    )
+    granted_by = models.CharField("signé par", max_length=15, choices=GrantedBy.choices)
 
     granted_at = models.DateTimeField("accordée le", default=timezone.now)
     revoked_at = models.DateTimeField("retirée le", null=True, blank=True)
