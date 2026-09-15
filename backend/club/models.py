@@ -29,7 +29,9 @@ class UserManager(BaseUserManager):
                 "de réconciliation avec AssoConnect."
             )
         user = self.model(
-            email=self.normalize_email(email),
+            # normalize_email only lowercases the domain, and SQLite's unique
+            # constraint is case-sensitive: Ada@ and ada@ would be two accounts.
+            email=self.normalize_email(email).lower(),
             display_name=display_name,
             **extra,
         )
@@ -52,6 +54,10 @@ class UserManager(BaseUserManager):
         if extra.get("is_superuser") is not True:
             raise ValueError("Un superutilisateur doit avoir is_superuser=True.")
         return self.create_user(email, display_name, password, **extra)
+
+    def get_by_natural_key(self, username):
+        # Login looks the account up here; emails are stored lowercased.
+        return super().get_by_natural_key(username.lower())
 
 
 class User(AbstractBaseUser, PermissionsMixin):
@@ -97,6 +103,12 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     def __str__(self):
         return self.display_name
+
+    def clean(self):
+        super().clean()
+        # full_clean() runs clean() before the uniqueness check, so a form
+        # reports a duplicate differing only by case instead of crashing on save.
+        self.email = self.email.lower()
 
     @property
     def is_mentor(self):
