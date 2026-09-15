@@ -119,17 +119,27 @@ class Season(models.Model):
     """Scoping by season archives past seasons for free: their objects stay
     readable, unmigrated."""
 
-    label = models.CharField(max_length=20, unique=True)  # "2026-2027"
+    # The end year is always the next one, so it is not stored.
+    start_year = models.PositiveSmallIntegerField("année de début", unique=True)
+    # FIRST never reuses a game name: a duplicate is the same season entered twice.
+    game_name = models.CharField("nom du jeu", max_length=60, unique=True)
 
     class Meta:
-        ordering = ["-label"]
+        ordering = ["-start_year"]
         verbose_name = "saison"
 
     def __str__(self):
-        return self.label
+        return f"{self.label} · {self.game_name}"
+
+    @property
+    def label(self):
+        return f"{self.start_year}-{self.start_year + 1}"
 
 
 class Team(models.Model):
+    """A FIRST team, the same one from season to season: what changes each
+    year — roster, notebook, workstreams — hangs on TeamSeason instead."""
+
     # Assigned by FIRST, unique worldwide.
     number = models.PositiveIntegerField(unique=True, validators=[MinValueValidator(1)])
     name = models.CharField(max_length=120)
@@ -148,14 +158,17 @@ class TeamSeason(models.Model):
 
     # PROTECT: deleting a team or a season must not cascade through seasons of
     # work. A team with no history can still be deleted.
-    team = models.ForeignKey(Team, on_delete=models.PROTECT, related_name="seasons")
+    team = models.ForeignKey(
+        Team, on_delete=models.PROTECT, related_name="team_seasons"
+    )
     season = models.ForeignKey(
         Season, on_delete=models.PROTECT, related_name="team_seasons"
     )
 
     class Meta:
-        ordering = ["-season__label", "team__number"]
+        ordering = ["-season__start_year", "team__number"]
         verbose_name = "équipe-saison"
+        verbose_name_plural = "équipes-saisons"
         constraints = [
             models.UniqueConstraint(
                 fields=["team", "season"], name="unique_team_per_season"
@@ -163,13 +176,13 @@ class TeamSeason(models.Model):
         ]
 
     def __str__(self):
-        return f"{self.team.number} ({self.season.label})"
+        return f"{self.team.number} - {self.season.game_name}"
 
 
 class Membership(models.Model):
-    """Belonging to a team for a season. No role: captaincy opens no right.
-    An explicit model rather than a ManyToManyField, so a column can be added
-    without converting the join table."""
+    """Belonging to a team for a season; it carries no role. An explicit model
+    rather than a ManyToManyField, so a column can be added without converting
+    the join table."""
 
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="memberships"
@@ -179,7 +192,9 @@ class Membership(models.Model):
     )
 
     class Meta:
-        verbose_name = "adhésion"
+        # Not « adhésion »: in the club that means joining the association in
+        # AssoConnect, which a member can do before being on any team.
+        verbose_name = "affectation"
         constraints = [
             models.UniqueConstraint(
                 fields=["user", "team_season"], name="unique_membership_per_team_season"
@@ -187,7 +202,7 @@ class Membership(models.Model):
         ]
 
     def __str__(self):
-        return f"{self.user} — {self.team_season}"
+        return f"{self.user} ({self.team_season})"
 
 
 class Consent(models.Model):
