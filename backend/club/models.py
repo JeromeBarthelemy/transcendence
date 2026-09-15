@@ -12,7 +12,6 @@ from django.contrib.auth.models import (
 )
 from django.core.validators import MinValueValidator
 from django.db import models
-from django.db.models import Q
 from django.utils import timezone
 
 
@@ -205,14 +204,36 @@ class Membership(models.Model):
         return f"{self.user} ({self.team_season})"
 
 
-class Consent(models.Model):
-    """Image-rights consent, the only one the club collects. It has no expiry,
-    only a grant and possibly a withdrawal. The signed proof lives in
-    AssoConnect.
+class ConsentQuerySet(models.QuerySet):
+    def in_force_for(self, user):
+        """The latest decision, or None when nothing was ever decided."""
+        return self.filter(user=user).order_by("-decided_at", "-id").first()
 
-    Withdrawal stops use from that moment, so publishability must be filtered
-    when reading, never frozen at upload time.
+    def refusals(self):
+        """The refusal in force of each member who refused, with its date: the
+        short list shown when publishing. Members with no decision are not in
+        it. One query per member, which a club's roster makes negligible, and
+        the "latest decision" rule stays in in_force_for alone."""
+        in_force = (self.in_force_for(user) for user in User.objects.all())
+        return [
+            decision
+            for decision in in_force
+            if decision is not None and decision.decision == Consent.Decision.REFUSED
+        ]
+
+
+class Consent(models.Model):
+    """One dated image-rights decision, never edited: granting and refusing
+    are both decisions, and the latest one is in force. No decision at all
+    means unknown. The signed proof lives in AssoConnect.
+
+    A later refusal stops use from that moment, so publishability must be
+    filtered when reading, never frozen at upload time.
     """
+
+    class Decision(models.TextChoices):
+        GRANTED = "granted", "accordé"
+        REFUSED = "refused", "refusé"
 
     class GrantedBy(models.TextChoices):
         """The signatory's capacity, not their identity: parents have no
@@ -221,33 +242,20 @@ class Consent(models.Model):
         SELF = "self", "l'intéressé"
         LEGAL_GUARDIAN = "legal_guardian", "représentant légal"
 
-    # Deleting an account deletes its consents, as the GDPR module expects.
+    # Deleting an account deletes its decisions, as the GDPR module expects.
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="consents"
     )
+    decision = models.CharField("décision", max_length=10, choices=Decision.choices)
     granted_by = models.CharField("signé par", max_length=15, choices=GrantedBy.choices)
+    decided_at = models.DateTimeField("décidé le", default=timezone.now)
 
-    granted_at = models.DateTimeField("accordée le", default=timezone.now)
-    revoked_at = models.DateTimeField("retirée le", null=True, blank=True)
+    objects = ConsentQuerySet.as_manager()
 
     class Meta:
-        ordering = ["-granted_at"]
-        verbose_name = "autorisation de droit à l'image"
-        verbose_name_plural = "autorisations de droit à l'image"
-        constraints = [
-            # History is allowed, but only one authorisation may be in force:
-            # the dated history proves consent held on the day a photo was used.
-            models.UniqueConstraint(
-                fields=["user"],
-                condition=Q(revoked_at__isnull=True),
-                name="one_active_consent",
-            ),
-        ]
+        ordering = ["-decided_at", "-id"]
+        verbose_name = "décision de droit à l'image"
+        verbose_name_plural = "décisions de droit à l'image"
 
     def __str__(self):
-        state = "retirée" if self.revoked_at else "en vigueur"
-        return f"{self.user} — droit à l'image ({state})"
-
-    @property
-    def is_active(self):
-        return self.revoked_at is None
+        return f"{self.user} — droit à l'image {self.get_decision_display()}"
