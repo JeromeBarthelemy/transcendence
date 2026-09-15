@@ -2,10 +2,18 @@ name: roadmap dates
 
 on:
   issues:
-    types: [opened, closed, reopened]
+    types: [closed, reopened]
+  # Moving a card in a personal project triggers nothing: a daily pass picks up
+  # the cards that entered In Progress. 04:17 UTC, off the busy top of the hour.
+  schedule:
+    - cron: "17 4 * * *"
+  workflow_dispatch:
 
 permissions:
   contents: read
+
+# Two passes at once would only write the same values twice.
+concurrency: roadmap-dates
 
 jobs:
   dates:
@@ -17,12 +25,8 @@ jobs:
 
       # GITHUB_TOKEN cannot reach a project owned by a personal account:
       # PROJECT_TOKEN is a classic token with the `project` scope.
-      # Event values go through env, never straight into the script line.
-      - run: .github/scripts/roadmap-dates.sh "$ISSUE_ID" "$CREATED_AT" "$CLOSED_AT"
+      - run: .github/scripts/roadmap-dates.sh
         env:
           GH_TOKEN: ${{ secrets.PROJECT_TOKEN }}
           OWNER: ${{ github.repository_owner }}
           PROJECT_NUMBER: 3
-          ISSUE_ID: ${{ github.event.issue.node_id }}
-          CREATED_AT: ${{ github.event.issue.created_at }}
-          CLOSED_AT: ${{ github.event.issue.closed_at }}
