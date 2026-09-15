@@ -48,6 +48,16 @@ Runs Ruff (lint and formatting), mypy, and a check that no model change
 is missing its migration, from the activated virtual environment. It must
 pass before every commit.
 
+## Testing
+
+```sh
+make test
+```
+
+Runs the suite with pytest and pytest-django — not `manage.py test`. Tests
+live next to the code, under `backend/<app>/tests/`. Every test has database
+access without `@pytest.mark.django_db` (see `backend/conftest.py`).
+
 ## Contributing
 
 Work goes through pull requests; nobody pushes to `main`.
