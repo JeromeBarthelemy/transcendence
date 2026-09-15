@@ -25,7 +25,8 @@ class UserAdmin(BaseUserAdmin):
 
     fieldsets = (
         (None, {"fields": ("email", "password")}),
-        ("Profil", {"fields": ("display_name", "avatar", "is_minor")}),
+        ("Profil", {"fields": ("display_name", "avatar")}),
+        ("AssoConnect", {"fields": ("assoconnect_id", "birth_date")}),
         ("Club", {"fields": ("club_role", "is_club_admin")}),
         (
             "Permissions",
@@ -57,7 +58,9 @@ class UserAdmin(BaseUserAdmin):
         ),
     )
     list_display = ("email", "display_name", "club_role", "is_club_admin", "is_staff")
-    list_filter = ("club_role", "is_club_admin", "is_minor", "is_staff", "is_active")
+    # is_minor is computed from the birth date on the current day, so the admin
+    # cannot filter on it.
+    list_filter = ("club_role", "is_club_admin", "is_staff", "is_active")
     search_fields = ("email", "display_name")
     ordering = ("display_name",)
 
