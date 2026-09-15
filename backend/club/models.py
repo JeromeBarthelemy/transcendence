@@ -43,9 +43,8 @@ class UserManager(BaseUserManager):
     def create_superuser(self, email, display_name, password=None, **extra):
         extra.setdefault("is_staff", True)
         extra.setdefault("is_superuser", True)
-        extra.setdefault("is_minor", False)
         # The first account belongs to whoever installs the instance and then
-        # registers everyone else.
+        # registers everyone else. It is a minor until verified, like any other.
         extra.setdefault("club_role", User.ClubRole.MENTOR)
         extra.setdefault("is_club_admin", True)
         if extra.get("is_staff") is not True:
@@ -60,8 +59,8 @@ class UserManager(BaseUserManager):
 
 
 class User(AbstractBaseUser, PermissionsMixin):
-    """Holding an account is club membership: parents and alumni belong to the
-    association but have no use for this tool."""
+    """An active account is club membership. Parents have no account; a member
+    who leaves keeps theirs, deactivated, so their traces stay attributed."""
 
     class ClubRole(models.TextChoices):
         STUDENT = "student", "élève"
@@ -71,8 +70,12 @@ class User(AbstractBaseUser, PermissionsMixin):
     display_name = models.CharField("nom d'affichage", max_length=80)
     avatar = models.ImageField(upload_to="avatars/", blank=True)
 
-    # Adulthood is established, never assumed.
-    is_minor = models.BooleanField("mineur", default=True)
+    # Both come from AssoConnect when the account is verified; until then the
+    # account is a minor, whatever it declared.
+    assoconnect_id = models.CharField(
+        "numéro d'adhérent", max_length=30, unique=True, null=True, blank=True
+    )
+    birth_date = models.DateField("date de naissance", null=True, blank=True)
 
     club_role = models.CharField(
         "rôle au club",
@@ -112,6 +115,47 @@ class User(AbstractBaseUser, PermissionsMixin):
     @property
     def is_mentor(self):
         return self.club_role == self.ClubRole.MENTOR
+
+    @property
+    def is_minor(self):
+        return self.is_minor_on(timezone.localdate())
+
+    def is_minor_on(self, day):
+        # Adulthood is established, never assumed: only a birth date that came
+        # with verification counts.
+        if self.assoconnect_id is None or self.birth_date is None:
+            return True
+        birthday_passed = (day.month, day.day) >= (
+            self.birth_date.month,
+            self.birth_date.day,
+        )
+        age = day.year - self.birth_date.year - (0 if birthday_passed else 1)
+        return age < 18
+
+
+class VerificationRequest(models.Model):
+    """What sign-up typed to match the account with its AssoConnect membership.
+    Only used for matching: a minor could type any birth date, so this one
+    never decides adulthood. Deleted once the account is verified."""
+
+    # One per account: a second one would leave the import unsure which to
+    # believe.
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="verification_request",
+    )
+    last_name = models.CharField("nom", max_length=80)
+    first_name = models.CharField("prénom", max_length=80)
+    birth_date = models.DateField("date de naissance déclarée")
+    created_at = models.DateTimeField("demandée le", auto_now_add=True)
+
+    class Meta:
+        verbose_name = "demande de vérification"
+        verbose_name_plural = "demandes de vérification"
+
+    def __str__(self):
+        return f"{self.first_name} {self.last_name} ({self.user})"
 
 
 class Season(models.Model):
