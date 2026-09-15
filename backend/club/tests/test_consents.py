@@ -42,7 +42,7 @@ def test_two_decisions_at_the_same_moment_are_settled_by_the_later_record():
     assert Consent.objects.in_force_for(ada).decision == Consent.Decision.GRANTED
 
 
-def test_refusals_list_only_members_whose_latest_decision_is_a_refusal():
+def test_refusals_are_the_refusals_in_force_and_nothing_else():
     refused = User.objects.create_user("refused@club.fr", "Refused")
     changed_mind = User.objects.create_user("changed@club.fr", "Changed mind")
     unknown = User.objects.create_user("unknown@club.fr", "Unknown")
@@ -59,6 +59,11 @@ def test_refusals_list_only_members_whose_latest_decision_is_a_refusal():
     decide(changed_mind, Consent.Decision.REFUSED, 0)
     decide(changed_mind, Consent.Decision.GRANTED, 10)
 
-    # An unknown member is protected like a refusal elsewhere, but is not one.
-    assert list(Consent.objects.refusals()) == [refused]
-    assert unknown not in Consent.objects.refusals()
+    refusals = Consent.objects.refusals()
+
+    # The publishing screen shows who refused and since when: decisions, not
+    # just members. An unknown member is protected like a refusal elsewhere,
+    # but is not one.
+    assert [decision.user for decision in refusals] == [refused]
+    assert refusals[0].decision == Consent.Decision.REFUSED
+    assert unknown not in [decision.user for decision in refusals]

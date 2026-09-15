@@ -210,16 +210,16 @@ class ConsentQuerySet(models.QuerySet):
         return self.filter(user=user).order_by("-decided_at", "-id").first()
 
     def refusals(self):
-        """Members whose latest decision is a refusal: the short list shown
-        when publishing. Members with no decision are not in it."""
-        latest = (
-            self.filter(user=models.OuterRef("pk"))
-            .order_by("-decided_at", "-id")
-            .values("decision")[:1]
-        )
-        return User.objects.annotate(latest_decision=models.Subquery(latest)).filter(
-            latest_decision=Consent.Decision.REFUSED
-        )
+        """The refusal in force of each member who refused, with its date: the
+        short list shown when publishing. Members with no decision are not in
+        it. One query per member, which a club's roster makes negligible, and
+        the "latest decision" rule stays in in_force_for alone."""
+        in_force = (self.in_force_for(user) for user in User.objects.all())
+        return [
+            decision
+            for decision in in_force
+            if decision is not None and decision.decision == Consent.Decision.REFUSED
+        ]
 
 
 class Consent(models.Model):
