@@ -104,3 +104,25 @@ def test_a_line_that_fails_applies_none_of_the_others():
 
     first.refresh_from_db()
     assert first.assoconnect_id is None
+
+
+def test_applying_says_which_accounts_it_verified_and_what_it_decided():
+    user = account()
+
+    applied = apply(reconciliation(Match(line(), user)))
+
+    assert applied.verified == [user]
+    assert [written.decision for written in applied.decided] == [
+        Consent.Decision.GRANTED
+    ]
+
+
+def test_applying_the_same_export_again_says_it_did_nothing():
+    account()
+    rows = [line()]
+    apply(reconcile(rows))
+
+    applied = apply(reconcile(rows))
+
+    assert applied.verified == []
+    assert applied.decided == []
