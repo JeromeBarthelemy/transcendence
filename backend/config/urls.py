@@ -1,3 +1,6 @@
+"""The project's URL map. One instance serves one club, so there is no
+per-client routing: the admin, and in development the media files."""
+
 from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin

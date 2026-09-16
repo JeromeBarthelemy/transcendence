@@ -1,3 +1,8 @@
+"""The club admin's back office, and the only place accounts are edited by
+hand. It shows Django's own admin, so reaching it means reaching the raw
+database: `is_staff` is not `is_club_admin`.
+"""
+
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.contrib.auth.forms import AdminUserCreationForm, UserChangeForm
@@ -7,12 +12,16 @@ from .models import Consent, Membership, Season, Team, TeamSeason, User
 
 # Django's user forms are bound to its own User model, which has a username.
 class UserCreationForm(AdminUserCreationForm):
+    """Creating an account here asks for what the model requires, no more."""
+
     class Meta:
         model = User
         fields = ("email", "display_name")
 
 
 class UserEditForm(UserChangeForm):
+    """Editing shows every field, including the ones the import sets."""
+
     class Meta:
         model = User
         fields = "__all__"
@@ -20,6 +29,9 @@ class UserEditForm(UserChangeForm):
 
 @admin.register(User)
 class UserAdmin(BaseUserAdmin):
+    """Grouped the way the club reads an account: who they are, what
+    AssoConnect established, what they may do here."""
+
     form = UserEditForm
     add_form = UserCreationForm
 

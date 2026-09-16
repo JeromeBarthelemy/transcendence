@@ -4,6 +4,9 @@ One deployment serves one club, so there is no Club model: the organisation
 the subject asks us to create, edit and delete is the team.
 """
 
+from datetime import date
+from typing import Any
+
 from django.conf import settings
 from django.contrib.auth.models import (
     AbstractBaseUser,
@@ -15,14 +18,17 @@ from django.db import models
 from django.utils import timezone
 
 
-class UserManager(BaseUserManager):
+class UserManager(BaseUserManager["User"]):
     """Required by a custom user model; `createsuperuser` goes through it.
     The AssoConnect import never does: it verifies accounts, it never creates
     one."""
 
     use_in_migrations = True
 
-    def create_user(self, email, display_name, password=None, **extra):
+    def create_user(
+        self, email: str, display_name: str, password: str | None = None, **extra: Any
+    ) -> "User":
+        """The only door an account comes through, `createsuperuser` included."""
         if not email:
             raise ValueError(
                 "Un compte exige une adresse e-mail : c'est l'identifiant de connexion."
@@ -40,7 +46,11 @@ class UserManager(BaseUserManager):
         user.save(using=self._db)
         return user
 
-    def create_superuser(self, email, display_name, password=None, **extra):
+    def create_superuser(
+        self, email: str, display_name: str, password: str | None = None, **extra: Any
+    ) -> "User":
+        """The account of whoever installs the instance; everyone else signs
+        up for themselves."""
         extra.setdefault("is_staff", True)
         extra.setdefault("is_superuser", True)
         # The first account belongs to whoever installs the instance and then
@@ -53,9 +63,11 @@ class UserManager(BaseUserManager):
             raise ValueError("Un superutilisateur doit avoir is_superuser=True.")
         return self.create_user(email, display_name, password, **extra)
 
-    def get_by_natural_key(self, username):
-        # Login looks the account up here; emails are stored lowercased.
-        return super().get_by_natural_key(username.lower())
+    def get_by_natural_key(self, username: str | None) -> "User":
+        """Login looks the account up here, and emails are stored lowercased."""
+        if username is not None:
+            username = username.lower()
+        return super().get_by_natural_key(username)
 
 
 class User(AbstractBaseUser, PermissionsMixin):
@@ -103,26 +115,26 @@ class User(AbstractBaseUser, PermissionsMixin):
         verbose_name = "membre"
         verbose_name_plural = "membres"
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.display_name
 
-    def clean(self):
+    def clean(self) -> None:
         super().clean()
         # full_clean() runs clean() before the uniqueness check, so a form
         # reports a duplicate differing only by case instead of crashing on save.
         self.email = self.email.lower()
 
     @property
-    def is_mentor(self):
+    def is_mentor(self) -> bool:
         return self.club_role == self.ClubRole.MENTOR
 
     @property
-    def is_minor(self):
+    def is_minor(self) -> bool:
         return self.is_minor_on(timezone.localdate())
 
-    def is_minor_on(self, day):
-        # Adulthood is established, never assumed: only a birth date that came
-        # with verification counts.
+    def is_minor_on(self, day: date) -> bool:
+        """Adulthood is established, never assumed: only a birth date that
+        came with verification counts."""
         if self.assoconnect_id is None or self.birth_date is None:
             return True
         birthday_passed = (day.month, day.day) >= (
@@ -154,7 +166,7 @@ class VerificationRequest(models.Model):
         verbose_name = "demande de vérification"
         verbose_name_plural = "demandes de vérification"
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"{self.first_name} {self.last_name} ({self.user})"
 
 
@@ -171,11 +183,12 @@ class Season(models.Model):
         ordering = ["-start_year"]
         verbose_name = "saison"
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"{self.label} · {self.game_name}"
 
     @property
-    def label(self):
+    def label(self) -> str:
+        """A season spans two years; only the first is stored."""
         return f"{self.start_year}-{self.start_year + 1}"
 
 
@@ -191,7 +204,7 @@ class Team(models.Model):
         ordering = ["number"]
         verbose_name = "équipe"
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"{self.number} — {self.name}"
 
 
@@ -218,7 +231,7 @@ class TeamSeason(models.Model):
             ),
         ]
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"{self.team.number} - {self.season.game_name}"
 
 
@@ -244,16 +257,19 @@ class Membership(models.Model):
             ),
         ]
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"{self.user} ({self.team_season})"
 
 
-class ConsentQuerySet(models.QuerySet):
-    def in_force_for(self, user):
+class ConsentQuerySet(models.QuerySet["Consent"]):
+    """Reading a journal of decisions: what is in force is never a column, it
+    is the latest line."""
+
+    def in_force_for(self, user: "User") -> "Consent | None":
         """The latest decision, or None when nothing was ever decided."""
         return self.filter(user=user).order_by("-decided_at", "-id").first()
 
-    def refusals(self):
+    def refusals(self) -> "list[Consent]":
         """The refusal in force of each member who refused, with its date: the
         short list shown when publishing. Members with no decision are not in
         it. One query per member, which a club's roster makes negligible, and
@@ -301,5 +317,5 @@ class Consent(models.Model):
         verbose_name = "décision de droit à l'image"
         verbose_name_plural = "décisions de droit à l'image"
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"{self.user} — droit à l'image {self.get_decision_display()}"
