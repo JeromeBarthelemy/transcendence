@@ -30,3 +30,41 @@ def test_login_finds_the_account_whatever_case_is_typed():
     user = User.objects.create_user("ada@club.fr", "Ada", password="rouage-bleu-2026")
 
     assert authenticate(username="Ada@club.fr", password="rouage-bleu-2026") == user
+
+
+def test_an_account_created_without_a_password_cannot_be_signed_into():
+    ada = User.objects.create_user("ada@club.fr", "Ada")
+
+    assert not ada.has_usable_password()
+
+
+def test_an_account_protects_by_default():
+    ada = User.objects.create_user("ada@club.fr", "Ada")
+
+    assert ada.is_minor
+    assert ada.club_role == User.ClubRole.STUDENT
+    assert not ada.is_club_admin
+    assert not ada.is_staff
+
+
+def test_the_first_account_is_a_mentor_who_administrates():
+    root = User.objects.create_superuser("root@club.fr", "Root", "rouage-bleu-2026")
+
+    assert root.is_mentor
+    assert root.is_club_admin
+    assert root.is_staff
+
+
+def test_a_superuser_without_admin_access_is_refused():
+    with pytest.raises(ValueError):
+        User.objects.create_superuser("root@club.fr", "Root", is_staff=False)
+
+
+def test_is_mentor_tells_the_two_roles_apart():
+    student = User.objects.create_user("ada@club.fr", "Ada")
+    mentor = User.objects.create_user(
+        "sam@club.fr", "Sam", club_role=User.ClubRole.MENTOR
+    )
+
+    assert not student.is_mentor
+    assert mentor.is_mentor
