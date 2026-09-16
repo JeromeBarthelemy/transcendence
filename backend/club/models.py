@@ -16,16 +16,16 @@ from django.utils import timezone
 
 
 class UserManager(BaseUserManager):
-    """Required by a custom user model; `createsuperuser` and the AssoConnect
-    import go through it."""
+    """Required by a custom user model; `createsuperuser` goes through it.
+    The AssoConnect import never does: it verifies accounts, it never creates
+    one."""
 
     use_in_migrations = True
 
     def create_user(self, email, display_name, password=None, **extra):
         if not email:
             raise ValueError(
-                "Un compte exige une adresse e-mail : c'est la clé "
-                "de réconciliation avec AssoConnect."
+                "Un compte exige une adresse e-mail : c'est l'identifiant de connexion."
             )
         user = self.model(
             # normalize_email only lowercases the domain, and SQLite's unique
@@ -34,8 +34,8 @@ class UserManager(BaseUserManager):
             display_name=display_name,
             **extra,
         )
-        # password=None leaves the password unusable: the imported account
-        # exists, and the student activates it.
+        # password=None leaves the password unusable, which is what an
+        # account created without one deserves until someone sets it.
         user.set_password(password)
         user.save(using=self._db)
         return user
