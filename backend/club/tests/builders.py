@@ -2,6 +2,7 @@
 accounts it may or may not find. Shared, because reading and applying an
 import are two subjects looking at the same objects."""
 
+from dataclasses import replace
 from datetime import date
 
 from openpyxl import Workbook
@@ -13,20 +14,22 @@ BORN = date(2009, 6, 8)
 ORDERED_ON = date(2026, 9, 12)
 
 
+MARIE_AS_READ = ExportRow(
+    assoconnect_id="4521",
+    first_name="Marie",
+    last_name="Dubois",
+    birth_date=BORN,
+    email="marie.dubois@example.org",
+    guardian_email="",
+    image_rights_signed=True,
+    image_rights_refused=False,
+    decided_on=ORDERED_ON,
+)
+
+
 def line(**overrides):
     """One line of an export, Marie's unless told otherwise."""
-    fields = {
-        "assoconnect_id": "4521",
-        "first_name": "Marie",
-        "last_name": "Dubois",
-        "birth_date": BORN,
-        "email": "marie.dubois@example.org",
-        "guardian_email": "",
-        "image_rights_signed": True,
-        "image_rights_refused": False,
-        "decided_on": ORDERED_ON,
-    }
-    return ExportRow(**(fields | overrides))
+    return replace(MARIE_AS_READ, **overrides)
 
 
 def account(email="marie@example.org", display_name="Marie", **asked):
@@ -94,7 +97,7 @@ def write_export(tmp_path, rows, headers=None):
     read in a diff."""
     headers = HEADERS if headers is None else headers
     workbook = Workbook()
-    sheet = workbook.active
+    sheet = workbook.worksheets[0]
     sheet.append(headers)
     for row in rows:
         sheet.append([row.get(header, "") for header in headers])

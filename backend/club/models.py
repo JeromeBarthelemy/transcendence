@@ -15,7 +15,7 @@ from django.db import models
 from django.utils import timezone
 
 
-class UserManager(BaseUserManager):
+class UserManager(BaseUserManager["User"]):
     """Required by a custom user model; `createsuperuser` goes through it.
     The AssoConnect import never does: it verifies accounts, it never creates
     one."""

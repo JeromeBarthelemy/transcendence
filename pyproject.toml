@@ -8,6 +8,9 @@ ignore = ["RUF012"]
 
 [tool.mypy]
 plugins = ["mypy_django_plugin.main"]
+# Without it, mypy skips the body of every unannotated function and says
+# "Success" about code it never entered.
+check_untyped_defs = true
 mypy_path = "backend"
 exclude = ["migrations/"]
 
