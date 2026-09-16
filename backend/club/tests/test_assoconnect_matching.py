@@ -1,6 +1,3 @@
-from datetime import date
-
-from club.assoconnect.export import ExportRow
 from club.assoconnect.matching import (
     CLOSE_NAME,
     DISPUTED_NUMBER,
@@ -9,45 +6,7 @@ from club.assoconnect.matching import (
     Match,
     reconcile,
 )
-from club.models import User, VerificationRequest
-
-BORN = date(2009, 6, 8)
-
-
-def line(**overrides):
-    """One line of an export, Marie's unless told otherwise."""
-    fields = {
-        "assoconnect_id": "4521",
-        "first_name": "Marie",
-        "last_name": "Dubois",
-        "birth_date": BORN,
-        "email": "marie.dubois@example.org",
-        "guardian_email": "",
-        "image_rights_signed": True,
-        "image_rights_refused": False,
-        "decided_on": date(2026, 9, 12),
-    }
-    return ExportRow(**(fields | overrides))
-
-
-def account(email="marie@example.org", display_name="Marie", **asked):
-    """An account with the verification request it typed at sign-up."""
-    user = User.objects.create_user(email, display_name)
-    VerificationRequest.objects.create(
-        user=user,
-        last_name=asked.get("last_name", "Dubois"),
-        first_name=asked.get("first_name", "Marie"),
-        birth_date=asked.get("birth_date", BORN),
-    )
-    return user
-
-
-def verified_account(assoconnect_id="4521", email="verified@example.org"):
-    """An account a past import already tied to its membership: it carries the
-    member number, and its request is long gone."""
-    return User.objects.create_user(
-        email, "Déjà vérifiée", assoconnect_id=assoconnect_id, birth_date=BORN
-    )
+from club.tests.builders import account, line, verified_account
 
 
 def test_a_request_that_says_the_same_person_is_matched_to_its_line():
