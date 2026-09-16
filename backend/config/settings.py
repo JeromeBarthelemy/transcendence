@@ -19,7 +19,9 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / ".env")
 
 
-def env_bool(name, default=False):
+def env_bool(name: str, default: bool = False) -> bool:
+    """A .env holds text: 1, true, yes and on all mean true, anything else
+    means false — a typo never silently turns a protection off."""
     return os.environ.get(name, str(default)).strip().lower() in {
         "1",
         "true",
@@ -28,7 +30,9 @@ def env_bool(name, default=False):
     }
 
 
-def env_list(name, default=""):
+def env_list(name: str, default: str = "") -> list[str]:
+    """A comma-separated .env value, with blanks dropped: a trailing comma is
+    not an empty host."""
     return [
         item.strip()
         for item in os.environ.get(name, default).split(",")

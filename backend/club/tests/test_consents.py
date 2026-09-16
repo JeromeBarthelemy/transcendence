@@ -20,7 +20,9 @@ def test_a_later_decision_overrides_an_earlier_one():
         decided_at=SEPTEMBER + timedelta(days=30),
     )
 
-    assert Consent.objects.in_force_for(ada).decision == Consent.Decision.REFUSED
+    in_force = Consent.objects.in_force_for(ada)
+    assert in_force is not None
+    assert in_force.decision == Consent.Decision.REFUSED
 
 
 def test_no_decision_means_unknown():
@@ -39,7 +41,9 @@ def test_two_decisions_at_the_same_moment_are_settled_by_the_later_record():
             decided_at=SEPTEMBER,
         )
 
-    assert Consent.objects.in_force_for(ada).decision == Consent.Decision.GRANTED
+    in_force = Consent.objects.in_force_for(ada)
+    assert in_force is not None
+    assert in_force.decision == Consent.Decision.GRANTED
 
 
 def test_refusals_are_the_refusals_in_force_and_nothing_else():
