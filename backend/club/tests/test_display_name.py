@@ -58,3 +58,13 @@ def test_two_different_names_are_both_allowed():
     User.objects.create_user("lina.b@club.fr", "Lina B.")
 
     assert User.objects.count() == 2
+
+
+def test_an_accented_name_is_taken_whatever_case_is_typed():
+    # SQLite's lower() stops at ASCII, so a constraint computed in the
+    # database would let Élodie and élodie both exist — and a French club is
+    # full of the names it would miss.
+    User.objects.create_user("elodie@club.fr", "Élodie")
+
+    with pytest.raises(IntegrityError):
+        User.objects.create_user("elodie.g@club.fr", "élodie")

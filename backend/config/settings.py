@@ -126,6 +126,15 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 AUTH_USER_MODEL = "club.User"
 
+# Order matters: the address is tried first, so the subject's "email and
+# password" path is the one that answers and nothing about it changes. The
+# display name is only reached once that has failed, and the two can never
+# both claim one string because a display name holds no @.
+AUTHENTICATION_BACKENDS = [
+    "django.contrib.auth.backends.ModelBackend",
+    "club.auth.DisplayNameBackend",
+]
+
 # Django's defaults. They are what satisfies the subject's requirement that
 # passwords be hashed and salted — nothing here is hand-rolled.
 AUTH_PASSWORD_VALIDATORS = [

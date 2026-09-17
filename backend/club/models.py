@@ -16,7 +16,6 @@ from django.contrib.auth.models import (
 from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator
 from django.db import models
-from django.db.models.functions import Lower
 from django.utils import timezone
 
 
@@ -103,6 +102,12 @@ class User(AbstractBaseUser, PermissionsMixin):
     display_name = models.CharField(
         "nom d'affichage", max_length=80, validators=[no_at_sign]
     )
+    # The name folded for comparison, because SQLite cannot fold it for us:
+    # its lower() is ASCII-only, so Lower("display_name") leaves Élodie as
+    # Élodie and the uniqueness it was meant to enforce would miss exactly the
+    # names a French club is full of. Wider than the name it folds: casefold()
+    # may lengthen (ß becomes ss).
+    display_name_folded = models.CharField(max_length=160, editable=False, default="")
     avatar = models.ImageField(upload_to="avatars/", blank=True)
 
     # Both come from AssoConnect when the account is verified; until then the
@@ -138,11 +143,13 @@ class User(AbstractBaseUser, PermissionsMixin):
         verbose_name = "membre"
         verbose_name_plural = "membres"
         constraints = [
-            # On Lower(), not unique=True: SQLite's unique index is
-            # case-sensitive, so Lina and lina would be two members showing
-            # up as the same name under every attribution.
+            # On the folded column, not on the name itself: SQLite's unique
+            # index is case-sensitive, so Lina and lina would be two members
+            # showing up as the same name under every attribution. Folding in
+            # Python and storing the result is what makes that true for
+            # Élodie as well as for Lina.
             models.UniqueConstraint(
-                Lower("display_name"),
+                "display_name_folded",
                 name="unique_display_name_regardless_of_case",
                 violation_error_code="display_name_taken",
                 violation_error_message=(
@@ -160,6 +167,17 @@ class User(AbstractBaseUser, PermissionsMixin):
         # full_clean() runs clean() before the uniqueness check, so a form
         # reports a duplicate differing only by case instead of crashing on save.
         self.email = self.email.lower()
+        self.display_name_folded = self.display_name.casefold()
+
+    def save(self, *args: Any, **kwargs: Any) -> None:
+        # Not only in clean(): create_user() and the admin's own writes never
+        # call full_clean(), and a folded column that lags its name is worse
+        # than none at all.
+        self.display_name_folded = self.display_name.casefold()
+        update_fields = kwargs.get("update_fields")
+        if update_fields is not None and "display_name" in update_fields:
+            kwargs["update_fields"] = {*update_fields, "display_name_folded"}
+        super().save(*args, **kwargs)
 
     @property
     def is_mentor(self) -> bool:
