@@ -94,6 +94,12 @@ class User(AbstractBaseUser, PermissionsMixin):
         MENTOR = "mentor", "mentor"
 
     email = models.EmailField("adresse e-mail", unique=True)
+
+    # Where confirmations go, which is not where the credential points: a
+    # minor's rights are exercised by their legal guardian, and the login
+    # address may be on a domain that delivers nothing. Never unique —
+    # siblings share one mailbox — and never a key.
+    contact_email = models.EmailField("adresse de contact", blank=True)
     display_name = models.CharField(
         "nom d'affichage", max_length=80, validators=[no_at_sign]
     )

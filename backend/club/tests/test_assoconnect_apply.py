@@ -126,3 +126,34 @@ def test_applying_the_same_export_again_says_it_did_nothing():
 
     assert applied.verified == []
     assert applied.decided == []
+
+
+def test_the_import_writes_the_guardian_as_the_contact_address():
+    user = account()
+
+    apply(reconciliation(Match(line(), user)))
+
+    user.refresh_from_db()
+    assert user.contact_email == "claire.dubois@example.org"
+
+
+def test_the_member_address_is_the_contact_when_no_guardian_is_stated():
+    # The guardian column is filled only "si différent du mail principal",
+    # so it is empty for most rows.
+    user = account()
+
+    apply(reconciliation(Match(line(guardian_email=""), user)))
+
+    user.refresh_from_db()
+    assert user.contact_email == "marie.dubois@example.org"
+
+
+def test_the_import_still_never_touches_the_login_address():
+    # #16's rule, unchanged by the amendment: the export's email is a
+    # contact, and never decides who an account belongs to.
+    user = account(email="marie@example.org")
+
+    apply(reconciliation(Match(line(), user)))
+
+    user.refresh_from_db()
+    assert user.email == "marie@example.org"
