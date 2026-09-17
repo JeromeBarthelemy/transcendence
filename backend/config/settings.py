@@ -137,6 +137,14 @@ AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
 ]
 
+# The youngest members have no address: the school's ENT has internal
+# messaging that never reaches outside. RFC 2606 reserves .invalid so that it
+# can never be assigned — nothing is ever delivered there by accident, and the
+# identifier says on its face that it is not a mailbox.
+SIGNUP_RESERVED_EMAIL_DOMAIN = os.environ.get(
+    "SIGNUP_RESERVED_EMAIL_DOMAIN", "rouages.invalid"
+)
+
 
 # ---------------------------------------------------------------------------
 # Internationalisation — French interface, club timezone
