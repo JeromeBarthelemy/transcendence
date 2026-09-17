@@ -39,7 +39,12 @@ def apply(reconciliation: Reconciliation) -> Applied:
         # sign-up never decided anything.
         account.assoconnect_id = row.assoconnect_id
         account.birth_date = row.birth_date
-        account.save(update_fields=["assoconnect_id", "birth_date"])
+        # One email column, as a contact and never as a key: the guardian's
+        # when the export states one, the member's otherwise. What it must
+        # never do is decide which account this row belongs to — that stays
+        # the member number's job.
+        account.contact_email = row.guardian_email or row.email
+        account.save(update_fields=["assoconnect_id", "birth_date", "contact_email"])
         # The request has nothing left to prove.
         VerificationRequest.objects.filter(user=account).delete()
         written = _decide_image_rights(account, row)

@@ -253,6 +253,10 @@ in French.
 - `backend/config/` — Django settings, read from `.env`.
 - `backend/club/` — accounts, teams, seasons, memberships, and the rules that
   govern signing up: two identifiers, a reserved domain, a contact address.
+
+Nothing is user-facing yet; everything else will depend on it.
+- `backend/club/` — accounts, teams, seasons, memberships, and the rules that
+  govern signing up: two identifiers, a reserved domain, a contact address.
 - `backend/config/views.py` — the minimal health endpoint used by the frontend.
 - `frontend/src/app/` — shared router and TanStack Query configuration.
 - `frontend/src/api/` — typed clients for Django endpoints.
