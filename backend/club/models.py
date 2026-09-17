@@ -13,9 +13,24 @@ from django.contrib.auth.models import (
     BaseUserManager,
     PermissionsMixin,
 )
+from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator
 from django.db import models
+from django.db.models.functions import Lower
 from django.utils import timezone
+
+
+def no_at_sign(value: str) -> None:
+    """A display name must never be mistakable for an address: it is what
+    lets login accept either identifier without having to guess which was
+    typed."""
+    if "@" in value:
+        # The code is what the front end branches on, the message what it
+        # shows: rewording one must never break the other.
+        raise ValidationError(
+            "Un nom d'affichage ne peut pas contenir « @ ».",
+            code="display_name_has_at_sign",
+        )
 
 
 class UserManager(BaseUserManager["User"]):
@@ -79,7 +94,9 @@ class User(AbstractBaseUser, PermissionsMixin):
         MENTOR = "mentor", "mentor"
 
     email = models.EmailField("adresse e-mail", unique=True)
-    display_name = models.CharField("nom d'affichage", max_length=80)
+    display_name = models.CharField(
+        "nom d'affichage", max_length=80, validators=[no_at_sign]
+    )
     avatar = models.ImageField(upload_to="avatars/", blank=True)
 
     # Both come from AssoConnect when the account is verified; until then the
@@ -114,6 +131,20 @@ class User(AbstractBaseUser, PermissionsMixin):
         ordering = ["display_name"]
         verbose_name = "membre"
         verbose_name_plural = "membres"
+        constraints = [
+            # On Lower(), not unique=True: SQLite's unique index is
+            # case-sensitive, so Lina and lina would be two members showing
+            # up as the same name under every attribution.
+            models.UniqueConstraint(
+                Lower("display_name"),
+                name="unique_display_name_regardless_of_case",
+                violation_error_code="display_name_taken",
+                violation_error_message=(
+                    "Ce nom d'affichage est déjà pris. Ajoutez une initiale, "
+                    "par exemple « Marie D. »."
+                ),
+            ),
+        ]
 
     def __str__(self) -> str:
         return self.display_name
