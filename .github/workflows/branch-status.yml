@@ -1,0 +1,31 @@
+name: branch status
+
+# `create` fires on every branch and tag; only a branch means work starting.
+# The workflow file is read from the default branch, so the new branch does not
+# need to carry it.
+on:
+  create:
+
+permissions:
+  contents: read
+
+# Two branches opened in the same minute would otherwise race for one card.
+concurrency: branch-status
+
+jobs:
+  move:
+    if: github.event.ref_type == 'branch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      # GITHUB_TOKEN cannot reach a project owned by a personal account:
+      # PROJECT_TOKEN is a classic token with the `project` scope.
+      - run: .github/scripts/branch-status.sh
+        env:
+          GH_TOKEN: ${{ secrets.PROJECT_TOKEN }}
+          OWNER: ${{ github.repository_owner }}
+          PROJECT_NUMBER: 3
+          BRANCH: ${{ github.event.ref }}
