@@ -20,7 +20,7 @@ MARIE_AS_READ = ExportRow(
     last_name="Dubois",
     birth_date=BORN,
     email="marie.dubois@example.org",
-    guardian_email="",
+    guardian_email="claire.dubois@example.org",
     image_rights_signed=True,
     image_rights_refused=False,
     decided_on=ORDERED_ON,
@@ -32,9 +32,13 @@ def line(**overrides):
     return replace(MARIE_AS_READ, **overrides)
 
 
-def account(email="marie@example.org", display_name="Marie", **asked):
-    """An account with the verification request it typed at sign-up."""
-    user = User.objects.create_user(email, display_name)
+def account(email="marie@example.org", display_name=None, **asked):
+    """An account with the verification request it typed at sign-up. Its
+    display name follows its address unless asked otherwise, because the name
+    is a unique identifier too: two accounts in one scene are two people, and
+    reusing one name would break on the constraint rather than on the subject
+    under test."""
+    user = User.objects.create_user(email, display_name or email.split("@")[0])
     VerificationRequest.objects.create(
         user=user,
         last_name=asked.get("last_name", "Dubois"),
@@ -48,7 +52,7 @@ def verified_account(assoconnect_id="4521", email="verified@example.org"):
     """An account a past import already tied to its membership: it carries the
     member number, and its request is long gone."""
     return User.objects.create_user(
-        email, "Déjà vérifiée", assoconnect_id=assoconnect_id, birth_date=BORN
+        email, email.split("@")[0], assoconnect_id=assoconnect_id, birth_date=BORN
     )
 
 

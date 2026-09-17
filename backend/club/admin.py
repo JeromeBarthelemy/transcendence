@@ -7,7 +7,15 @@ from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.contrib.auth.forms import AdminUserCreationForm, UserChangeForm
 
-from .models import Consent, Membership, Season, Team, TeamSeason, User
+from .models import (
+    Consent,
+    Membership,
+    Season,
+    Team,
+    TeamSeason,
+    User,
+    VerificationRequest,
+)
 
 
 # Django's user forms are bound to its own User model, which has a username.
@@ -27,6 +35,15 @@ class UserEditForm(UserChangeForm):
         fields = "__all__"
 
 
+class VerificationRequestInline(admin.StackedInline):
+    """Shown on the account it belongs to: a pending request is the reason an
+    otherwise complete account is still treated as a minor."""
+
+    model = VerificationRequest
+    extra = 0
+    can_delete = False
+
+
 @admin.register(User)
 class UserAdmin(BaseUserAdmin):
     """Grouped the way the club reads an account: who they are, what
@@ -34,10 +51,11 @@ class UserAdmin(BaseUserAdmin):
 
     form = UserEditForm
     add_form = UserCreationForm
+    inlines = [VerificationRequestInline]
 
     fieldsets = (
         (None, {"fields": ("email", "password")}),
-        ("Profil", {"fields": ("display_name", "avatar")}),
+        ("Profil", {"fields": ("display_name", "contact_email", "avatar")}),
         ("AssoConnect", {"fields": ("assoconnect_id", "birth_date")}),
         ("Club", {"fields": ("club_role", "is_club_admin")}),
         (
