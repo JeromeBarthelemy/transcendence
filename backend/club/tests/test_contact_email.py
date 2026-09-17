@@ -1,3 +1,5 @@
+from django.contrib import admin as django_admin
+
 from club.models import User
 
 
@@ -15,3 +17,14 @@ def test_a_contact_address_is_not_an_identifier():
     User.objects.create_user("noe@club.fr", "Noé", contact_email="parent@club.fr")
 
     assert User.objects.filter(contact_email="parent@club.fr").count() == 2
+
+
+def test_the_admin_shows_every_field_of_an_account():
+    # fieldsets are listed by hand, so a new column is invisible until it is
+    # added — which is how contact_email would have gone unnoticed.
+    registered = django_admin.site._registry[User]
+    shown = {
+        field for _, section in registered.fieldsets for field in section["fields"]
+    }
+
+    assert shown >= {"email", "contact_email", "display_name", "club_role"}

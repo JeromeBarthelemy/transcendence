@@ -80,6 +80,7 @@ in French.
 ## What is here so far
 
 - `backend/config/` — Django settings, read from `.env`.
-- `backend/club/` — the foundation: accounts, teams, seasons, memberships.
+- `backend/club/` — accounts, teams, seasons, memberships, and the rules that
+  govern signing up: two identifiers, a reserved domain, a contact address.
 
 Nothing is user-facing yet; everything else will depend on it.
