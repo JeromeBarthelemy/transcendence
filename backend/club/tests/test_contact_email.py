@@ -23,8 +23,12 @@ def test_the_admin_shows_every_field_of_an_account():
     # fieldsets are listed by hand, so a new column is invisible until it is
     # added — which is how contact_email would have gone unnoticed.
     registered = django_admin.site._registry[User]
+    # `or ()` for the type-checker only: ModelAdmin declares fieldsets as
+    # optional, and this one is not.
     shown = {
-        field for _, section in registered.fieldsets for field in section["fields"]
+        field
+        for _, section in (registered.fieldsets or ())
+        for field in section["fields"]
     }
 
     assert shown >= {"email", "contact_email", "display_name", "club_role"}
