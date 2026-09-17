@@ -1,0 +1,18 @@
+{
+  "app": {
+    "eyebrow": "Notebook d'ingénierie",
+    "name": "Fieldnotes",
+    "description": "Premier texte de test pour transcendence.",
+    "ready": "Le squelette React est pret !"
+  },
+  "api": {
+    "checking": "Connexion à l'API Django…",
+    "connected": "API Django connectée.",
+    "unavailable": "API Django indisponible."
+  },
+  "errors": {
+    "email_already_used": "Cette adresse e-mail est déjà utilisée.",
+    "permission_denied": "Vous n'avez pas l'autorisation nécessaire.",
+    "unknown": "Une erreur inattendue est survenue."
+  }
+}
