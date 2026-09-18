@@ -6,6 +6,7 @@ side is the one that decides.
 
 from typing import Any
 
+from django.contrib.auth import authenticate
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
@@ -107,3 +108,27 @@ class SignUpSerializer(serializers.Serializer[User]):
             birth_date=validated_data["birth_date"],
         )
         return user
+
+
+class LoginSerializer(serializers.Serializer[dict[str, Any]]):
+    """One field for both identifiers, because the account does not care
+    which of the two reached it — `authenticate` tries the address, then the
+    display name."""
+
+    username = serializers.CharField()
+    password = serializers.CharField(write_only=True, style={"input_type": "password"})
+
+    def validate(self, attrs: dict[str, Any]) -> dict[str, Any]:
+        user = authenticate(
+            self.context.get("request"),
+            username=attrs["username"],
+            password=attrs["password"],
+        )
+        if user is None:
+            # One message for both failures: naming the unknown identifier
+            # would turn the login form into a roster of the club.
+            raise serializers.ValidationError(
+                "Identifiant ou mot de passe incorrect.", code="bad_credentials"
+            )
+        attrs["user"] = user
+        return attrs

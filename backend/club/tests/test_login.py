@@ -60,3 +60,87 @@ def test_an_accented_name_signs_in_whatever_case_is_typed():
     elodie = User.objects.create_user("elodie@club.fr", "Élodie", password=PASSWORD)
 
     assert authenticate(username="ÉLODIE", password=PASSWORD) == elodie
+
+
+LOGIN = "/api/auth/login/"
+LOGOUT = "/api/auth/logout/"
+ME = "/api/auth/me/"
+
+
+def login(client, username, password=PASSWORD):
+    return client.post(
+        LOGIN,
+        {"username": username, "password": password},
+        content_type="application/json",
+    )
+
+
+def test_the_api_opens_a_session_for_an_address(client):
+    User.objects.create_user("ada@club.fr", "Ada", password=PASSWORD)
+
+    assert login(client, "ada@club.fr").status_code == 200
+    assert client.get(ME).json()["display_name"] == "Ada"
+
+
+def test_the_api_opens_a_session_for_a_display_name(client):
+    User.objects.create_user("ada@club.fr", "Ada", password=PASSWORD)
+
+    assert login(client, "Ada").status_code == 200
+    assert client.get(ME).json()["display_name"] == "Ada"
+
+
+def test_a_wrong_password_opens_nothing(client):
+    User.objects.create_user("ada@club.fr", "Ada", password=PASSWORD)
+
+    assert login(client, "Ada", "pas-le-bon").status_code == 400
+    assert client.get(ME).status_code == 403
+
+
+def test_the_refusal_does_not_say_which_of_the_two_was_wrong(client):
+    # Naming the unknown identifier would turn the login form into a roster.
+    User.objects.create_user("ada@club.fr", "Ada", password=PASSWORD)
+
+    unknown = login(client, "Personne").json()
+    wrong = login(client, "Ada", "pas-le-bon").json()
+
+    assert unknown == wrong
+    assert unknown["non_field_errors"][0]["code"] == "bad_credentials"
+
+
+def test_the_session_route_hands_out_the_csrf_cookie(client):
+    # The page calls this on boot to learn who it is talking to. It must come
+    # back carrying the token even when nobody is signed in, or the login POST
+    # that follows would have none to send and be refused.
+    response = client.get(ME)
+
+    assert response.status_code == 403
+    assert "csrftoken" in response.cookies
+
+
+def test_logging_out_closes_the_session(client):
+    User.objects.create_user("ada@club.fr", "Ada", password=PASSWORD)
+    login(client, "Ada")
+
+    assert client.post(LOGOUT).status_code == 204
+    assert client.get(ME).status_code == 403
+
+
+def test_signing_up_then_logging_in_with_the_built_address(client):
+    # The whole point, end to end: no address of one's own, and it still works.
+    client.post(
+        "/api/auth/signup/",
+        {
+            "email": "",
+            "password": PASSWORD,
+            "display_name": "Marie",
+            "club_role": "student",
+            "last_name": "Dubois",
+            "first_name": "Marie",
+            "birth_date": "2009-06-08",
+        },
+        content_type="application/json",
+    )
+
+    assert login(client, "marie.dubois@rouages.invalid").status_code == 200
+    client.post(LOGOUT)
+    assert login(client, "Marie").status_code == 200
