@@ -1,6 +1,6 @@
 -r requirements.txt
 ruff==0.16.*
-django-stubs[compatible-mypy]==5.2.*
+django-stubs[compatible-mypy]==6.1.*
 pytest==9.*
 pytest-django==4.*
 types-openpyxl==3.1.*
