@@ -72,30 +72,28 @@ The product interface is French, while source-code identifiers and API error
 codes are English.
 
 All user-facing frontend text belongs to the react-i18next French catalogue.
-The Django administration interface may keep its existing French labels, but
-the API does not return French prose as its contract. API failures use stable,
-machine-readable codes:
+The Django administration interface may keep its existing French labels. API
+validation failures return stable, machine-readable codes alongside French
+messages, grouped by field:
 
 ```json
 {
-  "errors": [
+  "email": [
     {
-      "field": "email",
-      "code": "email_already_used",
-      "params": {}
+      "code": "email_taken",
+      "message": "Cette adresse est déjà utilisée."
     }
   ]
 }
 ```
 
-React translates `code`, uses `field` to display the error beside the correct
-control, and uses `params` for dynamic values. Unknown codes fall back to a
-generic French message.
+The backend's validation message is the reference wording. The frontend
+catalogue mirrors it under the same `code` and displays it beside the field
+named by the response. When a backend message changes, update its catalogue
+entry in the same change. Unknown codes fall back to a generic French message.
 
 Django remains responsible for validation, permissions, HTTP status codes and
-preventing invalid operations. React is responsible only for translating and
-presenting API errors. Consequently, the backend needs no translation
-catalogue for API errors.
+preventing invalid operations. React is responsible for presenting API errors.
 
 ## Getting started
 
