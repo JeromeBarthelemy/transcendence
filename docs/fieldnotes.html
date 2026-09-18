@@ -907,17 +907,22 @@ Forums (CD, Reddit)  <i>&rarr; opinion, sans valeur réglementaire</i></pre></di
   <p>Si un seul objet devait être défendu en évaluation, c'est <code>Citation</code> : la jointure entre un bloc de narration et les preuves qui l'étayent. C'est elle qui transforme un intranet de club en cahier d'ingénierie.</p>
 
   <h4>Socle club</h4>
-  <div class="codewrap"><pre><b>User</b>            id, email UNIQUE, password, display_name UNIQUE, avatar,
-                contact_email NULLABLE,
+  <div class="codewrap"><pre><b>User</b>            id, email UNIQUE, password, display_name, display_name_folded,
+                contact_email, avatar,
                 club_role, is_club_admin, is_staff, is_active, date_joined,
                 assoconnect_id UNIQUE NULLABLE, birth_date NULLABLE
                 <i>club_role ∈ {student, mentor}   -- deux rôles, portés par le compte</i>
                 <i>is_club_admin → un mentor qui administre en plus, pas un 3ᵉ rôle</i>
                 <i>is_staff      → l'admin Django, donc la base brute : autre chose</i>
                 <i>email → l'identifiant de connexion ; il n'a pas à recevoir</i>
-                <i>display_name UNIQUE quelle que soit la casse → l'autre identifiant</i>
+                <i>display_name → l'autre identifiant ; unique quelle que soit la casse</i>
+                <i>display_name_folded → casefold() du pseudo, et c'est LUI qui porte</i>
+                <i>                la contrainte : lower() de SQLite s'arrête à l'ASCII,</i>
+                <i>                donc Élodie s'y replie sur elle-même. Replié en Python,</i>
+                <i>                stocké, tenu à jour dans clean() et save()</i>
                 <i>contact_email → celle du responsable légal, posée par l'import :</i>
-                <i>                une destination, jamais une clé</i>
+                <i>                une destination, jamais une clé. Vide plutôt que NULL</i>
+                <i>                — une adresse absente est une chaîne vide, pas un inconnu</i>
                 <i>assoconnect_id, birth_date → posés à la vérification, venus de l'export</i>
                 <i>mineur : non vérifié, ou moins de 18 ans — calculé, jamais stocké</i>
                 <i>is_active faux → parti : ne se connecte plus, ses traces restent</i>
