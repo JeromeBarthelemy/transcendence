@@ -78,10 +78,11 @@ class MeView(APIView):
 
 def _identity(user: User) -> dict[str, object]:
     """Deliberately small: a session tells the interface what to draw, not
-    what the account holds."""
+    what the account holds. Minority is absent on purpose — it says who may
+    grant an image right, not whether one was granted, and that answer lives
+    in the Consent log rather than on the account."""
     return {
         "display_name": user.display_name,
         "club_role": user.club_role,
         "is_club_admin": user.is_club_admin,
-        "is_minor": user.is_minor,
     }

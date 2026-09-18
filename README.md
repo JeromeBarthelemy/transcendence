@@ -202,8 +202,8 @@ Four routes, and no page yet — that is issue #40.
 | `GET /api/auth/me/` | `200` with the identity, or `403` |
 
 The identity is deliberately small — `display_name`, `club_role`,
-`is_club_admin`, `is_minor`. A session tells the interface what to draw, not
-what the account holds.
+`is_club_admin`. A session tells the interface what to draw, not what the
+account holds.
 
 ```sh
 curl -X POST http://127.0.0.1:8000/api/auth/signup/ \

@@ -144,3 +144,14 @@ def test_signing_up_then_logging_in_with_the_built_address(client):
     assert login(client, "marie.dubois@rouages.invalid").status_code == 200
     client.post(LOGOUT)
     assert login(client, "Marie").status_code == 200
+
+
+def test_the_identity_says_only_what_an_interface_has_to_draw(client):
+    # Pinned as an exact set, not a subset: the decision this asserts is what
+    # the payload leaves out. A field added by habit — a birth date, a surname,
+    # a minority flag — fails here rather than reaching a browser unnoticed.
+    User.objects.create_user("ada@club.fr", "Ada", password=PASSWORD)
+
+    identity = login(client, "Ada").json()
+
+    assert set(identity) == {"display_name", "club_role", "is_club_admin"}
