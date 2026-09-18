@@ -1,0 +1,20 @@
+{
+  "app": {
+    "eyebrow": "Cahier d'ingénierie",
+    "name": "Fieldnotes",
+    "description": "Premier texte de test pour transcendence.",
+    "ready": "Le squelette React est prêt !"
+  },
+  "api": {
+    "checking": "Connexion à l'API Django…",
+    "connected": "API Django connectée.",
+    "unavailable": "API Django indisponible."
+  },
+  "errors": {
+    "email_taken": "Cette adresse est déjà utilisée.",
+    "display_name_taken": "Ce nom d'affichage est déjà pris. Ajoutez une initiale, par exemple « Marie D. ».",
+    "display_name_has_at_sign": "Un nom d'affichage ne peut pas contenir « @ ».",
+    "permission_denied": "Vous n'avez pas l'autorisation nécessaire.",
+    "unknown": "Une erreur inattendue est survenue."
+  }
+}

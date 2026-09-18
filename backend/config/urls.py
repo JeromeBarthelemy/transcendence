@@ -6,7 +6,10 @@ from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import URLPattern, URLResolver, path
 
+from config.views import health_check
+
 urlpatterns: list[URLPattern | URLResolver] = [
+    path("api/health/", health_check, name="api-health"),
     path("admin/", admin.site.urls),
 ]
 
