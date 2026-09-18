@@ -1,0 +1,1275 @@
+<title>Fieldnotes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap">
+
+<style>
+:root{
+  --paper:#F1F4F4;
+  --surface:#FFFFFF;
+  --surface-2:#E7ECEC;
+  --ink:#121A1C;
+  --ink-2:#2C393C;
+  --muted:#5A686B;
+  --line:#CBD5D5;
+  --line-soft:#DDE4E4;
+  --accent:#0E5F6E;
+  --accent-soft:#DCEDF0;
+  --accent-ink:#0A4A56;
+  --signal:#A9501A;
+  --signal-soft:#F6E7DA;
+  --shadow:0 1px 2px rgba(18,26,28,.05),0 8px 24px -16px rgba(18,26,28,.25);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#0D1315;
+    --surface:#141D20;
+    --surface-2:#1B2629;
+    --ink:#E6EDED;
+    --ink-2:#C3CFD0;
+    --muted:#8B9B9E;
+    --line:#2B383B;
+    --line-soft:#212C2F;
+    --accent:#4FAEBF;
+    --accent-soft:#152C31;
+    --accent-ink:#7FC9D6;
+    --signal:#D98748;
+    --signal-soft:#2B1F16;
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px -16px rgba(0,0,0,.8);
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#0D1315;
+  --surface:#141D20;
+  --surface-2:#1B2629;
+  --ink:#E6EDED;
+  --ink-2:#C3CFD0;
+  --muted:#8B9B9E;
+  --line:#2B383B;
+  --line-soft:#212C2F;
+  --accent:#4FAEBF;
+  --accent-soft:#152C31;
+  --accent-ink:#7FC9D6;
+  --signal:#D98748;
+  --signal-soft:#2B1F16;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px -16px rgba(0,0,0,.8);
+}
+
+*{box-sizing:border-box}
+body{
+  background:var(--paper);
+  color:var(--ink);
+  font-family:"Source Serif 4",Georgia,"Times New Roman",serif;
+  font-size:17px;
+  line-height:1.62;
+  margin:0;
+  padding:0 24px 96px;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:760px;margin:0 auto}
+
+/* ---- masthead ---- */
+.mast{
+  padding:72px 0 40px;
+  border-bottom:2px solid var(--ink);
+  display:flex;flex-direction:column;gap:20px;
+}
+.kicker{
+  font-family:"JetBrains Mono",ui-monospace,monospace;
+  font-size:11px;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--muted);
+}
+h1{
+  font-family:Archivo,"Helvetica Neue",Arial,sans-serif;
+  font-weight:700;font-size:clamp(40px,7.5vw,64px);
+  line-height:.98;letter-spacing:-.03em;margin:0;
+  text-wrap:balance;
+}
+.dek{
+  font-size:20px;line-height:1.5;color:var(--ink-2);
+  max-width:36em;margin:0;
+}
+.dek em{color:var(--accent-ink);font-style:italic}
+.mast-meta{
+  display:flex;flex-wrap:wrap;gap:8px 28px;
+  font-family:"JetBrains Mono",ui-monospace,monospace;
+  font-size:12px;color:var(--muted);
+  padding-top:4px;
+}
+.mast-meta b{color:var(--ink);font-weight:500}
+
+/* ---- sections ---- */
+section{padding:56px 0 0}
+.eyebrow{
+  font-family:"JetBrains Mono",ui-monospace,monospace;
+  font-size:11px;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--accent);margin:0 0 10px;
+  display:flex;align-items:center;gap:10px;
+}
+.eyebrow::after{content:"";flex:1;height:1px;background:var(--line)}
+h2{
+  font-family:Archivo,"Helvetica Neue",Arial,sans-serif;
+  font-weight:600;font-size:29px;line-height:1.15;letter-spacing:-.018em;
+  margin:0 0 18px;text-wrap:balance;
+}
+h3{
+  font-family:Archivo,"Helvetica Neue",Arial,sans-serif;
+  font-weight:600;font-size:18px;line-height:1.3;letter-spacing:-.008em;
+  margin:32px 0 10px;
+}
+h4{
+  font-family:"JetBrains Mono",ui-monospace,monospace;
+  font-weight:500;font-size:12px;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--muted);margin:26px 0 8px;
+}
+p{margin:0 0 16px;text-align:justify;hyphens:auto}
+a{color:var(--accent-ink)}
+strong{font-weight:600}
+ul,ol{margin:0 0 16px;padding-left:22px}
+li{margin:0 0 7px;text-align:justify;hyphens:auto}
+li::marker{color:var(--muted)}
+hr{border:0;border-top:1px solid var(--line-soft);margin:40px 0}
+
+/* ---- layer stack ---- */
+.stack{display:flex;flex-direction:column;gap:8px;margin:28px 0 8px}
+.layer{
+  border:1px solid var(--line);border-radius:3px;
+  background:var(--surface);box-shadow:var(--shadow);
+  padding:16px 18px;
+  display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 16px;
+}
+.layer .lname{
+  font-family:Archivo,sans-serif;font-weight:600;font-size:16px;
+}
+.layer .ldesc{color:var(--muted);font-size:15px;flex:1;min-width:220px}
+.layer.top{border-color:var(--accent);background:var(--accent-soft)}
+.layer.top .lname{color:var(--accent-ink)}
+.branches{display:grid;grid-template-columns:1fr 1fr;gap:8px 14px;align-items:end}
+.branch{display:flex;flex-direction:column;gap:8px}
+.branch .cap{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);text-align:center}
+@media (max-width:560px){.branches{grid-template-columns:1fr}}
+.surfaces{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}
+.surf{
+  border:1px solid var(--accent);border-radius:3px;background:var(--accent-soft);
+  padding:14px 16px;
+}
+.surf b{
+  display:block;font-family:Archivo,sans-serif;font-weight:600;font-size:15px;
+  color:var(--accent-ink);margin-bottom:2px;
+}
+.surf span{font-size:14px;color:var(--muted);line-height:1.4;display:block}
+.stackflow{
+  text-align:center;font-family:"JetBrains Mono",monospace;
+  font-size:11px;color:var(--muted);letter-spacing:.1em;margin:2px 0;
+}
+
+/* ---- code ---- */
+.codewrap{
+  border:1px solid var(--line);border-radius:3px;background:var(--surface);
+  overflow-x:auto;margin:0 0 20px;box-shadow:var(--shadow);
+}
+pre{
+  margin:0;padding:18px 20px;
+  font-family:"JetBrains Mono",ui-monospace,monospace;
+  font-size:12.5px;line-height:1.72;color:var(--ink-2);
+  white-space:pre;
+}
+pre b{color:var(--accent-ink);font-weight:500}
+pre i{color:var(--muted);font-style:normal}
+code{
+  font-family:"JetBrains Mono",ui-monospace,monospace;
+  font-size:.86em;background:var(--surface-2);
+  padding:1px 5px;border-radius:2px;color:var(--ink-2);
+}
+
+/* ---- tables ---- */
+.tablewrap{overflow-x:auto;margin:0 0 20px;border:1px solid var(--line);border-radius:3px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:15px;min-width:460px}
+caption{
+  caption-side:top;text-align:left;padding:14px 18px 0;
+  font-family:"JetBrains Mono",monospace;font-size:11px;
+  letter-spacing:.12em;text-transform:uppercase;color:var(--muted);
+}
+th{
+  text-align:left;font-family:Archivo,sans-serif;font-weight:600;font-size:12px;
+  letter-spacing:.06em;text-transform:uppercase;color:var(--muted);
+  padding:14px 18px 8px;border-bottom:1px solid var(--line);
+}
+td{padding:11px 18px;border-bottom:1px solid var(--line-soft);vertical-align:top}
+tr:last-child td{border-bottom:0}
+td.num,th.num{text-align:right;font-family:"JetBrains Mono",monospace;font-variant-numeric:tabular-nums;font-size:13px;white-space:nowrap}
+tr.total td{
+  border-top:2px solid var(--ink);border-bottom:0;
+  font-family:Archivo,sans-serif;font-weight:700;padding-top:12px;
+}
+tr.total td.num{font-family:"JetBrains Mono",monospace;font-weight:500;font-size:15px;color:var(--accent-ink)}
+td b{font-weight:600}
+.mono-cell{font-family:"JetBrains Mono",monospace;font-size:12.5px}
+
+/* ---- callouts ---- */
+.note{
+  border-left:2px solid var(--accent);background:var(--surface);
+  padding:14px 18px;margin:0 0 20px;border-radius:0 3px 3px 0;
+}
+.note p:last-child{margin-bottom:0}
+.ceiling{
+  border-left:2px solid var(--signal);background:var(--signal-soft);
+  padding:12px 16px;margin:0 0 16px;border-radius:0 3px 3px 0;
+  font-family:"JetBrains Mono",ui-monospace,monospace;
+  font-size:12.5px;line-height:1.6;color:var(--ink-2);
+}
+.ceiling b{color:var(--signal);font-weight:500}
+.gate{
+  border:2px solid var(--signal);background:var(--signal-soft);
+  padding:16px 18px;border-radius:3px;margin:0 0 16px;
+}
+.gate .glabel{
+  font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--signal);display:block;margin-bottom:5px;
+}
+.gate p{margin:0}
+
+/* ---- correction list ---- */
+.corr{list-style:none;padding:0;margin:0 0 8px;display:flex;flex-direction:column;gap:14px}
+.corr li{
+  margin:0;padding:14px 18px;background:var(--surface);
+  border:1px solid var(--line);border-radius:3px;
+}
+.corr .was{
+  display:block;color:var(--muted);font-size:14px;
+  text-decoration:line-through;text-decoration-color:var(--line);margin-bottom:4px;
+}
+.corr .now{display:block;font-weight:600;margin-bottom:6px}
+.corr .why{display:block;font-size:15px;color:var(--ink-2);margin:0}
+
+/* ---- ordered build steps ---- */
+ol.steps{list-style:none;padding:0;margin:0;counter-reset:step;display:flex;flex-direction:column;gap:2px}
+ol.steps > li{
+  counter-increment:step;margin:0;padding:14px 0 14px 52px;position:relative;
+  border-bottom:1px solid var(--line-soft);
+}
+ol.steps > li:last-child{border-bottom:0}
+ol.steps > li::before{
+  content:counter(step,decimal-leading-zero);
+  position:absolute;left:0;top:15px;
+  font-family:"JetBrains Mono",monospace;font-size:12px;font-weight:500;
+  color:var(--accent);letter-spacing:.04em;
+}
+ol.steps b{
+  font-family:Archivo,sans-serif;font-weight:600;font-size:16px;
+  display:block;margin-bottom:2px;
+}
+ol.steps span{color:var(--muted);font-size:15px}
+
+/* ---- out of scope ---- */
+.cuts{list-style:none;padding:0;margin:0 0 8px}
+.cuts li{
+  margin:0;padding:11px 0 11px 30px;position:relative;
+  border-bottom:1px solid var(--line-soft);
+}
+.cuts li:last-child{border-bottom:0}
+.cuts li::before{
+  content:"\00D7";position:absolute;left:6px;top:11px;
+  color:var(--signal);font-family:"JetBrains Mono",monospace;font-size:15px;
+}
+.cuts b{font-family:Archivo,sans-serif;font-weight:600}
+
+/* ---- risk grid ---- */
+.risks{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px;margin:0 0 8px}
+.risk{
+  border:1px solid var(--line);border-top:2px solid var(--signal);
+  border-radius:3px;background:var(--surface);padding:15px 17px;
+}
+.risk h5{
+  font-family:Archivo,sans-serif;font-weight:600;font-size:15px;margin:0 0 6px;
+}
+.risk p{font-size:14.5px;line-height:1.5;color:var(--ink-2);margin:0;max-width:none}
+
+/* ---- open questions ---- */
+.open{list-style:none;padding:0;margin:0}
+.open li{
+  margin:0 0 4px;padding:14px 0;border-bottom:1px solid var(--line-soft);
+}
+.open li:last-child{border-bottom:0}
+.open b{font-family:Archivo,sans-serif;font-weight:600;display:block;margin-bottom:3px}
+.open span{color:var(--ink-2);font-size:15px}
+
+/* ---- checklist ---- */
+.check{list-style:none;padding:0;margin:0;
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:0 24px}
+.check li{
+  margin:0;padding:9px 0 9px 26px;position:relative;font-size:15px;
+  border-bottom:1px solid var(--line-soft);
+}
+.check li::before{
+  content:"\2713";position:absolute;left:2px;top:9px;
+  color:var(--accent);font-family:"JetBrains Mono",monospace;font-size:13px;
+}
+
+footer{
+  margin-top:64px;padding-top:24px;border-top:2px solid var(--ink);
+  font-family:"JetBrains Mono",monospace;font-size:12px;color:var(--muted);
+  line-height:1.7;
+}
+
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+@media (prefers-reduced-motion:no-preference){
+  html{scroll-behavior:smooth}
+}
+/* ---- maquette d'écran ---- */
+.mock{
+  border:1px solid var(--line);border-radius:8px;background:var(--surface);
+  box-shadow:var(--shadow);overflow:hidden;margin:0 0 22px;
+  font-family:Archivo,system-ui,sans-serif;font-size:13.5px;line-height:1.45;
+  color:var(--ink);text-align:left;
+}
+.mock-bar{
+  display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap;
+  padding:11px 16px;background:var(--surface-2);border-bottom:1px solid var(--line);
+}
+.mock-bar b{font-size:14px;font-weight:600}
+.mock-bar span{font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.mock-sec{padding:14px 16px;border-top:1px solid var(--line-soft)}
+.mock-sec:first-of-type{border-top:0}
+.mock-lab{
+  display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;
+  font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:9px;
+}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{
+  border:1px solid var(--line);border-radius:999px;padding:2px 10px;
+  font-size:12.5px;color:var(--ink-2);background:var(--paper);white-space:nowrap;
+}
+.chip.on{background:var(--accent-soft);border-color:var(--accent);color:var(--accent-ink);font-weight:500}
+.chip.out{opacity:.4}
+.mbtn{
+  border:1px solid var(--accent);color:var(--accent-ink);background:transparent;
+  border-radius:5px;padding:3px 11px;font-size:12px;font-family:inherit;white-space:nowrap;
+}
+.mbtn.ghost{border-color:var(--line);color:var(--muted)}
+.wi{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.wi b{font-size:14px;font-weight:600}
+.wi .meta{margin-left:auto;font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.wi-open{border:1px solid var(--accent);border-radius:6px;padding:12px 14px;margin:0 0 10px;background:var(--paper)}
+.wi-shut{border:1px solid var(--line-soft);border-radius:6px;padding:10px 14px;margin:0 0 8px;opacity:.72}
+.hand{
+  border-left:2px solid var(--signal);background:var(--signal-soft);
+  padding:8px 11px;margin:10px 0;border-radius:0 4px 4px 0;
+  font-size:12.5px;color:var(--ink-2);
+}
+.mrow{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:9px 0 0}
+.mrow>.k{font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);min-width:92px}
+.field{
+  flex:1;min-width:180px;border:1px dashed var(--line);border-radius:5px;
+  padding:6px 10px;font-size:12.5px;color:var(--ink-2);background:var(--surface);
+}
+.field.empty{color:var(--muted);font-style:italic}
+.dom{display:flex;align-items:center;gap:12px;padding:10px 12px;border:1px solid var(--line-soft);
+  border-radius:6px;margin:0 0 7px;background:var(--paper);flex-wrap:wrap}
+.dom.sel{border-color:var(--accent);background:var(--accent-soft)}
+.dom b{font-size:14px;font-weight:600;min-width:110px}
+.dom .n{margin-left:auto;font-size:12px;color:var(--muted)}
+.todo{font-size:12.5px;color:var(--ink-2);flex-basis:100%;border-left:2px solid var(--signal);
+  padding-left:9px;margin-top:2px}
+.mock-team{
+  font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--accent-ink);
+  font-weight:600;margin:14px 0 8px;padding-bottom:5px;border-bottom:1px solid var(--accent-soft);
+}
+.mock-team:first-of-type{margin-top:0}
+.step{
+  display:inline-flex;align-items:center;gap:8px;border:1px solid var(--line);
+  border-radius:5px;padding:3px 4px 3px 10px;background:var(--surface);font-size:12.5px;
+}
+.step b{font-weight:600;color:var(--ink)}
+.step .nav{border:0;background:var(--surface-2);border-radius:3px;padding:2px 7px;font-size:12px;color:var(--muted);font-family:inherit}
+.mfoot{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+
+@media (max-width:560px){
+  body{font-size:16px;padding:0 18px 72px}
+  .mast{padding:48px 0 32px}
+  .dek{font-size:18px}
+}
+</style>
+
+<div class="wrap" lang="fr">
+
+<header class="mast">
+  <span class="kicker">ft_transcendence &middot; note de concept &middot; v1</span>
+  <h1>Fieldnotes</h1>
+  <p class="dek">Une plateforme pour club de robotique FTC où le cahier d'ingénierie <em>s'écrit à partir de l'activité réelle de l'équipe</em>, au lieu d'être reconstitué dans la panique trois semaines avant le tournoi.</p>
+  <div class="mast-meta">
+    <span>Déclarés <b>22 pts, 19 comptés</b></span>
+    <span>Réserve <b>2 pts</b></span>
+    <span>Équipe <b>4–5</b></span>
+    <span>Client réel <b>4 équipes FTC</b></span>
+  </div>
+</header>
+
+<section>
+  <p class="eyebrow">Le problème</p>
+  <h2>Le livrable jugé est celui que personne ne tient à jour</h2>
+  <p>En FTC, le cahier d'ingénierie est un livrable évalué : il porte les récompenses les plus importantes. Il est censé documenter la démarche de conception au fil de la saison — décisions, itérations, essais, mesures.</p>
+  <p>En pratique, il s'écrit à la fin. Les équipes fouillent six mois de conversations Discord, de pellicules photo et de souvenirs approximatifs pour reconstituer un raisonnement qu'elles ont réellement eu, mais qu'elles n'ont jamais consigné. Le travail d'ingénierie a eu lieu ; sa trace, non.</p>
+  <p>Le produit tient dans une chaîne :</p>
+  <div class="codewrap"><pre>l'équipe travaille normalement
+        <b>&rarr;</b> chaque action laisse une <b>trace</b>
+                <b>&rarr;</b> les traces sont <b>citées</b> dans le cahier
+                        <b>&rarr;</b> le cahier s'<b>exporte</b></pre></div>
+  <p>Si cette chaîne tient, le projet tient. Tout le reste est du confort.</p>
+</section>
+
+<section>
+  <p class="eyebrow">Architecture</p>
+  <h2>Un socle, et ce qui pousse dessus</h2>
+  <p>Tout repose sur un socle unique, qui porte à lui seul la moitié des points requis — et c'est ce qui autorise des surfaces très différentes à cohabiter sans que le projet se dédouble. Entre les deux, un seul étage intermédiaire, et il ne sert que <em>deux</em> des quatre surfaces : ce n'est pas une couche que tout traverse, c'est une machinerie partagée par ceux qui mesurent.</p>
+
+  <p><b>Et tout cela tourne en local.</b> Un serveur dans la salle du club, des clients sur le même réseau, rien d'exposé sur internet — le sujet ne demande rien de plus qu'HTTPS et un lancement en une commande, et c'est ainsi qu'un correcteur l'évaluera de toute façon. Ce n'est pas une contrainte subie mais le choix qui rend le reste cohérent : la présence se déduit d'une connexion parce qu'être connecté, c'est être dans la salle ; le tournoi se joue avec la même stack sur un portable dans un pit ; ce qui doit sortir sort par export, comme cela se fait déjà. La seule chose qui traverse la frontière est <em>sortante</em> — chercher le manuel de jeu, appeler un modèle de classification — et jamais entrante.</p>
+
+  <div class="stack">
+    <div class="branches">
+      <div class="branch">
+        <div class="surfaces">
+          <div class="surf"><b>Cahier</b><span>séances, chantiers, citations, export</span></div>
+          <div class="surf"><b>Pick list</b><span>scouting agrégé avant la sélection</span></div>
+        </div>
+        <div class="stackflow">&uarr;&emsp;&uarr;</div>
+        <div class="layer">
+          <span class="lname">Substrat de mesure</span>
+          <span class="ldesc">grilles, sessions, observations — l'essai du mercredi et le match du samedi sont le même geste</span>
+        </div>
+      </div>
+      <div class="branch">
+        <div class="surfaces">
+          <div class="surf"><b>RAG règlement</b><span>manuel + Q&amp;A officiel</span></div>
+          <div class="surf"><b>API publique</b><span>l'export rendu interrogeable</span></div>
+        </div>
+        <div class="cap">rien à mesurer, donc rien entre&nbsp;deux</div>
+      </div>
+    </div>
+    <div class="stackflow">&uarr;&emsp;&uarr;&emsp;&uarr;&emsp;&uarr;</div>
+    <div class="layer">
+      <span class="lname">Socle club</span>
+      <span class="ldesc">comptes, 4 équipes, saisons, affectations, rôles, droit à l'image — tout y revient</span>
+    </div>
+  </div>
+</section>
+
+<section>
+  <p class="eyebrow">Genèse</p>
+  <h2>Ce que le terrain a corrigé</h2>
+  <p>Le concept vient d'allers-retours avec la pratique réelle du club. Cinq corrections ont façonné l'architecture — elles valent d'être connues de l'équipe, parce qu'elles expliquent pourquoi le modèle est celui-là et pas un autre.</p>
+  <ul class="corr">
+    <li>
+      <span class="was">Une équipe, une plateforme</span>
+      <span class="now">Un club contient plusieurs équipes — ici quatre</span>
+      <p class="why">Mentors partagés, membres qui circulent, événements communs. C'est un cas nettement plus solide pour le module Organisations qu'un multi-tenant artificiel. Et comme une instance ne sert qu'un club, c'est l'équipe, et non le club, que ce module crée, modifie et supprime.</p>
+    </li>
+    <li>
+      <span class="was">Le scouting alimente le cahier</span>
+      <span class="now">Le scouting n'a rien à faire dans le cahier</span>
+      <p class="why">Ce sont deux produits. Ils ne partagent pas une fonctionnalité, ils partagent une fondation — et cette fondation représente déjà 7 des 14 points requis.</p>
+    </li>
+    <li>
+      <span class="was">Scouting hors-ligne d'abord</span>
+      <span class="now">Sans convergence avant la sélection, le scouting ne sert à rien</span>
+      <p class="why">Le livrable est une pick list prête <em>avant</em> la sélection des alliances. Huit carnets qui se synchronisent le soir à l'hôtel produisent un rapport post-mortem, pas un outil de décision.</p>
+    </li>
+    <li>
+      <span class="was">Les performances en match officiel documentent l'itération</span>
+      <span class="now">Ce sont les essais contrôlés à l'atelier qui la documentent</span>
+      <p class="why">Un match officiel est confondu : adversaires, partenaires d'alliance et conditions changent à chaque fois. Rien n'y est attribuable à une modification. Un entraînement est contrôlé — même terrain, même tâche, une variable. Ce n'est pas une performance, c'est une <b>expérience</b>.</p>
+    </li>
+    <li>
+      <span class="was">Une IA interroge les élèves pour remplir le cahier</span>
+      <span class="now">Abandonné — remplacé par la modération automatique</span>
+      <p class="why">Ce qui devait l'accompagner survit sans IA : détection de lacunes, alignement sur la grille de jugement et suggestion de preuves sont des requêtes SQL sur le modèle. Déterministes, explicables, gratuites.</p>
+    </li>
+  </ul>
+</section>
+
+<section>
+  <p class="eyebrow">Le cahier</p>
+  <h2>La séance est l'unité de saisie</h2>
+  <p>Une trace facultative n'est pas écrite. La garantie de régularité vient d'un objet dédié : <b>un compte-rendu par séance, systématiquement</b>, y compris les jours où rien de particulier n'a été fait. C'est ce qui produit une chronologie continue plutôt qu'une poignée de moments saillants.</p>
+  <p>Unité de saisie, et pas unité de récit : ce sont deux choses, et le modèle les croise plutôt que de les emboîter — une avancée porte à la fois sa séance et son chantier. La séance est irremplaçable à son poste parce qu'elle <em>arrive toute seule</em> : elle a une date, elle ne peut être ni oubliée ni reportée, et on peut en exiger un compte-rendu même vide. Un chantier, lui, doit être ouvert, peut dormir trois semaines sans que personne le remarque, et n'existe pas du tout pour une réunion ou une compétition. Le chantier porte en revanche tout ce qui dure : les étiquettes, la passation, le fil que le cahier raconte — un chapitre parle de l'intake, pas d'un mercredi. La séance garantit que quelque chose est écrit ; le chantier garantit que ça se tient.</p>
+  <p>Le compte-rendu de réunion échoue toujours pour la même raison : il coûte trop cher. Quatre décisions le rendent quasi gratuit.</p>
+  <ul>
+    <li><b>La présence ne se saisit pas, elle se déduit.</b> Qui a fait avancer un chantier était là — personne n'a d'appel à faire. Sur une saison, cette liste documente la contribution réelle de chacun, ce que le jury FIRST cherche à établir et qu'aucune équipe ne sait reconstituer en février. Elle ne se stocke nulle part : elle se lit sur les inscriptions, et ne peut donc jamais mentir.</li>
+    <li><b>Le travail se coche aussi.</b> Les chantiers en cours — les mêmes reviennent de séance en séance — se cochent d'un geste, et il reste de quoi en ouvrir un que la liste n'avait pas. Le chantier ouvert rejoint la liste : le vocabulaire du club se constitue en l'utilisant, personne ne le configure d'avance.</li>
+    <li><b>La séance agrège sa propre journée.</b> Chantier avancé, photo déposée, essai mesuré, décision prise : tout ce qui porte cette date remonte automatiquement. Il ne reste donc rien à rédiger le soir : la journée se raconte par ses chantiers avancés, et les preuves sont déjà attachées. Ce qui n'appartient à aucun chantier — une panne de perceuse, un créneau de gymnase perdu, un nouveau venu — s'écrit quand ça arrive, sous forme de <b>remarque</b>, et jamais sur demande d'un formulaire.</li>
+    <li><b>« Rien de neuf » est une réponse valide</b>, en dix secondes. Une séance n'a aucun champ obligatoire ; le compte-rendu peut ne rien coûter du tout.</li>
+  </ul>
+  <h3>Qui crée la séance</h3>
+  <p>Personne, dans le cas courant. Le club déclare ses <b>créneaux habituels</b> en début de saison — mercredi 14 h-17 h, vendredi 17 h-19 h — et l'application en attend une séance à chaque fois. C'est ce qui rend « rien de neuf » possible : on ne peut répondre qu'à une question posée, et un créneau resté sans réponse se voit comme un trou dans la chronologie, ce qui est déjà une information. Les vacances sont des trous, et c'est très bien.</p>
+  <p>Un créneau <b>change en cours de saison</b> — un gymnase repris, un emploi du temps refait en janvier. Le changer ne doit surtout pas réécrire le passé : les mercredis de novembre étaient attendus, et le resteront. Un créneau porte donc ses dates de validité ; le modifier ferme l'ancienne ligne et en ouvre une nouvelle. Ce qui était attendu à l'époque le reste, et les trous d'alors gardent leur sens.</p>
+  <p>Une séance <b>hors créneau</b> — le samedi avant la compétition, un soir de rush — ne demande aucune démarche : la première trace déposée ce jour-là la crée. Une photo rangée à sa date, un chantier coché, une décision de réunion : la séance apparaît, datée, et le reste s'y agrège comme d'habitude. Créer une séance n'est jamais une tâche d'administrateur, sinon elle n'existerait que les jours où l'administrateur est là.</p>
+  <p>Et la séance appartient au <b>club</b>, pas à une équipe. Quatre équipes travaillent dans le même atelier au même moment : il y a une séance et une présence, pas quatre. Ce qui est propre à une équipe, c'est ce qui se passe dedans — ses chantiers avancés, ses décisions. Chaque cahier tire donc du même mercredi les seules traces qui le concernent, ce que le modèle permettait déjà sans qu'on l'ait dit : une séance est une trace de club, citable par les quatre cahiers.</p>
+
+  <p>Quant à l'heure de fin, elle est <b>indicative</b> et rien n'en dépend. On finit quand la pièce est remontée. Aucune séance ne se ferme toute seule, aucune saisie n'est refusée passé une heure, et surtout on ne calcule <em>aucune statistique d'heures</em> : la présence est un oui ou un non, jamais une durée. Un total d'heures par élève serait une précision inventée à partir d'une donnée que personne ne saisit sérieusement — et le jury FIRST ne la demande pas.</p>
+  <p>D'où une question qui se pose alors : comment sait-on qu'on change de séance ? On ne la ferme pas — <b>une séance ne s'ouvre ni ne se clôt, c'est une case datée</b>. Une trace rejoint la séance de sa date, et c'est tout. Rien ne se verrouille : les deux cents photos d'une compétition remontent le lundi soir et se rangent au samedi, un compte-rendu s'étoffe trois jours plus tard, personne n'a jamais à « penser à fermer » quoi que ce soit — c'est exactement le genre de geste qu'aucune équipe ne fait.</p>
+  <p>Deux ajustements suffisent aux cas limites. La journée bascule <b>à quatre heures du matin</b>, pas à minuit : un soir de rush qui finit à une heure appartient au samedi, comme le pense tout le monde sauf une horloge. Et s'il y a deux créneaux le même jour — une démonstration en école le matin, l'atelier l'après-midi — l'horodatage désigne le bon. Dans tous les cas, un rattachement se corrige en un clic : il le faudra de toute façon le jour où un appareil photo aura la mauvaise date.</p>
+  <p>Corriger une séance passée est donc <b>toujours possible</b>, et c'est la conséquence directe de ne rien fermer : s'inscrire après coup sur un chantier, rattacher une photo au bon jour, rouvrir un chantier qu'on avait cru fini, ou créer de toutes pièces une séance qui a eu lieu et que personne n'avait saisie. Chacun corrige ses propres traces ; les mentors corrigent celles de tous, parce qu'il y aura toujours l'élève parti en stage qu'on ne peut pas attendre. Le seul cas qu'on n'ouvre pas est la suppression d'une décision : elle s'annule par une nouvelle décision, comme dans la vraie vie.</p>
+  <p>Reste la question qui compte : si tout est corrigible, qu'est-ce qui empêche de reconstituer le cahier en février ? Rien — mais ça se voit. Une trace porte à la fois <em>quand ça s'est passé</em> et <em>quand ça a été écrit</em>, et l'écart entre les deux est déjà au modèle. Trois jours, c'est le dépôt normal des photos du week-end ; trois mois, c'est une reconstitution. On ne l'interdit pas — parfois on retrouve légitimement une vidéo oubliée — mais l'export le laisse voir, et c'est bien assez : le produit n'a pas à jouer les gendarmes, il lui suffit de ne pas mentir.</p>
+  <div class="note"><p><b>Contrainte d'architecture, pas d'ergonomie.</b> Si remplir un compte-rendu dépasse une minute, il ne sera pas rempli — et toute la promesse du produit s'effondre avec lui. C'est le seul endroit du projet où l'interface est une contrainte structurelle.</p></div>
+  <div class="ceiling"><b>plafond assumé :</b> pas d'historique de révisions — <code>updated_at</code> et <code>updated_by</code> disent qu'une correction a eu lieu et par qui, pas ce qu'elle a changé. Un versionnement complet coûterait une table et un écran pour un litige qui n'arrivera pas dans un club de quatre équipes.</div>
+</section>
+
+<section>
+  <p class="eyebrow">Le cahier</p>
+  <h2>Le chantier est l'unité de récit</h2>
+  <p>Un travail réel ne tient pas dans une séance. On reprend l'intake trois mercredis d'affilée, et le saisir trois fois comme s'il était neuf serait à la fois pénible et faux : ce sont trois avancées d'une même chose, pas trois choses. D'où un objet mince, le <b>chantier</b> — ouvert la première fois qu'on coche, puis simplement continué. Les séances suivantes n'offrent plus rien à rédiger, seulement la liste des chantiers ouverts : cocher, et c'est réglé.</p>
+  <h3>Ce qui fait un chantier</h3>
+  <p><b>Un chantier de robot, c'est un sous-système pour une saison</b> — l'intake, et non « faire passer l'intake à deux rouleaux ». La tentation d'en ouvrir un à chaque modification est forte et il faut y résister : elle éclaterait en dix objets courts la seule chose qu'on cherche à produire, la chronologie d'un sous-système du premier croquis à la version qui part en compétition. Or c'est elle, le chapitre du cahier.</p>
+  <p>Ce qui raconte l'évolution à l'intérieur du fil, ce sont les <b>étapes</b> et les <b>décisions</b>. Abandonner la courroie pour des galets ne clôt pas le chantier de l'intake : c'est une décision, qui renvoie l'étape de l'optimisation vers le prototypage. Lu dans le cahier, l'aller-retour dit exactement ce qu'un jury cherche — voilà pourquoi ils ont changé d'idée, et voilà ce que ça a donné. Fermer et rouvrir aurait effacé le lien entre les deux.</p>
+  <p>Un chantier se termine donc avec la saison, ou le jour où l'équipe renonce vraiment au sous-système — <code>dropped</code> garde son sens pour ce cas-là, qui existe. Et la liste des chantiers ouverts reste courte par construction : elle a la taille du robot.</p>
+  <p>Hors du robot, aucun sous-système ne donne le fil, et c'est le sujet qui le donne : les réseaux sociaux, le dossier de sponsoring, l'organisation du tournoi à domicile. Même règle de fond — un fil qu'on rouvre, pas une tâche qu'on coche — et même conséquence : on n'en ouvre pas un par publication.</p>
+
+  <p>Le même critère se pose autrement quand on sort du robot, et il tient en trois conditions cumulatives. Le travail <b>traverse plusieurs séances</b> ; on a besoin d'en connaître l'<b>état avant de le reprendre</b> ; et quelqu'un voudra en <b>relire l'histoire</b> plus tard. Ce qui ne coche pas les trois est une trace, un événement ou une décision — pas un fil.</p>
+  <p><b>La mécanique</b> les coche sans discussion : rien d'autre ne consigne pourquoi le châssis a changé trois fois, et personne ne se souvient en avril de ce qu'on avait essayé en novembre.</p>
+  <p><b>Le code, non</b> — et c'est le cas qu'il fallait trancher dans l'autre sens. Un développeur qui a créé sa branche, l'a nommée correctement et l'a fusionnée dans <code>main</code> a déjà fait le travail de traçabilité, et lui demander de venir le raconter une seconde fois ailleurs est le meilleur moyen qu'il ne le fasse ni bien ni longtemps. Ses intentions et ses avertissements sont dans les commentaires du code, c'est-à-dire là où ils servent — bien plus utiles à côté de la ligne concernée que dans une base de données. Et l'étape où l'on en est, le commit la dit.</p>
+  <p><b>La communication</b> coche les trois, et sa place dans le cahier n'est pas discutable : le portfolio FIRST comporte des sections outreach et pérennité, jugées comme le reste. Un dossier de sponsoring ou un partenariat traversent des mois et se transmettent mal. Ce qu'il faut surveiller n'est pas leur légitimité mais leur dérive : un chantier de communication reste un fil qu'on rouvre, jamais une liste de choses à faire pour le club.</p>
+  <p><b>Une réunion ou un tournoi, non</b> — et pour la même raison, qui est de nature. Ce sont des <em>moments</em>, pas des fils : ils arrivent, ils produisent des décisions ou des mesures, ils ne progressent pas. Une réunion est une trace dans une séance ; un tournoi est une séance. La confusion guette sur un point : <em>organiser</em> un tournoi à domicile est bien un chantier — un fil de plusieurs mois — quand <em>participer</em> à un tournoi n'en est pas un. Le mot est presque le même, l'objet n'a rien à voir.</p>
+
+  <h3>Où se situe la programmation</h3>
+  <p>Il y a pourtant un moment où le logiciel entre dans l'outil, et c'est celui où <b>il rencontre le robot</b>. Écrire une trajectoire d'autonome se fait dans l'éditeur ; la voir rater le mur trois fois sur cinq se passe dans l'atelier, avec un chronomètre et des gens autour. Ce moment-là n'est consigné nulle part ailleurs, il est exactement de la même nature qu'un essai de mécanique, et c'est lui qui a sa place ici.</p>
+  <p>D'où la règle, qui vaut pour tout le produit : <b>on enregistre ce qui se passe avec le robot, pas ce qui se passe dans l'éditeur.</b> L'autonome, le téléop, la vision, l'odométrie restent donc des sous-systèmes et ont leurs chantiers — mais leurs avancées sont des <em>essais</em>, pas des séances de code. Le fil de l'autonome raconte ce que le robot a fait, avec quelle version, et ce qu'il faudra changer ; et l'essai cite la version testée d'un lien vers le dépôt, ce qui suffit à relier la mesure au changement. Le modèle prévoyait déjà ce lien : une session d'entraînement porte son <code>change_entry_id</code>, et un commit est une modification comme une autre.</p>
+  <p>C'est aussi ce qui explique <em>quand</em> le logiciel apparaît. Un sous-système se construit, se teste avec un code sommaire, puis la mécanique se fige et tout ce qui reste à gagner se gagne dans le code — des fonctionnalités qu'on ajoute une par une, chacune vérifiée sur le robot. Le travail bascule de la clé plate au clavier sans changer d'objet, et c'est un argument de plus pour un chantier par sous-système : couper l'intake en deux fils le jour où l'on cesse de le visser aurait tranché son histoire en son milieu, juste avant la moitié la plus intéressante. Le fil reste un, la main change, et rien dans le modèle n'a besoin de le remarquer.</p>
+  <p>Le partage devient alors net, et personne n'écrit deux fois : le dépôt tient le code et son histoire ; l'application tient ce que le code a donné une fois chargé dans le robot. Un élève qui code chez lui le mardi n'a rien à saisir. Celui qui teste le mercredi saisit ce qu'aucun dépôt ne saura jamais dire.</p>
+
+  <h3>Les deux étiquettes</h3>
+  <p>Un chantier porte <b>deux étiquettes</b>, et deux seulement. Le <b>sous-système</b> — châssis, intake, lanceur — dit <em>où sur le robot</em> ; c'est son identité, et c'est l'axe de la narration, puisqu'un chapitre de cahier se lit par sous-système et non par ordre chronologique. L'<b>étape</b> — brainstorming, prototypage, construction… — dit <em>où on en est</em> ; c'est l'axe jugé, la grille FIRST évaluant une démarche de conception, et un sous-système où l'on n'a jamais fait que construire et optimiser n'a jamais été conçu.</p>
+  <p>Croisés, ils rendent triviales les questions qui comptaient : sur quel sous-système a-t-on prototypé, où n'a-t-on jamais fait qu'optimiser. C'est exactement la détection de lacunes promise plus haut — du SQL, pas de l'IA.</p>
+  <p>Il n'y a pas de troisième axe pour dire s'il s'agit de mécanique ou de logiciel, et c'est une décision plutôt qu'un oubli. La distinction se lit très bien sur le terrain, mais elle ne commanderait rien dans l'outil : elle ne servirait qu'à trier des onglets, et le sous-système le fait déjà — le châssis se visse, l'autonome se code, et l'intake fait les deux dans le même fil sans que personne s'y trompe. La seule séparation qui compte est ailleurs et se lit sans étiquette : un chantier a un sous-système, ou il n'en a pas. <b>Robot ou hors robot</b>, c'est la présence même de l'étiquette qui le dit.</p>
+  <p>Il en découle que les étapes ne concernent que les chantiers de robot — une campagne de communication n'a pas d'étape de montage — et que les deux axes n'ont pas la même durée de vie : les sous-systèmes changent avec le jeu et sont scopés par saison, les étapes ne bougent pas du tout.</p>
+  <p>Les deux étiquettes ne vivent pas au même endroit, et c'est ce qui les rend tenables. Le <b>sous-système</b> appartient au chantier : c'est son identité, il ne change jamais — on ne transforme pas un chantier d'intake en chantier de châssis. L'<b>étape</b>, elle, appartient à l'<b>avancée</b> : elle décrit où l'on en était ce jour-là, et c'est précisément ce qui doit pouvoir bouger. Un chantier qui garderait son étape d'ouverture jusqu'au bout ne raconterait rien — la démarche de conception <em>est</em> ce déplacement.</p>
+  <p>Un chantier a donc un <b>état courant</b> — son étape — mais dérivé et non stocké : c'est celle de sa dernière avancée. On y avance d'un cran, on saute, on revient, on part sur <em>réparation</em> ; aucune transition n'est interdite et aucune n'est imposée. C'est bien une progression d'état, mais sans automate pour la surveiller : l'objet qui compte n'est pas l'état, c'est la suite des transitions — et c'est elle que le cahier raconte.</p>
+  <p>Le coût reste nul parce que le cas courant est la répétition : une avancée reprend par défaut l'étape de la précédente. On n'y touche que le jour où quelque chose change — et ce jour-là, l'information vaut d'être saisie. Le cahier y gagne sa vraie unité de narration : un chapitre ne raconte pas un mercredi, il raconte un chantier, de la première maquette à la version qui part en compétition.</p>
+  <p>Que se passe-t-il quand une même séance traverse deux étapes — on maquette le matin, on construit l'après-midi ? <b>Deux avancées, deux étapes.</b> Rien n'oblige à une seule coche par chantier et par jour, et vouloir choisir laquelle des deux « compte » perdrait justement ce qu'on cherche à garder : ce mercredi-là, quelque chose est passé du prototype à la pièce, et c'est un moment de la conception. La seconde coche ne coûte rien puisque le chantier est déjà dans la liste, ouvert, avec ses participants du jour.</p>
+  <p>Son titre est celui du sous-système, repris tel quel et renommable si le club préfère son propre mot. Ouvrir un chantier de robot ne demande donc aucune frappe : une case, et il existe. Hors du robot, où aucune étiquette ne donne le nom, il faut l'écrire — c'est la seule frappe obligatoire de tout le compte-rendu, et elle n'arrive qu'une fois par fil.</p>
+
+  <h3>La séquence des étapes</h3>
+  <p>Les deux étiquettes n'ont pas non plus le même statut, et c'est ce qui décide qui les écrit. Les <b>étapes</b> sont fixées et ordonnées, parce qu'elles décrivent une démarche de conception qui ne change pas d'une saison à l'autre :</p>
+  <div class="codewrap"><pre>brainstorming → prototypage → construction → tests à vide
+              → intégration → test zéro → optimisation
+
+hors séquence   réparation</pre></div>
+  <p>L'ordre ne contraint rien : on revient en arrière, et c'est précisément le signe d'une itération — un sous-système qui repasse en prototypage après son test zéro raconte exactement ce qu'un jury cherche. Sauter une étape est tout aussi normal : on manque de temps, on passe du brainstorming à la construction sans prototyper, on saute les tests à vide parce que la compétition est samedi. Rien ne l'empêche et rien ne le signale — l'ordre décrit, il ne prescrit pas, et un outil qui gronderait serait abandonné avant Noël. Ce que l'ordre apporte, c'est de lire un chantier d'un coup d'œil : une étape sautée laisse un creux visible pour qui le cherche, et ce creux est aussi souvent une décision assumée qu'un oubli. Le cahier gagne à ce que ce soit dit — « faute de temps, on est passé directement à la construction » est une phrase que les jurys entendent avec respect.</p>
+  <p>Un creux peut même n'être un creux qu'en apparence. Un mécanisme acheté tout fait saute le prototypage par construction : la pièce est éprouvée, il n'y a rien à maquetter, et le travail de conception s'est déplacé ailleurs — choisir ce kit plutôt qu'un autre, et l'intégrer à un robot qui n'était pas prévu pour. Ce n'est pas une étape manquante, c'est une étape remplacée par une <b>décision</b>, et c'est exactement ce qu'un jury veut lire : non pas que vous avez tout conçu, mais que vous saviez ce que vous achetiez et pourquoi. La trace à ne pas rater est donc l'arbitrage lui-même, pas l'étiquette absente.</p>
+  <p>Deux cas se présentent tout le temps et méritent d'être tranchés une fois. <b>Améliorer n'est pas une étape</b> : changer ou ajouter un composant, c'est rentrer à nouveau dans la boucle — prototypage si la pièce est nouvelle, construction si elle est connue, puis les tests qui suivent. Lui donner une étiquette à part effacerait justement l'itération qu'on cherche à montrer. <b>Optimiser</b> reste la dernière étape : régler, ajuster, changer une valeur dans le code, sans que la conception bouge. La règle tient en une question — <em>est-ce que la pièce a changé ?</em> Si oui, on remonte dans la séquence ; sinon, c'est de l'optimisation. La phrase de l'avancée dit laquelle des deux, et c'est bien assez : un PID et une tension de courroie ne se confondent pas dans une phrase française.</p>
+  <p>La même règle vaut pour le logiciel, en remplaçant une question par l'autre : non plus <em>la pièce a-t-elle changé ?</em> mais <b>le comportement change-t-il ?</b> Ajouter une fonctionnalité fait donc remonter dans la séquence — on la construit, on la vérifie robot sur cales, puis sur le terrain — exactement comme une pièce nouvelle. Régler une constante de PID, un seuil, une vitesse, sans que le robot fasse rien de nouveau, reste de l'optimisation. Aucune étape propre au code n'est nécessaire : la séquence décrit une démarche de conception, pas une matière, et elle vaut pour ce qu'on visse comme pour ce qu'on compile.</p>
+  <p>Ce qui change, c'est seulement ce que recouvrent les deux étapes de test. <em>Tests à vide</em> veut dire robot alimenté mais hors jeu — sur cales, sans élément à manipuler. <em>Test zéro</em> veut dire sur le terrain, dans les conditions du match, et pour la première fois. Les tests unitaires, eux, n'apparaissent nulle part : ils tournent dans l'éditeur, et l'outil n'enregistre que ce qui se passe avec le robot.</p>
+
+  <p><b>Réparer</b>, en revanche, n'est ni l'un ni l'autre — une casse n'a aucune intention de conception. C'est la seule valeur hors séquence, et elle mérite d'exister pour elle-même : forcer une réparation dans « optimisation » ferait passer un sous-système fragile pour un sous-système bien réglé, alors qu'un chantier qui accumule les réparations dit précisément l'inverse. C'est même l'un des signaux les plus utiles que cet axe puisse produire.</p>
+  <p>Les <b>sous-systèmes</b>, à l'inverse, appartiennent au club, qui les refait en septembre à partir d'une liste de départ — châssis, intake, transfert, lanceur, bras, ascenseur, pince, structure, électronique, autonome, téléop, vision, odométrie. Un point de départ, pas un cadre.</p>
+
+  <h3>Le test zéro, puis l'optimisation</h3>
+  <p>Une modification testée sans référence ne prouve rien. C'est vrai partout mais c'est criant sur le code, où l'on ajoute une fonctionnalité en croyant l'améliorer et où seul le chronomètre tranche. La note l'a inscrit au rang des risques dès le départ : personne ne pense à mesurer l'état d'avant, parce qu'au moment où l'on mesure on ne sait pas encore qu'on va changer quelque chose.</p>
+  <p>D'où une étape qui ne ressemble à aucune autre : le <b>test zéro</b>. C'est le premier passage sur le terrain, dans les conditions du match, et son objet n'est pas de vérifier que ça marche — c'est de <em>produire le chiffre auquel tout le reste se comparera</em>. Il a remplacé un « tests en situation » qui faisait doublon avec l'optimisation : après le premier, tous les essais en situation sont des optimisations mesurées, et il n'y avait pas lieu de leur garder une étape à part.</p>
+  <p>Le nom porte l'obligation, ce qu'aucun rappel d'interface ne ferait aussi bien : un test zéro sans mesure n'est pas un test zéro. On y déclare la grille et on enregistre un premier relevé, avant d'avoir touché à quoi que ce soit — c'est-à-dire au seul moment où l'on peut encore le faire, et exactement le mode d'échec que la note redoutait : personne ne mesure la référence, parce qu'au moment où il faudrait le faire on ne sait pas encore qu'on va changer quelque chose. Ici on le sait, puisqu'on vient d'entrer dans l'étape qui le dit.</p>
+  <p>L'<b>optimisation</b> qui suit hérite alors de sa référence sans rien demander. Elle se définit comme un changement qui ne change pas le comportement — un réglage, une constante, une tension — donc rien n'y est visible à l'œil et rien ne s'y démontre par une photo : seul un écart mesuré prouve que le réglage a servi. Sauter le test zéro reste permis, comme toute étape, mais l'optimisation le dira : <em>rien à quoi comparer</em>.</p>
+  <p>Ouvrir un essai demande alors trois choses et pas une de plus : <em>ce qu'on teste</em>, une phrase et non un formulaire ; la <b>référence</b>, proposée d'office — le dernier essai du même chantier sur la même grille, avec son protocole prêt à rejouer, puisque comparer suppose de refaire pareil ; et le relevé. Deux minutes ce jour-là, une démonstration sauvée deux mois plus tard.</p>
+  <p>Le reste suit tout seul : l'essai cite la modification qui le motive, commit ou changement de pièce, et le couple avant/après devient le bloc de cahier que rien d'autre ne saura écrire. C'est le seul endroit du produit où l'interface a le droit d'insister, et elle en a le devoir.</p>
+
+  <h3>Qui l'a fait avancer</h3>
+  <p>Un chantier avance avec ceux qui y travaillent, et les participants sont par séance et non par chantier : l'équipe qui monte le lanceur en novembre n'est pas celle qui l'optimisera en février. Sans cette trace, l'attribution resterait une déduction — présent ce mercredi, donc peut-être sur l'intake — et une déduction ne tient pas devant un jury qui demande à un élève ce qu'il a fait.</p>
+  <p>Mais elle ne tient pas davantage si c'est un camarade qui l'affirme. <b>Chacun s'inscrit lui-même, depuis son propre compte</b> : on ouvre le chantier sur lequel on va travailler et on s'y déclare, comme on signe une feuille. Personne ne coche personne. C'est la seule règle qui rende les contributions individuelles défendables — sinon elles ne sont que le témoignage de celui qui a rempli le formulaire, et tout ce qui repose dessus s'écroule : l'attribution devant le jury, le repérage de l'élève qui décroche, la présence elle-même puisqu'elle en découle.</p>
+  <p>Il y a une intention derrière cette règle et elle vaut d'être dite : <b>on veut que les élèves ouvrent l'application</b>. S'inscrire soi-même est le geste qui l'exige, et le seul du produit qu'on ne puisse déléguer. Un outil que trois personnes consultent pour toute une équipe n'est pas un outil d'équipe — c'est le cahier qu'un secrétaire tient pour les autres, autrement dit le problème du départ, avec une base de données en plus.</p>
+  <p>Deux exigences en découlent, et elles engagent le produit autant que le club. La connexion doit être <b>triviale</b> : session qui persiste, aucun mot de passe à retaper le mercredi suivant, application installable sur l'écran d'accueil du téléphone — la PWA est déjà au barème pour le gymnase, elle sert ici son usage le plus quotidien. Et l'application doit <b>rendre quelque chose dès la première ouverture</b>, sinon l'élève l'ouvrira une fois : c'est le rôle de l'écran d'accueil, qui dit ce qu'il y a à faire avant de demander quoi que ce soit.</p>
+  <p>Et il n'y a pas d'exception, pas même pour le téléphone oublié : il y a des postes en accès libre dans la salle, et au pire on se connecte depuis l'appareil d'un camarade. La règle reste donc absolue, ce qui la rend défendable — <b>une inscription est toujours de première main</b>, sans cas particulier à expliquer ni à contourner. Le rattrapage existe malgré tout, et il est le même que partout ailleurs dans ce produit : rien ne se verrouille, on peut s'inscrire jeudi sur le chantier de mercredi. Il reste personnel, et c'est tout ce qui compte.</p>
+  <p>Ce n'est pas seulement plus juste, c'est moins cher. La corvée de désigner les autres disparaît, et avec elle la dépendance à celui qui la faisait : une séance où le scribe habituel manque n'est plus une séance perdue.</p>
+  <p>S'inscrire tient en un geste, et l'application peut le proposer sans jamais le faire à la place de personne : celui qui était sur l'intake vendredi se voit demander à l'ouverture s'il y retourne. La suggestion s'adresse à l'intéressé, sur son propre travail — elle ne décide de rien pour les autres, et c'est ce qui la rend acceptable là où un pré-cochage collectif ne l'était pas.</p>
+  <p>La couche temps réel change alors d'emploi, pour un meilleur. Elle ne sert plus à deviner qui est là, mais à montrer <b>qui travaille sur quoi en ce moment</b> — « Lina et Tom sont sur l'intake » — ce qui répond à une vraie question dans un atelier : où aller aider. Rien de tout cela ne se stocke : c'est un état de l'instant, et la liste des connectés ne devient jamais une donnée.</p>
+  <p>Deux garde-fous, parce qu'une commodité ne doit pas devenir une affirmation. <b>Être connecté ne vaut pas présence</b> : le programmeur qui ouvre l'application chez lui le mercredi soir n'est pas à l'atelier, et rien ne l'y met — seule une avancée enregistrée par un humain produit une présence. Et rien de tout cela ne se stocke : la liste des connectés est un état de l'instant, servi par la couche temps réel qui est déjà au barème, et qui gagne ici un troisième emploi après le tableau des chantiers et l'agrégation du scouting.</p>
+  <p>Le serveur ne vivant que sur le réseau du club, <b>être connecté et être dans l'atelier sont la même chose</b> : le signal est presque certain, et le garde-fou ne sert plus qu'aux cas tordus — celui qui reste connecté après être parti, celui qui consulte depuis un poste de la salle sans travailler. C'est un des endroits où le choix du local ne se contente pas de simplifier l'infrastructure : il change ce que l'application a le droit de deviner.</p>
+  <p>Les mentors posent une question à part. En principe ce sont les élèves qui travaillent, et un cahier d'ingénierie est jugé comme leur ouvrage. En pratique un mentor reprend parfois le travail à son compte, sur le code plus souvent qu'ailleurs, un soir de veille de compétition. Deux réponses seraient mauvaises : lui interdire d'apparaître, ce qui attribuerait son travail à des élèves qui ne l'ont pas fait ; ou le compter comme un membre, ce qui gonflerait des contributions individuelles que le jury regarde. La bonne est celle qu'on applique partout ailleurs — <b>l'enregistrer et le dire</b>. Un mentor participe, il apparaît comme mentor, et les décomptes de contribution ne portent que sur les élèves. Le rôle est déjà au modèle, il n'y a rien à ajouter.</p>
+  <p>Le bénéfice n'est pas seulement documentaire. Un sous-système dont les trois dernières avancées sont signées d'un mentor est un <em>signal</em>, et d'abord pour le club : ce chantier a échappé aux élèves. C'est le genre de chose qu'on préfère voir en janvier qu'en avril — et le produit ne sait le montrer que parce qu'il n'a pas cherché à l'effacer.</p>
+  <p>Et c'est de là que vient la présence : <b>qui a fait avancer un chantier était là</b>. Aucun appel, aucune liste à parcourir, aucune case de plus — la présence du mercredi est la réunion des participants de la journée, et elle s'écrit toute seule pendant qu'on travaille. Il n'y a pas d'autre voie : celui qui était là sans rien avancer n'est pas compté, et aucun bouton « j'étais là » ne viendra combler ce trou — celui qui n'a rien fait est le dernier qui songerait à le presser, et l'on aurait ajouté une case pour un cas qui reste invisible de toute façon.</p>
+  <p>La conséquence va plus loin qu'un bouton en moins : <b>la présence cesse d'être une donnée</b>. Elle n'est que la liste des personnes qui ont fait avancer quelque chose ce jour-là, c'est-à-dire une lecture des inscriptions — rien à stocker, rien à tenir à jour, rien qui puisse diverger de ce qui s'est réellement passé. Le prix est assumé et il faut le dire franchement : la plateforme ne connaît pas la présence, elle connaît le travail. Un élève venu regarder les autres n'y figure pas, et le club ne pourra pas le repérer par cet outil-là.</p>
+  <p>À côté de chaque chantier coché, <b>une phrase</b> — ce qu'on a fait, ce qui a marché ou pas — et de quoi <b>y déposer des fichiers</b> : photos de la pièce montée, vidéo d'un essai, plan, export CAO, fiche de mesures. Rien de tout cela n'est obligatoire, et c'est la condition pour que ce soit rempli ; mais c'est là que se joue la valeur du produit. La phrase et les pièces jointes n'appellent aucune structure nouvelle : la phrase est le corps de l'avancée, un fichier déposé est une trace ordinaire portant le même chantier et la même date. Le cahier les retrouve ensemble sans qu'on ait rien rangé.</p>
+  <p>Une conséquence bienvenue : le résumé de la séance devient presque superflu. La journée se raconte par la suite de ses chantiers avancés, chacun avec sa phrase et ses images — l'agrégation promise plus haut n'assemble plus seulement des preuves éparses, elle assemble un récit déjà écrit par ceux qui l'ont vécu. C'est aussi exactement la matière que l'export du cahier attend.</p>
+
+  <h3>Passer la main</h3>
+  <p>Ceux du mercredi ne sont pas ceux du vendredi. Le problème n'est pas que les suivants ignorent ce qui a été fait — c'est qu'ils le <b>défont</b> : une pièce remontée autrement, un réglage rétabli alors qu'il avait été abandonné la veille pour de bonnes raisons, et deux séances s'annulent. Aucune photo ne le rattrape, parce que ce qui manque n'est pas l'état de la pièce mais l'intention de celui qui l'a laissée ainsi.</p>
+  <p>D'où le seul champ que le chantier réclame vraiment : une ligne de <b>passation</b>, écrite pour ceux qui reprendront, écrasée à chaque avancée, et affichée au moment où elle sert — quand on coche le chantier, pas au fond d'un historique. Elle dit ce qu'aucune autre trace ne dit : par où continuer, et ce qu'il ne faut surtout pas refaire.</p>
+  <p>Le reste est déjà là. L'avancée précédente porte sa date et ses participants, donc celui qui reprend sait aussi à qui demander. C'est le bénéfice le moins spectaculaire de cocher les participants séance par séance, et sans doute le plus utilisé au quotidien. Ce champ figurait au modèle initial comme une convention de cahier — une prochaine étape à montrer au jury. Sa vraie raison est opérationnelle, et c'est pour ça qu'il sera rempli.</p>
+  <p>Un chantier n'est pas une carte de kanban : ni assigné, ni échéance. Il naît du travail fait, pas d'une planification, et il ne connaît que trois états — ouvert, fini, abandonné. « Abandonné » n'est pas un échec de l'outil : une piste qu'on ferme après l'avoir prototypée est exactement ce qu'un jury veut voir dans un cahier d'ingénierie.</p>
+  <p>Il y a bien un <b>tableau</b>, mais c'est une <em>vue</em> des chantiers, pas un objet de plus : des colonnes par étape ou par sous-système, où déplacer une carte revient à changer une étiquette. Il ne se tient pas, il se regarde — et il se remplit tout seul depuis le compte-rendu du mercredi, ce qui lui retire le seul vrai défaut d'un kanban en milieu scolaire : supposer que l'équipe adopte un rituel supplémentaire. Ce qu'un élève lui demande vraiment — <em>qu'est-ce que je fais aujourd'hui ?</em> — est mieux servi ainsi, puisque chaque chantier y affiche sa ligne de passation. Et comme il ne porte aucune donnée qui lui soit propre, le retirer un jour ne coûterait qu'un écran.</p>
+
+  <h3>Les réunions</h3>
+  <p>L'équipe se réunit pour décider — répartir le travail, arbitrer entre deux conceptions, préparer une compétition. Une réunion ne remplace pas une séance : elle en fait partie. On s'arrête au milieu du mercredi, on tranche, on retourne à l'atelier. Ce n'est donc pas un type de séance mais une trace de plus <em>à l'intérieur</em> — une décision, avec ses participants cochés comme ceux d'un chantier, et rattachée au chantier concerné quand elle en concerne un : l'arbitrage entre deux intakes appartient à l'histoire de l'intake, pas à celle du mercredi.</p>
+  <p>Ce sont les traces les plus précieuses du cahier, parce que la démarche de conception se juge sur les arbitrages, et que ceux-là ne laissent aucune autre trace — ni photo, ni commit, ni mesure. Ce qui n'est pas écrit ce soir-là est perdu. Une réunion qui ne décide rien, elle, ne laisse rien : les remarques diverses suffisent.</p>
+
+  <h3>Ce qu'on remarque en travaillant</h3>
+  <p>En réparant l'intake on voit que le câblage du bras est à refaire. C'est le genre d'observation qui se perd en dix minutes, et qu'aucune passation ne rattrape puisqu'elle ne concerne pas le chantier ouvert. Le bouton <b>remarque</b> répond déjà au besoin, à ceci près qu'il lui faut une portée de plus : cette équipe, tout le club, ou <b>un autre chantier</b>. Adressée à un chantier, la remarque s'affiche à celui qui l'ouvrira la prochaine fois, à côté de ce qu'il y a à faire.</p>
+  <p>Elle n'est pas une tâche pour autant, et il faut s'y tenir : ni assignée, ni datée, ni prioritaire. Elle existe jusqu'à ce que quelqu'un en fasse quelque chose ou la trouve caduque — le kanban a été écarté une fois, il n'a pas à revenir par la porte de service.</p>
+  <p>Reste le cas de septembre, où l'on ne remarque pas, on projette : le jeu est annoncé, l'équipe liste ce qu'il faudra construire. Ce sont des chantiers qui n'ont pas commencé, et <code>status</code> les accueille avec une valeur de plus — <em>suggéré</em>, avant <em>ouvert</em>. La liste de rentrée n'est donc pas un objet nouveau mais la même liste de chantiers, filtrée sur ceux que personne n'a encore ouverts ; ouvrir un chantier, c'est s'y mettre. Un projet qui n'a jamais été ouvert de toute la saison se voit, et raconte quelque chose lui aussi.</p>
+
+  <h3>Le travail avance aussi hors séance</h3>
+  <p>Un programmeur code chez lui le mardi soir, un mentor prépare un dossier le dimanche. Ce travail n'appartient à aucune séance et n'a pas à en inventer une : <code>meeting_id</code> est nullable depuis le premier jour, et une trace sans séance reste une trace ordinaire, datée et citable. Rien n'a à être saisi pour autant.</p>
+  <p>On pourrait vouloir aspirer les commits pour que les développeurs existent dans la plateforme. Ce serait mal poser le problème : ce qu'on construit n'est qu'une aide à la rédaction du portfolio, et pour sa partie logicielle les rédacteurs auront le dépôt sous les yeux — c'est là que se lisent l'activité, les auteurs et l'historique, mieux que dans n'importe quelle copie. Qu'un développeur apparaisse peu ici n'est pas un défaut de l'outil, c'est la conséquence normale du fait que son travail est déjà tracé ailleurs, correctement.</p>
+  <p>L'intégration au dépôt cesse donc d'être une fondation. Un essai cite la version testée par un <b>lien</b>, ce qui coûte un copier-coller et relie la mesure au changement — c'est tout ce dont la chaîne a besoin. Aspirer les commits pour en faire des traces reste faisable et sympathique, mais rejoint la réserve, avec les autres agréments : dépendance externe, jeton à gérer, API mouvante. Et si on le fait un jour, ce sera par interrogation périodique plutôt que par <em>webhook</em> — un webhook exige que GitLab puisse joindre l'instance, ce qui tombe dès qu'elle vit sur le réseau du club.</p>
+  <p>Deux choses en découlent. Le compte-rendu du mercredi ne réclame pas ce travail : il agrège ce qui porte sa date, pas ce qui porte la semaine. Et la chronologie n'y perd rien, puisqu'elle se lit sur les traces et non sur les séances — un créneau vide reste un trou dans le rituel, même si le dépôt a tourné toute la semaine.</p>
+
+  <div class="ceiling"><b>plafond assumé :</b> deux étiquettes, aucune arborescence — un sous-système n'a pas de sous-sous-système. Un tag mal saisi se renomme ; ni fusion de masse ni historique de renommage. Le coût de saisie est tenu par la reprise : une avancée hérite des étiquettes de la précédente, et on ne les touche que si elles ont changé. Si le vocabulaire dérive, une revue de fin de saison le remet d'aplomb.</div>
+</section>
+
+<section>
+  <p class="eyebrow">Usage</p>
+  <h2>Les trois écrans</h2>
+  <h3>Ce qu'on voit en arrivant</h3>
+  <p>On ne se connecte pas pour remplir un compte-rendu, on se connecte pour savoir quoi faire. L'écran d'accueil ne parle donc que de <b>son équipe</b> — un élève n'a rien à faire dans les chantiers des trois autres, et les mélanger transformerait une liste utile en annuaire. Les mentors, eux, changent d'équipe d'un menu : ils suivent les quatre, et c'est l'endroit du produit où la différence entre élève et mentor se voit le mieux.</p>
+  <p>Les chantiers y sont séparés en <b>robot</b> et <b>hors robot</b> : d'un côté les sous-systèmes avec leur avancement et ce qu'il y a à y faire, de l'autre le dossier de sponsoring et l'organisation du tournoi. C'est la seule coupure qui vaille, et elle ne coûte aucune étiquette — elle se lit sur la présence ou l'absence de sous-système.</p>
+  <p>Un troisième bloc leur fait suite : les <b>événements</b>. Ils ne sont pas des chantiers — ils ne progressent pas, ils ont lieu — mais ils n'ont pas d'autre porte d'entrée, et un rayonnement qu'on ne voit jamais est un rayonnement qu'on oublie de documenter. Celui qui vient d'y aller le crée d'ici ; les autres y déposent leurs photos pendant la semaine ; celui qui s'y prépare voit qu'il arrive.</p>
+  <div class="mock" aria-label="Maquette de l'écran d'accueil">
+    <div class="mock-bar"><b>Rouages &amp; Cie</b><span>Équipe 12345 · saison 2026 &nbsp;·&nbsp; changer d'équipe ▾</span></div>
+    <div class="mock-sec">
+      <div class="dom sel"><b>Robot</b><span class="n">5 chantiers</span></div>
+      <div style="padding:2px 0 10px 12px">
+        <div class="dom"><b>Intake</b><span class="chip on">test zéro</span><span class="n">Lina, Tom · vendredi</span>
+          <span class="todo">le rouleau du bas patine — essayer les galets avant de resserrer</span></div>
+        <div class="dom"><b>Châssis</b><span class="chip on">optimisation</span><span class="n">Amir · mercredi dernier</span>
+          <span class="todo">refaire les mesures de vitesse après le changement de roues</span></div>
+        <div class="dom"><b>Lanceur</b><span class="chip on">prototypage</span><span class="n">Jo · 3 semaines</span>
+          <span class="todo">maquette carton à refaire, la 1<sup>re</sup> version tapait le mur</span></div>
+      </div>
+      <div class="dom"><b>Hors robot</b><span class="n">2 chantiers</span></div>
+    </div>
+
+    <div class="mock-sec">
+      <div class="mock-lab"><span>Événements</span><button class="mbtn ghost">+ ajouter</button></div>
+      <div class="dom"><b>Démonstration · collège Jean Moulin</b><span class="chip on">7 mars</span><span class="n">9 participants · 24 photos</span></div>
+      <div class="dom"><b>Tournoi régional</b><span class="chip">28 mars</span><span class="n">à venir</span></div>
+    </div>
+    <div class="mock-sec">
+      <div class="mfoot"><span class="field empty">mercredi 11 mars · 2 chantiers avancés · 6 présents</span>
+        <button class="mbtn ghost">résumé de la journée</button>
+        <button class="mbtn ghost">◂ vendredi 6</button>
+        <button class="mbtn">+ remarque</button></div>
+    </div>
+  </div>
+  <p>Chaque ligne dit trois choses et pas une de plus : où en est le chantier, qui l'a touché en dernier et quand, et — en ocre — <b>ce qu'il y a à faire</b>, qui n'est rien d'autre que la passation laissée la fois précédente. C'est le retour sur investissement du champ « à laisser » : écrit une fois le vendredi, il devient le menu du mercredi. Un chantier resté trois semaines sans avancée se signale tout seul par sa date.</p>
+  <p>Cliquer sur une ligne ouvre le chantier : son fil complet, ses avancées, ses photos, ses décisions, et de quoi le faire avancer aujourd'hui. C'est là que le travail se consigne, au moment où on le fait, et non le soir dans un formulaire — le compte-rendu de séance n'est plus une saisie mais une <em>confirmation</em>.</p>
+
+  <h3>L'écran d'un chantier</h3>
+  <p>C'est là que tout se saisit, et c'est le seul endroit du produit où l'on écrit.</p>
+  <div class="mock" aria-label="Maquette de l'écran d'un chantier">
+    <div class="mock-bar"><b>Intake</b><span>Équipe 12345 · ouvert le 14 septembre · 6 avancées</span></div>
+    <div class="mock-sec">
+      <div class="hand">↩ <b>laissé vendredi par Sam</b> — le rouleau du bas patine, ne pas resserrer la courroie avant d'avoir essayé les galets</div>
+      <div class="mrow"><span class="k">avancement</span>
+        <span class="step"><b>test zéro</b></span>
+        <button class="mbtn ghost">passer à l'étape suivante</button>
+        <button class="mbtn ghost">revenir en arrière</button>
+      </div>
+      <div class="mrow"><span class="k">participants</span>
+        <span class="chip on">Lina</span><span class="chip on">Tom <sup>vous</sup></span>
+        <span class="chip out">Sam · sur le châssis</span>
+      </div>
+      <div class="mrow"><span class="k">fait aujourd'hui</span>
+        <span class="field">galets montés, ça accroche nettement mieux</span>
+      </div>
+      <div class="mrow"><span class="k">à faire la prochaine fois</span>
+        <span class="field empty">pour ceux qui reprendront…</span>
+      </div>
+      <div class="mrow" style="margin-top:11px">
+        <button class="mbtn ghost">+ photo</button>
+        <button class="mbtn ghost">+ fichier</button>
+        <button class="mbtn">enregistrer l'avancée</button>
+      </div>
+    </div>
+    <div class="mock-sec">
+      <div class="mock-lab"><span>Historique</span><span>de la première maquette à aujourd'hui</span></div>
+      <div class="mrow"><span class="k">6 mars</span><span class="chip on">test zéro</span><span class="field">le rouleau du bas patine</span></div>
+      <div class="mrow"><span class="k">28 fév.</span><span class="chip on">intégration</span><span class="field">monté sur le robot, câblage refait</span></div>
+      <div class="mrow"><span class="k">21 fév.</span><span class="chip on">construction</span><span class="field">version alu, 3 photos</span></div>
+    </div>
+  </div>
+  <p>Trois libellés portent tout le sens et ne peuvent pas être approximatifs. <b>Fait aujourd'hui</b> est ce qui vient d'être fait, et rien d'autre. <b>À faire la prochaine fois</b> est le message qu'on laisse aux suivants — et c'est le même texte qui remonte en tête du chantier la fois d'après, sous la flèche, avec son auteur et sa date, puis sur l'écran d'accueil en face du nom du chantier. Un seul champ, écrit une fois, lu à trois endroits : c'est pour ça qu'il sera rempli. <b>Participants</b>, enfin, ne se remplit pas — chacun s'y inscrit lui-même. Une seule ligne survit donc d'une séance à l'autre ; les autres s'empilent dans l'historique.</p>
+  <p>L'étape ne s'ajoute pas, elle se déplace : on passe à la suivante, on revient à une précédente. Si elle change au cours de la même séance, c'est le déplacement lui-même qui ouvre la seconde avancée — on n'a pas à demander à l'élève d'y penser, il suffit qu'il dise où il en est.</p>
+  <p>Et l'on ne marque jamais qu'une étape est <em>terminée</em> : passer à la suivante le dit déjà. Un tel drapeau serait un second geste pour la même information, il n'aurait aucune définition objective — « le prototypage est fini » ne se teste pas, alors que « on est passé à la construction » est un fait — et il produirait surtout un état intenable le jour où l'on revient en arrière, ce qui est le cas le plus intéressant. La seule chose qui se ferme, c'est le chantier. Quant à savoir si l'on a quitté une étape parce qu'elle était aboutie ou faute de temps, aucune case ne le dira jamais : c'est la phrase du soir qui le dit, et une décision quand ça compte.</p>
+  <p>L'historique, en dessous, est le chantier lui-même : la suite de ses avancées, qui est déjà le chapitre du cahier avant même l'export. Ouvrir un chantier, enfin, tient dans une fenêtre, et pour le robot elle ne demande qu'un mot :</p>
+  <div class="mock" aria-label="Maquette de la fenêtre d'ouverture d'un chantier">
+    <div class="mock-bar"><b>Ouvrir un chantier</b><span>Équipe 12345</span></div>
+    <div class="mock-sec">
+      <div class="mock-lab"><span>Sur le robot</span><span>un sous-système = un chantier</span></div>
+      <div class="chips">
+        <span class="chip out">châssis</span><span class="chip out">intake</span><span class="chip">transfert</span>
+        <span class="chip on">lanceur</span><span class="chip">bras</span><span class="chip">ascenseur</span>
+        <span class="chip">pince</span><span class="chip">structure</span><span class="chip">électronique</span>
+        <span class="chip out">autonome</span><span class="chip">téléop</span><span class="chip">vision</span>
+        <span class="chip">odométrie</span><span class="chip">+ autre</span>
+      </div>
+      <div class="mrow"><span class="k">grisés</span><span class="field empty">déjà ouverts cette saison</span></div>
+    </div>
+    <div class="mock-sec">
+      <div class="mock-lab"><span>Hors robot</span></div>
+      <div class="mrow"><span class="k">nom</span><span class="field empty">dossier de sponsoring, tournoi à domicile…</span></div>
+    </div>
+    <div class="mock-sec">
+      <div class="mfoot">
+        <span class="step"><b>commence à</b> brainstorming<button class="nav">changer</button></span>
+        <button class="mbtn">ouvrir</button>
+      </div>
+    </div>
+  </div>
+  <p>Les sous-systèmes déjà ouverts sont grisés : la règle « un sous-système, un chantier » n'a pas besoin d'être expliquée si l'écran la rend évidente. Le nom se remplit tout seul pour le robot, et reste à écrire hors robot — la seule frappe obligatoire du produit, une fois par fil. Et l'étape de départ est proposée à <em>brainstorming</em> sans l'imposer : un mécanisme acheté commence à l'intégration, et personne n'a à se justifier de sauter les trois premières.</p>
+
+  <h3>Le compte-rendu n'est qu'un résumé</h3>
+  <p>Il reste, parce que rien d'autre ne garantit la régularité : un chantier ne réclame rien les semaines où personne ne l'ouvre, un créneau si. Mais il change de nature. La journée s'est déjà écrite toute seule pendant qu'on travaillait ; l'écran de séance ne fait que la présenter, offrir un champ de remarques, et laisser ajouter ceux qui étaient là sans avoir rien avancé. Ce qui suit est donc l'écran de <em>fin</em> de mercredi, pas celui du début — et l'on y remarquera qu'il ne contient pas une seule case à cocher : les avancées y sont affichées telles qu'elles ont été écrites dans les chantiers, avec leur étape et leurs auteurs. Rien ne s'y ajoute, tout s'y relit.</p>
+  <p>Il se lit <b>par équipe</b>, comme l'accueil : un élève y trouve son mercredi, pas celui du club. Ce n'est pas une entorse au modèle mais une lecture — la séance reste un objet du club, et c'est la vue qui filtre. Les mentors passent d'une équipe à l'autre par le même sélecteur qu'à l'accueil.</p>
+  <p>La présence s'y compte sur l'effectif de l'équipe — six sur douze — parce que c'est le seul rapport qui apprenne quelque chose : six élèves un mercredi n'a pas le même sens dans une équipe de huit et dans une équipe de vingt. Les mentors n'y figurent pas du tout : ils encadrent, ils ne constituent pas l'effectif, et leur présence n'apprend rien qu'on ait envie de suivre.</p>
+  <p>Enfin, l'accueil donne accès au résumé de la <b>séance précédente</b> autant qu'à celui du jour, et le résumé lui-même se feuillette d'un mercredi à l'autre. Ce n'est pas de la navigation d'archive : c'est ce que consulte celui qui n'était pas là vendredi. Les chantiers lui diront quoi faire ; le résumé de vendredi lui dira ce qu'il a manqué, et c'est une question différente.</p>
+  <p>Un mot sur ce qu'il ne fait pas : il ne <em>clôt</em> rien. Rien ne se verrouille, ici comme ailleurs, et un bouton « clore la séance » aurait promis l'inverse — celui qui l'aurait cliqué se serait demandé s'il pouvait encore corriger, alors que la réponse est oui, indéfiniment. Le pied de l'accueil ne propose donc pas une fermeture mais un lien vers le résumé de la journée — et son libellé le dit, puisque c'est tout ce qu'on y trouve. Il n'y reste même aucun champ. Corriger, si besoin, se fait là où la chose a été écrite : on rouvre le chantier.</p>
+  <p>Car une remarque ne s'écrit pas dans un résumé — elle s'écrit quand la perceuse casse. Un bouton <b>remarque</b> est donc présent partout, et la seule chose qu'il demande en plus du texte est sa <b>portée</b> : cette équipe, ou tout le club. C'est un choix que l'auteur seul peut faire au moment où il écrit, et qui serait insoluble le soir venu. Le modèle n'a rien à ajouter pour l'accueillir : une remarque est une trace comme les autres, rattachée à sa séance par sa date, et sa portée est la colonne d'équipe nullable qui sert déjà aux événements de club. Elle devient citable par le cahier au passage, ce qu'un champ de formulaire n'aurait jamais été — une panne d'outil qui a retardé un sous-système a sa place dans son chapitre.</p>
+  <div class="mock" aria-label="Maquette du compte-rendu de séance">
+    <div class="mock-bar"><b>Mercredi 11 mars</b><span>Rouages &amp; Cie · changer d'équipe ▾ &nbsp;·&nbsp; ◂ vendredi 6 &nbsp;|&nbsp; mercredi 18 ▸</span></div>
+
+    <div class="mock-sec">
+      <div class="mock-lab"><span>Ce que la journée a produit</span><span>atelier · 14 h – 17 h</span></div>
+      <div class="wi-shut" style="opacity:1">
+        <div class="wi"><b>Intake</b><span class="chip on">test zéro</span><span class="meta">Lina, Tom</span></div>
+        <div class="mrow" style="margin-top:6px"><span class="field">galets montés, ça accroche nettement mieux</span></div>
+        <div class="mrow"><span class="k">joint</span><span class="chip">3 photos</span><span class="chip">1 vidéo</span></div>
+      </div>
+      <div class="wi-shut" style="opacity:1">
+        <div class="wi"><b>Intake</b><span class="chip on">optimisation</span><span class="meta">Lina</span></div>
+        <div class="mrow" style="margin-top:6px"><span class="field">tension de courroie reprise, temps de cycle 2,4 s</span></div>
+      </div>
+
+      <div class="wi-shut" style="opacity:1">
+        <div class="wi"><b>Autonome</b><span class="chip on">construction</span><span class="meta">Nour, Jo</span></div>
+        <div class="mrow" style="margin-top:6px"><span class="field">trajectoire du côté bleu écrite, pas encore testée</span></div>
+        <div class="mrow"><span class="k">joint</span><span class="chip">1 vidéo</span></div>
+      </div>
+
+      <div class="mrow"><span class="k">aussi</span><span class="chip">1 décision — passer l'intake aux galets</span></div>
+      <div class="mrow"><span class="k">remarque</span><span class="field">perceuse HS, à remplacer avant vendredi</span><span class="chip out">tout le club</span></div>
+    </div>
+
+    <div class="mock-sec">
+      <div class="mock-lab"><span>Présents · 6 sur 12</span><span>déduits des chantiers</span></div>
+      <div class="chips">
+        <span class="chip on">Lina</span><span class="chip on">Tom</span><span class="chip on">Sam</span>
+        <span class="chip on">Amir</span><span class="chip on">Jo</span><span class="chip on">Nour</span>
+      </div>
+    </div>
+
+  </div>
+
+  <p>Un seul principe gouverne ces trois écrans : <b>ce que l'application sait déjà est proposé, jamais redemandé</b>. Le titre du chantier vient du sous-système, l'avancement vient de l'avancée précédente, la liste des présents se déduit des inscriptions, et l'équipe vient du chantier — un élève n'a jamais à déclarer la sienne. Le coût de saisie devient proportionnel à ce qui a <em>changé</em>, non à ce qui s'est passé — et c'est bien ce qu'on veut, puisque ce qui a changé est justement ce qui mérite d'être écrit.</p>
+  <p>Le mercredi ordinaire ne se solde donc par rien du tout : les phrases ont été écrites dans les chantiers, à chaud, et la présence en a découlé. La flèche de passation apparaît à l'endroit exact où elle sert — au moment de rouvrir le chantier, avant de toucher au robot — et le champ « à laisser » qui la remplacera est le seul du formulaire qui demande de penser à quelqu'un d'autre. Une séance où personne n'a rien à dire ne demande rien du tout — on la laisse telle quelle — et une séance où le programmeur a poussé trois commits chez lui n'en montre aucun : ils sont datés du mardi, ils appartiennent au mardi.</p>
+</section>
+
+<section>
+  <p class="eyebrow">Rayonnement</p>
+  <h2>Les événements externes</h2>
+  <p>Une visite d'entreprise ou une démonstration en école concerne <em>le club</em>, pas une équipe — d'où la portée nullable sur les entrées. L'outreach n'est alors qu'un <code>kind</code> de séance : une fois les séances construites, il est presque gratuit.</p>
+  <p>Il alimente une section du cahier qui existait déjà au schéma et qui est <b>jugée</b> chez FIRST. Le champ <code>audience_size</code> n'est pas de la bureaucratie : les jurys regardent la portée chiffrée. La table <code>Partner</code> reste minimale — nom et type, pas de fiches contact. Ce qu'elle résout est réel : l'historique des partenaires se perd à chaque promotion qui sort. Ce qu'elle évite l'est aussi : un CRM, et des données personnelles de tiers adultes dont vous n'avez pas besoin.</p>
+
+  <h3>Un événement s'écrit après coup</h3>
+  <p>Une démonstration en école, un salon, une compétition : cela se passe ailleurs, sans réseau et sans temps mort. Personne n'ouvrira l'application au milieu d'un gymnase pour déclarer sa participation, et prétendre le contraire condamnerait la fonctionnalité. Un événement se crée donc <b>le lendemain</b>, par celui qui y était — le modèle le permet déjà, puisqu'une séance passée se crée de toutes pièces et que rien ne se verrouille.</p>
+  <p>Cela oblige à une exception, la seule du produit : <b>celui qui crée l'événement désigne les participants</b>, parmi tous les membres et non parmi les connectés du moment. La règle « chacun s'inscrit lui-même » ne s'applique pas ici, et c'est justifié plutôt que toléré. Une participation à un événement est un fait public et vérifiable — huit personnes sont montées dans le minibus, tout le monde les a vues — quand une contribution à un chantier est une affirmation sur du travail. La première se constate, la seconde s'engage. Et cette liste ne pèse sur aucun décompte de travail : elle documente une présence à un événement, pas une avancée sur le robot.</p>
+  <p>Un événement est <b>un seul objet pour les quatre équipes</b>, et chacune l'alimente de son côté. Le premier qui le crée le crée ; les autres le trouvent déjà là et y ajoutent les leurs — leurs participants, leurs photos, leur récit. Rien ne se marche dessus, parce que ce qui est commun et ce qui est propre sont séparés dans le modèle depuis le début : l'événement est une trace de club, tandis que ce qu'une équipe en écrit porte son équipe. Chaque cahier n'en tirera donc que sa part, et deux équipes qui racontent différemment la même démonstration ne sont pas en conflit — ce sont deux chapitres.</p>
+  <p>C'est la formule du scouting mutualisé, appliquée ailleurs : on vit l'événement ensemble, chacun le raconte pour soi. Et elle évite le travers inverse, qui serait de créer quatre événements pour une seule démonstration — quatre fois les mêmes photos, quatre comptages d'audience pour un seul public, et un club qui aurait l'air d'avoir fait quatre fois plus de rayonnement qu'il n'en a fait.</p>
+  <p>Le reste suit le fonctionnement ordinaire. La description est le corps de la trace, les photos s'y rangent par leur date, et surtout <b>les autres continuent d'en déposer</b> pendant des jours — c'est le cas type du dépôt en masse, quand chacun vide son téléphone au fil de la semaine. L'événement n'est jamais fini, comme rien ne l'est ici.</p>
+
+  <h3>L'API publique</h3>
+  <p>La note écarte depuis le début de construire une vitrine. Reste que le club a <em>déjà</em> un site, et que ce qui s'y publie est recopié à la main par celui qui s'en occupe. Une API en lecture supprimerait cette recopie, et le sujet en compte un module — deux raisons qui se renforcent, à condition de dire aussitôt ce qui manque pour que ça marche.</p>
+  <p>Cinq points d'entrée suffisent, et chacun répond à un besoin qui existe sans elle :</p>
+  <div class="codewrap"><pre><b>GET</b>    /api/events                     le rayonnement, portée chiffrée comprise
+<b>GET</b>    /api/teams/{n}/notebook         les blocs de cahier marqués publics
+<b>POST</b>   /api/media                      le versement en masse depuis un poste
+                                       de la salle : carte SD, script, dossier
+<b>PUT</b>    /api/scouting/observations/{u}  l'upsert idempotent du scouting
+<b>DELETE</b> /api/media/{id}                 le retrait sur demande</pre></div>
+  <p>Le <code>PUT</code> mérite un mot, parce qu'il n'est pas là pour compléter la liste des verbes : c'est exactement le mécanisme que la note décrit pour le gymnase — identifiant client généré côté appareil, écriture idempotente, dernière écriture gagnante. Un <code>PUT</code> sur cet identifiant <em>est</em> cette synchronisation, écrite dans le verbe qui lui correspond. Le <code>DELETE</code>, lui, n'est pas de la plomberie non plus : le retrait d'une image sur demande est une obligation, et l'exposer proprement vaut mieux que de le faire à la main dans une base.</p>
+  <p>Les deux lectures ne sont que l'export rendu interrogeable — le filtre de consentement est le même, écrit une fois. Reste la plomberie du module : clé, quota, documentation. C'est le meilleur rapport entre les points et l'effort de tout le barème, et rien n'y demande à un adolescent de changer ses habitudes.</p>
+  <p>Une limite à dire sans détour : <b>rien de tout cela ne fonctionne aujourd'hui</b>. Une instance qui tourne dans la salle du club vit derrière le réseau pédagogique de l'établissement, lequel ne laisse entrer aucun trafic venu de l'extérieur. Le site du club aurait beau vouloir lire <code>/api/events</code>, il ne joindrait rien. Le lien avec le site est donc théorique, et il peut le rester toute la durée du projet.</p>
+  <p>Ce qui sort du club sort autrement, et c'est très bien : par <b>export</b>. Un cahier en PDF, un lot de photos, un récapitulatif d'outreach — des fichiers qu'on remet, pas des ressources qu'on expose. C'est ainsi que le club fonctionne déjà, et le produit n'a aucune raison de prétendre le contraire. Le jour où une liaison indépendante existe — le club y songe — l'API prend son second sens sans qu'une ligne change.</p>
+  <p>Et il faut dire une bonne fois ce que cette note évite depuis le début : <b>c'est un projet d'école</b>. Une capacité peut être construite pour être évaluée, sans usage le premier jour, et cela n'a rien d'illégitime — le correcteur lance la stack en une commande et appelle l'API sur sa propre machine, ce que le sujet demande et rien de plus. La question n'est pas « qui s'en sert lundi », elle est « combien ça coûte et à quoi ça ressemblera le jour où ça sert ». Ici la réponse est bonne aux deux : les lectures filtrées par consentement sont celles de l'export, écrites de toute façon, et l'API n'est qu'une seconde porte sur le même filtre.</p>
+  <p>Ce qui ne change pas, c'est la règle qui protège le périmètre : cet argument ne vaut que pour ce qui est <em>presque gratuit</em> parce que déjà écrit ailleurs. Il ne vaudrait pas pour un chat, et c'est bien pour ça qu'on l'a retiré.</p>
+
+  <h3>Les médias d'événement</h3>
+  <p>Le consentement est la <b>norme</b>, pas l'obstacle. À de rares exceptions près, les membres du club accordent leur droit à l'image, et les participants d'une compétition l'accordent aussi — c'est signé à l'inscription. Concevoir comme si chaque visage était un problème produirait un outil que personne n'utiliserait pour un risque qui, en pratique, tient dans trois noms.</p>
+  <p>La règle s'inverse donc. Plutôt que de vérifier que <em>chacun</em> a consenti avant de publier, on tient la <b>liste courte de ceux qui ont refusé</b> — elle est connue, elle change une fois par an, et elle est rappelée à l'écran au moment de publier. Publier reste un acte explicite : la visibilité par défaut d'un média reste <code>team</code>, parce qu'un oubli doit pencher du côté discret. Mais l'acte coûte un regard, pas un inventaire.</p>
+  <p>Le tagging des sujets ne sert alors qu'à ce qui en vaut la peine : signaler une photo montrant quelqu'un de cette liste courte, ou identifier les siens dans un album. Personne ne taguera deux cents photos de compétition, et personne n'aura à le faire.</p>
+  <p>Deux détails décident de l'usage réel : le <b>dépôt en masse</b> est obligatoire — après une compétition il y a deux cents photos, et un envoi à l'unité tue la fonctionnalité — et le <b>classement par date</b> range les médias dans la bonne séance sans qu'on s'en occupe. Encore le même principe : le classement s'écrit tout seul.</p>
+  <p>Sauf que la date se perd en route. Une photo passée par WhatsApp — c'est-à-dire la plupart d'entre elles — arrive <b>sans EXIF</b> : la messagerie l'efface et recompresse au passage. Se reposer sur l'EXIF seul, c'est concevoir pour le chemin que les photos ne prennent pas. La datation suit donc une chaîne, du plus fiable au plus faible : l'EXIF s'il a survécu ; sinon le <b>nom du fichier</b>, car WhatsApp y écrit la date qu'il a retirée des métadonnées (<code>IMG-20260321-WA0007.jpg</code>) ; sinon la séance dans laquelle on est en train de déposer, ce qui est le cas courant puisqu'on dépose <em>depuis</em> une séance.</p>
+  <p>Et si rien de tout cela ne répond, le média va dans une file <b>à classer</b> — jamais à la date du jour. Une photo de compétition datée du lundi où quelqu'un l'a téléversée est pire qu'une photo non datée : la première ment silencieusement, la seconde demande dix secondes à quelqu'un. C'est la seule règle qui compte ici, et elle vaut pour tout le reste du produit.</p>
+  <div class="ceiling"><b>plafond assumé :</b> ce que WhatsApp a recompressé est perdu, et aucun traitement ne le rendra. Le bon chemin est le dépôt direct depuis le téléphone — la PWA est déjà au barème pour le scouting, elle sert ici sans rien coûter de plus. On ne se battra pas contre la messagerie ; on offre mieux à côté.</div>
+  <div class="ceiling"><b>plafond assumé :</b> le public d'une compétition n'a rien signé. Une tribune reconnaissable ne se publie pas ; un arrière-plan de gymnase, si. Aucun modèle ne tranchera ça — c'est un jugement humain au moment de publier, et le produit se contente de le rappeler.</div>
+  <div class="ceiling"><b>plafond assumé :</b> stockage sur système de fichiers avec quota par club, vignettes générées à l'envoi. Pas de S3, pas de CDN, pas de transcodage. Passage à un stockage objet seulement si le volume mord.</div>
+</section>
+
+<section>
+  <p class="eyebrow">Mesure</p>
+  <h2>Le substrat de mesure</h2>
+  <p>Scouter une équipe adverse et chronométrer son propre robot à l'entraînement, c'est le même geste : un observateur, un robot observé, une grille de métriques, un horodatage. Seuls le sujet et la finalité changent. L'abstraction est <em>méritée</em> — deux usages réels existent avant qu'on ne l'écrive.</p>
+
+  <div class="tablewrap">
+    <table>
+      <caption>Deux usages, une machinerie</caption>
+      <thead><tr><th></th><th>Entraînement</th><th>Scouting</th></tr></thead>
+      <tbody>
+        <tr><td><b>Sujets</b></td><td>vos 4 robots</td><td>~40 équipes inconnues</td></tr>
+        <tr><td><b>Observateurs</b></td><td>2–3, dans l'atelier</td><td>8, dans un gymnase</td></tr>
+        <tr><td><b>Réseau</b></td><td>le vôtre, dans la salle</td><td>aucun, au terrain</td></tr>
+        <tr><td><b>Planning</b></td><td>improvisé</td><td>calendrier de matchs, assignations</td></tr>
+        <tr><td><b>Finalité</b></td><td>comparaison avant / après</td><td>pick list avant la sélection</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p>D'où une conséquence directe sur l'ordre de construction : <b>l'entraînement est le cas facile de la même machinerie.</b> On la valide dans l'atelier, sur trois personnes et un réseau qui marche. Le scouting n'ajoute ensuite que ses vraies difficultés — l'échelle, les assignations, l'absence de réseau au terrain — sur des fondations déjà éprouvées. La partie la plus dure du projet cesse d'être un saut dans le vide.</p>
+
+  <h3>Le match d'entraînement</h3>
+  <p>Mesurer l'efficacité de l'intake se fait par un <b>essai</b> : on isole, on chronomètre, on compare au test zéro. Cela vit dans le chantier et nulle part ailleurs, et c'est déjà réglé.</p>
+  <p>Un <b>match d'entraînement</b> est autre chose, et il ne faut surtout pas l'attacher à quoi que ce soit. Le robot entier joue, piloté par une drive team, contre un adversaire. Ce qu'on relève est une performance d'ensemble — un score, des cycles, un temps — qui mesure autant les pilotes que la machine, et qui n'est attribuable à aucune modification en particulier. Ce n'est pas une expérience : c'est un point.</p>
+  <p>Il ne se relie donc à rien : ni chantier, ni hypothèse, ni référence. On enregistre ce qu'on a marqué, et c'est tout ce qu'on lui demande. La valeur n'apparaît qu'à l'accumulation, quand une dizaine de points font une courbe qui dit où l'on en est — et qui rappelle au passage que la drive team s'entraîne aussi, ce que le cahier oublie toujours de raconter parce que ça ne se photographie pas.</p>
+  <p>Une conséquence sur le modèle, et elle n'est pas cosmétique : <b>une session est une trace</b>, comme une photo ou une décision. Elle tient sa date, son auteur et son équipe d'<code>Entry</code>, et surtout elle devient <em>citable</em> — sans quoi un bloc de cahier ne pourrait pas montrer la mesure qui étaie ce qu'il affirme, et la promesse entière tomberait. Cela fait disparaître deux tables au passage : rattachée à un chantier, une session d'entraînement est un essai ; sans rattachement, c'est un match ; avec un événement, c'est du scouting. La distinction se lit sur des colonnes qui existaient déjà.</p>
+  <p>Reste ce que rien d'autre ne saura faire : dans un essai, la mesure et la modification sont dans le même fil parce qu'elles y ont été écrites le même soir. Un tableur sait mesurer, une messagerie garde les photos, un dépôt garde les commits — aucun des trois ne sait dire lequel a causé lequel.</p>
+
+  <h3>Le scouting en gymnase</h3>
+  <p>La contrainte n'est pas « pas d'internet », elle est plus dure : <b>le terrain et le pit sont deux endroits différents</b>. Le serveur reste au pit, les scouts sont au bord du terrain, souvent hors de portée — et le sans-fil n'est pas la solution qu'on croit. Un hotspot personnel n'est pas toujours autorisé en compétition, et quand il l'est, la salle sature. Concevoir un système qui suppose une liaison permanente entre les huit observateurs et le serveur, c'est concevoir pour un tournoi imaginaire.</p>
+  <p>Il faut donc renverser le raisonnement. <b>Hors-ligne n'est pas la panne, c'est le régime normal du terrain.</b> Un scout note ses matchs sans rien attendre du réseau, et ses rapports partent en file locale. Ce qui compte n'est pas l'instant où ils sont saisis, c'est l'instant où ils <em>convergent</em>.</p>
+  <p>Et cette convergence a lieu au pit, où les scouts reviennent de toute façon — pour se relayer, souffler, recharger un téléphone. Trois voies, par ordre de fiabilité décroissante et non de confort :</p>
+  <ol>
+    <li><b>Le câble</b> — un téléphone branché sur le portable du pit synchronise en quelques secondes, sans réseau, sans autorisation à demander, sans saturation possible. C'est la seule voie qui marche partout et toujours.</li>
+    <li><b>Le réseau local du pit</b> — l'instance tourne sur ce portable, les téléphones la rejoignent quand ils sont à portée. Confortable quand c'est permis, à ne jamais supposer acquis.</li>
+    <li><b>Le wifi du site ou la 4G</b> — le meilleur des cas, qui n'arrive pas assez souvent pour qu'on bâtisse dessus.</li>
+  </ol>
+  <p>L'agrégation devient donc <em>par vagues</em> plutôt que continue, et cela suffit : le livrable est une pick list prête avant la sélection des alliances, pas un tableau de bord qui frémit à chaque match. Une pick list reconstruite à chaque retour au pit est prête bien avant l'annonce. Ce que le temps réel garde de vrai, c'est ce qui se passe <em>au pit</em> — quand une vague arrive, les quatre listes se mettent à jour ensemble, sous les yeux de ceux qui les regardent.</p>
+  <p>Deux choses à ne pas rater, et une seule est technique. Ne pas coder en dur l'URL de l'API — une variable de configuration, pas une architecture. Et ne pas traiter la file locale comme un cache : c'est la source, tant qu'elle n'a pas été acquittée.</p>
+  <p>Et il ne se découvre pas le jour du tournoi, parce que le club y vit toute l'année : un match d'entraînement se relève exactement comme un match de gymnase — plusieurs observateurs, une grille, des téléphones, un serveur au bout du réseau. La seule différence est l'hostilité du lieu. <b>Le mode dégradé du samedi est donc le mode normal du mercredi</b>, éprouvé chaque semaine par les mêmes gens sur les mêmes appareils, au lieu d'être un plan de secours qu'on essaie une fois en septembre et qu'on prie de fonctionner en mars.</p>
+  <p>Cela règle plusieurs choses d'un coup, et pas seulement le réseau. L'avertissement de certificat s'accepte en début de saison, sur les téléphones du club, une fois pour toutes. L'application est installée avant d'en avoir besoin. Et « connecté » veut alors dire « présent dans la salle », ce sur quoi repose la proposition des participants — sur une instance locale, la déduction cesse d'être une commodité pour devenir un fait.</p>
+  <p>Le service worker n'est donc pas un amortisseur mais <b>le mode de fonctionnement du terrain</b> — c'est l'inverse de ce qu'on suppose d'ordinaire, et cela change ce qu'on lui demande : non pas encaisser trente secondes de coupure, mais tenir une après-midi entière, garder ses rapports intacts au travers d'un rechargement de page ou d'une batterie à plat, et les rejouer sans doublon quand la liaison revient. L'identifiant client généré côté appareil n'est plus un détail d'implémentation : c'est ce qui rend la synchronisation rejouable autant de fois qu'il le faudra.</p>
+
+  <h3>De l'observation à la pick list</h3>
+  <p>Le livrable du scouting est une <b>liste ordonnée des équipes à choisir comme partenaire d'alliance</b>, prête avant la sélection. Pas un tableau de statistiques : une suite de noms, du plus souhaitable au moins souhaitable. Trois propriétés en découlent.</p>
+  <p><b>Elle est ordonnée, pas notée.</b> Pendant la sélection, les équipes partent au fil des annonces. Ce qu'il faut à l'instant T, ce n'est pas « qui est le meilleur » mais « qui est le meilleur encore disponible ».</p>
+  <p><b>Ce n'est pas le classement des performances.</b> C'est de la complémentarité : une équipe moins forte dans l'absolu mais solide là où vous êtes faible vaut mieux qu'une équipe mieux classée qui fait exactement la même chose que vous.</p>
+  <p><b>Elle contient des exclusions.</b> Un robot rapide mais qui tombe en panne un match sur trois ne se déduit d'aucune moyenne.</p>
+
+  <div class="note"><p><b>La frontière du module : agrégats et écarts oui, ordonnancement non.</b> Un score de complémentarité calculé s'écrirait en dix minutes — et ce serait une heuristique inventée, invérifiable sur des échantillons de cinq à dix matchs, donnant une autorité fausse à un chiffre indéfendable. La vraie décision intègre en plus ce qui n'est pas dans les données : une drive team qui reste calme, une équipe prête à jouer le soutien. Ça se juge dans les pits.</p></div>
+
+  <p>Le logiciel produit donc trois choses, et s'arrête là :</p>
+  <ul>
+    <li><b>Un profil par équipe observée</b>, avec la <b>dispersion</b> autant que la moyenne. En alliance à deux robots, un partenaire régulier à 30 points vaut souvent mieux qu'un partenaire volatil à 45 : une seule défaillance perd le match. Afficher min, max et écart est le calcul le plus utile du module, et le moins cher.</li>
+    <li><b>Une vue d'écart</b> — vos métriques les plus faibles mises en avant, les équipes triées sur celles-là. Un filtre que vous choisissez, pas un classement imposé : la faiblesse à compenser change chaque saison.</li>
+    <li><b>Un ordre construit à la main</b>, avec une note par ligne. Ce <em>pourquoi</em> du rang est ce qui se discute avec la drive team, et la seule chose qui reste quand la sélection tourne autrement que prévu.</li>
+  </ul>
+
+  <div class="ceiling"><b>plafond assumé :</b> le statut « déjà sélectionnée » est coché à la main. La sélection est annoncée à l'oral dans un gymnase ; aucun flux ne la publie assez vite. Une personne coche, la couche temps réel sert les quatre listes d'un coup — c'est la seule information de la sélection qui soit commune. Si personne ne coche, les listes restent utilisables.</div>
+</section>
+
+<section>
+  <p class="eyebrow">Surface</p>
+  <h2>Le RAG règlement</h2>
+  <p>Corpus borné, utilisateurs réels, questions constantes pendant le build, et réponses <b>vérifiables</b> — chaque réponse pointe une règle qu'on peut aller lire. Se tromper a des conséquences concrètes : un robot non conforme est recalé à l'inspection.</p>
+  <p>Le domaine offre gratuitement une propriété que la plupart des corpus n'ont pas : <b>une hiérarchie d'autorité</b>.</p>
+  <div class="codewrap"><pre>Game Manual          <b>&rarr; contraignant</b>
+Q&amp;A officiel         <b>&rarr; ruling officiel</b>, prévaut sur l'interprétation
+Forums (CD, Reddit)  <i>&rarr; opinion, sans valeur réglementaire</i></pre></div>
+  <p>Un système qui mélange les trois est <em>activement dangereux</em> : « quelqu'un sur Chief Delphi pense qu'on a le droit » n'est pas une règle. Le rang d'autorité vit donc dans le modèle, pas dans le prompt. Chaque citation l'affiche, et le système <b>refuse de répondre affirmativement</b> quand seules des sources communautaires correspondent — il renvoie alors vers le Q&amp;A officiel.</p>
+  <p>C'est là l'argument technique du module. Pas « on a fait du RAG », mais « on a fait un RAG qui connaît la valeur de ses sources ».</p>
+
+  <h3>Face à un outil officiel</h3>
+  <p>FIRST propose vraisemblablement son propre assistant sur le règlement. Cela ne concerne pas l'évaluation — un correcteur de 42 n'a aucune raison de connaître cet écosystème, et le module est jugé sur l'implémentation. Cela concerne le club, qui aurait tort de préférer une copie moins bonne du même service. La question utile est donc : que fait le vôtre que le leur ne fera pas ? Deux choses, et elles tiennent l'une à l'autre :</p>
+  <ul>
+    <li><b>Le diff de règles sur vos questions.</b> Le manuel est mis à jour en cours de saison, et une règle qui a servi en octobre peut avoir bougé en décembre. La comparaison ne demande aucune discipline nouvelle : chaque question posée est déjà enregistrée avec les passages qui l'ont fondée, donc l'ingestion d'une nouvelle version signale d'elle-même que <em>trois de vos réponses s'appuient sur des passages modifiés depuis</em>. Le lien avec une décision de conception n'existe que si quelqu'un a cité la question dans le cahier — c'est possible et souhaitable, mais cela ne se produira pas tout seul et la fonctionnalité ne doit pas en dépendre.</li>
+    <li><b>La mémoire de vos questions.</b> Un outil officiel répond et oublie. Le vôtre garde ce que l'équipe a demandé, quand, et sur quels passages on lui a répondu — ce qui fait de la saison entière un dossier consultable, et ce qui rend le diff ci-dessus possible.</li>
+    <li><b>La zone grise.</b> FIRST ne citera jamais Chief Delphi. Or beaucoup de vraies questions vivent là où le manuel est muet et où seule la communauté a un avis. Vous pouvez représenter ce vide explicitement, en le nommant plutôt qu'en l'ignorant — même sans forums au corpus, répondre <em>le manuel ne dit rien là-dessus</em> est déjà un service qu'un outil officiel ne rend pas.</li>
+  </ul>
+  <p>Une tentation à écarter, et c'est la note qui se l'applique à elle-même : verser dans le corpus des <b>fiches écrites par l'équipe</b> — dimensions du robot, configurations, décisions d'inspection. L'idée est séduisante et le schéma pourrait l'accueillir. Elle est mauvaise. Personne ne tiendra ces fiches à jour, la première page de ce document explique pourquoi, et une fiche périmée dans un corpus est pire qu'une fiche absente : elle est citée comme une source, avec l'aplomb des autres, alors qu'elle décrit un robot qui n'existe plus. Le corpus s'en tient donc à ce qui est publié et daté par d'autres.</p>
+  <div class="note"><p><b>À préparer pour l'évaluation, mais pas celle-là.</b> Personne ne vous parlera de l'assistant de FIRST. La question qui viendra est plus banale et plus dure : <em>en quoi est-ce autre chose qu'un appel à un modèle ?</em> La réponse est le rang d'autorité — le corpus est hiérarchisé, chaque citation affiche d'où elle vient, et le système refuse d'affirmer quand seules des sources communautaires répondent. C'est cela qu'il faut savoir montrer en trois minutes, pas une comparaison avec un outil que le correcteur n'a jamais vu.</p></div>
+  <div class="ceiling"><b>plafond assumé :</b> une instance locale reste soumise à l'exigence HTTPS du sujet, donc à un certificat auto-signé ou une autorité locale — et donc à un avertissement de navigateur à accepter une fois par appareil. C'est le prix du niveau 3, il se paie en début de saison et pas en gymnase.</div>
+
+  <div class="ceiling"><b>plafond assumé :</b> pas de base vectorielle. Un manuel de jeu fait quelques milliers de chunks — un produit scalaire en force brute prend quelques millisecondes. <code>pgvector</code>, <code>sqlite-vec</code> ou un tableau NumPy. Ajouter Qdrant au compose coûte un service à maintenir pour un gain nul à cette échelle.</div>
+</section>
+
+<section>
+  <p class="eyebrow">Surface</p>
+  <h2>Ce qui fuit quand on publie</h2>
+  <p>Il faut nommer ce module pour ce qu'il fait, faute de quoi il paraît vide — et il l'était en partie. Une plateforme sans chat n'a ni harcèlement en fil de discussion, ni doxxing entre élèves, ni signal de détresse glissé un dimanche soir : ces choses arrivent, mais elles arrivent sur Discord. Quant à protéger les photos des mineurs, ce sont le consentement et la visibilité par défaut qui s'en chargent, c'est-à-dire ailleurs dans ce document.</p>
+  <p>Une précision s'impose avant tout, parce qu'elle décide du reste : <b>publier ne veut pas dire mettre en ligne</b>. Ce projet n'a pas vocation à exposer quoi que ce soit sur internet, et une instance qui ne vit que dans la salle du club est parfaitement conforme au sujet. Publier, ici, veut dire <em>faire sortir</em> : un cahier exporté et remis à un jury, un lot de photos donné à celui qui tient le site, un récapitulatif d'outreach envoyé à un partenaire, un PDF sur une clé USB. Le club fait sortir des choses toutes les semaines, et pas une ne passe par un serveur web.</p>
+  <p>Or c'est là qu'est l'angle mort que rien d'autre ne couvre. Les permissions décident <em>qui voit dans l'application</em> ; elles ne savent rien de <em>ce qu'il y a dedans</em>, ni de ce qui devient un fichier qu'on ne peut plus rappeler. Une description d'événement qui donne le nom complet d'un élève de seconde, une légende où traîne un numéro de téléphone, un bloc de cahier qui indique l'adresse du gymnase et l'horaire auquel des mineurs s'y trouvent — tout cela franchit les permissions sans difficulté, puisque quelqu'un a délibérément décidé de le transmettre. C'est le contenu qui fuit, pas le réglage.</p>
+  <p>Et c'est précisément ce qu'un humain rate, parce qu'il relit pour valider le fond. Le module se réduit donc à une chose, mais elle est réelle : <b>au moment où un contenu s'apprête à sortir du club — export, remise, changement de visibilité — on cherche dedans ce qui identifie une personne</b>. Nom complet d'un mineur, coordonnées, adresse, plaque, horaire nominatif. Le verdict n'est jamais une suppression : c'est un signalement adressé à celui qui publie, avant qu'il ne publie, avec le passage surligné.</p>
+  <p>Une seconde règle se lit sur le même axe, et elle ne concerne pas le texte mais les <b>visages</b>. L'autorisation de droit à l'image que signent les adhérents lie <em>ce</em> club ; celle que signent tous les participants d'un tournoi est donnée à FIRST, pour la promotion de l'événement. Les deux ne se confondent pas, et la destination décide : vers un jury, tout passe — le portfolio reste dans l'écosystème où ce consentement a été donné, et l'usage interne n'est pas une publication. Vers le site du club ou ses réseaux sociaux, en revanche, un élève d'une autre équipe n'a jamais rien accordé au club, et une photo de groupe prise au pit mérite le même avertissement qu'un numéro de téléphone dans une légende. Là encore on n'interdit pas : on prévient celui qui publie.</p>
+  <p>Le mode d'échec est celui de tous les filtres : <b>trop de zèle</b>. Si une remarque d'atelier part en revue parce qu'elle contient un prénom, l'élève comprend qu'on relit ce qu'il écrit et cesse d'écrire — on ne perd pas un message, on perd la trace, c'est-à-dire tout le produit. D'où la règle de portée, à prendre au pied de la lettre : <b>on n'inspecte que ce qui sort</b>. Ce qui reste entre les murs du club n'est jamais analysé, jamais signalé, jamais stocké dans un journal de modération.</p>
+  <p>Ce qui subsiste du raisonnement d'origine ne se négocie pas : <b>aucune action sans trace</b>. Contenu original conservé, verdict horodaté, modèle utilisé, décision humaine et son motif. Tout réversible, tout auditable — c'est ce qu'un chef d'établissement demandera, et c'est aussi ce qui rend le module démontrable en trois minutes, là où un filtre muet ne se montre pas.</p>
+  <div class="ceiling"><b>plafond assumé :</b> un appel par contenu au moment de sa sortie, sur un petit modèle, en asynchrone. Pas de reconnaissance faciale — ni pour repérer un mineur, ni pour vérifier une liste de refus : la ligne est nette et ne bouge pas. Pas de re-scan périodique, pas d'inspection de ce qui reste interne. Une poignée de publications par mois : le volume ne justifie rien de plus.</div>
+  <p>Deux raccrochages gratuits : les journaux sont eux-mêmes des données personnelles de mineurs, donc rétention et purge — ce qui alimente directement le module RGPD, déclaré juste à côté. Et la revue cible un rôle du club, ce qui exerce le modèle de permissions sur un cas où il compte vraiment.</p>
+</section>
+
+<section>
+  <p class="eyebrow">Modèle</p>
+  <h2>Le schéma</h2>
+  <p>Si un seul objet devait être défendu en évaluation, c'est <code>Citation</code> : la jointure entre un bloc de narration et les preuves qui l'étayent. C'est elle qui transforme un intranet de club en cahier d'ingénierie.</p>
+
+  <h4>Socle club</h4>
+  <div class="codewrap"><pre><b>User</b>            id, email UNIQUE, password, display_name, display_name_folded,
+                contact_email, avatar,
+                club_role, is_club_admin, is_staff, is_active, date_joined,
+                assoconnect_id UNIQUE NULLABLE, birth_date NULLABLE
+                <i>club_role ∈ {student, mentor}   -- deux rôles, portés par le compte</i>
+                <i>is_club_admin → un mentor qui administre en plus, pas un 3ᵉ rôle</i>
+                <i>is_staff      → l'admin Django, donc la base brute : autre chose</i>
+                <i>email → l'identifiant de connexion ; il n'a pas à recevoir</i>
+                <i>display_name → l'autre identifiant ; unique quelle que soit la casse</i>
+                <i>display_name_folded → casefold() du pseudo, et c'est LUI qui porte</i>
+                <i>                la contrainte : lower() de SQLite s'arrête à l'ASCII,</i>
+                <i>                donc Élodie s'y replie sur elle-même. Replié en Python,</i>
+                <i>                stocké, tenu à jour dans clean() et save()</i>
+                <i>contact_email → celle du responsable légal, posée par l'import :</i>
+                <i>                une destination, jamais une clé. Vide plutôt que NULL</i>
+                <i>                — une adresse absente est une chaîne vide, pas un inconnu</i>
+                <i>assoconnect_id, birth_date → posés à la vérification, venus de l'export</i>
+                <i>mineur : non vérifié, ou moins de 18 ans — calculé, jamais stocké</i>
+                <i>is_active faux → parti : ne se connecte plus, ses traces restent</i>
+<b>VerificationRequest</b> user_id UNIQUE, last_name, first_name, birth_date,
+                created_at
+                <i>la demande de vérification saisie à la création du compte</i>
+                <i>effacée dès que le compte est vérifié</i>
+<b>Season</b>          id, start_year UNIQUE, game_name UNIQUE
+                <i>2026 · BioBuzz → « 2026-2027 · BioBuzz » ; l'année de fin se déduit</i>
+                <i>le nom du jeu est connu avant la saison, et FIRST ne le réutilise pas</i>
+<b>Team</b>            id, number UNIQUE, name
+                <i>pas de Club : une instance sert un club, l'organisation est l'équipe</i>
+<b>TeamSeason</b>      id, team_id PROTECT, season_id PROTECT
+                <i>UNIQUE (team, season) ; une équipe qui a un historique ne se supprime pas</i>
+<b>Membership</b>      user_id, team_season_id   <i>-- sans rôle : le capitanat n'ouvre aucun droit</i>
+<b>Consent</b>         user_id, decision, granted_by, decided_at
+                <i>le droit à l'image, seule autorisation que le club recueille</i>
+                <i>decision ∈ {granted, refused} -- une ligne par décision, jamais modifiée</i>
+                <i>granted_by ∈ {self, legal_guardian}  -- la qualité, pas l'identité</i>
+                <i>en vigueur : la plus récente ; aucune ligne → inconnu</i>
+                <i>retirer, c'est ajouter un refus ; l'historique daté reste</i></pre></div>
+  <p>Deux rôles seulement, et ils tiennent sur le compte : on est élève ou mentor <em>du club</em>, et administrer est un droit qu'un mentor exerce en plus, pas un troisième rôle. Le capitanat a disparu : il n'ouvrait aucun droit et ne changeait aucun écran. Le module Permissions avancées se défend donc sur des vues qui diffèrent réellement selon le rôle. Il n'y a pas non plus de <code>Club</code> : une instance sert un seul club, la table aurait été un singleton et ses clés étrangères des colonnes constantes. L'organisation que le sujet demande de créer, modifier et supprimer est l'équipe — et <code>PROTECT</code> empêche qu'un clic emporte avec elle des saisons de travail. Tout est scopé par saison parce que le cahier est un livrable annuel, l'effectif tourne et le jeu change — l'archivage inter-saisons devient gratuit.</p>
+  <p><code>Consent</code> — le droit à l'image, sans distinction entre usage interne et public — fait exception à ce scopage : une décision vaut jusqu'à la suivante, sans date d'expiration ni renouvellement annuel — c'est la pratique réelle du club. Accorder et refuser sont deux décisions datées, et l'absence de décision est un troisième état, qui protège comme un refus sans en être un : la liste de ceux qui ont refusé ne contient ainsi que de vrais refus. La preuve signée existe, mais elle vit dans AssoConnect, l'outil associatif qui la détient déjà. Le modèle enregistre donc <em>quelle décision vaut, à quel titre et depuis quand</em>, et rien de plus : il ne redemande pas un document que le club a ailleurs.</p>
+  <div class="ceiling"><b>plafond assumé :</b> pas de vérification photo par photo de la décision qui valait le jour de la prise de vue, pas d'étiquetage obligatoire des visages, rien de bloquant. L'autorisation est accordée dans l'immense majorité des cas, un élève qui refuse évite les photos, et une erreur se répare en retirant l'image. L'outil prévient celui qui publie, et s'arrête là.</div>
+  <p>Les parents ne sont pas adhérents et n'ont pas de compte. <code>granted_by</code> ne peut donc pas être une clé étrangère vers <code>User</code> : c'est une qualité — l'intéressé lui-même, ou son représentant légal. Le nom du signataire n'est pas stocké, pour la même raison qui garde <code>Partner</code> minimale : ce sont des données personnelles de tiers adultes dont le produit n'a pas besoin, et AssoConnect les détient déjà avec la signature.</p>
+  <p>Les comptes, eux, ne viennent pas d'AssoConnect : <b>chacun crée le sien</b>, comme le sujet l'exige, avec son e-mail et un mot de passe. Ce qu'AssoConnect apporte, c'est ce que personne ne peut établir pour soi-même — qu'il est adhérent, sa date de naissance, et le sort de son droit à l'image. D'où un import, en début de saison puis après chaque nouvelle adhésion, qui ne crée jamais de compte et ne prend jamais une adresse pour clé : il <em>vérifie</em> des comptes qui existent déjà, en les reliant à leur adhésion. Les mentors adhèrent au club comme les élèves : aucun compte n'échappe à la vérification.</p>
+  <p>L'e-mail ne peut pas servir de clé. Pour un mineur, l'adresse de l'adhérent est souvent celle d'un parent, et des frères et sœurs la partagent ; s'en servir comme identifiant ferait même recevoir au parent les liens de réinitialisation du compte de l'élève. La clé est le <b>numéro d'adhérent</b>, stable d'une saison à l'autre. Pour le poser la première fois, la création du compte demande nom, prénom et date de naissance : si le trio correspond à une ligne de l'export — casse, accents, tirets et apostrophes ignorés — la vérification est automatique. Le reste remonte à l'administrateur avec sa raison : deux comptes qui déclarent le même trio, une ligne dont le numéro désigne un compte pendant qu'un autre en réclame les noms, ou une correspondance approchante — même date de naissance et un seul des deux noms identique. Cette dernière règle est volontairement la plus grossière qui reste énonçable en une phrase : une distance d'édition rattraperait les fautes de frappe, au prix d'un seuil que personne ne saurait justifier. Ce qu'elle laisse passer n'est pas perdu, seulement rangé parmi les lignes en attente de compte, que l'administrateur voit aussi. La machine ne devine jamais ; elle liste. On fait confiance, comme AssoConnect le fait : aucune pièce d'identité n'est demandée nulle part. La demande est effacée dès la vérification, et le compte n'en garde que le numéro et la date de naissance.</p>
+  <p>L'adresse <b>identifie sans délivrer</b>, et c'est ce qui fait tenir ensemble quatre contraintes qui se contrariaient. Le sujet exige une authentification par e-mail et mot de passe : l'adresse reste donc la clé de connexion, et reste unique — non par principe, mais parce que deux comptes qui la partagent rendent impossible de savoir quel mot de passe vérifier. Or <b>les plus jeunes n'en ont pas</b> : l'établissement n'en fournit pas, sa messagerie vit dans l'ENT et ne sort pas. L'exiger reviendrait à écarter précisément ceux que tout le reste du produit protège le plus. Celui qui en a une la donne ; celui qui n'en a pas s'en voit attribuer une bâtie sur son nom, dans un domaine <em>réservé</em> par la RFC 2606 — <code>marie.dubois@rouages.invalid</code> — dont la norme garantit qu'il ne sera jamais attribué : rien ne peut partir vers une personne réelle, et la forme de l'identifiant dit elle-même qu'il n'est pas une adresse.</p>
+  <p><b>On se connecte aussi avec son pseudo</b>, qui est ce qu'un élève de douze ans tapera. Un second backend cherche le compte par adresse, puis par pseudo ; le chemin par e-mail reste intact, donc le minimum du sujet est satisfait tel qu'il est écrit. Ce n'est pas une méthode d'authentification de plus au sens du sujet — c'est le même mot de passe, atteint par l'autre des deux identifiants uniques. Le pseudo ne peut pas contenir d'<code>@</code>, faute de quoi il pourrait se faire passer pour l'adresse d'un autre.</p>
+  <p><b>Un mot de passe oublié se règle dans la salle</b>, et aucune URL de réinitialisation n'est câblée. L'instance sert un club, dans une pièce : celui qui a oublié se tient devant l'administrateur, qui l'identifie de visu — aucun jeton ne fait mieux — et lui pose un mot de passe temporaire. C'est ce qui autorise tout ce qui précède : rien n'étant jamais envoyé à l'adresse de connexion, elle n'a pas à recevoir.</p>
+  <p>Quelque chose part pourtant : le module RGPD exige des confirmations par e-mail pour les opérations sur les données. Elles ne vont ni à la clé de connexion, ni à un enfant. Les droits d'un mineur s'exercent par son représentant légal, et une confirmation de suppression adressée à un élève de douze ans n'a aucune valeur. Elles partent donc vers une <b>adresse de contact</b>, celle du responsable légal, qu'AssoConnect détient déjà — la colonne que l'import lit sans s'en servir. <b>Identifier et atteindre sont deux choses</b>, et les avoir confondues est ce qui rendait le problème insoluble.</p>
+  <p>La date saisie à la création du compte ne sert qu'à rapprocher. <b>Un compte non vérifié est mineur</b>, quoi qu'il ait déclaré : sinon un élève de quinze ans lèverait lui-même la protection de ses photos. Une fois le compte vérifié, c'est la date d'AssoConnect qui fait foi, et la majorité se calcule — un booléen importé en septembre serait faux au premier anniversaire. Le droit à l'image se lit dans le même export : case de refus cochée, un refus ; document déposé sans refus, une autorisation, datée du dépôt du document et non de l'import ; ni l'un ni l'autre, aucune décision, et rien n'est présumé.</p>
+  <p>L'export se lit en <b>tout ou rien</b>. Un fichier qui n'est pas un classeur lisible, une colonne attendue absente, une date illisible, un numéro d'adhérent vide ou porté par deux lignes : l'import s'arrête avant d'écrire quoi que ce soit, et nomme la ligne fautive telle que l'administrateur la voit dans son tableur. Un export est produit par une machine : une anomalie n'y est pas une ligne à ignorer, c'est le signe d'un mauvais fichier ou d'un export qui a changé. Symétriquement, réimporter le même fichier ne laisse aucune trace — pas même dans le journal des décisions, puisqu'une décision déjà en vigueur n'est pas réécrite. L'import se termine sur ce qu'il a changé, puis sur ce qu'il laisse à décider ; quand il n'y a rien à décider, il tient en une ligne.</p>
+  <p>Un adhérent absent de l'export de la saison n'a pas renouvelé. L'import le signale sans agir, parce que les renouvellements tardifs sont la règle ; l'administrateur désactive le compte quand la période est close. Rien n'est supprimé : ses avancées et ses photos sont citées dans des cahiers, et l'historique de son droit à l'image prouve ce qui valait. L'effacement vient sur demande ou au terme de la durée de conservation, et c'est l'affaire du module RGPD. L'API AssoConnect existe mais s'obtient au cas par cas et vise les fédérations : en dépendre rendrait le projet indémontrable chez un correcteur qui n'a pas les identifiants. L'export est la voie sûre, et le volume — un effectif de club, quelques mouvements par an — ne justifie pas mieux.</p>
+
+  <h4>Traces d'activité</h4>
+  <div class="codewrap"><pre><b>Entry</b>           id, team_season_id NULLABLE, meeting_id NULLABLE,
+                author_id, work_item_id NULLABLE, type, title, body,
+                occurred_at, visibility, created_at,
+                updated_at NULLABLE, updated_by NULLABLE
+                <i>occurred_at vs created_at → l'écart dit si c'est reconstitué</i>
+                <i>type ∈ {progress, note, media, meeting, test, decision, commit}</i>
+                <i>test → une session de mesure ; commit → en réserve</i>
+                <i>note → une remarque ; portée : team_season_id, ou work_item_id</i>
+                <i>       adressée à un chantier, elle attend celui qui l'ouvrira</i>
+                <i>decision → ce qu'une réunion a tranché, dans la séance</i>
+                <i>visibility ∈ {private, team, public}</i>
+                <i>public → peut sortir du club ; rien n'est mis en ligne</i>
+                <i>team_season_id NULL → trace de club, citable par les 4 cahiers</i>
+                <i>meeting_id       → rattache la trace à sa séance</i>
+                <i>work_item_id     → rattache l'avancée à son chantier</i>
+<b>Tag</b>             id, season_id NULLABLE, axis, label, position, archived
+                <i>axis ∈ {subsystem, step}</i>
+                <i>subsystem → châssis, intake, autonome, vision… — scopé saison</i>
+                <i>            un sous-système = un chantier ; le logiciel en est un</i>
+                <i>            pas de sous-système → chantier hors robot</i>
+                <i>step      → brainstorming, prototypage, construction,</i>
+                <i>            tests à vide, intégration, test zéro,</i>
+                <i>            optimisation — fixe, ordonné par position</i>
+                <i>            réparation — position NULL, hors séquence</i>
+                <i>subsystem sur le chantier ; step sur l'avancée</i>
+                <i>season_id NULL → traverse les saisons (les étapes)</i>
+<b>EntryTag</b>        entry_id, tag_id       <i>-- l'étape de l'avancée</i>
+<b>WorkItem</b>        id, team_season_id, title, status, opened_at, closed_at,
+                handover NULLABLE
+                <i>title repris du sous-système ; saisi seulement hors robot</i>
+                <i>handover → la passation : par où continuer, quoi ne pas défaire</i>
+                <i>            écrasé à chaque avancée, montré à la reprise</i>
+                <i>status ∈ {suggested, open, done, dropped}</i>
+                <i>suggested → projeté en septembre, pas encore commencé</i>
+                <i>ni assigné, ni échéance — le tableau n'est qu'une vue de ceci</i>
+<b>WorkItemTag</b>     work_item_id, tag_id   <i>-- le sous-système, s'il y en a un</i>
+<b>EntryParticipant</b> entry_id, user_id
+                <i>qui a fait avancer ce chantier ce jour-là</i>
+                <i>toujours de première main : nul ne s'inscrit à la place d'un autre</i>
+                <i>la présence du jour se lit ici — aucune table ne la double</i>
+<b>MediaAsset</b>      entry_id PK/FK, path, mime, size, width, height,
+                duration, captured_at
+                <i>photo, vidéo, PDF, plan, export CAO — mime décide,</i>
+                <i>width / height / duration nullables</i>
+<b>MediaSubject</b>    media_id, user_id      <i>-- qui est sur la photo, quand ça compte</i></pre></div>
+  <p><code>Entry</code> est un tronc commun, pas une table fourre-tout : les champs partagés sont mutualisés parce que le cahier doit pouvoir citer n'importe quoi de façon uniforme. Seuls <code>MediaAsset</code> et <code>Meeting</code> méritent une extension — un essai ou une décision, c'est du texte, et une avancée de chantier n'est qu'un texte doublé d'un lien.</p>
+  <p>Deux colonnes portent le gros du travail. <code>meeting_id</code> est le mécanisme d'agrégation : tout ce qui s'est passé un jour donné remonte dans le compte-rendu de ce jour. <code>team_season_id</code> nullable permet à un événement de club — une visite d'entreprise, une démonstration en école — d'être cité par les quatre cahiers sans duplication.</p>
+
+  <h4>Séances et événements</h4>
+  <div class="codewrap"><pre><b>MeetingSlot</b>     id, season_id, weekday, start_time,
+                end_time NULLABLE, location, valid_from, valid_until NULLABLE
+                <i>les créneaux habituels — une séance attendue par occurrence,</i>
+                <i>sans réponse elle reste un trou visible</i>
+                <i>changer un créneau ferme la ligne et en ouvre une autre :</i>
+                <i>ce qui était attendu en novembre le reste</i>
+                <i>end_time indicative — rien ne s'y ferme, rien ne s'y calcule</i>
+<b>Meeting</b>         entry_id PK/FK, kind, starts_at, ends_at NULLABLE, location
+                <i>kind ∈ {work_session, competition, outreach, admin}</i>
+<b>Outreach</b>        meeting_id PK/FK, partner_id, audience_size, audience_kind
+<b>Partner</b>         id, name, kind, notes
+                <i>kind ∈ {team, school, company, institution, community}</i>
+                <i>team → une autre équipe : visios, échanges, entraide</i></pre></div>
+
+  <h4>Cahier</h4>
+  <div class="codewrap"><pre><b>NotebookSection</b> id, team_season_id, kind, title, order
+                <i>kind ∈ {background, design_process, iteration,</i>
+                <i>        outreach, sustainability}</i>
+<b>NotebookBlock</b>   id, section_id, author_id, body, order, updated_at
+<b>Citation</b>        block_id, entry_id, caption, order      <b>← la jointure</b></pre></div>
+
+  <h4>Substrat de mesure</h4>
+  <div class="codewrap"><pre><b>MetricSet</b>       id, season_id, name, fields JSON
+                <i>fields: [{key, label, type, min, max}]</i>
+                <i>FTC change de jeu chaque année → jamais en dur</i>
+<b>Session</b>         entry_id PK/FK, kind, metric_set_id, event_id NULLABLE
+                <i>kind ∈ {practice, scouting}</i>
+                <i>une session est une trace : sa date, son auteur et son équipe</i>
+                <i>viennent d'Entry, et le cahier peut donc la citer</i>
+                <i>Entry.work_item_id renseigné → un essai de chantier ; la</i>
+                <i>référence est l'essai précédent du même chantier</i>
+                <i>Entry.work_item_id NULL → un match d'entraînement : robot</i>
+                <i>entier et drive team, relié à rien, un point dans la courbe</i>
+                <i>event_id renseigné → en compétition</i>
+<b>Observation</b>     id, session_id, subject_team_id, observer_id,
+                metrics JSON, client_uuid UNIQUE, recorded_at
+                <i>client_uuid → l'upsert idempotent du terrain</i></pre></div>
+  <div class="ceiling"><b>plafond assumé :</b> <code>MetricSet</code> est un JSON édité dans un formulaire, dont le formulaire de saisie se déduit par rendu. Pas de constructeur de schéma. ~80 lignes — la différence entre un outil qui meurt en septembre au changement de jeu et un outil que le club réutilise. Les données historiques ne sont pas revalidées si la grille change en cours de saison ; à versionner seulement si ça mord.</div>
+
+  <h4>Scouting</h4>
+  <div class="codewrap"><pre><b>Event</b>           id, season_id, name, venue, starts_on
+<b>Match</b>           id, event_id, number, phase, red1, red2, blue1, blue2
+<b>ScoutedTeam</b>     id, number, name, team_id NULLABLE
+                <i>-- toutes les équipes du tournoi, y compris les vôtres</i>
+                <i>-- team_id renseigné = c'est un robot du club</i>
+<b>Campaign</b>        id, event_id   <i>-- observation mutualisée</i>
+<b>Assignment</b>      campaign_id, scout_id, match_id, scouted_team_id
+
+<b>PickList</b>        id, campaign_id, team_season_id   <i>-- une liste par équipe</i>
+<b>PickListEntry</b>   picklist_id, scouted_team_id, rank, note, status
+                <i>status ∈ {available, taken, do_not_pick}</i>
+                <i>taken : coché à la main pendant la sélection</i></pre></div>
+  <p><code>Campaign</code> porte l'argument produit le plus fort du projet : les quatre équipes du club <b>mutualisent leur observation</b>. Quatre équipes qui envoient chacune deux observateurs, cela fait huit paires d'yeux et une couverture réelle du plateau — là où une équipe seule n'en aligne jamais assez. <code>Assignment</code> en découle : le calendrier se répartit entre scouts pour couvrir les quatre robots de chaque match, sans doublon ni trou.</p>
+  <p>Mais la mutualisation s'arrête aux données. <b>Chaque équipe dérive sa propre liste</b>, parce que le choix d'un partenaire est affaire de complémentarité et que chaque robot a ses faiblesses propres. La formule est donc : on observe ensemble, chacun décide pour soi.</p>
+  <p>Vos propres robots sont scoutés comme les autres — d'où le <code>team_id</code> nullable. Ils sont sur le terrain dans de nombreux matchs, quelqu'un les regarde déjà, et vous obtenez un profil mesuré dans les mêmes conditions et avec la même grille que ceux auxquels vous allez le comparer. Les données d'entraînement ne peuvent pas jouer ce rôle : conditions contrôlées d'un côté, pression de match de l'autre.</p>
+
+  <h4>Modération</h4>
+  <div class="codewrap"><pre><b>ModerationPolicy</b>  category, threshold
+                  <i>category ∈ {nom, coordonnées, adresse, horaire nominatif}</i>
+                  <i>signalement à celui qui publie ; jamais de suppression</i>
+                  <i>n'inspecte que ce qui change de visibilité</i>
+<b>ModerationVerdict</b> id, entry_id, category, score, action_taken,
+                  model, created_at
+<b>ModerationReview</b>  verdict_id, reviewer_id, decision, reason, reviewed_at</pre></div>
+
+  <h4>RAG règlement</h4>
+  <div class="codewrap"><pre><b>ApiKey</b>          id, label, hash, scopes, rate_limit,
+                created_at, revoked_at NULLABLE
+                <i>lecture seule, sauf l'upsert de scouting</i>
+
+<b>Document</b>        id, season_id, source, authority, title, url, fetched_at
+                <i>source ∈ {game_manual, official_qa, forum}</i>
+                <i>rien d'écrit par l'équipe : une fiche périmée ment avec autorité</i>
+                <i>authority ∈ {binding, ruling, community}</i>
+<b>Chunk</b>           id, document_id, ordinal, text, embedding
+<b>RuleQuery</b>       id, asker_id, question, answer, created_at
+<b>QueryCitation</b>   query_id, chunk_id, rank</pre></div>
+</section>
+
+<section>
+  <p class="eyebrow">Modèle</p>
+  <h2>Le lexique</h2>
+  <p>Un même objet appelé de deux façons finit par devenir deux objets. Ce projet en a déjà fait l'expérience en une journée de conception — un axe nommé tantôt <em>discipline</em> tantôt <em>type de travail</em>, un autre tantôt <em>apport</em>, tantôt <em>phase</em>, tantôt <em>étape</em> — et ce qui coûte une relecture dans une note coûte une intégration ratée dans un dépôt à cinq. Les mots du modèle sont donc des décisions au même titre que le schéma : le français est celui de l'interface et des conversations, l'anglais celui du code.</p>
+  <div class="note"><p><b>Le tableau a quitté ce document.</b> Il vit désormais dans le dépôt, à <code>docs/lexique.md</code> — <a href="https://github.com/JeromeBarthelemy/transcendence/blob/main/docs/lexique.md">le lire ici</a> — parce qu'un terme qui change doit apparaître comme un diff qu'une <em>pull request</em> peut contredire, et non comme une phrase modifiée au milieu d'un paragraphe mis en forme. C'est arrivé : deux tickets ont proposé <code>Chantier</code>, <code>Avancée</code> et <code>Séance</code> pour des tables que le lexique nommait déjà <code>WorkItem</code>, <code>Entry</code> et <code>Meeting</code>. Une seule source, du côté où le code se relit.</p></div>
+  <p>Y figurent, outre les trente-cinq termes : les deux pièges sur lesquels ce document s'est lui-même fait prendre — une <em>séance</em> n'est pas une <em>session</em>, un <em>avancement</em> n'est pas une <em>avancée</em> —, ceux des mots qui seront prononcés par le club et doivent donc être choisis avec lui, et ce que le lexique se garde de figer.</p>
+</section>
+
+<section>
+  <p class="eyebrow">Barème</p>
+  <h2>22 points déclarés, 19 comptés</h2>
+  <p>Le sujet demande 14 points et plafonne le bonus à 5 : <b>19 est le maximum qui compte</b>. Au-delà, un module supplémentaire ne rapporte rien — mais il ne coûte rien non plus, et c'est ce qui décide de la stratégie.</p>
+  <p>On en déclare donc <b>22</b>. Les deux points de trop sont l'assurance, et cette forme d'assurance vaut mieux qu'une réserve : si un module est retoqué en évaluation, l'arithmétique se refait toute seule au lieu d'obliger à défendre un remplaçant devant un correcteur qui vient justement d'en refuser un. Le README étant figé le jour de la soutenance, un module gardé en réserve ne se promeut pas séance tenante.</p>
+  <p>Les deux ajouts sont les moins chers du barème et les plus utiles au produit. <b>Les notifications</b> comblent un trou réel : une remarque adressée à un chantier est aujourd'hui muette, elle attend que quelqu'un l'ouvre. Elles sont bon marché à une condition — être posées une fois dans la couche de service, jamais recâblées fonctionnalité par fonctionnalité. <b>La recherche avancée</b> répond à la question de celui qui rédige en avril : <em>retrouve les photos de l'intake de novembre</em>. Filtres, tri, pagination sur les traces ; le modèle est assez propre pour que ce soit une requête, pas un chantier.</p>
+
+  <div class="tablewrap">
+    <table>
+      <caption>Déclaré</caption>
+      <thead><tr><th>Module</th><th class="num">Pts</th><th>Ce qui le remplit</th></tr></thead>
+      <tbody>
+        <tr><td>Frameworks front + back</td><td class="num">2</td><td>fait de toute façon</td></tr>
+        <tr><td>ORM</td><td class="num">1</td><td>idem</td></tr>
+        <tr><td>Organisations</td><td class="num">2</td><td>4 équipes, saisons, affectations</td></tr>
+        <tr><td>Permissions avancées</td><td class="num">2</td><td>élève, mentor, administrateur du club</td></tr>
+        <tr><td>API publique</td><td class="num">2</td><td>clé, quota, documentation, 5 endpoints</td></tr>
+        <tr><td>Temps réel</td><td class="num">2</td><td>tableau des chantiers, convergence au pit</td></tr>
+        <tr><td>Analytics</td><td class="num">2</td><td>tableau de bord : courbe de saison, essais, profils observés</td></tr>
+        <tr><td>RAG règlement</td><td class="num">2</td><td>manuel + Q&amp;A, hiérarchie d'autorité</td></tr>
+        <tr><td>Upload de fichiers</td><td class="num">1</td><td>photos, vidéos, plans, exports CAO</td></tr>
+        <tr><td>RGPD</td><td class="num">1</td><td>mineurs, export, purge</td></tr>
+        <tr><td>PWA</td><td class="num">1</td><td>saisie hors-ligne au terrain, installée sur les téléphones</td></tr>
+        <tr><td>Modération IA</td><td class="num">1</td><td>données personnelles avant toute sortie</td></tr>
+        <tr><td>Notifications</td><td class="num">1</td><td>remarque adressée, chantier qui avance sans vous</td></tr>
+        <tr><td>Recherche avancée</td><td class="num">1</td><td>filtres, tri, pagination sur les traces</td></tr>
+        <tr><td>Design system maison</td><td class="num">1</td><td>dix composants réutilisables, construits de toute façon</td></tr>
+        <tr class="total"><td>Total déclaré</td><td class="num">22</td><td>19 comptés, 3 d'assurance</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="tablewrap">
+    <table>
+      <caption>Réserve — construit, non déclaré</caption>
+      <thead><tr><th>Module</th><th class="num">Pts</th><th>Pourquoi en réserve</th></tr></thead>
+      <tbody>
+        <tr><td>Module de choix — export du cahier</td><td class="num">2</td><td>seul module <em>custom</em>, donc le plus contestable en évaluation</td></tr>
+        <tr class="total"><td>Marge</td><td class="num">2</td><td>la dernière carte, à jouer si un module tombe</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="note"><p>L'export du cahier reste en réserve alors qu'il est l'âme du produit. Ce n'est pas une contradiction : on le construit parce que le produit en a besoin, mais le compte ne dépend plus de sa validation. Il reste d'ailleurs le seul de la réserve, et cela donne au compte une propriété qui vaut d'être dite en évaluation : <b>les quinze modules déclarés figurent tous au barème du sujet</b>. Aucun ne demande d'expliquer ce qu'il est avant de montrer qu'il fonctionne.</p></div>
+</section>
+
+<section>
+  <p class="eyebrow">Exécution</p>
+  <h2>Ordre de construction</h2>
+  <p>La règle : une <b>tranche</b> verticale d'abord — le mot vaut aussi pour les sept qui suivent, « étape » étant réservé au vocabulaire du produit. Une chose qui traverse toute la pile et prouve la chaîne, avant toute largeur.</p>
+  <ol class="steps">
+    <li><b>Socle</b><span>Auth, équipes, saisons, affectations, rôles, droit à l'image, profils. Rien de visible, tout en dépend.</span></li>
+    <li><b>Preuve de concept</b><span>Séance, chantiers, inscriptions, agrégation de la journée, citation, export du cahier. La chaîne complète, en minimal — menée par le compte-rendu plutôt que par un tableau : la séance a lieu chaque semaine quoi qu'il arrive, et le tableau n'est qu'une lecture de ce qu'elle a produit.</span></li>
+    <li><b>Mesure et entraînement</b><span>MetricSet, sessions citables, test zéro, comparaison d'essais, tableau de bord et courbe de saison.</span></li>
+    <li><b>Scouting</b><span>Campagne, assignations, saisie hors-ligne, synchronisation au retour au pit, pick list.</span></li>
+    <li><b>API publique et publication</b><span>Clé, quota, documentation, lecture filtrée par consentement, upsert de scouting. Détection de données personnelles à la sortie, file de revue, journal auditable. Notifications, posées une fois dans la couche de service.</span></li>
+    <li><b>Médias, événements et consentements</b><span>Dépôt en masse, classement par date, outreach et partenaires, sujets photographiés, export filtré par consentement. Recherche avancée sur les traces, une fois qu'il y a de quoi chercher.</span></li>
+    <li><b>RAG règlement</b><span>Ingestion du manuel et du Q&amp;A, rangs d'autorité, diff de règles sur les questions posées.</span></li>
+    <li><b>Réserve</b><span>Internationalisation, aide à la rédaction du compte-rendu.</span></li>
+  </ol>
+
+  <div class="gate">
+    <span class="glabel">Jalon go / no-go &mdash; fin de tranche 2</span>
+    <p>Si la chaîne trace &rarr; citation &rarr; export ne convainc pas ici, le concept est mort et il est encore temps de pivoter. Tant que cette tranche n'est pas finie, <b>personne ne touche au scouting ni à l'API</b>.</p>
+    <p>Et ce jalon peut être un vrai test plutôt qu'une autoévaluation : la saison 2026-2027 s'ouvre le 12 septembre 2026, donc une saison réelle courra pendant toute la construction. L'outil ne sera pas prêt pour la rentrée du club — il n'a pas à l'être. Ce qui compte est qu'à la fin de la tranche 2, des élèves puissent cocher un vrai chantier un vrai mercredi, et qu'on regarde ce qu'ils ne remplissent pas.</p>
+  </div>
+
+  <p>Les tranches 1 et 2 font exister le projet. Les tranches 3 et 4 lui font valoir ses points. Le reste est de la marge. Le cahier et le scouting ne se doivent rien : si l'un échoue, l'autre survit seul — plutôt confortable pour un projet de groupe.</p>
+  <div class="note"><p><b>L'aide à la rédaction, si elle se fait.</b> Ce n'est pas la réhabilitation de l'IA qui interroge les élèves : celle-là reste abandonnée. C'est plus étroit — transformer en prose les traces déjà attachées à un chantier, le seul geste qu'une requête SQL ne sait pas faire. Elle ne rapporte aucun point : à 19 / 19, c'est du produit pur, et donc du périmètre. On ne l'ouvre qu'une fois les tranches 1 à 4 finies, quand on saura si le compte-rendu dépasse vraiment la minute. Trois contraintes la rendent défendable — <b>sur la phrase d'une avancée seulement</b>, jamais sur les blocs de narration qui sont l'objet du jugement ; <b>aucune écriture directe</b>, un brouillon proposé à côté du champ, que l'élève recopie ou ignore ; <b>un drapeau <code>ai_assisted</code> sur la trace</b>, parce qu'un jury FIRST juge le travail des élèves et que la question se posera. C'est la même exigence que le consentement : l'état vit dans le modèle, pas dans une convention orale.</p></div>
+</section>
+
+<section>
+  <p class="eyebrow">Discipline</p>
+  <h2>Hors périmètre, explicitement</h2>
+  <p>À écrire dans le README dès le premier jour, sinon ça revient par la fenêtre. Le risque numéro un de ce projet n'est pas technique, il est de périmètre.</p>
+  <ul class="cuts">
+    <li><b>Pas de Git maison, ni de copie du dépôt.</b> GitHub et GitLab existent, les équipes FTC les utilisent déjà, et c'est là que se lit l'histoire du code. On y renvoie par un lien ; on ne la recopie pas.</li>
+    <li><b>Pas d'édition collaborative caractère par caractère.</b> Verrou par bloc, ou édition simple. Un CRDT mange un mois.</li>
+    <li><b>Pas de vitrine publique.</b> Rien n'est mis en ligne : ce qui doit sortir est sélectionné, filtré par consentement, et exporté.</li>
+    <li><b>Pas de transcodage vidéo.</b> Upload, stockage, balise <code>video</code>, une limite de taille.</li>
+    <li><b>Pas de scoring officiel FTC.</b> Vos propres métriques, assumées.</li>
+    <li><b>Pas de scraping de forums au départ.</b> Manuel et Q&amp;A officiels d'abord : sources publiques, structurées, fiables. Les forums ajoutent des CGU discutables, du bruit et de la maintenance pour la source la moins fiable des trois.</li>
+    <li><b>Pas de synchronisation AssoConnect.</b> Un import de l'export, en début de saison et après chaque nouvelle adhésion, pas une intégration temps réel. L'API existe mais s'obtient au cas par cas : s'y adosser rendrait le socle indémontrable.</li>
+    <li><b>Pas de coffre-fort de pièces justificatives.</b> Les autorisations parentales signées restent dans AssoConnect. <code>Consent</code> en porte l'état, pas le PDF.</li>
+    <li><b>Pas de fiches maison dans le corpus du RAG.</b> Seulement des sources publiées et datées par d'autres. Ce que le club écrit lui-même n'aurait aucune date de péremption visible.</li>
+    <li><b>Pas de base vectorielle, pas de cascade de modération.</b> Le volume ne les justifie pas.</li>
+  </ul>
+</section>
+
+<section>
+  <p class="eyebrow">Vigilance</p>
+  <h2>Risques réels</h2>
+  <div class="risks">
+    <div class="risk">
+      <h5>Le périmètre</h5>
+      <p>Le seul qui peut tuer le projet. Cinq features décrites, c'est cinq moitiés de produit — et un module à moitié fait vaut zéro. Le garde-fou est le jalon de la tranche 2.</p>
+    </div>
+    <div class="risk">
+      <h5>Les données de mineurs</h5>
+      <p>Photos d'élèves, exports qui quittent le club, données scolaires. Le consentement doit être <em>dans le modèle</em>, pas un écran de réglages ajouté à la fin.</p>
+    </div>
+    <div class="risk">
+      <h5>La fatigue du rituel</h5>
+      <p>Si le compte-rendu de séance dépasse une minute, il ne sera pas rempli, et la chronologie continue — la promesse centrale — disparaît. Présence déduite, chantiers cochés, agrégation automatique, remarques écrites à chaud, « rien de neuf » accepté.</p>
+    </div>
+    <div class="risk">
+      <h5>La discipline de mesure</h5>
+      <p>Une expérience sans référence ne vaut rien, et personne ne pense à mesurer avant de démonter le robot. C'est l'étape <em>test zéro</em> qui l'impose sur un chantier ; pour les matchs d'entraînement, rien ne l'impose et rien ne le peut — seule la régularité des relevés fait la courbe.</p>
+    </div>
+    <div class="risk">
+      <h5>La taille d'échantillon</h5>
+      <p>Cinq manches d'entraînement, c'est du bruit. Ne promettez aucune significativité statistique : affichez les runs bruts et l'écart, laissez juger des humains.</p>
+    </div>
+    <div class="risk">
+      <h5>L'API FIRST</h5>
+      <p>Récupérer les vrais calendriers de matchs est tentant. À traiter en bonus optionnel : la saisie manuelle doit suffire si l'API change ou tombe.</p>
+    </div>
+    <div class="risk">
+      <h5>Le réseau en gymnase</h5>
+      <p>Longtemps le point le plus dur — il l'est moins depuis que le même dispositif sert aux matchs d'entraînement, donc s'éprouve chaque semaine. Restent les mécanismes : identifiant client généré côté appareil, upsert idempotent, dernière écriture gagnante par scout. Deux scouts sur le même match produisent deux rapports — c'est voulu, pas un conflit.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <p class="eyebrow">Conformité</p>
+  <h2>Les obligations du sujet</h2>
+  <p>Indépendantes des modules, et rédhibitoires si manquantes.</p>
+  <ul class="check">
+    <li>Frontend, backend, base de données</li>
+    <li>Docker, lancement en une commande</li>
+    <li>HTTPS sur toute entrée backend</li>
+    <li>Chrome à jour, zéro erreur console</li>
+    <li>Politique de confidentialité réelle</li>
+    <li>Conditions d'utilisation réelles</li>
+    <li>Multi-utilisateurs simultanés</li>
+    <li>Mots de passe hachés et salés</li>
+    <li>Validation front <em>et</em> back</li>
+    <li><code>.env</code> ignoré + <code>.env.example</code></li>
+    <li>Schéma de base documenté</li>
+    <li>Commits de tous les membres</li>
+    <li>Rôles d'équipe documentés</li>
+    <li>README en anglais, sections imposées</li>
+    <li>Modification demandée en direct, à l'évaluation</li>
+  </ul>
+  <h3>Ce que les modules exigent en plus</h3>
+  <p>Un module n'est pas validé parce que son idée est présente : le sujet prévient qu'un module non fonctionnel ou incomplet vaut zéro, et chacun porte une liste d'exigences qu'il faut lire ligne à ligne. Cinq de nos douze demandent plus que ce que le produit réclamerait de lui-même. C'est du travail à porter au budget dès maintenant, pas à découvrir en avril.</p>
+  <ul class="cuts">
+    <li><b>Organisations</b> — le sujet veut la création, l'édition et la suppression d'organisations, l'ajout et le retrait de membres. L'import de début de saison ne suffit pas : il faut les écrans, même sobres.</li>
+    <li><b>Permissions avancées</b> — CRUD complet sur les utilisateurs, gestion des rôles, et des vues qui diffèrent réellement selon le rôle. Le changement d'équipe des mentors en est une ; il en faut d'autres, visibles.</li>
+    <li><b>Temps réel</b> — WebSocket ou équivalent, mises à jour entre clients, <em>déconnexions gérées proprement</em>, diffusion efficace. La dernière exigence tombe bien : le mode hors-ligne du terrain oblige à la traiter de toute façon.</li>
+    <li><b>Analytics</b> — c'est le plus exigeant et le moins couvert : graphiques interactifs, mise à jour en direct, export PDF ou CSV, filtres et plages de dates réglables. Cela suppose un <b>quatrième écran</b>, que ce document ne décrit pas et qu'il faut donc concevoir : la courbe de saison, les profils d'équipes observées, la comparaison d'essais. Les données existent toutes ; c'est la surface qui manque.</li>
+    <li><b>Upload de fichiers</b> — validation côté client <em>et</em> serveur sur le type, la taille et le format, aperçu quand c'est possible, indicateur de progression, suppression. Le dépôt en masse ne dispense d'aucune de ces cases.</li>
+  </ul>
+  <p>Un sixième point n'est pas un manque mais une lecture à assumer : la <b>modération IA</b> est décrite au sujet comme « auto moderation, auto deletion, auto warning ». Notre dispositif ne supprime rien et n'agit jamais seul — il avertit celui qui publie. C'est l'<em>auto warning</em>, et il faut le dire ainsi en évaluation plutôt que de laisser croire à un filtre qui tranche.</p>
+  <p style="margin-top:20px">Le README exige aussi des sections propres à ce projet : information d'équipe, gestion de projet, stack technique justifiée, schéma de base, liste des fonctionnalités par contributeur, modules avec calcul de points, contributions individuelles — et une description de l'usage de l'IA. Cette dernière ne parle pas des fonctionnalités du produit mais de l'équipe : quels outils, pour quelles tâches, sur quelles parties du projet. Elle se tient en journal dès le premier jour, sinon elle se reconstitue à la fin de mémoire — précisément le problème que ce projet traite.</p>
+</section>
+
+<section>
+  <p class="eyebrow">Ouvert</p>
+  <h2>Ce qui reste à décider</h2>
+  <ul class="open">
+    <li><b>L'équipe</b><span>Quatre à cinq personnes, avec PO, PM, Tech Lead et développeurs. Le sujet impose que <em>tout le monde</em> code — un profil d'ancien enseignant et de président de club va naturellement vers PO ou PM, mais ne doit pas s'y laisser enfermer.</span></li>
+    <li><b>La base de données &mdash; tranchée</b><span>SQLite. Le choix du local a réglé la question : une base qui se déplace dans un sac avec le portable du pit, se sauvegarde en copiant un fichier et ne demande aucun service à administrer. Postgres gardait pour lui la concurrence en écriture et le confort du multi-club, dont on n'a besoin ni l'un ni l'autre à cette échelle.</span></li>
+    <li><b>La stack &mdash; tranchée à moitié</b><span>Django côté back, avec Django REST framework pour l'API publique et Channels pour le temps réel. Le framework front reste ouvert. Une conséquence d'infrastructure est déjà connue : dès qu'il y a plusieurs workers, le channel layer de Channels réclame Redis.</span></li>
+    <li><b>Multi-club &mdash; écarté</b><span>Une instance locale est par nature dédiée à un club, et le schéma en tire la conséquence : ni table <code>Club</code>, ni <code>club_id</code>, qui n'auraient été qu'un singleton et des colonnes constantes. Ouvrir un jour l'outil à plusieurs clubs demanderait de reprendre le modèle ; c'est un prix assumé pour une hypothèse que rien n'annonce.</span></li>
+    <li><b>L'identifiant de connexion &mdash; tranché</b><span>Deux identifiants uniques, l'adresse et le pseudo, et l'un et l'autre ouvrent la même serrure. L'adresse reste la clé que le sujet exige, mais cesse d'être supposée délivrable — le club en attribue une sur un domaine réservé à qui n'en a pas. Le mot de passe oublié se règle devant l'administrateur plutôt que par un lien, ce qui règle du même coup les fratries qui partagent une boîte : plus personne n'a rien à partager. Ce qui doit atteindre une personne — les confirmations du RGPD — passe par une adresse de contact, celle du responsable légal.</span></li>
+    <li><b>Le nom &mdash; tranché</b><span><em>Fieldnotes</em>. Pour un membre de FTC, le <em>field</em> est le terrain de jeu ; pour tout le monde, des <em>field notes</em> sont des relevés d'observation systématiques. Le nom sonne natif dans le domaine sans y être verrouillé, et survivrait tel quel à un élargissement du périmètre. Il évite surtout « FIRST » et « FTC », qui sont des marques déposées et défendues &mdash; sans conséquence pour un projet scolaire, mais bloquantes le jour où l'outil sortirait du club.</span></li>
+  </ul>
+</section>
+
+<footer>
+  Note de concept — projet ft_transcendence, 42.<br>
+  Établie à partir de la pratique réelle d'un club FTC de quatre équipes.<br>
+  Document de travail : le barème et l'ordre de construction sont des décisions, pas des prédictions.
+</footer>
+
+</div>
