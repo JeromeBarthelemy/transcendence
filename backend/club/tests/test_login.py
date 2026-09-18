@@ -1,4 +1,5 @@
 from django.contrib.auth import authenticate
+from django.test import Client
 
 from club.models import User
 
@@ -155,3 +156,47 @@ def test_the_identity_says_only_what_an_interface_has_to_draw(client):
     identity = login(client, "Ada").json()
 
     assert set(identity) == {"display_name", "club_role", "is_club_admin"}
+
+
+def csrf_client():
+    """enforce_csrf_checks is off by default in tests, which is exactly how a
+    missing CSRF guard stays invisible until production."""
+    return Client(enforce_csrf_checks=True)
+
+
+def test_an_anonymous_login_without_a_token_is_refused():
+    # SessionAuthentication only enforces CSRF once it has found a session, so
+    # the route that hands one out is the one it never protects. Without the
+    # explicit guard a third-party page can sign a member into an account that
+    # is not theirs.
+    User.objects.create_user("ada@club.fr", "Ada", password=PASSWORD)
+    client = csrf_client()
+
+    refused = client.post(
+        LOGIN,
+        {"username": "Ada", "password": PASSWORD},
+        content_type="application/json",
+        HTTP_ORIGIN="http://ailleurs.example",
+    )
+
+    assert refused.status_code == 403
+    assert "_auth_user_id" not in client.session
+
+
+def test_an_anonymous_login_with_a_token_still_works():
+    # The other half: the guard must refuse the forgery without refusing the
+    # form. The page gets its token from GET /api/auth/me/, 403 included.
+    User.objects.create_user("ada@club.fr", "Ada", password=PASSWORD)
+    client = csrf_client()
+    client.get(ME)
+    token = client.cookies["csrftoken"].value
+
+    accepted = client.post(
+        LOGIN,
+        {"username": "Ada", "password": PASSWORD},
+        content_type="application/json",
+        HTTP_X_CSRFTOKEN=token,
+    )
+
+    assert accepted.status_code == 200
+    assert "_auth_user_id" in client.session

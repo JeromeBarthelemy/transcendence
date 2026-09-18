@@ -209,9 +209,14 @@ account holds.
 curl -X POST http://127.0.0.1:8000/api/auth/signup/ \
   -H 'Content-Type: application/json' \
   -d '{"email": "", "password": "rouage-bleu-2026", "display_name": "Marie",
-       "club_role": "student", "last_name": "Dubois", "first_name": "Marie",
+       "last_name": "Dubois", "first_name": "Marie",
        "birth_date": "2009-06-08"}'
 ```
+
+Sign-up takes no role. Every account starts a student, and a mentor is made
+by the club admin from the Django admin — the same place a forgotten password
+is reset. The AssoConnect export confirms names, never roles, so a role
+declared at sign-up would be a role granted by asking for it.
 
 The address is optional: a member who has none is given one on a reserved
 `.invalid` domain, which can never deliver. Sign-up echoes the address back
@@ -234,6 +239,11 @@ where a script could read it. A page calls `GET /api/auth/me/` on boot — it
 answers `403` until someone signs in, and sets the `csrftoken` cookie that
 every later `POST` must echo in an `X-CSRFToken` header. The `403` sets the
 cookie too, which is what arms the login form.
+
+Sign-up and log-in say `csrf_protect` explicitly. `SessionAuthentication`
+enforces CSRF only once it has *found* a session, so the two routes that run
+without one — the routes that hand a session out — are precisely the ones it
+would not protect.
 
 ## Checking
 

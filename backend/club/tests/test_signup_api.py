@@ -8,7 +8,6 @@ MARIE = {
     "email": "marie@example.org",
     "password": "rouage-bleu-2026",
     "display_name": "Marie",
-    "club_role": "student",
     "last_name": "Dubois",
     "first_name": "Marie",
     "birth_date": "2009-06-08",
@@ -136,3 +135,11 @@ def test_every_required_field_is_required(client, missing):
 
     assert response.status_code == 400
     assert missing in response.json()
+
+
+def test_a_declared_role_is_ignored(client):
+    # Sign-up is open to whoever has the address, so a role it accepted would
+    # be a role granted by asking. #52 builds permissions on this field.
+    signup(client, club_role="mentor")
+
+    assert User.objects.get(email="marie@example.org").club_role == "student"

@@ -3,7 +3,7 @@ tenant to resolve: every route below is about the person calling it."""
 
 from django.contrib.auth import login, logout
 from django.utils.decorators import method_decorator
-from django.views.decorators.csrf import ensure_csrf_cookie
+from django.views.decorators.csrf import csrf_protect, ensure_csrf_cookie
 from rest_framework import status
 from rest_framework.permissions import AllowAny
 from rest_framework.request import Request
@@ -15,6 +15,7 @@ from club.models import User
 from .serializers import LoginSerializer, SignUpSerializer
 
 
+@method_decorator(csrf_protect, name="dispatch")
 class SignUpView(APIView):
     """The one route that has to be open: nobody has an account yet."""
 
@@ -32,10 +33,18 @@ class SignUpView(APIView):
         )
 
 
+@method_decorator(csrf_protect, name="dispatch")
 class LoginView(APIView):
     """Session and cookie, not a token: the front end is served from the same
     origin, behind the one proxy, so Django's own session machinery applies
-    and nothing has to be stored in the browser."""
+    and nothing has to be stored in the browser.
+
+    csrf_protect is spelled out because SessionAuthentication would not do it
+    here: it only enforces CSRF once it has *found* a session, so an anonymous
+    caller skips the check entirely — and this is the route that hands out a
+    session. Without it a third-party page can log a member into an account
+    that is not theirs, and everything they write next is readable by whoever
+    set the trap."""
 
     permission_classes = [AllowAny]
 
