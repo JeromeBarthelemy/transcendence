@@ -2,6 +2,9 @@
 tenant to resolve: every route below is about the person calling it."""
 
 from django.contrib.auth import login, logout
+from django.db import transaction
+from django.db.models import ProtectedError
+from django.shortcuts import get_object_or_404
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_protect, ensure_csrf_cookie
 from rest_framework import status
@@ -10,9 +13,17 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from club.models import User
+from club.models import Membership, Team, User
 
-from .serializers import LoginSerializer, SignUpSerializer
+from .errors import Conflict
+from .permissions import IsClubAdmin
+from .serializers import (
+    AddMembershipSerializer,
+    CreateTeamSerializer,
+    LoginSerializer,
+    RenameTeamSerializer,
+    SignUpSerializer,
+)
 
 
 @method_decorator(csrf_protect, name="dispatch")
@@ -95,3 +106,82 @@ def _identity(user: User) -> dict[str, object]:
         "club_role": user.club_role,
         "is_club_admin": user.is_club_admin,
     }
+
+
+def _team(team: Team) -> dict[str, object]:
+    return {"id": team.id, "number": team.number, "name": team.name}
+
+
+class TeamCreateView(APIView):
+    """No `GET` here yet — nothing drives it in #50, and it belongs to
+    whichever screen first needs a team list (#51)."""
+
+    permission_classes = [IsClubAdmin]
+
+    def post(self, request: Request) -> Response:
+        serializer = CreateTeamSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        team = serializer.save()
+        return Response(_team(team), status=status.HTTP_201_CREATED)
+
+
+class TeamDetailView(APIView):
+    permission_classes = [IsClubAdmin]
+
+    def patch(self, request: Request, pk: int) -> Response:
+        team = get_object_or_404(Team, pk=pk)
+        serializer = RenameTeamSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        team.name = serializer.validated_data["name"]
+        team.save(update_fields=["name"])
+        return Response(_team(team))
+
+    def delete(self, request: Request, pk: int) -> Response:
+        team = get_object_or_404(Team, pk=pk)
+        # `TeamSeason.team` is PROTECT (club/models.py): deleting a team with
+        # more than the one season just opened for it must not silently wipe
+        # that history away by cascading it first. Below the threshold, the
+        # single team_season is deleted along with the team on purpose — it
+        # carries nothing yet (no chantier/avancée model exists to attach to
+        # it), so it is not "history" in the sense PROTECT means to guard.
+        if team.team_seasons.count() > 1:
+            raise Conflict(
+                "Cette équipe a un historique de plusieurs saisons : "
+                "elle ne peut pas être supprimée.",
+                code="team_has_history",
+            )
+        try:
+            with transaction.atomic():
+                team.team_seasons.all().delete()
+                team.delete()
+        except ProtectedError as blocked:
+            # Backstop for whatever the count() check above does not yet
+            # know to look for.
+            raise Conflict(code="team_has_history") from blocked
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class MembershipCreateView(APIView):
+    permission_classes = [IsClubAdmin]
+
+    def post(self, request: Request) -> Response:
+        serializer = AddMembershipSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        membership: Membership = serializer.save()
+        return Response(
+            {
+                "id": membership.id,
+                "user": membership.user_id,
+                "team_season": membership.team_season_id,
+            },
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class MembershipDetailView(APIView):
+    permission_classes = [IsClubAdmin]
+
+    def delete(self, request: Request, pk: int) -> Response:
+        membership = get_object_or_404(Membership, pk=pk)
+        membership.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
