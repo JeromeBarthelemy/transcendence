@@ -4,12 +4,13 @@ per-client routing: the admin, and in development the media files."""
 from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
-from django.urls import URLPattern, URLResolver, path
+from django.urls import URLPattern, URLResolver, include, path
 
 from config.views import health_check
 
 urlpatterns: list[URLPattern | URLResolver] = [
     path("api/health/", health_check, name="api-health"),
+    path("api/", include("club.api.urls")),
     path("admin/", admin.site.urls),
 ]
 
