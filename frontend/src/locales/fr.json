@@ -3,7 +3,7 @@
     "eyebrow": "Notebook d'ingénierie",
     "name": "Fieldnotes",
     "description": "Premier texte de test pour transcendence.",
-    "ready": "Le squelette React est pret !"
+    "ready": "Le squelette React est prêt !"
   },
   "api": {
     "checking": "Connexion à l'API Django…",
