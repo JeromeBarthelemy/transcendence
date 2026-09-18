@@ -60,6 +60,7 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "rest_framework",
     "club",
 ]
 
@@ -135,6 +136,20 @@ AUTHENTICATION_BACKENDS = [
     "club.auth.DisplayNameBackend",
 ]
 
+# Fails closed, like DJANGO_DEBUG: a view that forgets to state who may reach
+# it refuses everyone rather than serving the club's roster to the internet.
+# Sign-up and login open themselves explicitly.
+REST_FRAMEWORK = {
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "rest_framework.authentication.SessionAuthentication",
+    ],
+    "DEFAULT_PERMISSION_CLASSES": [
+        "rest_framework.permissions.IsAuthenticated",
+    ],
+    # Every refusal carries a code and a sentence, never one without the other.
+    "EXCEPTION_HANDLER": "club.api.errors.exception_handler",
+}
+
 # Django's defaults. They are what satisfies the subject's requirement that
 # passwords be hashed and salted — nothing here is hand-rolled.
 AUTH_PASSWORD_VALIDATORS = [
@@ -208,3 +223,18 @@ if not DEBUG:
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
 CSRF_TRUSTED_ORIGINS = env_list("DJANGO_CSRF_TRUSTED_ORIGINS")
+
+# Extended rather than reassigned: a second `CSRF_TRUSTED_ORIGINS = ...` below
+# would silently win over the line above and drop the production origin.
+#
+# In production the front end is static files behind the one proxy, so it is
+# same-origin and nothing is needed. In development Vite proxies /api to
+# Django, which keeps the *browser* same-origin too — no CORS anywhere. But the
+# proxy rewrites Host, so Django computes get_host() as its target while the
+# browser still sends `Origin: http://localhost:5173`. Those two can never
+# match, and the CSRF check compares Origin against this list before the view
+# is ever reached.
+if DEBUG:
+    CSRF_TRUSTED_ORIGINS += env_list(
+        "DJANGO_DEV_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173"
+    )
