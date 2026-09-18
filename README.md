@@ -75,7 +75,30 @@ Work goes through pull requests; nobody pushes to `main`.
    *Squash and merge*, so its title becomes the commit message on `main`.
 
 Code, commits, issues and pull requests are in English; only the interface is
-in French.
+in French. `docs/` is the one exception, and a deliberate one — see below.
+
+## Documentation
+
+- [`docs/lexique.md`](docs/lexique.md) — the model's vocabulary, **frozen**. One
+  name per object, French for what is read and said, English for what is
+  written in code. A pull request that names a model otherwise contradicts this
+  file, which is the point: two issues once proposed `Chantier`, `Avancée` and
+  `Séance` for tables already named `WorkItem`, `Entry` and `Meeting`.
+- [`docs/fieldnotes.html`](docs/fieldnotes.html) — the concept note: the
+  problem, the architecture, what the club's practice corrected, the schema in
+  full, the build order and what is deliberately out of scope.
+- [`docs/schema-socle.svg`](docs/schema-socle.svg) — the database schema of what
+  is built so far, which the subject requires documented.
+- [`docs/modules.md`](docs/modules.md) — the fifteen declared modules: what the
+  club has in front of each requirement, and how each will be demonstrated.
+  It is the defence rehearsal, not a specification — the README is what says
+  what was built, and a milestone is what says it is done.
+
+**These four are in French, on purpose.** The design is argued in the club's
+language, and an argument loses something in translation; the lexicon exists
+precisely so that the French of the interface and the English of the code never
+drift apart. Everything a reviewer reads — code, commits, issues, pull
+requests — stays English.
 
 ## What is here so far
 
