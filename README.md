@@ -87,6 +87,14 @@ messages, grouped by field:
 }
 ```
 
+A refusal that names no field arrives under one of two other keys, and a
+front end that only reads field names would miss both:
+
+```json
+{ "non_field_errors": [ { "code": "bad_credentials", "message": "…" } ] }
+{ "detail": { "code": "permission_denied", "message": "…" } }
+```
+
 The backend's validation message is the reference wording. The frontend
 catalogue mirrors it under the same `code` and displays it beside the field
 named by the response. When a backend message changes, update its catalogue
@@ -182,6 +190,51 @@ HTTPS, which the subject requires on every connection to the backend, will
 be handled by the final deployment's reverse proxy — not by Django's or
 Vite's development servers, nor by this development Compose stack.
 
+## Accounts and sessions
+
+Four routes, and no page yet — that is issue #40.
+
+| route | answers |
+| --- | --- |
+| `POST /api/auth/signup/` | `201` with `email` and `display_name` |
+| `POST /api/auth/login/` | `200` with the identity below |
+| `POST /api/auth/logout/` | `204` |
+| `GET /api/auth/me/` | `200` with the identity, or `403` |
+
+The identity is deliberately small — `display_name`, `club_role`,
+`is_club_admin`, `is_minor`. A session tells the interface what to draw, not
+what the account holds.
+
+```sh
+curl -X POST http://127.0.0.1:8000/api/auth/signup/ \
+  -H 'Content-Type: application/json' \
+  -d '{"email": "", "password": "rouage-bleu-2026", "display_name": "Marie",
+       "club_role": "student", "last_name": "Dubois", "first_name": "Marie",
+       "birth_date": "2009-06-08"}'
+```
+
+The address is optional: a member who has none is given one on a reserved
+`.invalid` domain, which can never deliver. Sign-up echoes the address back
+because it may have been built rather than given — whoever signs up has to be
+told what they will type next time. Logging in accepts either identifier, the
+address or the display name, in a single `username` field.
+
+An unknown identifier and a wrong password are refused by the same response,
+`bad_credentials`, identical to the character. The login form must not become
+a directory of the club, so it cannot report that an account does not exist.
+
+There is no password reset by email, deliberately: one instance serves one
+club, in one room. A member who forgets their password is standing in front of
+the club admin, who sets a temporary one from the Django admin.
+
+### Sessions
+
+The session is a cookie, not a token: same origin, one proxy, nothing stored
+where a script could read it. A page calls `GET /api/auth/me/` on boot — it
+answers `403` until someone signs in, and sets the `csrftoken` cookie that
+every later `POST` must echo in an `X-CSRFToken` header. The `403` sets the
+cookie too, which is what arms the login form.
+
 ## Checking
 
 ### Backend
@@ -274,10 +327,7 @@ requests — stays English.
 - `backend/config/` — Django settings, read from `.env`.
 - `backend/club/` — accounts, teams, seasons, memberships, and the rules that
   govern signing up: two identifiers, a reserved domain, a contact address.
-
-Nothing is user-facing yet; everything else will depend on it.
-- `backend/club/` — accounts, teams, seasons, memberships, and the rules that
-  govern signing up: two identifiers, a reserved domain, a contact address.
+- `backend/club/api/` — sign-up and session, over Django REST framework.
 - `backend/config/views.py` — the minimal health endpoint used by the frontend.
 - `frontend/src/app/` — shared router and TanStack Query configuration.
 - `frontend/src/api/` — typed clients for Django endpoints.
