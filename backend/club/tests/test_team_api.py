@@ -4,7 +4,7 @@ test client — it exercises whatever view answers the URL, DRF or not, so
 these do not wait on DRF landing to be written.
 """
 
-from club.models import Membership, Season, Team, TeamSeason, User
+from club.models import Membership, Season, Team, TeamSeason, User, WorkItem
 
 
 def season(start_year=2026, game_name="BioBuzz"):
@@ -170,6 +170,19 @@ def test_a_team_can_be_deleted_once_its_last_member_is_removed(client):
 
     assert response.status_code == 204
     assert not Team.objects.filter(id=rouages_2026.team.id).exists()
+
+
+def test_a_team_with_work_items_cannot_be_deleted_over_the_api(client):
+    # No member left, one season: only the work items stand in the way.
+    client.force_login(admin())
+    rouages_2026 = team_season()
+    WorkItem.objects.create(team_season=rouages_2026, title="intake")
+
+    response = client.delete(f"/api/teams/{rouages_2026.team.id}/")
+
+    assert response.status_code == 409
+    assert response.json()["detail"]["code"] == "team_has_history"
+    assert WorkItem.objects.filter(team_season=rouages_2026).exists()
 
 
 # --- memberships ---
