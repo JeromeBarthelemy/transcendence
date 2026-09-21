@@ -396,8 +396,6 @@ class WorkItem(models.Model):
     )
     opened_at = models.DateTimeField("ouvert le", null=True, blank=True)
     closed_at = models.DateTimeField("fermé le", null=True, blank=True)
-    # Overwritten at every progress entry, shown when the work item is reopened.
-    handover = models.TextField("passation", blank=True)
 
     class Meta:
         ordering = ["title"]
@@ -429,6 +427,18 @@ class WorkItem(models.Model):
             .first()
         )
         return latest.step if latest else None
+
+    @property
+    def last_handover(self) -> "Entry | None":
+        """The progress whose handover is shown: the latest that left one. It
+        carries who left it and when; a progress with nothing to hand over
+        leaves the previous one in place."""
+        return (
+            self.entries.filter(type=Entry.Type.PROGRESS)
+            .exclude(handover="")
+            .order_by("-occurred_at", "-id")
+            .first()
+        )
 
 
 class Entry(models.Model):
@@ -468,6 +478,8 @@ class Entry(models.Model):
     )
     type = models.CharField("type", max_length=10, choices=Type.choices)
     body = models.TextField("texte", blank=True)
+    # What to know before picking the work item up again, and what not to undo.
+    handover = models.TextField("passation", blank=True)
     step = models.CharField(
         "étape", max_length=15, choices=Step.choices, null=True, blank=True
     )

@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1060 1325" role="img"
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1060 1344" role="img"
      aria-labelledby="t d" font-family="IBM Plex Mono, ui-monospace, monospace">
   <title id="t">Socle club et traces — schéma relationnel</title>
   <desc id="d">Sept tables : Season, Team et TeamSeason qui les croise ; Membership qui
@@ -159,7 +159,7 @@
   <line class="crow" x1="324" y1="463" x2="324" y2="477"/>
 
   <!-- =========================== WorkItem =========================== -->
-  <rect class="bx" x="30" y="790" width="270" height="226" rx="3"/>
+  <rect class="bx" x="30" y="790" width="270" height="207" rx="3"/>
   <line class="sep" x1="30" y1="816" x2="300" y2="816"/>
   <text class="ttl" x="42" y="809">WorkItem</text>
   <text class="col" x="42" y="835">id</text>              <text class="ann" x="170" y="835">PK</text>
@@ -170,14 +170,13 @@
   <text class="col" x="42" y="930">status</text>
   <text class="col" x="42" y="949">opened_at</text>       <text class="ann" x="170" y="949">nullable</text>
   <text class="col" x="42" y="968">closed_at</text>       <text class="ann" x="170" y="968">nullable</text>
-  <text class="col" x="42" y="987">handover</text>
-  <text class="ann" x="42" y="1006">UNIQUE (team_season_id, title_folded)</text>
-  <text class="cap" x="30" y="1038">le chantier ; au robot, titre = sous-système</text>
-  <text class="cap" x="30" y="1054">status : suggested · open · done · dropped</text>
-  <text class="cap" x="30" y="1070">l'étape courante se lit sur la dernière avancée</text>
+  <text class="ann" x="42" y="987">UNIQUE (team_season_id, title_folded)</text>
+  <text class="cap" x="30" y="1019">le chantier ; au robot, titre = sous-système</text>
+  <text class="cap" x="30" y="1035">status : suggested · open · done · dropped</text>
+  <text class="cap" x="30" y="1051">l'étape courante se lit sur la dernière avancée</text>
 
   <!-- ============================= Entry ============================ -->
-  <rect class="bx" x="330" y="790" width="340" height="245" rx="3"/>
+  <rect class="bx" x="330" y="790" width="340" height="264" rx="3"/>
   <line class="sep" x1="330" y1="816" x2="670" y2="816"/>
   <text class="ttl" x="342" y="809">Entry</text>
   <text class="col" x="360" y="835">id</text>              <text class="ann" x="520" y="835">PK</text>
@@ -187,13 +186,14 @@
   <text class="col" x="360" y="911">type</text>
   <text class="col" x="360" y="930">body</text>
   <text class="col" x="360" y="949">step</text>            <text class="ann" x="520" y="949">nullable</text>
-  <text class="col" x="360" y="968">occurred_at</text>
-  <text class="col" x="360" y="987">created_at</text>
-  <text class="col" x="360" y="1006">updated_at</text>      <text class="ann" x="520" y="1006">nullable</text>
-  <text class="col" x="360" y="1025">updated_by</text>      <text class="ann" x="520" y="1025">FK PROTECT, nullable</text>
-  <text class="cap" x="330" y="1057">la trace : type progress (avancée) · note · decision</text>
-  <text class="cap" x="330" y="1073">step : l'étape de l'avancée, vide hors robot</text>
-  <text class="cap" x="330" y="1089">team_season_id pointe TeamSeason, comme celui de WorkItem</text>
+  <text class="col" x="360" y="968">handover</text>
+  <text class="col" x="360" y="987">occurred_at</text>
+  <text class="col" x="360" y="1006">created_at</text>
+  <text class="col" x="360" y="1025">updated_at</text>      <text class="ann" x="520" y="1025">nullable</text>
+  <text class="col" x="360" y="1044">updated_by</text>      <text class="ann" x="520" y="1044">FK PROTECT, nullable</text>
+  <text class="cap" x="330" y="1076">la trace : type progress (avancée) · note · decision</text>
+  <text class="cap" x="330" y="1092">step : l'étape, vide hors robot ; handover : la passation</text>
+  <text class="cap" x="330" y="1108">team_season_id pointe TeamSeason, comme celui de WorkItem</text>
 
   <!-- ======================== EntryParticipant ====================== -->
   <rect class="bx" x="760" y="790" width="270" height="112" rx="3"/>
@@ -227,38 +227,38 @@
   <path class="crow" d="M900,778 L892,790 M900,778 L900,790 M900,778 L908,790"/>
 
   <!-- ============================ légende =========================== -->
-  <rect class="bx" x="30" y="1110" width="1000" height="190" rx="3"/>
-  <line class="sep" x1="30" y1="1136" x2="1030" y2="1136"/>
-  <text class="ttl" x="42" y="1129">Légende</text>
+  <rect class="bx" x="30" y="1129" width="1000" height="190" rx="3"/>
+  <line class="sep" x1="30" y1="1155" x2="1030" y2="1155"/>
+  <text class="ttl" x="42" y="1148">Légende</text>
 
-  <text class="lgt" x="45"  y="1160">PK</text>
-  <text class="lgd" x="150" y="1160">identifie une ligne, de façon unique</text>
-  <text class="lgt" x="45"  y="1179">FK</text>
-  <text class="lgd" x="150" y="1179">pointe vers la clé primaire d'une autre table</text>
-  <text class="lgt" x="45"  y="1198">nullable</text>
-  <text class="lgd" x="150" y="1198">la colonne peut rester vide</text>
-  <text class="lgt" x="45"  y="1217">UNIQUE</text>
-  <text class="lgd" x="150" y="1217">ne peut exister qu'une seule fois</text>
+  <text class="lgt" x="45"  y="1179">PK</text>
+  <text class="lgd" x="150" y="1179">identifie une ligne, de façon unique</text>
+  <text class="lgt" x="45"  y="1198">FK</text>
+  <text class="lgd" x="150" y="1198">pointe vers la clé primaire d'une autre table</text>
+  <text class="lgt" x="45"  y="1217">nullable</text>
+  <text class="lgd" x="150" y="1217">la colonne peut rester vide</text>
+  <text class="lgt" x="45"  y="1236">UNIQUE</text>
+  <text class="lgd" x="150" y="1236">ne peut exister qu'une seule fois</text>
 
-  <text class="lgt" x="560" y="1160">CASCADE</text>
-  <text class="lgd" x="690" y="1160">supprime les lignes qui pointent la cible</text>
-  <text class="lgt" x="560" y="1179">PROTECT</text>
-  <text class="lgd" x="690" y="1179">refuse la suppression de la cible</text>
-  <text class="lgt" x="560" y="1198">_folded</text>
-  <text class="lgd" x="690" y="1198">casse (pseudo) ; + accents, espaces (titre)</text>
+  <text class="lgt" x="560" y="1179">CASCADE</text>
+  <text class="lgd" x="690" y="1179">supprime les lignes qui pointent la cible</text>
+  <text class="lgt" x="560" y="1198">PROTECT</text>
+  <text class="lgd" x="690" y="1198">refuse la suppression de la cible</text>
+  <text class="lgt" x="560" y="1217">_folded</text>
+  <text class="lgd" x="690" y="1217">casse (pseudo) ; + accents, espaces (titre)</text>
 
-  <line class="sep" x1="45" y1="1234" x2="1015" y2="1234"/>
+  <line class="sep" x1="45" y1="1253" x2="1015" y2="1253"/>
 
-  <line class="crow" x1="52" y1="1255" x2="52" y2="1267"/>
-  <line class="lnk" x1="52" y1="1261" x2="86" y2="1261"/>
-  <text class="lgd" x="96" y="1265">côté « exactement un »</text>
-  <line class="lnk" x1="560" y1="1261" x2="594" y2="1261"/>
-  <path class="crow" d="M582,1261 L594,1254 M582,1261 L594,1261 M582,1261 L594,1268"/>
-  <text class="lgd" x="604" y="1265">côté « plusieurs » — une Season, plusieurs TeamSeason</text>
+  <line class="crow" x1="52" y1="1274" x2="52" y2="1286"/>
+  <line class="lnk" x1="52" y1="1280" x2="86" y2="1280"/>
+  <text class="lgd" x="96" y="1284">côté « exactement un »</text>
+  <line class="lnk" x1="560" y1="1280" x2="594" y2="1280"/>
+  <path class="crow" d="M582,1280 L594,1273 M582,1280 L594,1280 M582,1280 L594,1287"/>
+  <text class="lgd" x="604" y="1284">côté « plusieurs » — une Season, plusieurs TeamSeason</text>
 
-  <line class="lnk" x1="52" y1="1285" x2="86" y2="1285"/>
-  <line class="crow" x1="54" y1="1279" x2="54" y2="1291"/>
-  <line class="crow" x1="84" y1="1279" x2="84" y2="1291"/>
-  <text class="lgd" x="96" y="1289">un de chaque côté — un compte, au plus une demande de vérification</text>
+  <line class="lnk" x1="52" y1="1304" x2="86" y2="1304"/>
+  <line class="crow" x1="54" y1="1298" x2="54" y2="1310"/>
+  <line class="crow" x1="84" y1="1298" x2="84" y2="1310"/>
+  <text class="lgd" x="96" y="1308">un de chaque côté — un compte, au plus une demande de vérification</text>
 
 </svg>

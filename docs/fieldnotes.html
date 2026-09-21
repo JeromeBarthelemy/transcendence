@@ -590,7 +590,7 @@ hors séquence   réparation</pre></div>
 
   <h3>Passer la main</h3>
   <p>Ceux du mercredi ne sont pas ceux du vendredi. Le problème n'est pas que les suivants ignorent ce qui a été fait — c'est qu'ils le <b>défont</b> : une pièce remontée autrement, un réglage rétabli alors qu'il avait été abandonné la veille pour de bonnes raisons, et deux séances s'annulent. Aucune photo ne le rattrape, parce que ce qui manque n'est pas l'état de la pièce mais l'intention de celui qui l'a laissée ainsi.</p>
-  <p>D'où le seul champ que le chantier réclame vraiment : une ligne de <b>passation</b>, écrite pour ceux qui reprendront, écrasée à chaque avancée, et affichée au moment où elle sert — quand on coche le chantier, pas au fond d'un historique. Elle dit ce qu'aucune autre trace ne dit : par où continuer, et ce qu'il ne faut surtout pas refaire.</p>
+  <p>D'où le seul champ que le chantier réclame vraiment : une ligne de <b>passation</b>, écrite avec l'avancée pour ceux qui reprendront, et affichée au moment où elle sert — quand on coche le chantier, pas au fond d'un historique. Elle dit ce qu'aucune autre trace ne dit : par où continuer, et ce qu'il ne faut surtout pas refaire. Seule la plus récente est montrée, avec qui l'a laissée et quand ; les précédentes restent dans leur avancée, et le fil garde ainsi l'histoire des consignes.</p>
   <p>Le reste est déjà là. L'avancée précédente porte sa date et ses participants, donc celui qui reprend sait aussi à qui demander. C'est le bénéfice le moins spectaculaire de cocher les participants séance par séance, et sans doute le plus utilisé au quotidien. Ce champ figurait au modèle initial comme une convention de cahier — une prochaine étape à montrer au jury. Sa vraie raison est opérationnelle, et c'est pour ça qu'il sera rempli.</p>
   <p>Un chantier n'est pas une carte de kanban : ni assigné, ni échéance. Il naît du travail fait, pas d'une planification, et il ne connaît que trois états — ouvert, fini, abandonné. « Abandonné » n'est pas un échec de l'outil : une piste qu'on ferme après l'avoir prototypée est exactement ce qu'un jury veut voir dans un cahier d'ingénierie.</p>
   <p>Il y a bien un <b>tableau</b>, mais c'est une <em>vue</em> des chantiers, pas un objet de plus : des colonnes par étape ou par sous-système, où déplacer une carte revient à changer une étiquette. Il ne se tient pas, il se regarde — et il se remplit tout seul depuis le compte-rendu du mercredi, ce qui lui retire le seul vrai défaut d'un kanban en milieu scolaire : supposer que l'équipe adopte un rituel supplémentaire. Ce qu'un élève lui demande vraiment — <em>qu'est-ce que je fais aujourd'hui ?</em> — est mieux servi ainsi, puisque chaque chantier y affiche sa ligne de passation. Et comme il ne porte aucune donnée qui lui soit propre, le retirer un jour ne coûterait qu'un écran.</p>
@@ -961,7 +961,7 @@ Forums (CD, Reddit)  <i>&rarr; opinion, sans valeur réglementaire</i></pre></di
   <h4>Traces d'activité</h4>
   <div class="codewrap"><pre><b>Entry</b>           id, team_season_id,
                 author_id, work_item_id NULLABLE, type, body,
-                step NULLABLE, occurred_at, visibility, created_at,
+                step NULLABLE, handover, occurred_at, visibility, created_at,
                 updated_at NULLABLE, updated_by NULLABLE
                 <i>occurred_at vs created_at → l'écart dit si c'est reconstitué</i>
                 <i>type ∈ {progress, note, media, test, decision, commit}</i>
@@ -980,16 +980,17 @@ Forums (CD, Reddit)  <i>&rarr; opinion, sans valeur réglementaire</i></pre></di
                 <i>       un choix dans le code, pas une table : il ne bouge pas</i>
                 <i>       seulement sur un chantier de robot ; par défaut,</i>
                 <i>       celle de l'avancée précédente</i>
+                <i>handover → la passation laissée avec l'avancée : par où</i>
+                <i>           continuer, quoi ne pas défaire. Le chantier montre</i>
+                <i>           la plus récente, avec son auteur et sa date</i>
 <b>WorkItem</b>        id, team_season_id, title, on_robot, status, opened_at,
-                closed_at, handover NULLABLE
+                closed_at
                 <i>on_robot → chantier de robot : son titre est le sous-système</i>
                 <i>           châssis, intake, autonome, vision… — le logiciel en est un</i>
                 <i>           hors robot : le sujet, saisi à la main</i>
                 <i>title unique dans l'équipe-saison, sans égard à la casse,</i>
                 <i>aux accents ni aux espaces : un sous-système, un chantier</i>
                 <i>l'avancement affiché → l'étape de la dernière avancée, jamais stocké</i>
-                <i>handover → la passation : par où continuer, quoi ne pas défaire</i>
-                <i>            écrasé à chaque avancée, montré à la reprise</i>
                 <i>status ∈ {suggested, open, done, dropped}</i>
                 <i>suggested → projeté en septembre, pas encore commencé ;</i>
                 <i>            sa première avancée l'ouvre</i>
