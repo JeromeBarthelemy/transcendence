@@ -1,9 +1,12 @@
 """The workday: what a team did on a given day, read off its entries. Nothing
 here is stored — a day is a reading, not an object."""
 
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, time, timedelta
 
+from django.db.models import QuerySet
 from django.utils import timezone
+
+from club.models import Entry, TeamSeason, User
 
 # A rush that ends at one in the morning belongs to the day it started, as
 # everyone but a clock thinks.
@@ -13,3 +16,30 @@ DAY_TURNS_AT = timedelta(hours=4)
 def workday(instant: datetime) -> date:
     """The day an instant belongs to, in the club's time zone."""
     return (timezone.localtime(instant) - DAY_TURNS_AT).date()
+
+
+def _bounds(day: date) -> tuple[datetime, datetime]:
+    # Built from local wall-clock times, not by adding 24 hours: the day the
+    # clocks change is 23 or 25 hours long.
+    def turn(of: date) -> datetime:
+        return timezone.make_aware(datetime.combine(of, time()) + DAY_TURNS_AT)
+
+    return turn(day), turn(day + timedelta(days=1))
+
+
+def day_entries(team_season: TeamSeason, day: date) -> QuerySet[Entry]:
+    """Everything the team wrote down for that day: the day's summary."""
+    start, end = _bounds(day)
+    return Entry.objects.filter(
+        team_season=team_season, occurred_at__gte=start, occurred_at__lt=end
+    )
+
+
+def attendance(team_season: TeamSeason, day: date) -> QuerySet[User]:
+    """The students signed up to one of the team's progress entries that day.
+    Mentors supervise and are not the roster; being there without moving
+    anything forward is not counted either."""
+    progress = day_entries(team_season, day).filter(type=Entry.Type.PROGRESS)
+    return User.objects.filter(
+        club_role=User.ClubRole.STUDENT, participations__in=progress
+    ).distinct()
