@@ -11,8 +11,23 @@ than an exception to it: a code is code — branched on, never read.
 
 from typing import Any
 
+from rest_framework.exceptions import APIException
 from rest_framework.response import Response
+from rest_framework.status import HTTP_409_CONFLICT
 from rest_framework.views import exception_handler as drf_exception_handler
+
+
+class Conflict(APIException):
+    """The request was well-formed — a `ValidationError` (400) would be the
+    wrong signal — but the database refuses it because of a row that still
+    depends on the one being changed, a `ProtectedError` underneath. Deleting
+    a team with a season history is the first case; more will reuse this."""
+
+    status_code = HTTP_409_CONFLICT
+    default_code = "conflict"
+    default_detail = (
+        "Cette suppression entrerait en conflit avec l'historique existant."
+    )
 
 
 def _with_codes(value: Any) -> Any:

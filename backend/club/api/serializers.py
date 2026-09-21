@@ -13,7 +13,15 @@ from django.db import transaction
 from rest_framework import serializers
 from rest_framework.exceptions import ErrorDetail
 
-from club.models import User, VerificationRequest, no_at_sign
+from club.models import (
+    Membership,
+    Season,
+    Team,
+    TeamSeason,
+    User,
+    VerificationRequest,
+    no_at_sign,
+)
 from club.signup import reserved_email
 
 
@@ -134,3 +142,69 @@ class LoginSerializer(serializers.Serializer[dict[str, Any]]):
             )
         attrs["user"] = user
         return attrs
+
+
+class CreateTeamSerializer(serializers.Serializer[Team]):
+    """Creating a team and opening it for a season are one act, not two: a
+    team with no season would have nowhere to hold members. `season` names
+    the year FIRST assigns it, `Season.start_year`, rather than a surrogate
+    id — the same key a person would type."""
+
+    number = serializers.IntegerField(min_value=1)
+    name = serializers.CharField(max_length=120)
+    season = serializers.IntegerField(write_only=True)
+
+    def validate_number(self, value: int) -> int:
+        # A plain Serializer does not inherit Team.number's uniqueness from
+        # the model the way a ModelSerializer would — checked here first so
+        # a duplicate is a 400, same backstop pattern as display_name_taken,
+        # rather than the IntegrityError Team.objects.create() would raise.
+        if Team.objects.filter(number=value).exists():
+            raise serializers.ValidationError(
+                "Ce numéro d'équipe est déjà utilisé.", code="team_number_taken"
+            )
+        return value
+
+    def validate_season(self, value: int) -> Season:
+        try:
+            return Season.objects.get(start_year=value)
+        except Season.DoesNotExist:
+            raise serializers.ValidationError(
+                "Cette saison n'existe pas.", code="season_not_found"
+            ) from None
+
+    @transaction.atomic
+    def create(self, validated_data: dict[str, Any]) -> Team:
+        season = validated_data.pop("season")
+        team = Team.objects.create(**validated_data)
+        TeamSeason.objects.create(team=team, season=season)
+        return team
+
+
+class RenameTeamSerializer(serializers.Serializer[Team]):
+    """Only the name — `number` is FIRST's, never the club's to rewrite."""
+
+    name = serializers.CharField(max_length=120)
+
+
+class AddMembershipSerializer(serializers.Serializer[Membership]):
+    """The database constraint (`unique_membership_per_team_season`) already
+    refuses a duplicate — checked here first so a race is the only way it is
+    ever actually reached, same backstop pattern as sign-up's display name."""
+
+    user = serializers.PrimaryKeyRelatedField(queryset=User.objects.all())
+    team_season = serializers.PrimaryKeyRelatedField(queryset=TeamSeason.objects.all())
+
+    def validate(self, attrs: dict[str, Any]) -> dict[str, Any]:
+        exists = Membership.objects.filter(
+            user=attrs["user"], team_season=attrs["team_season"]
+        ).exists()
+        if exists:
+            raise serializers.ValidationError(
+                "Ce membre est déjà affecté à cette équipe.",
+                code="membership_exists",
+            )
+        return attrs
+
+    def create(self, validated_data: dict[str, Any]) -> Membership:
+        return Membership.objects.create(**validated_data)
