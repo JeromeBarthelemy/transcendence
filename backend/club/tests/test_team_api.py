@@ -154,6 +154,34 @@ def test_adding_the_same_member_twice_is_rejected_cleanly(client):
     assert Membership.objects.filter(user=lina, team_season=rouages_2026).count() == 1
 
 
+def test_adding_two_members_then_removing_one(client):
+    # The exact scenario from docs/modules.md §3's demo script — the two
+    # preceding tests already cover add and remove in isolation, this one
+    # is the end-to-end walk a corrector will actually watch.
+    client.force_login(admin())
+    rouages_2026 = team_season()
+    lina = student("lina@club.fr", "Lina")
+    tom = student("tom@club.fr", "Tom")
+
+    add_lina = client.post(
+        "/api/memberships/", {"user": lina.id, "team_season": rouages_2026.id}
+    )
+    add_tom = client.post(
+        "/api/memberships/", {"user": tom.id, "team_season": rouages_2026.id}
+    )
+    assert add_lina.status_code == 201
+    assert add_tom.status_code == 201
+    assert rouages_2026.memberships.count() == 2
+
+    lina_membership = Membership.objects.get(user=lina, team_season=rouages_2026)
+    response = client.delete(f"/api/memberships/{lina_membership.id}/")
+
+    assert response.status_code == 204
+    remaining = list(rouages_2026.memberships.all())
+    assert len(remaining) == 1
+    assert remaining[0].user == tom
+
+
 def test_removing_a_member_deletes_the_membership(client):
     client.force_login(admin())
     rouages_2026 = team_season()
