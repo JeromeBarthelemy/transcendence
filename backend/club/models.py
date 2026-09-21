@@ -402,7 +402,6 @@ class Entry(models.Model):
         related_name="entries",
     )
     type = models.CharField("type", max_length=10, choices=Type.choices)
-    title = models.CharField("titre", max_length=200, blank=True)
     body = models.TextField("texte", blank=True)
     step = models.CharField(
         "étape", max_length=15, choices=Step.choices, null=True, blank=True
