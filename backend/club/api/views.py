@@ -16,7 +16,7 @@ from rest_framework.views import APIView
 
 from club.models import Entry, Membership, Team, User, WorkItem
 from club.progress import edit_progress, join, record_progress
-from club.workdays import progress_of_the_day, workday
+from club.workdays import attendance, day_entries, gaps, progress_of_the_day, workday
 
 from .errors import Conflict
 from .permissions import IsClubAdmin, team_season_acted_on
@@ -24,9 +24,11 @@ from .serializers import (
     AddMembershipSerializer,
     CloseWorkItemSerializer,
     CreateTeamSerializer,
+    DaySerializer,
     LoginSerializer,
     NoteSerializer,
     OpenWorkItemSerializer,
+    PeriodSerializer,
     RenameTeamSerializer,
     SignUpSerializer,
     TickSerializer,
@@ -346,3 +348,39 @@ class NoteCreateView(APIView):
         )
         serializer.is_valid(raise_exception=True)
         return Response(_entry(serializer.save()), status=status.HTTP_201_CREATED)
+
+
+class DayView(APIView):
+    def get(self, request: Request, team_season_id: int, day: str) -> Response:
+        user = request.user
+        assert isinstance(user, User)
+        team_season = team_season_acted_on(user, team_season_id)
+        serializer = DaySerializer(data={"day": day})
+        serializer.is_valid(raise_exception=True)
+        the_day = serializer.validated_data["day"]
+        # The roster the attendance is counted against: students, as mentors
+        # are never counted present.
+        roster = team_season.memberships.filter(user__club_role=User.ClubRole.STUDENT)
+        return Response(
+            {
+                "day": the_day,
+                "entries": [
+                    _entry(entry) for entry in day_entries(team_season, the_day)
+                ],
+                "present": [
+                    user.display_name for user in attendance(team_season, the_day)
+                ],
+                "roster": roster.count(),
+            }
+        )
+
+
+class GapsView(APIView):
+    def get(self, request: Request, team_season_id: int) -> Response:
+        user = request.user
+        assert isinstance(user, User)
+        team_season = team_season_acted_on(user, team_season_id)
+        serializer = PeriodSerializer(data=request.query_params)
+        serializer.is_valid(raise_exception=True)
+        period = serializer.validated_data
+        return Response(gaps(team_season, period["since"], period["until"]))

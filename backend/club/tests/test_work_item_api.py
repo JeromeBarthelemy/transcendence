@@ -1,4 +1,17 @@
-from club.models import Entry, Membership, Season, Team, TeamSeason, User, WorkItem
+from datetime import date, datetime, time
+from zoneinfo import ZoneInfo
+
+from club.models import (
+    Entry,
+    EntryParticipant,
+    Membership,
+    Season,
+    Team,
+    TeamSeason,
+    User,
+    WorkItem,
+    WorkshopSlot,
+)
 from club.progress import record_progress
 
 
@@ -456,3 +469,84 @@ def test_a_student_cannot_write_a_note_in_another_team(client):
 
     assert note(client, rouages, body="Coucou.").status_code == 403
     assert not Entry.objects.exists()
+
+
+# --- the day and its gaps ---
+
+PARIS = ZoneInfo("Europe/Paris")
+# Early in the 2026 season, so already past whenever the tests run.
+WEDNESDAY = date(2026, 9, 9)
+
+
+def progress_on(team, day, *participants):
+    intake, _ = WorkItem.objects.get_or_create(team_season=team, title="intake")
+    entry = Entry.objects.create(
+        team_season=team,
+        author=participants[0],
+        work_item=intake,
+        type=Entry.Type.PROGRESS,
+        occurred_at=datetime.combine(day, time(15), tzinfo=PARIS),
+    )
+    for user in participants:
+        EntryParticipant.objects.create(entry=entry, user=user)
+    return entry
+
+
+def test_a_day_shows_its_entries_and_who_was_there_out_of_the_roster(client):
+    rouages = team_season()
+    lina, tom = member_of(rouages, "lina"), member_of(rouages, "tom")
+    member_of(rouages, "sam")
+    member_of(rouages, "paul", User.ClubRole.MENTOR)
+    progress_on(rouages, WEDNESDAY, lina, tom)
+    client.force_login(lina)
+
+    day = client.get(f"/api/team-seasons/{rouages.id}/days/2026-09-09/").json()
+
+    assert len(day["entries"]) == 1
+    assert day["present"] == ["lina", "tom"]
+    # The roster counts students: mentors supervise, they are not the team.
+    assert day["roster"] == 3
+
+
+def test_an_unreadable_day_is_refused(client):
+    rouages = team_season()
+    client.force_login(member_of(rouages))
+
+    response = client.get(f"/api/team-seasons/{rouages.id}/days/mercredi/")
+
+    assert response.status_code == 400
+
+
+def test_the_gaps_are_the_slot_days_nothing_moved(client):
+    rouages = team_season()
+    lina = member_of(rouages)
+    WorkshopSlot.objects.create(
+        season=rouages.season,
+        weekday=WorkshopSlot.Weekday.WEDNESDAY,
+        start_time=time(14),
+        valid_from=date(2026, 9, 1),
+    )
+    progress_on(rouages, WEDNESDAY, lina)
+    client.force_login(lina)
+
+    response = client.get(
+        f"/api/team-seasons/{rouages.id}/gaps/?since=2026-09-01&until=2026-09-20"
+    )
+
+    assert response.json() == ["2026-09-02", "2026-09-16"]
+
+
+def test_gaps_need_a_period(client):
+    rouages = team_season()
+    client.force_login(member_of(rouages))
+
+    assert client.get(f"/api/team-seasons/{rouages.id}/gaps/").status_code == 400
+
+
+def test_a_student_cannot_read_another_teams_day(client):
+    rouages = team_season(12345)
+    client.force_login(member_of(team_season(67890)))
+
+    response = client.get(f"/api/team-seasons/{rouages.id}/days/2026-09-09/")
+
+    assert response.status_code == 403

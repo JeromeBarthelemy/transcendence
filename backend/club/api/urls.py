@@ -1,7 +1,9 @@
 from django.urls import path
 
 from .views import (
+    DayView,
     EntryDetailView,
+    GapsView,
     LoginView,
     LogoutView,
     MembershipCreateView,
@@ -45,5 +47,15 @@ urlpatterns = [
         "team-seasons/<int:team_season_id>/notes/",
         NoteCreateView.as_view(),
         name="note-create",
+    ),
+    path(
+        "team-seasons/<int:team_season_id>/days/<str:day>/",
+        DayView.as_view(),
+        name="day",
+    ),
+    path(
+        "team-seasons/<int:team_season_id>/gaps/",
+        GapsView.as_view(),
+        name="gaps",
     ),
 ]

@@ -289,3 +289,12 @@ class NoteSerializer(serializers.Serializer[Entry]):
             type=Entry.Type.NOTE,
             **validated_data,
         )
+
+
+class DaySerializer(serializers.Serializer[None]):
+    day = serializers.DateField()
+
+
+class PeriodSerializer(serializers.Serializer[None]):
+    since = serializers.DateField()
+    until = serializers.DateField()
