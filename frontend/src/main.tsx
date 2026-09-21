@@ -21,3 +21,4 @@ createRoot(root).render(
     </QueryClientProvider>
   </StrictMode>,
 );
+const broken: number = 'x';
