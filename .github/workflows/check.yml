@@ -19,6 +19,14 @@ jobs:
 
       - run: pip install -r backend/requirements-dev.txt
 
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: frontend/package.json
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - run: npm --prefix frontend ci
+
       # settings.py refuses to start without a secret key; mypy's Django plugin
       # and makemigrations both import it.
       - name: Create a throwaway .env
@@ -30,3 +38,6 @@ jobs:
       - run: make check
 
       - run: make test
+
+      # `make check` stops at the types; only the build proves Vite can bundle.
+      - run: npm --prefix frontend run build

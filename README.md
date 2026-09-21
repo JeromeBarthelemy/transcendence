@@ -247,28 +247,22 @@ would not protect.
 
 ## Checking
 
-### Backend
-
 ```sh
 make check
 ```
 
-Runs Ruff (lint and formatting), mypy, and a check that no model change
-is missing its migration, from the activated virtual environment. It must
-pass before every commit.
-
-### Frontend
-
-Check the frontend types and production build separately for now:
+Runs, from the activated virtual environment, Ruff (lint and formatting),
+mypy, a check that no model change is missing its migration, and the frontend
+TypeScript check. It must pass before every commit. CI runs it on every pull
+request, followed by the frontend production build:
 
 ```sh
-npm --prefix frontend run typecheck
 npm --prefix frontend run build
 ```
 
-`typecheck` validates the TypeScript contracts without producing files;
-`build` repeats that validation and creates the optimized production assets in
-`frontend/dist/`.
+`build` repeats the type check and creates the optimized assets in
+`frontend/dist/`; a failure here that `make check` missed is a bundling
+problem, not a type error.
 
 ## Testing
 
