@@ -226,7 +226,7 @@
   <text class="lgt" x="560" y="1139">PROTECT</text>
   <text class="lgd" x="690" y="1139">refuse la suppression de la cible</text>
   <text class="lgt" x="560" y="1158">_folded</text>
-  <text class="lgd" x="690" y="1158">replié pour comparer : Lina = lina, Électro = electro</text>
+  <text class="lgd" x="690" y="1158">replié pour comparer : casse (pseudo), et accents, espaces (titre)</text>
 
   <line class="sep" x1="45" y1="1194" x2="1015" y2="1194"/>
 
