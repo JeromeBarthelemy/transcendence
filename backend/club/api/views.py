@@ -290,6 +290,11 @@ class TickView(APIView):
     first to tick creates. Ticking at another step than today's opens a
     second progress: the day moved from one step to the next."""
 
+    # With SQLite in IMMEDIATE mode (settings.py), the transaction takes the
+    # write lock before looking for today's progress: two students ticking in
+    # the same second are served one after the other, and the second joins
+    # the progress the first created instead of creating another.
+    @transaction.atomic
     def post(self, request: Request, pk: int) -> Response:
         user = request.user
         assert isinstance(user, User)
