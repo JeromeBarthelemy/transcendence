@@ -316,6 +316,45 @@ class Membership(models.Model):
         return f"{self.user} ({self.team_season})"
 
 
+class WorkItem(models.Model):
+    """A chantier: the thread a team reopens over a season, around one robot
+    subsystem or one subject off the robot. Its title is the subsystem, so
+    the robot needs no separate subsystem list."""
+
+    class Status(models.TextChoices):
+        # Listed in September, not started: the pre-season list is this table.
+        SUGGESTED = "suggested", "suggéré"
+        OPEN = "open", "ouvert"
+        DONE = "done", "terminé"
+        DROPPED = "dropped", "abandonné"
+
+    team_season = models.ForeignKey(
+        TeamSeason, on_delete=models.PROTECT, related_name="work_items"
+    )
+    title = models.CharField("titre", max_length=120)
+    # Only a robot work item has steps.
+    on_robot = models.BooleanField("sur le robot", default=False)
+    status = models.CharField(
+        "statut", max_length=10, choices=Status.choices, default=Status.OPEN
+    )
+    opened_at = models.DateTimeField("ouvert le", null=True, blank=True)
+    closed_at = models.DateTimeField("fermé le", null=True, blank=True)
+    # Overwritten at every progress entry, shown when the work item is reopened.
+    handover = models.TextField("passation", blank=True)
+
+    class Meta:
+        ordering = ["title"]
+        verbose_name = "chantier"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["team_season", "title"], name="unique_work_item_title_per_team"
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.title} ({self.team_season})"
+
+
 class ConsentQuerySet(models.QuerySet["Consent"]):
     """Reading a journal of decisions: what is in force is never a column, it
     is the latest line."""
