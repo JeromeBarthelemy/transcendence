@@ -245,6 +245,29 @@ enforces CSRF only once it has *found* a session, so the two routes that run
 without one — the routes that hand a session out — are precisely the ones it
 would not protect.
 
+## Work items and the day
+
+What the three screens read and write. Every route needs a session; a student
+acts on the team seasons they are a member of, a mentor on all four, and
+anyone else gets a `403` with the code `not_a_member`.
+
+| route | does |
+| --- | --- |
+| `GET /api/team-seasons/{id}/work-items/` | the team's work items, each with its current step, last progress and handover |
+| `POST /api/team-seasons/{id}/work-items/` | open one — or list it for September with `"suggested": true` |
+| `GET /api/work-items/{id}/` | one work item and its thread, newest first |
+| `PATCH /api/work-items/{id}/` | close it, `done` or `dropped`; working on it again reopens it |
+| `POST /api/work-items/{id}/tick/` | sign up to today's progress, created by the first to tick |
+| `PATCH /api/entries/{id}/` | write a progress — sentence, step, handover — for its participants and mentors |
+| `POST /api/team-seasons/{id}/notes/` | a note for the team, or addressed to one of its work items |
+| `GET /api/team-seasons/{id}/days/{YYYY-MM-DD}/` | the day's entries, who was there, and the roster they count against |
+| `GET /api/team-seasons/{id}/gaps/?since=&until=` | the workshop-slot days on which nothing moved forward |
+
+A day runs from 4 a.m. to 4 a.m., in Paris time: a late session belongs to
+the day it started. Ticking at another step than today's opens a second
+progress, and the handover shown on a work item is the latest one left,
+with who left it, when, and at which step.
+
 ## Checking
 
 ```sh
@@ -334,7 +357,10 @@ requests — stays English.
 - `backend/config/` — Django settings, read from `.env`.
 - `backend/club/` — accounts, teams, seasons, memberships, and the rules that
   govern signing up: two identifiers, a reserved domain, a contact address.
-- `backend/club/api/` — sign-up and session, over Django REST framework.
+  Work items and entries, with the rules of a progress in `progress.py` and
+  the reading of a day in `workdays.py`.
+- `backend/club/api/` — sign-up and session, teams and memberships, work
+  items, progress and the day, over Django REST framework.
 - `backend/config/views.py` — the minimal health endpoint used by the frontend.
 - `frontend/src/app/` — shared router and TanStack Query configuration.
 - `frontend/src/api/` — typed clients for Django endpoints.
