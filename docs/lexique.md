@@ -31,7 +31,7 @@ français est celui de l'interface et des conversations, l'anglais celui du code
 | **avancée** | `Entry` · `progress` | ce qu'une séance a fait sur un chantier. Le croisement des deux, et l'atome du modèle |
 | **décision** | `Entry` · `decision` | ce qu'une réunion a tranché |
 | **chantier** | `WorkItem` | le fil d'un sous-système sur une saison — ou d'un sujet, hors robot. L'unité que le cahier raconte |
-| **passation** | `WorkItem.handover` | ce qu'il faut savoir pour reprendre — et ce qu'il ne faut pas défaire |
+| **passation** | `Entry.handover` | ce qu'il faut savoir pour reprendre — et ce qu'il ne faut pas défaire. Laissée avec l'avancée ; le chantier montre la plus récente |
 | **sous-système** | `WorkItem.title` · `on_robot` | la partie du robot : le titre d'un chantier de robot. Au club, refait chaque saison |
 | **étape** | `Entry.step` | où en est la conception, portée par l'avancée. Fixe et ordonné, *réparation* mise à part. À l'écran : « avancement » |
 | **cahier** | `NotebookSection` · `NotebookBlock` | le livrable narratif, par équipe et par saison |

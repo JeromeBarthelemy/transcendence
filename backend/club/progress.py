@@ -17,7 +17,11 @@ def check_step(work_item: WorkItem, step: str | None) -> None:
 
 @transaction.atomic
 def record_progress(
-    work_item: WorkItem, author: User, body: str, step: str | None = None
+    work_item: WorkItem,
+    author: User,
+    body: str,
+    step: str | None = None,
+    handover: str = "",
 ) -> Entry:
     """Without a step, a robot work item carries on where it was, and starts
     at brainstorming; a work item off the robot has no steps at all.
@@ -48,6 +52,7 @@ def record_progress(
         type=Entry.Type.PROGRESS,
         body=body,
         step=step,
+        handover=handover,
     )
     if author.club_role == User.ClubRole.STUDENT:
         join(entry, author)
@@ -63,10 +68,16 @@ def join(entry: Entry, user: User) -> None:
     EntryParticipant.objects.create(entry=entry, user=user)
 
 
-def edit_progress(entry: Entry, user: User, body: str, step: str | None = None) -> None:
+def edit_progress(
+    entry: Entry,
+    user: User,
+    body: str,
+    step: str | None = None,
+    handover: str | None = None,
+) -> None:
     """Its participants write it; mentors correct anyone's, since the student
-    who wrote it badly may be gone for the season. Without a step, the step
-    stays as it was."""
+    who wrote it badly may be gone for the season. Without a step or a
+    handover, they stay as they were."""
     work_item = entry.work_item
     # record_progress always sets the work item; the second test is for mypy.
     if entry.type != Entry.Type.PROGRESS or work_item is None:
@@ -84,6 +95,8 @@ def edit_progress(entry: Entry, user: User, body: str, step: str | None = None) 
     entry.body = body
     if step is not None:
         entry.step = step
+    if handover is not None:
+        entry.handover = handover
     entry.updated_by = user
     entry.updated_at = timezone.now()
-    entry.save(update_fields=["body", "step", "updated_by", "updated_at"])
+    entry.save(update_fields=["body", "step", "handover", "updated_by", "updated_at"])

@@ -205,3 +205,54 @@ def test_a_note_is_not_edited_as_a_progress():
 
     with pytest.raises(ValidationError):
         edit_progress(note, mentor(), "Perceuse HS.")
+
+
+def test_a_progress_leaves_the_handover_shown_on_its_work_item():
+    intake = work_item()
+    sam = student("sam")
+
+    entry = record_progress(
+        intake, sam, "Galets montés.", handover="Ne pas resserrer la courroie."
+    )
+
+    assert intake.last_handover == entry
+    assert entry.handover == "Ne pas resserrer la courroie."
+
+
+def test_a_progress_with_nothing_to_hand_over_keeps_the_previous_handover():
+    intake = work_item()
+    sam = student("sam")
+    left = record_progress(intake, sam, "Galets montés.", handover="Tester à 12 V.")
+
+    record_progress(intake, student("tom"), "Rien de neuf.")
+
+    assert intake.last_handover == left
+
+
+def test_a_newer_handover_is_shown_and_the_older_one_stays_in_its_progress():
+    intake = work_item()
+    marie = student()
+    first = record_progress(intake, marie, "Monté.", handover="Tester à 12 V.")
+
+    second = record_progress(intake, marie, "Testé.", handover="Régler le PID.")
+
+    assert intake.last_handover == second
+    first.refresh_from_db()
+    assert first.handover == "Tester à 12 V."
+
+
+def test_a_work_item_nobody_handed_over_has_no_handover():
+    intake = work_item()
+    record_progress(intake, student(), "Maquette carton.")
+
+    assert intake.last_handover is None
+
+
+def test_a_participant_corrects_the_handover_of_a_progress():
+    marie = student()
+    entry = record_progress(work_item(), marie, "Monté.", handover="Tester à 21 V.")
+
+    edit_progress(entry, marie, "Monté.", handover="Tester à 12 V.")
+
+    entry.refresh_from_db()
+    assert entry.handover == "Tester à 12 V."
