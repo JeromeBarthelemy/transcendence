@@ -1,8 +1,9 @@
 import pytest
 from django.core.exceptions import ValidationError
+from django.db import IntegrityError
 
 from club.models import Entry, Season, Team, TeamSeason, User, WorkItem
-from club.progress import record_progress
+from club.progress import edit_progress, join, record_progress
 
 Step = Entry.Step
 
@@ -16,8 +17,14 @@ def work_item(on_robot=True, status=WorkItem.Status.OPEN):
     )
 
 
-def student():
-    return User.objects.create_user("marie@example.org", "marie")
+def student(name="marie"):
+    return User.objects.create_user(f"{name}@example.org", name)
+
+
+def mentor():
+    return User.objects.create_user(
+        "paul@example.org", "paul", club_role=User.ClubRole.MENTOR
+    )
 
 
 def test_a_first_progress_starts_at_brainstorming():
@@ -86,3 +93,95 @@ def test_a_first_progress_opens_a_suggested_work_item():
     intake.refresh_from_db()
     assert intake.status == WorkItem.Status.OPEN
     assert intake.opened_at is not None
+
+
+def test_a_student_who_records_a_progress_is_signed_up_to_it():
+    marie = student()
+
+    entry = record_progress(work_item(), marie, "Trois idées de rouleaux.")
+
+    assert list(entry.participants.all()) == [marie]
+
+
+def test_a_mentor_who_records_a_progress_is_not_signed_up_to_it():
+    # Writing up what the students forgot is not having been there.
+    entry = record_progress(work_item(), mentor(), "Rouleaux montés mercredi.")
+
+    assert not entry.participants.exists()
+
+
+def test_a_member_joins_someone_elses_progress():
+    entry = record_progress(work_item(), student(), "Trois idées de rouleaux.")
+    tom = student("tom")
+
+    join(entry, tom)
+
+    assert tom in entry.participants.all()
+
+
+def test_nobody_joins_the_same_progress_twice():
+    marie = student()
+    entry = record_progress(work_item(), marie, "Trois idées de rouleaux.")
+
+    with pytest.raises(IntegrityError):
+        join(entry, marie)
+
+
+def test_nobody_joins_a_note():
+    # Attendance is read off progress only.
+    marie = student()
+    intake = work_item()
+    note = Entry.objects.create(
+        team_season=intake.team_season, author=marie, type=Entry.Type.NOTE
+    )
+
+    with pytest.raises(ValidationError):
+        join(note, student("tom"))
+
+
+def test_a_student_who_has_not_joined_cannot_edit_a_progress():
+    entry = record_progress(work_item(), student(), "Trois idées de rouleaux.")
+
+    with pytest.raises(ValidationError):
+        edit_progress(entry, student("tom"), "Deux idées, en fait.")
+
+
+def test_a_participant_edits_a_progress():
+    entry = record_progress(work_item(), student(), "Trois idées de rouleaux.")
+    tom = student("tom")
+    join(entry, tom)
+
+    edit_progress(entry, tom, "Deux idées, en fait.")
+
+    entry.refresh_from_db()
+    assert entry.body == "Deux idées, en fait."
+    assert entry.updated_by == tom
+    assert entry.updated_at is not None
+
+
+def test_a_mentor_edits_a_progress_without_joining_it():
+    entry = record_progress(work_item(), student(), "rouleaux")
+    paul = mentor()
+
+    edit_progress(entry, paul, "Trois idées de rouleaux, dont une imprimée.")
+
+    assert not entry.participants.filter(pk=paul.pk).exists()
+    entry.refresh_from_db()
+    assert entry.updated_by == paul
+
+
+def test_an_edit_cannot_put_a_step_off_the_robot():
+    entry = record_progress(work_item(on_robot=False), student(), "Relance.")
+
+    with pytest.raises(ValidationError):
+        edit_progress(entry, mentor(), "Relance.", step=Step.BUILDING)
+
+
+def test_a_note_is_not_edited_as_a_progress():
+    intake = work_item()
+    note = Entry.objects.create(
+        team_season=intake.team_season, author=student(), type=Entry.Type.NOTE
+    )
+
+    with pytest.raises(ValidationError):
+        edit_progress(note, mentor(), "Perceuse HS.")

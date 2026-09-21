@@ -419,6 +419,12 @@ class Entry(models.Model):
         related_name="+",
         verbose_name="modifié par",
     )
+    participants = models.ManyToManyField(
+        settings.AUTH_USER_MODEL,
+        through="EntryParticipant",
+        related_name="participations",
+        blank=True,
+    )
 
     class Meta:
         ordering = ["-occurred_at", "-id"]
@@ -426,6 +432,26 @@ class Entry(models.Model):
 
     def __str__(self) -> str:
         return f"{self.get_type_display()} — {self.team_season}"
+
+
+class EntryParticipant(models.Model):
+    """Who moved a work item forward that day, each signed up by themselves:
+    the day's attendance is read here, and stored nowhere else."""
+
+    entry = models.ForeignKey(Entry, on_delete=models.CASCADE)
+    # PROTECT until the GDPR module decides what a deleted member's traces become.
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
+
+    class Meta:
+        verbose_name = "participation"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["entry", "user"], name="unique_participant_per_entry"
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.user} ({self.entry})"
 
 
 class ConsentQuerySet(models.QuerySet["Consent"]):
