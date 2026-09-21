@@ -214,6 +214,7 @@ def _work_item(item: WorkItem) -> dict[str, object]:
         "handover": {
             "body": handover.handover,
             "author": handover.author.display_name,
+            "step": handover.step,
             "occurred_at": handover.occurred_at,
         }
         if handover

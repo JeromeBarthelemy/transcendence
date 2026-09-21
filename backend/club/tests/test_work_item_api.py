@@ -79,6 +79,8 @@ def test_a_member_lists_the_work_items_of_their_team(client):
     assert item["current_step"] == "prototyping"
     assert item["handover"]["body"] == "Essayer les galets."
     assert item["handover"]["author"] == "lina"
+    # Left at another step than the current one, the screen can flag it stale.
+    assert item["handover"]["step"] == "prototyping"
     assert item["last_progress"]["participants"] == ["lina"]
 
 
