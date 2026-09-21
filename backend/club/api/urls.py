@@ -9,6 +9,7 @@ from .views import (
     SignUpView,
     TeamCreateView,
     TeamDetailView,
+    WorkItemListView,
 )
 
 # No password-reset route, and that is a decision, not an omission: one
@@ -27,5 +28,10 @@ urlpatterns = [
         "memberships/<int:pk>/",
         MembershipDetailView.as_view(),
         name="membership-detail",
+    ),
+    path(
+        "team-seasons/<int:team_season_id>/work-items/",
+        WorkItemListView.as_view(),
+        name="work-item-list",
     ),
 ]

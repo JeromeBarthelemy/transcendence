@@ -10,6 +10,7 @@ from django.contrib.auth import authenticate
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
+from django.utils import timezone
 from rest_framework import serializers
 from rest_framework.exceptions import ErrorDetail
 
@@ -20,6 +21,8 @@ from club.models import (
     TeamSeason,
     User,
     VerificationRequest,
+    WorkItem,
+    fold_title,
     no_at_sign,
 )
 from club.signup import reserved_email
@@ -208,3 +211,33 @@ class AddMembershipSerializer(serializers.Serializer[Membership]):
 
     def create(self, validated_data: dict[str, Any]) -> Membership:
         return Membership.objects.create(**validated_data)
+
+
+class OpenWorkItemSerializer(serializers.Serializer[WorkItem]):
+    """Opening a work item is starting on it; a work item listed in September
+    is only suggested, and opened by its first progress."""
+
+    title = serializers.CharField(max_length=120)
+    on_robot = serializers.BooleanField(default=False)
+    suggested = serializers.BooleanField(default=False, write_only=True)
+
+    def validate_title(self, value: str) -> str:
+        # Checked here so a duplicate is a coded 400; the folded unique
+        # constraint stays the backstop a race would reach.
+        taken = WorkItem.objects.filter(
+            team_season=self.context["team_season"], title_folded=fold_title(value)
+        )
+        if taken.exists():
+            raise serializers.ValidationError(
+                "Ce chantier existe déjà dans l'équipe.", code="work_item_title_taken"
+            )
+        return value
+
+    def create(self, validated_data: dict[str, Any]) -> WorkItem:
+        suggested = validated_data.pop("suggested")
+        return WorkItem.objects.create(
+            team_season=self.context["team_season"],
+            status=WorkItem.Status.SUGGESTED if suggested else WorkItem.Status.OPEN,
+            opened_at=None if suggested else timezone.now(),
+            **validated_data,
+        )

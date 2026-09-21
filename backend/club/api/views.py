@@ -13,14 +13,15 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from club.models import Membership, Team, User
+from club.models import Entry, Membership, Team, User, WorkItem
 
 from .errors import Conflict
-from .permissions import IsClubAdmin
+from .permissions import IsClubAdmin, team_season_acted_on
 from .serializers import (
     AddMembershipSerializer,
     CreateTeamSerializer,
     LoginSerializer,
+    OpenWorkItemSerializer,
     RenameTeamSerializer,
     SignUpSerializer,
 )
@@ -193,3 +194,42 @@ class MembershipDetailView(APIView):
         membership = get_object_or_404(Membership, pk=pk)
         membership.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+def _work_item(item: WorkItem) -> dict[str, object]:
+    latest = (
+        item.entries.filter(type=Entry.Type.PROGRESS)
+        .order_by("-occurred_at", "-id")
+        .first()
+    )
+    return {
+        "id": item.id,
+        "title": item.title,
+        "on_robot": item.on_robot,
+        "status": item.status,
+        # The latest progress already carries it: read once, not twice.
+        "current_step": latest.step if latest else None,
+        "handover": item.handover,
+        "last_progress": {
+            "occurred_at": latest.occurred_at,
+            "participants": [user.display_name for user in latest.participants.all()],
+        }
+        if latest
+        else None,
+    }
+
+
+class WorkItemListView(APIView):
+    def get(self, request: Request, team_season_id: int) -> Response:
+        assert isinstance(request.user, User)
+        team_season = team_season_acted_on(request.user, team_season_id)
+        return Response([_work_item(item) for item in team_season.work_items.all()])
+
+    def post(self, request: Request, team_season_id: int) -> Response:
+        assert isinstance(request.user, User)
+        team_season = team_season_acted_on(request.user, team_season_id)
+        serializer = OpenWorkItemSerializer(
+            data=request.data, context={"team_season": team_season}
+        )
+        serializer.is_valid(raise_exception=True)
+        return Response(_work_item(serializer.save()), status=status.HTTP_201_CREATED)
