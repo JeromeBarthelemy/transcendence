@@ -6,7 +6,7 @@ from datetime import date, datetime, time, timedelta
 from django.db.models import QuerySet
 from django.utils import timezone
 
-from club.models import Entry, TeamSeason, User
+from club.models import Entry, TeamSeason, User, WorkshopSlot
 
 # A rush that ends at one in the morning belongs to the day it started, as
 # everyone but a clock thinks.
@@ -43,3 +43,29 @@ def attendance(team_season: TeamSeason, day: date) -> QuerySet[User]:
     return User.objects.filter(
         club_role=User.ClubRole.STUDENT, participations__in=progress
     ).distinct()
+
+
+def gaps(team_season: TeamSeason, since: date, until: date) -> list[date]:
+    """The slot days, from since to until, on which the team moved nothing
+    forward. Today is never one: its slot may not have happened yet."""
+    last = min(until, workday(timezone.now()) - timedelta(days=1))
+    expected: set[date] = set()
+    for slot in WorkshopSlot.objects.filter(season=team_season.season):
+        start = max(since, slot.valid_from)
+        end = min(last, slot.valid_until or last)
+        first = start + timedelta(days=(slot.weekday - start.weekday()) % 7)
+        expected.update(
+            first + timedelta(weeks=n) for n in range((end - first).days // 7 + 1)
+        )
+
+    low, high = _bounds(since)[0], _bounds(last)[1]
+    worked = {
+        workday(occurred_at)
+        for occurred_at in Entry.objects.filter(
+            team_season=team_season,
+            type=Entry.Type.PROGRESS,
+            occurred_at__gte=low,
+            occurred_at__lt=high,
+        ).values_list("occurred_at", flat=True)
+    }
+    return sorted(expected - worked)

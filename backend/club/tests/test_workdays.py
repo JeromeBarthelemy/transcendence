@@ -1,8 +1,9 @@
-from datetime import date, datetime, time
+from datetime import date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
 import pytest
 from django.db import IntegrityError
+from django.utils import timezone
 
 from club.models import (
     Entry,
@@ -14,7 +15,7 @@ from club.models import (
     WorkItem,
     WorkshopSlot,
 )
-from club.workdays import attendance, day_entries, workday
+from club.workdays import attendance, day_entries, gaps, workday
 
 PARIS = ZoneInfo("Europe/Paris")
 
@@ -140,3 +141,97 @@ def test_being_present_for_another_team_does_not_count():
     progress(engrenages, at(WEDNESDAY, 15), member("lina"))
 
     assert not attendance(rouages, WEDNESDAY).exists()
+
+
+# A past season, so that "never beyond today" does not interfere.
+MONDAY = date(2025, 11, 3)
+
+
+def slot(season, weekday, valid_from, valid_until=None):
+    return WorkshopSlot.objects.create(
+        season=season,
+        weekday=weekday,
+        start_time=time(14),
+        valid_from=valid_from,
+        valid_until=valid_until,
+    )
+
+
+def past_team_season(number=12345):
+    season, _ = Season.objects.get_or_create(start_year=2025, game_name="Decode")
+    team = Team.objects.create(number=number, name=f"Équipe {number}")
+    return TeamSeason.objects.create(team=team, season=season)
+
+
+def test_a_slot_day_without_progress_is_a_gap():
+    rouages = past_team_season()
+    slot(rouages.season, WorkshopSlot.Weekday.WEDNESDAY, MONDAY)
+    progress(rouages, at(date(2025, 11, 5), 15), member("lina"))
+
+    assert gaps(rouages, MONDAY, date(2025, 11, 16)) == [date(2025, 11, 12)]
+
+
+def test_a_day_with_only_a_note_is_still_a_gap():
+    # Someone was there, but nothing moved forward: no one is present either.
+    rouages = past_team_season()
+    slot(rouages.season, WorkshopSlot.Weekday.WEDNESDAY, MONDAY)
+    Entry.objects.create(
+        team_season=rouages,
+        author=member("lina"),
+        type=Entry.Type.NOTE,
+        occurred_at=at(date(2025, 11, 5), 15),
+    )
+
+    assert gaps(rouages, MONDAY, date(2025, 11, 9)) == [date(2025, 11, 5)]
+
+
+def test_another_teams_progress_does_not_fill_a_gap():
+    rouages = past_team_season(12345)
+    engrenages = past_team_season(67890)
+    slot(rouages.season, WorkshopSlot.Weekday.WEDNESDAY, MONDAY)
+    progress(engrenages, at(date(2025, 11, 5), 15), member("lina"))
+
+    assert gaps(rouages, MONDAY, date(2025, 11, 9)) == [date(2025, 11, 5)]
+
+
+def test_a_changed_slot_keeps_what_was_expected_before():
+    # Wednesdays until the change, Thursdays after it.
+    rouages = past_team_season()
+    slot(rouages.season, WorkshopSlot.Weekday.WEDNESDAY, MONDAY, date(2025, 11, 9))
+    slot(rouages.season, WorkshopSlot.Weekday.THURSDAY, date(2025, 11, 10))
+
+    assert gaps(rouages, MONDAY, date(2025, 11, 16)) == [
+        date(2025, 11, 5),
+        date(2025, 11, 13),
+    ]
+
+
+def test_two_slots_on_the_same_day_make_one_gap():
+    rouages = past_team_season()
+    slot(rouages.season, WorkshopSlot.Weekday.SATURDAY, MONDAY)
+    WorkshopSlot.objects.create(
+        season=rouages.season,
+        weekday=WorkshopSlot.Weekday.SATURDAY,
+        start_time=time(9),
+        valid_from=MONDAY,
+    )
+
+    assert gaps(rouages, MONDAY, date(2025, 11, 9)) == [date(2025, 11, 8)]
+
+
+def test_another_seasons_slots_are_not_expected():
+    rouages = past_team_season()
+    next_season = Season.objects.create(start_year=2026, game_name="BioBuzz")
+    slot(next_season, WorkshopSlot.Weekday.WEDNESDAY, MONDAY)
+
+    assert gaps(rouages, MONDAY, date(2025, 11, 9)) == []
+
+
+def test_a_day_still_to_come_is_not_a_gap():
+    rouages = past_team_season()
+    today = workday(timezone.now())
+    slot(rouages.season, today.weekday(), today - timedelta(days=7))
+
+    assert gaps(rouages, today - timedelta(days=7), today + timedelta(days=14)) == [
+        today - timedelta(days=7)
+    ]
