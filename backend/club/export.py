@@ -2,10 +2,15 @@
 writes the portfolio elsewhere. Every rule is applied here; each output format
 only lays out what `gather` returns."""
 
+import io
+import zipfile
 from dataclasses import dataclass, field
 from datetime import datetime
 
-from club.models import Entry, TeamSeason
+from django.utils import formats, timezone
+from django.utils.text import slugify
+
+from club.models import Entry, TeamSeason, WorkItem
 
 
 @dataclass
@@ -83,3 +88,42 @@ def gather(team_season: TeamSeason) -> Notebook:
         season=team_season.season.label,
         categories=[category for category in categories if category.chapters],
     )
+
+
+def _markdown_item(item: Item) -> list[str]:
+    source = [formats.date_format(timezone.localtime(item.occurred_at), "l j F Y")]
+    if item.type != Entry.Type.PROGRESS:
+        source.append(Entry.Type(item.type).label)
+    if item.step:
+        source.append(Entry.Step(item.step).label)
+    lines = [
+        f"### {' · '.join(source)} — {', '.join(item.participants or [item.author])}"
+    ]
+    if item.body:
+        lines += ["", item.body]
+    if item.handover:
+        lines += ["", f"> À faire ensuite : {item.handover}"]
+    return lines + [""]
+
+
+def _markdown_category(notebook: Notebook, category: Category) -> str:
+    lines = [f"# {category.title}", "", f"{notebook.team} · {notebook.season}", ""]
+    for chapter in category.chapters:
+        # What belongs to no work item is one chapter, already titled by its
+        # category.
+        if chapter.status is not None:
+            label = WorkItem.Status(chapter.status).label
+            lines += [f"## {chapter.title}", "", f"*{label}*", ""]
+        for item in chapter.items:
+            lines += _markdown_item(item)
+    return "\n".join(lines)
+
+
+def to_markdown_zip(notebook: Notebook) -> bytes:
+    """One Markdown file per category, numbered in the notebook's order."""
+    archive = io.BytesIO()
+    with zipfile.ZipFile(archive, "w", zipfile.ZIP_DEFLATED) as files:
+        for number, category in enumerate(notebook.categories, start=1):
+            name = f"{number}-{slugify(category.title)}.md"
+            files.writestr(name, _markdown_category(notebook, category))
+    return archive.getvalue()

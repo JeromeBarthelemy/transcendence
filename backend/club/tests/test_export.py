@@ -1,7 +1,9 @@
+import io
+import zipfile
 from datetime import date, datetime, time
 from zoneinfo import ZoneInfo
 
-from club.export import gather
+from club.export import gather, to_markdown_zip
 from club.models import (
     Entry,
     EntryParticipant,
@@ -134,3 +136,54 @@ def test_another_teams_work_is_not_in_the_notebook():
     entry(theirs, date(2026, 10, 7), member("sam"), work_item=intake)
 
     assert gather(rouages).categories == []
+
+
+# --- the Markdown rendering ---
+
+
+def unzip(archive):
+    with zipfile.ZipFile(io.BytesIO(archive)) as files:
+        return {name: files.read(name).decode() for name in files.namelist()}
+
+
+def test_each_category_is_a_markdown_file():
+    rouages = team_season()
+    lina = member("lina")
+    intake = WorkItem.objects.create(team_season=rouages, title="Intake", on_robot=True)
+    entry(rouages, date(2026, 10, 7), lina, work_item=intake)
+    entry(rouages, date(2026, 10, 8), lina, type=Entry.Type.NOTE)
+
+    files = unzip(to_markdown_zip(gather(rouages)))
+
+    assert sorted(files) == ["1-construction-du-robot.md", "2-vie-de-lequipe.md"]
+
+
+def test_a_chapter_reads_with_its_sources():
+    rouages = team_season()
+    intake = WorkItem.objects.create(team_season=rouages, title="Intake", on_robot=True)
+    entry(
+        rouages,
+        date(2026, 9, 30),
+        member("lina"),
+        member("tom"),
+        work_item=intake,
+        body="Trois idées de rouleaux.",
+        step=Entry.Step.BRAINSTORMING,
+        handover="Choisir entre galets et courroie.",
+    )
+
+    text = unzip(to_markdown_zip(gather(rouages)))["1-construction-du-robot.md"]
+
+    assert "## Intake" in text
+    assert "mercredi 30 septembre 2026 · brainstorming — lina, tom" in text
+    assert "Trois idées de rouleaux." in text
+    assert "Choisir entre galets et courroie." in text
+
+
+def test_the_life_of_the_team_is_not_titled_twice():
+    rouages = team_season()
+    entry(rouages, date(2026, 10, 8), member("jo"), type=Entry.Type.NOTE, body="HS.")
+
+    text = unzip(to_markdown_zip(gather(rouages)))["1-vie-de-lequipe.md"]
+
+    assert text.count("Vie de l'équipe") == 1
