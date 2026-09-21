@@ -140,15 +140,23 @@ class TeamDetailView(APIView):
         team = get_object_or_404(Team, pk=pk)
         # `TeamSeason.team` is PROTECT (club/models.py): deleting a team with
         # more than the one season just opened for it must not silently wipe
-        # that history away by cascading it first. Below the threshold, the
-        # single team_season is deleted along with the team on purpose — it
-        # carries nothing yet (no chantier/avancée model exists to attach to
-        # it), so it is not "history" in the sense PROTECT means to guard.
+        # that history away by cascading it first.
         if team.team_seasons.count() > 1:
             raise Conflict(
                 "Cette équipe a un historique de plusieurs saisons : "
                 "elle ne peut pas être supprimée.",
                 code="team_has_history",
+            )
+        # A second, independent guard: even a single team_season can carry a
+        # real roster today (Membership.team_season is CASCADE), and cascading
+        # it away with the team would delete that roster with no trace beyond
+        # a 204. Refusing while members remain makes the admin remove them
+        # first — a deliberate act, same spirit as PROTECT elsewhere.
+        if Membership.objects.filter(team_season__team=team).exists():
+            raise Conflict(
+                "Cette équipe a encore des membres affectés : "
+                "retirez-les avant de la supprimer.",
+                code="team_has_members",
             )
         try:
             with transaction.atomic():

@@ -154,6 +154,17 @@ class CreateTeamSerializer(serializers.Serializer[Team]):
     name = serializers.CharField(max_length=120)
     season = serializers.IntegerField(write_only=True)
 
+    def validate_number(self, value: int) -> int:
+        # A plain Serializer does not inherit Team.number's uniqueness from
+        # the model the way a ModelSerializer would — checked here first so
+        # a duplicate is a 400, same backstop pattern as display_name_taken,
+        # rather than the IntegrityError Team.objects.create() would raise.
+        if Team.objects.filter(number=value).exists():
+            raise serializers.ValidationError(
+                "Ce numéro d'équipe est déjà utilisé.", code="team_number_taken"
+            )
+        return value
+
     def validate_season(self, value: int) -> Season:
         try:
             return Season.objects.get(start_year=value)

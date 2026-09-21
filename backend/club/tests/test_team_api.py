@@ -47,6 +47,23 @@ def test_creating_a_team_also_opens_its_team_season_for_the_given_season(client)
     ).exists()
 
 
+def test_creating_a_team_with_a_taken_number_is_refused_cleanly(client):
+    client.force_login(admin())
+    team()  # 12345, already taken
+    season(2026, "BioBuzz")
+
+    response = client.post(
+        "/api/teams/",
+        {"number": 12345, "name": "Une autre équipe", "season": 2026},
+    )
+
+    # Team.number is unique, but a plain Serializer does not know that on its
+    # own — without validate_number this reaches Team.objects.create() and
+    # comes back as a bare 500 (IntegrityError), not a clean refusal.
+    assert response.status_code == 400
+    assert Team.objects.filter(number=12345).count() == 1
+
+
 def test_creating_a_team_for_an_unknown_season_is_refused(client):
     client.force_login(admin())
 
@@ -123,6 +140,36 @@ def test_a_team_with_last_season_history_cannot_be_deleted_over_the_api(client):
     # response, never a bare 500.
     assert response.status_code == 409
     assert Team.objects.filter(id=rouages.id).exists()
+
+
+def test_a_team_with_members_cannot_be_deleted_over_the_api(client):
+    client.force_login(admin())
+    rouages_2026 = team_season()
+    lina = student("lina@club.fr", "Lina")
+    Membership.objects.create(user=lina, team_season=rouages_2026)
+
+    response = client.delete(f"/api/teams/{rouages_2026.team.id}/")
+
+    # team_seasons.count() == 1 here, so the history check alone would let
+    # this through — cascading team_seasons.all().delete() would then take
+    # Lina's membership with it, silently, with a 204 to show for it.
+    assert response.status_code == 409
+    assert Team.objects.filter(id=rouages_2026.team.id).exists()
+    assert Membership.objects.filter(user=lina, team_season=rouages_2026).exists()
+
+
+def test_a_team_can_be_deleted_once_its_last_member_is_removed(client):
+    # The corrected demo script: create, add two, remove both, then delete.
+    client.force_login(admin())
+    rouages_2026 = team_season()
+    lina = student("lina@club.fr", "Lina")
+    membership = Membership.objects.create(user=lina, team_season=rouages_2026)
+
+    client.delete(f"/api/memberships/{membership.id}/")
+    response = client.delete(f"/api/teams/{rouages_2026.team.id}/")
+
+    assert response.status_code == 204
+    assert not Team.objects.filter(id=rouages_2026.team.id).exists()
 
 
 # --- memberships ---
