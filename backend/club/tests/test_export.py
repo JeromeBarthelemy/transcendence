@@ -7,6 +7,7 @@ from club.export import gather, to_markdown_zip
 from club.models import (
     Entry,
     EntryParticipant,
+    Membership,
     Season,
     Team,
     TeamSeason,
@@ -187,3 +188,56 @@ def test_the_life_of_the_team_is_not_titled_twice():
     text = unzip(to_markdown_zip(gather(rouages)))["1-vie-de-lequipe.md"]
 
     assert text.count("Vie de l'équipe") == 1
+
+
+# --- downloading it ---
+
+
+def export_url(team, **query):
+    params = "&".join(f"{key}={value}" for key, value in query.items())
+    return f"/api/team-seasons/{team.id}/export/?{params}"
+
+
+def test_a_member_downloads_the_notebook_as_an_archive(client):
+    rouages = team_season()
+    lina = member("lina")
+    Membership.objects.create(user=lina, team_season=rouages)
+    entry(rouages, date(2026, 10, 8), lina, type=Entry.Type.NOTE, body="HS.")
+    client.force_login(lina)
+
+    response = client.get(export_url(rouages, format="markdown"))
+
+    assert response.status_code == 200
+    assert response["Content-Type"] == "application/zip"
+    assert "attachment" in response["Content-Disposition"]
+    assert list(unzip(response.content)) == ["1-vie-de-lequipe.md"]
+
+
+def test_markdown_is_the_format_by_default(client):
+    rouages = team_season()
+    lina = member("lina")
+    Membership.objects.create(user=lina, team_season=rouages)
+    client.force_login(lina)
+
+    assert client.get(export_url(rouages))["Content-Type"] == "application/zip"
+
+
+def test_an_unknown_format_is_refused(client):
+    rouages = team_season()
+    lina = member("lina")
+    Membership.objects.create(user=lina, team_season=rouages)
+    client.force_login(lina)
+
+    response = client.get(export_url(rouages, format="docx"))
+
+    assert response.status_code == 400
+    assert response.json()["format"][0]["code"] == "invalid_choice"
+
+
+def test_a_student_cannot_export_another_teams_notebook(client):
+    rouages = team_season(12345)
+    sam = member("sam")
+    Membership.objects.create(user=sam, team_season=team_season(67890))
+    client.force_login(sam)
+
+    assert client.get(export_url(rouages)).status_code == 403

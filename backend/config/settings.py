@@ -148,6 +148,10 @@ REST_FRAMEWORK = {
     ],
     # Every refusal carries a code and a sentence, never one without the other.
     "EXCEPTION_HANDLER": "club.api.errors.exception_handler",
+    # DRF would read `?format=` as a choice of its own response renderer and
+    # answer 404 for any it does not know; the notebook export uses that
+    # parameter for its own formats.
+    "URL_FORMAT_OVERRIDE": None,
 }
 
 # Django's defaults. They are what satisfies the subject's requirement that

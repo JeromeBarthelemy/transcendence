@@ -298,3 +298,7 @@ class DaySerializer(serializers.Serializer[None]):
 class PeriodSerializer(serializers.Serializer[None]):
     since = serializers.DateField()
     until = serializers.DateField()
+
+
+class ExportSerializer(serializers.Serializer[None]):
+    format = serializers.ChoiceField(choices=["markdown"], default="markdown")
