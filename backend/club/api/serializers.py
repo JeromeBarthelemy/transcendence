@@ -15,6 +15,7 @@ from rest_framework import serializers
 from rest_framework.exceptions import ErrorDetail
 
 from club.models import (
+    Entry,
     Membership,
     Season,
     Team,
@@ -255,3 +256,13 @@ class CloseWorkItemSerializer(serializers.Serializer[WorkItem]):
         instance.closed_at = timezone.now()
         instance.save(update_fields=["status", "closed_at"])
         return instance
+
+
+class TickSerializer(serializers.Serializer[Entry]):
+    step = serializers.ChoiceField(choices=Entry.Step.choices, required=False)
+
+
+class WriteProgressSerializer(serializers.Serializer[Entry]):
+    body = serializers.CharField(allow_blank=True, required=False)
+    step = serializers.ChoiceField(choices=Entry.Step.choices, required=False)
+    handover = serializers.CharField(allow_blank=True, required=False)

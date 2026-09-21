@@ -1,6 +1,7 @@
 from django.urls import path
 
 from .views import (
+    EntryDetailView,
     LoginView,
     LogoutView,
     MembershipCreateView,
@@ -9,6 +10,7 @@ from .views import (
     SignUpView,
     TeamCreateView,
     TeamDetailView,
+    TickView,
     WorkItemDetailView,
     WorkItemListView,
 )
@@ -36,4 +38,6 @@ urlpatterns = [
         name="work-item-list",
     ),
     path("work-items/<int:pk>/", WorkItemDetailView.as_view(), name="work-item-detail"),
+    path("work-items/<int:pk>/tick/", TickView.as_view(), name="work-item-tick"),
+    path("entries/<int:pk>/", EntryDetailView.as_view(), name="entry-detail"),
 ]

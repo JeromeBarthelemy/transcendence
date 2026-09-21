@@ -243,3 +243,154 @@ def test_a_student_cannot_change_another_teams_work_item(client):
     assert response.status_code == 403
     intake.refresh_from_db()
     assert intake.status == WorkItem.Status.OPEN
+
+
+# --- ticking a work item ---
+
+
+def tick(client, item, **body):
+    return client.post(
+        f"/api/work-items/{item.id}/tick/", body, content_type="application/json"
+    )
+
+
+def robot_work_item(team):
+    return WorkItem.objects.create(team_season=team, title="intake", on_robot=True)
+
+
+def test_the_first_tick_of_the_day_creates_the_progress(client):
+    rouages = team_season()
+    intake = robot_work_item(rouages)
+    client.force_login(member_of(rouages))
+
+    response = tick(client, intake)
+
+    assert response.status_code == 201
+    assert response.json()["participants"] == ["lina"]
+
+
+def test_a_second_member_ticking_joins_the_progress_of_the_day(client):
+    rouages = team_season()
+    intake = robot_work_item(rouages)
+    client.force_login(member_of(rouages, "lina"))
+    tick(client, intake)
+    client.force_login(member_of(rouages, "tom"))
+
+    response = tick(client, intake)
+
+    assert response.status_code == 200
+    assert response.json()["participants"] == ["lina", "tom"]
+    assert intake.entries.count() == 1
+
+
+def test_ticking_twice_signs_up_once(client):
+    rouages = team_season()
+    intake = robot_work_item(rouages)
+    client.force_login(member_of(rouages))
+    tick(client, intake)
+
+    response = tick(client, intake)
+
+    assert response.json()["participants"] == ["lina"]
+    assert intake.entries.count() == 1
+
+
+def test_a_mentor_who_ticks_is_signed_up(client):
+    rouages = team_season()
+    intake = robot_work_item(rouages)
+    client.force_login(mentor())
+
+    assert tick(client, intake).json()["participants"] == ["paul"]
+
+
+def test_ticking_at_another_step_opens_a_second_progress(client):
+    # Prototyping in the morning, building in the afternoon: two progress.
+    rouages = team_season()
+    intake = robot_work_item(rouages)
+    client.force_login(member_of(rouages))
+    tick(client, intake)
+
+    response = tick(client, intake, step="building")
+
+    assert response.status_code == 201
+    assert response.json()["step"] == "building"
+    assert intake.entries.count() == 2
+
+
+def test_a_step_off_the_robot_is_refused_with_its_code(client):
+    rouages = team_season()
+    sponsoring = WorkItem.objects.create(team_season=rouages, title="sponsoring")
+    client.force_login(member_of(rouages))
+
+    response = tick(client, sponsoring, step="building")
+
+    assert response.status_code == 400
+    assert response.json()["detail"]["code"] == "step_off_robot"
+
+
+def test_a_student_cannot_tick_another_teams_work_item(client):
+    intake = robot_work_item(team_season(12345))
+    client.force_login(member_of(team_season(67890)))
+
+    assert tick(client, intake).status_code == 403
+    assert not intake.entries.exists()
+
+
+# --- writing a progress ---
+
+
+def write(client, entry, **body):
+    return client.patch(
+        f"/api/entries/{entry.id}/", body, content_type="application/json"
+    )
+
+
+def test_a_participant_writes_the_progress(client):
+    rouages = team_season()
+    lina = member_of(rouages)
+    entry = record_progress(robot_work_item(rouages), lina, "")
+    client.force_login(lina)
+
+    response = write(
+        client,
+        entry,
+        body="Galets montés.",
+        step="building",
+        handover="Ne pas resserrer la courroie.",
+    )
+
+    assert response.status_code == 200
+    entry.refresh_from_db()
+    assert entry.body == "Galets montés."
+    assert entry.step == Entry.Step.BUILDING
+    assert entry.handover == "Ne pas resserrer la courroie."
+
+
+def test_a_student_who_did_not_take_part_cannot_write_it(client):
+    rouages = team_season()
+    entry = record_progress(robot_work_item(rouages), member_of(rouages, "lina"), "")
+    client.force_login(member_of(rouages, "tom"))
+
+    response = write(client, entry, body="Pas moi.")
+
+    assert response.status_code == 400
+    assert response.json()["detail"]["code"] == "edit_not_participant"
+
+
+def test_a_note_is_not_written_as_a_progress(client):
+    rouages = team_season()
+    lina = member_of(rouages)
+    note = Entry.objects.create(team_season=rouages, author=lina, type=Entry.Type.NOTE)
+    client.force_login(lina)
+
+    response = write(client, note, body="Perceuse HS.")
+
+    assert response.json()["detail"]["code"] == "edit_not_progress"
+
+
+def test_a_student_cannot_write_another_teams_progress(client):
+    other = team_season(67890)
+    entry = record_progress(robot_work_item(other), member_of(other, "sam"), "")
+    client.force_login(member_of(team_season(12345)))
+
+    assert write(client, entry, body="Pas chez moi.").status_code == 403

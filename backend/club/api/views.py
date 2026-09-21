@@ -5,6 +5,7 @@ from django.contrib.auth import login, logout
 from django.db import transaction
 from django.db.models import ProtectedError
 from django.shortcuts import get_object_or_404
+from django.utils import timezone
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_protect, ensure_csrf_cookie
 from rest_framework import status
@@ -14,6 +15,8 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from club.models import Entry, Membership, Team, User, WorkItem
+from club.progress import edit_progress, join, record_progress
+from club.workdays import progress_of_the_day, workday
 
 from .errors import Conflict
 from .permissions import IsClubAdmin, team_season_acted_on
@@ -25,6 +28,8 @@ from .serializers import (
     OpenWorkItemSerializer,
     RenameTeamSerializer,
     SignUpSerializer,
+    TickSerializer,
+    WriteProgressSerializer,
 )
 
 
@@ -257,22 +262,69 @@ def _entry(entry: Entry) -> dict[str, object]:
     }
 
 
-class WorkItemDetailView(APIView):
-    def _acted_on(self, request: Request, pk: int) -> WorkItem:
-        assert isinstance(request.user, User)
-        item = get_object_or_404(WorkItem, pk=pk)
-        team_season_acted_on(request.user, item.team_season_id)
-        return item
+def _work_item_acted_on(user: User, work_item_id: int) -> WorkItem:
+    item = get_object_or_404(WorkItem, pk=work_item_id)
+    team_season_acted_on(user, item.team_season_id)
+    return item
 
+
+class WorkItemDetailView(APIView):
     def get(self, request: Request, pk: int) -> Response:
-        item = self._acted_on(request, pk)
+        assert isinstance(request.user, User)
+        item = _work_item_acted_on(request.user, pk)
         thread = item.entries.select_related("author").order_by("-occurred_at", "-id")
         return Response(
             {**_work_item(item), "thread": [_entry(entry) for entry in thread]}
         )
 
     def patch(self, request: Request, pk: int) -> Response:
-        item = self._acted_on(request, pk)
+        assert isinstance(request.user, User)
+        item = _work_item_acted_on(request.user, pk)
         serializer = CloseWorkItemSerializer(item, data=request.data)
         serializer.is_valid(raise_exception=True)
         return Response(_work_item(serializer.save()))
+
+
+class TickView(APIView):
+    """Ticking a work item is signing up to today's progress on it, which the
+    first to tick creates. Ticking at another step than today's opens a
+    second progress: the day moved from one step to the next."""
+
+    def post(self, request: Request, pk: int) -> Response:
+        user = request.user
+        assert isinstance(user, User)
+        item = _work_item_acted_on(user, pk)
+        serializer = TickSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        step = serializer.validated_data.get("step")
+
+        entry = progress_of_the_day(item, workday(timezone.now()))
+        created = entry is None or (step is not None and step != entry.step)
+        if created:
+            entry = record_progress(item, user, "", step=step)
+        assert entry is not None
+        if not entry.participants.filter(pk=user.pk).exists():
+            join(entry, user)
+        return Response(
+            _entry(entry),
+            status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
+        )
+
+
+class EntryDetailView(APIView):
+    def patch(self, request: Request, pk: int) -> Response:
+        user = request.user
+        assert isinstance(user, User)
+        entry = get_object_or_404(Entry, pk=pk)
+        team_season_acted_on(user, entry.team_season_id)
+        serializer = WriteProgressSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        edit_progress(
+            entry,
+            user,
+            data.get("body", entry.body),
+            step=data.get("step"),
+            handover=data.get("handover"),
+        )
+        return Response(_entry(entry))
