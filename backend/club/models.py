@@ -354,6 +354,79 @@ class WorkItem(models.Model):
     def __str__(self) -> str:
         return f"{self.title} ({self.team_season})"
 
+    @property
+    def current_step(self) -> "str | None":
+        """Never stored: the step of the latest progress, so moving back a
+        step is an entry like any other."""
+        latest = (
+            self.entries.filter(type=Entry.Type.PROGRESS)
+            .order_by("-occurred_at", "-id")
+            .first()
+        )
+        return latest.step if latest else None
+
+
+class Entry(models.Model):
+    """A trace: anything the notebook can cite, whatever its kind. One table
+    so that a citation points at one kind of thing."""
+
+    class Type(models.TextChoices):
+        PROGRESS = "progress", "avancée"
+        NOTE = "note", "remarque"
+        DECISION = "decision", "décision"
+
+    class Step(models.TextChoices):
+        """Fixed and ordered; repair happens at any point, off the sequence."""
+
+        BRAINSTORMING = "brainstorming", "brainstorming"
+        PROTOTYPING = "prototyping", "prototypage"
+        BUILDING = "building", "construction"
+        DRY_TESTS = "dry_tests", "tests à vide"
+        INTEGRATION = "integration", "intégration"
+        TEST_ZERO = "test_zero", "test zéro"
+        TUNING = "tuning", "optimisation"
+        REPAIR = "repair", "réparation"
+
+    team_season = models.ForeignKey(
+        TeamSeason, on_delete=models.PROTECT, related_name="entries"
+    )
+    # PROTECT until the GDPR module decides what a deleted member's traces become.
+    author = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="entries"
+    )
+    work_item = models.ForeignKey(
+        WorkItem,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="entries",
+    )
+    type = models.CharField("type", max_length=10, choices=Type.choices)
+    title = models.CharField("titre", max_length=200, blank=True)
+    body = models.TextField("texte", blank=True)
+    step = models.CharField(
+        "étape", max_length=15, choices=Step.choices, null=True, blank=True
+    )
+    # Apart from created_at, so that a backfilled trace shows the gap.
+    occurred_at = models.DateTimeField("survenu le", default=timezone.now)
+    created_at = models.DateTimeField("créé le", auto_now_add=True)
+    updated_at = models.DateTimeField("modifié le", null=True, blank=True)
+    updated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="+",
+        verbose_name="modifié par",
+    )
+
+    class Meta:
+        ordering = ["-occurred_at", "-id"]
+        verbose_name = "trace"
+
+    def __str__(self) -> str:
+        return f"{self.get_type_display()} — {self.team_season}"
+
 
 class ConsentQuerySet(models.QuerySet["Consent"]):
     """Reading a journal of decisions: what is in force is never a column, it
