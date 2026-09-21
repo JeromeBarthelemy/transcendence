@@ -1,11 +1,12 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1060 1285" role="img"
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1060 1325" role="img"
      aria-labelledby="t d" font-family="IBM Plex Mono, ui-monospace, monospace">
   <title id="t">Socle club et traces — schéma relationnel</title>
   <desc id="d">Sept tables : Season, Team et TeamSeason qui les croise ; Membership qui
   rattache un User à une TeamSeason ; User, et la VerificationRequest qu'il dépose à
   l'inscription ; Consent, journal des décisions de droit à l'image. Puis les traces :
   WorkItem, le chantier d'une TeamSeason ; Entry, la trace qu'un User écrit, rattachée
-  ou non à un chantier ; EntryParticipant, qui s'est inscrit à une avancée.</desc>
+  ou non à un chantier ; EntryParticipant, qui s'est inscrit à une avancée ;
+  WorkshopSlot, les créneaux d'atelier d'une Season.</desc>
 
   <style>
     .bx   { fill:none; stroke:currentColor; stroke-width:1.3 }
@@ -60,54 +61,72 @@
   <text class="ann" x="412" y="312">UNIQUE (user_id, team_season_id)</text>
   <text class="cap" x="672" y="272">lien pur — plus aucun rôle</text>
 
+  <!-- ========================= WorkshopSlot ========================= -->
+  <rect class="bx" x="30" y="196" width="250" height="188" rx="3"/>
+  <line class="sep" x1="30" y1="222" x2="280" y2="222"/>
+  <text class="ttl" x="42" y="215">WorkshopSlot</text>
+  <text class="col" x="42" y="241">id</text>           <text class="ann" x="160" y="241">PK</text>
+  <text class="col" x="42" y="260">season_id</text>    <text class="ann" x="160" y="260">FK PROTECT</text>
+  <text class="col" x="42" y="279">weekday</text>      <text class="ann" x="160" y="279">0 = lundi</text>
+  <text class="col" x="42" y="298">start_time</text>
+  <text class="col" x="42" y="317">end_time</text>     <text class="ann" x="160" y="317">nullable</text>
+  <text class="col" x="42" y="336">valid_from</text>
+  <text class="col" x="42" y="355">valid_until</text>  <text class="ann" x="160" y="355">nullable</text>
+  <text class="ann" x="42" y="374">CHECK valid_until ≥ valid_from</text>
+
+  <!-- ===================== Season —&lt; WorkshopSlot =================== -->
+  <line class="lnk" x1="256" y1="133" x2="256" y2="196"/>
+  <line class="crow" x1="249" y1="139" x2="263" y2="139"/>
+  <path class="crow" d="M256,184 L248,196 M256,184 L256,196 M256,184 L264,196"/>
+
   <!-- ====================== VerificationRequest ===================== -->
-  <rect class="bx" x="30" y="380" width="250" height="172" rx="3"/>
-  <line class="sep" x1="30" y1="406" x2="280" y2="406"/>
-  <text class="ttl" x="42" y="399">VerificationRequest</text>
-  <text class="col" x="42" y="425">id</text>          <text class="ann" x="170" y="425">PK</text>
-  <text class="col" x="42" y="444">user_id</text>     <text class="ann" x="170" y="444">FK CASCADE</text>
-  <text class="col" x="42" y="463">last_name</text>
-  <text class="col" x="42" y="482">first_name</text>
-  <text class="col" x="42" y="501">birth_date</text>
-  <text class="col" x="42" y="520">created_at</text>
-  <text class="ann" x="42" y="539">UNIQUE (user_id)</text>
-  <text class="cap" x="30" y="574">ce que l'inscription a tapé, pour retrouver</text>
-  <text class="cap" x="30" y="590">l'adhésion AssoConnect — supprimée sitôt vérifiée</text>
-  <text class="cap" x="30" y="606">la date déclarée ne décide jamais de la majorité</text>
+  <rect class="bx" x="30" y="420" width="250" height="172" rx="3"/>
+  <line class="sep" x1="30" y1="446" x2="280" y2="446"/>
+  <text class="ttl" x="42" y="439">VerificationRequest</text>
+  <text class="col" x="42" y="465">id</text>          <text class="ann" x="170" y="465">PK</text>
+  <text class="col" x="42" y="484">user_id</text>     <text class="ann" x="170" y="484">FK CASCADE</text>
+  <text class="col" x="42" y="503">last_name</text>
+  <text class="col" x="42" y="522">first_name</text>
+  <text class="col" x="42" y="541">birth_date</text>
+  <text class="col" x="42" y="560">created_at</text>
+  <text class="ann" x="42" y="579">UNIQUE (user_id)</text>
+  <text class="cap" x="30" y="614">ce que l'inscription a tapé, pour retrouver</text>
+  <text class="cap" x="30" y="630">l'adhésion AssoConnect — supprimée sitôt vérifiée</text>
+  <text class="cap" x="30" y="646">la date déclarée ne décide jamais de la majorité</text>
 
   <!-- ============================= User ============================= -->
-  <rect class="bx" x="330" y="380" width="340" height="291" rx="3"/>
-  <line class="sep" x1="330" y1="406" x2="670" y2="406"/>
-  <text class="ttl" x="342" y="399">User</text>
-  <text class="col" x="342" y="425">id</text>              <text class="ann" x="545" y="425">PK</text>
-  <text class="col" x="342" y="444">email</text>           <text class="ann" x="545" y="444">UNIQUE</text>
-  <text class="col" x="342" y="463">display_name</text>
-  <text class="col" x="342" y="482">display_name_folded</text> <text class="ann" x="545" y="482">UNIQUE</text>
+  <rect class="bx" x="330" y="420" width="340" height="291" rx="3"/>
+  <line class="sep" x1="330" y1="446" x2="670" y2="446"/>
+  <text class="ttl" x="342" y="439">User</text>
+  <text class="col" x="342" y="465">id</text>              <text class="ann" x="545" y="465">PK</text>
+  <text class="col" x="342" y="484">email</text>           <text class="ann" x="545" y="484">UNIQUE</text>
+  <text class="col" x="342" y="503">display_name</text>
+  <text class="col" x="342" y="522">display_name_folded</text> <text class="ann" x="545" y="522">UNIQUE</text>
   
-  <text class="col" x="342" y="501">contact_email</text>   <text class="ann" x="545" y="501">optionnel</text>
-  <text class="col" x="342" y="520">avatar</text>          <text class="ann" x="545" y="520">optionnel</text>
-  <text class="col" x="342" y="539">assoconnect_id</text>  <text class="ann" x="545" y="539">UNIQUE, nullable</text>
-  <text class="col" x="342" y="558">birth_date</text>      <text class="ann" x="545" y="558">nullable</text>
-  <text class="col" x="342" y="577">club_role</text>       <text class="ann" x="545" y="577">student | mentor</text>
-  <text class="col" x="342" y="596">is_club_admin</text>   <text class="ann" x="545" y="596">default FALSE</text>
-  <text class="col" x="342" y="615">is_active, is_staff</text>
-  <text class="col" x="342" y="634">date_joined</text>
-  <text class="ann" x="342" y="653">+ AbstractBaseUser, PermissionsMixin</text>
-  <text class="cap" x="360" y="693">email et display_name identifient — on n'écrit qu'à contact_email</text>
-  <text class="cap" x="360" y="709">is_minor se calcule de birth_date vérifiée, il n'est pas stocké</text>
+  <text class="col" x="342" y="541">contact_email</text>   <text class="ann" x="545" y="541">optionnel</text>
+  <text class="col" x="342" y="560">avatar</text>          <text class="ann" x="545" y="560">optionnel</text>
+  <text class="col" x="342" y="579">assoconnect_id</text>  <text class="ann" x="545" y="579">UNIQUE, nullable</text>
+  <text class="col" x="342" y="598">birth_date</text>      <text class="ann" x="545" y="598">nullable</text>
+  <text class="col" x="342" y="617">club_role</text>       <text class="ann" x="545" y="617">student | mentor</text>
+  <text class="col" x="342" y="636">is_club_admin</text>   <text class="ann" x="545" y="636">default FALSE</text>
+  <text class="col" x="342" y="655">is_active, is_staff</text>
+  <text class="col" x="342" y="674">date_joined</text>
+  <text class="ann" x="342" y="693">+ AbstractBaseUser, PermissionsMixin</text>
+  <text class="cap" x="360" y="733">email et display_name identifient — on n'écrit qu'à contact_email</text>
+  <text class="cap" x="360" y="749">is_minor se calcule de birth_date vérifiée, il n'est pas stocké</text>
 
   <!-- ============================ Consent =========================== -->
-  <rect class="bx" x="760" y="380" width="270" height="150" rx="3"/>
-  <line class="sep" x1="760" y1="406" x2="1030" y2="406"/>
-  <text class="ttl" x="772" y="399">Consent</text>
-  <text class="col" x="772" y="425">id</text>          <text class="ann" x="895" y="425">PK</text>
-  <text class="col" x="772" y="444">user_id</text>     <text class="ann" x="895" y="444">FK CASCADE</text>
-  <text class="col" x="772" y="463">decision</text>    <text class="ann" x="895" y="463">granted | refused</text>
-  <text class="col" x="772" y="482">granted_by</text>  <text class="ann" x="895" y="482">self | tuteur</text>
-  <text class="col" x="772" y="501">decided_at</text>
-  <text class="cap" x="760" y="552">droit à l'image — journal de décisions, jamais réécrit</text>
-  <text class="cap" x="760" y="568">aucune unicité : la dernière ligne est celle en vigueur</text>
-  <text class="cap" x="760" y="584">aucune décision du tout ≠ un refus</text>
+  <rect class="bx" x="760" y="420" width="270" height="150" rx="3"/>
+  <line class="sep" x1="760" y1="446" x2="1030" y2="446"/>
+  <text class="ttl" x="772" y="439">Consent</text>
+  <text class="col" x="772" y="465">id</text>          <text class="ann" x="895" y="465">PK</text>
+  <text class="col" x="772" y="484">user_id</text>     <text class="ann" x="895" y="484">FK CASCADE</text>
+  <text class="col" x="772" y="503">decision</text>    <text class="ann" x="895" y="503">granted | refused</text>
+  <text class="col" x="772" y="522">granted_by</text>  <text class="ann" x="895" y="522">self | tuteur</text>
+  <text class="col" x="772" y="541">decided_at</text>
+  <text class="cap" x="760" y="592">droit à l'image — journal de décisions, jamais réécrit</text>
+  <text class="cap" x="760" y="608">aucune unicité : la dernière ligne est celle en vigueur</text>
+  <text class="cap" x="760" y="624">aucune décision du tout ≠ un refus</text>
 
   <!-- ====================== Season —&lt; TeamSeason ==================== -->
   <line class="lnk" x1="260" y1="86" x2="400" y2="86"/>
@@ -125,121 +144,121 @@
   <path class="crow" d="M525,198 L517,210 M525,198 L525,210 M525,198 L533,210"/>
 
   <!-- ======================= User —&lt; Membership ===================== -->
-  <line class="lnk" x1="525" y1="322" x2="525" y2="380"/>
-  <line class="crow" x1="518" y1="374" x2="532" y2="374"/>
+  <line class="lnk" x1="525" y1="322" x2="525" y2="420"/>
+  <line class="crow" x1="518" y1="414" x2="532" y2="414"/>
   <path class="crow" d="M525,334 L517,322 M525,334 L525,322 M525,334 L533,322"/>
 
   <!-- ====================== User —&lt; Consent (×n) ==================== -->
-  <line class="lnk" x1="670" y1="430" x2="760" y2="430"/>
-  <line class="crow" x1="676" y1="423" x2="676" y2="437"/>
-  <path class="crow" d="M748,430 L760,422 M748,430 L760,430 M748,430 L760,438"/>
+  <line class="lnk" x1="670" y1="470" x2="760" y2="470"/>
+  <line class="crow" x1="676" y1="463" x2="676" y2="477"/>
+  <path class="crow" d="M748,470 L760,462 M748,470 L760,470 M748,470 L760,478"/>
 
   <!-- ================= VerificationRequest —— User (1–1) ============= -->
-  <line class="lnk" x1="280" y1="430" x2="330" y2="430"/>
-  <line class="crow" x1="286" y1="423" x2="286" y2="437"/>
-  <line class="crow" x1="324" y1="423" x2="324" y2="437"/>
+  <line class="lnk" x1="280" y1="470" x2="330" y2="470"/>
+  <line class="crow" x1="286" y1="463" x2="286" y2="477"/>
+  <line class="crow" x1="324" y1="463" x2="324" y2="477"/>
 
   <!-- =========================== WorkItem =========================== -->
-  <rect class="bx" x="30" y="750" width="270" height="226" rx="3"/>
-  <line class="sep" x1="30" y1="776" x2="300" y2="776"/>
-  <text class="ttl" x="42" y="769">WorkItem</text>
-  <text class="col" x="42" y="795">id</text>              <text class="ann" x="170" y="795">PK</text>
-  <text class="col" x="42" y="814">team_season_id</text>  <text class="ann" x="170" y="814">FK PROTECT</text>
-  <text class="col" x="42" y="833">title</text>
-  <text class="col" x="42" y="852">title_folded</text>
-  <text class="col" x="42" y="871">on_robot</text>
-  <text class="col" x="42" y="890">status</text>
-  <text class="col" x="42" y="909">opened_at</text>       <text class="ann" x="170" y="909">nullable</text>
-  <text class="col" x="42" y="928">closed_at</text>       <text class="ann" x="170" y="928">nullable</text>
-  <text class="col" x="42" y="947">handover</text>
-  <text class="ann" x="42" y="966">UNIQUE (team_season_id, title_folded)</text>
-  <text class="cap" x="30" y="998">le chantier ; au robot, titre = sous-système</text>
-  <text class="cap" x="30" y="1014">status : suggested · open · done · dropped</text>
-  <text class="cap" x="30" y="1030">l'étape courante se lit sur la dernière avancée</text>
+  <rect class="bx" x="30" y="790" width="270" height="226" rx="3"/>
+  <line class="sep" x1="30" y1="816" x2="300" y2="816"/>
+  <text class="ttl" x="42" y="809">WorkItem</text>
+  <text class="col" x="42" y="835">id</text>              <text class="ann" x="170" y="835">PK</text>
+  <text class="col" x="42" y="854">team_season_id</text>  <text class="ann" x="170" y="854">FK PROTECT</text>
+  <text class="col" x="42" y="873">title</text>
+  <text class="col" x="42" y="892">title_folded</text>
+  <text class="col" x="42" y="911">on_robot</text>
+  <text class="col" x="42" y="930">status</text>
+  <text class="col" x="42" y="949">opened_at</text>       <text class="ann" x="170" y="949">nullable</text>
+  <text class="col" x="42" y="968">closed_at</text>       <text class="ann" x="170" y="968">nullable</text>
+  <text class="col" x="42" y="987">handover</text>
+  <text class="ann" x="42" y="1006">UNIQUE (team_season_id, title_folded)</text>
+  <text class="cap" x="30" y="1038">le chantier ; au robot, titre = sous-système</text>
+  <text class="cap" x="30" y="1054">status : suggested · open · done · dropped</text>
+  <text class="cap" x="30" y="1070">l'étape courante se lit sur la dernière avancée</text>
 
   <!-- ============================= Entry ============================ -->
-  <rect class="bx" x="330" y="750" width="340" height="245" rx="3"/>
-  <line class="sep" x1="330" y1="776" x2="670" y2="776"/>
-  <text class="ttl" x="342" y="769">Entry</text>
-  <text class="col" x="360" y="795">id</text>              <text class="ann" x="520" y="795">PK</text>
-  <text class="col" x="360" y="814">team_season_id</text>  <text class="ann" x="520" y="814">FK PROTECT</text>
-  <text class="col" x="360" y="833">author_id</text>       <text class="ann" x="520" y="833">FK PROTECT</text>
-  <text class="col" x="360" y="852">work_item_id</text>    <text class="ann" x="520" y="852">FK PROTECT, nullable</text>
-  <text class="col" x="360" y="871">type</text>
-  <text class="col" x="360" y="890">body</text>
-  <text class="col" x="360" y="909">step</text>            <text class="ann" x="520" y="909">nullable</text>
-  <text class="col" x="360" y="928">occurred_at</text>
-  <text class="col" x="360" y="947">created_at</text>
-  <text class="col" x="360" y="966">updated_at</text>      <text class="ann" x="520" y="966">nullable</text>
-  <text class="col" x="360" y="985">updated_by</text>      <text class="ann" x="520" y="985">FK PROTECT, nullable</text>
-  <text class="cap" x="330" y="1017">la trace : type progress (avancée) · note · decision</text>
-  <text class="cap" x="330" y="1033">step : l'étape de l'avancée, vide hors robot</text>
-  <text class="cap" x="330" y="1049">team_season_id pointe TeamSeason, comme celui de WorkItem</text>
+  <rect class="bx" x="330" y="790" width="340" height="245" rx="3"/>
+  <line class="sep" x1="330" y1="816" x2="670" y2="816"/>
+  <text class="ttl" x="342" y="809">Entry</text>
+  <text class="col" x="360" y="835">id</text>              <text class="ann" x="520" y="835">PK</text>
+  <text class="col" x="360" y="854">team_season_id</text>  <text class="ann" x="520" y="854">FK PROTECT</text>
+  <text class="col" x="360" y="873">author_id</text>       <text class="ann" x="520" y="873">FK PROTECT</text>
+  <text class="col" x="360" y="892">work_item_id</text>    <text class="ann" x="520" y="892">FK PROTECT, nullable</text>
+  <text class="col" x="360" y="911">type</text>
+  <text class="col" x="360" y="930">body</text>
+  <text class="col" x="360" y="949">step</text>            <text class="ann" x="520" y="949">nullable</text>
+  <text class="col" x="360" y="968">occurred_at</text>
+  <text class="col" x="360" y="987">created_at</text>
+  <text class="col" x="360" y="1006">updated_at</text>      <text class="ann" x="520" y="1006">nullable</text>
+  <text class="col" x="360" y="1025">updated_by</text>      <text class="ann" x="520" y="1025">FK PROTECT, nullable</text>
+  <text class="cap" x="330" y="1057">la trace : type progress (avancée) · note · decision</text>
+  <text class="cap" x="330" y="1073">step : l'étape de l'avancée, vide hors robot</text>
+  <text class="cap" x="330" y="1089">team_season_id pointe TeamSeason, comme celui de WorkItem</text>
 
   <!-- ======================== EntryParticipant ====================== -->
-  <rect class="bx" x="760" y="750" width="270" height="112" rx="3"/>
-  <line class="sep" x1="760" y1="776" x2="1030" y2="776"/>
-  <text class="ttl" x="772" y="769">EntryParticipant</text>
-  <text class="col" x="772" y="795">id</text>        <text class="ann" x="880" y="795">PK</text>
-  <text class="col" x="772" y="814">entry_id</text>  <text class="ann" x="880" y="814">FK CASCADE</text>
-  <text class="col" x="772" y="833">user_id</text>   <text class="ann" x="880" y="833">FK PROTECT</text>
-  <text class="ann" x="772" y="852">UNIQUE (entry_id, user_id)</text>
-  <text class="cap" x="760" y="884">chacun s'inscrit soi-même à une avancée</text>
-  <text class="cap" x="760" y="900">la présence du jour se lit ici, nulle part ailleurs</text>
+  <rect class="bx" x="760" y="790" width="270" height="112" rx="3"/>
+  <line class="sep" x1="760" y1="816" x2="1030" y2="816"/>
+  <text class="ttl" x="772" y="809">EntryParticipant</text>
+  <text class="col" x="772" y="835">id</text>        <text class="ann" x="880" y="835">PK</text>
+  <text class="col" x="772" y="854">entry_id</text>  <text class="ann" x="880" y="854">FK CASCADE</text>
+  <text class="col" x="772" y="873">user_id</text>   <text class="ann" x="880" y="873">FK PROTECT</text>
+  <text class="ann" x="772" y="892">UNIQUE (entry_id, user_id)</text>
+  <text class="cap" x="760" y="924">chacun s'inscrit soi-même à une avancée</text>
+  <text class="cap" x="760" y="940">la présence du jour se lit ici, nulle part ailleurs</text>
 
   <!-- ======================= WorkItem —&lt; Entry ====================== -->
-  <line class="lnk" x1="300" y1="852" x2="330" y2="852"/>
-  <line class="crow" x1="305" y1="845" x2="305" y2="859"/>
-  <path class="crow" d="M318,852 L330,844 M318,852 L330,852 M318,852 L330,860"/>
+  <line class="lnk" x1="300" y1="892" x2="330" y2="892"/>
+  <line class="crow" x1="305" y1="885" x2="305" y2="899"/>
+  <path class="crow" d="M318,892 L330,884 M318,892 L330,892 M318,892 L330,900"/>
 
   <!-- ==================== Entry —&lt; EntryParticipant ================= -->
-  <line class="lnk" x1="670" y1="814" x2="760" y2="814"/>
-  <line class="crow" x1="676" y1="807" x2="676" y2="821"/>
-  <path class="crow" d="M748,814 L760,806 M748,814 L760,814 M748,814 L760,822"/>
+  <line class="lnk" x1="670" y1="854" x2="760" y2="854"/>
+  <line class="crow" x1="676" y1="847" x2="676" y2="861"/>
+  <path class="crow" d="M748,854 L760,846 M748,854 L760,854 M748,854 L760,862"/>
 
   <!-- ===================== User —&lt; Entry (auteur) ==================== -->
-  <line class="lnk" x1="345" y1="671" x2="345" y2="750"/>
-  <line class="crow" x1="338" y1="677" x2="352" y2="677"/>
-  <path class="crow" d="M345,738 L337,750 M345,738 L345,750 M345,738 L353,750"/>
+  <line class="lnk" x1="345" y1="711" x2="345" y2="790"/>
+  <line class="crow" x1="338" y1="717" x2="352" y2="717"/>
+  <path class="crow" d="M345,778 L337,790 M345,778 L345,790 M345,778 L353,790"/>
 
   <!-- ================== User —&lt; EntryParticipant ==================== -->
-  <path class="lnk" d="M670,640 H900 V750"/>
-  <line class="crow" x1="676" y1="633" x2="676" y2="647"/>
-  <path class="crow" d="M900,738 L892,750 M900,738 L900,750 M900,738 L908,750"/>
+  <path class="lnk" d="M670,680 H900 V790"/>
+  <line class="crow" x1="676" y1="673" x2="676" y2="687"/>
+  <path class="crow" d="M900,778 L892,790 M900,778 L900,790 M900,778 L908,790"/>
 
   <!-- ============================ légende =========================== -->
-  <rect class="bx" x="30" y="1070" width="1000" height="190" rx="3"/>
-  <line class="sep" x1="30" y1="1096" x2="1030" y2="1096"/>
-  <text class="ttl" x="42" y="1089">Légende</text>
+  <rect class="bx" x="30" y="1110" width="1000" height="190" rx="3"/>
+  <line class="sep" x1="30" y1="1136" x2="1030" y2="1136"/>
+  <text class="ttl" x="42" y="1129">Légende</text>
 
-  <text class="lgt" x="45"  y="1120">PK</text>
-  <text class="lgd" x="150" y="1120">identifie une ligne, de façon unique</text>
-  <text class="lgt" x="45"  y="1139">FK</text>
-  <text class="lgd" x="150" y="1139">pointe vers la clé primaire d'une autre table</text>
-  <text class="lgt" x="45"  y="1158">nullable</text>
-  <text class="lgd" x="150" y="1158">la colonne peut rester vide</text>
-  <text class="lgt" x="45"  y="1177">UNIQUE</text>
-  <text class="lgd" x="150" y="1177">ne peut exister qu'une seule fois</text>
+  <text class="lgt" x="45"  y="1160">PK</text>
+  <text class="lgd" x="150" y="1160">identifie une ligne, de façon unique</text>
+  <text class="lgt" x="45"  y="1179">FK</text>
+  <text class="lgd" x="150" y="1179">pointe vers la clé primaire d'une autre table</text>
+  <text class="lgt" x="45"  y="1198">nullable</text>
+  <text class="lgd" x="150" y="1198">la colonne peut rester vide</text>
+  <text class="lgt" x="45"  y="1217">UNIQUE</text>
+  <text class="lgd" x="150" y="1217">ne peut exister qu'une seule fois</text>
 
-  <text class="lgt" x="560" y="1120">CASCADE</text>
-  <text class="lgd" x="690" y="1120">supprime les lignes qui pointent la cible</text>
-  <text class="lgt" x="560" y="1139">PROTECT</text>
-  <text class="lgd" x="690" y="1139">refuse la suppression de la cible</text>
-  <text class="lgt" x="560" y="1158">_folded</text>
-  <text class="lgd" x="690" y="1158">replié pour comparer : casse (pseudo), et accents, espaces (titre)</text>
+  <text class="lgt" x="560" y="1160">CASCADE</text>
+  <text class="lgd" x="690" y="1160">supprime les lignes qui pointent la cible</text>
+  <text class="lgt" x="560" y="1179">PROTECT</text>
+  <text class="lgd" x="690" y="1179">refuse la suppression de la cible</text>
+  <text class="lgt" x="560" y="1198">_folded</text>
+  <text class="lgd" x="690" y="1198">casse (pseudo) ; + accents, espaces (titre)</text>
 
-  <line class="sep" x1="45" y1="1194" x2="1015" y2="1194"/>
+  <line class="sep" x1="45" y1="1234" x2="1015" y2="1234"/>
 
-  <line class="crow" x1="52" y1="1215" x2="52" y2="1227"/>
-  <line class="lnk" x1="52" y1="1221" x2="86" y2="1221"/>
-  <text class="lgd" x="96" y="1225">côté « exactement un »</text>
-  <line class="lnk" x1="560" y1="1221" x2="594" y2="1221"/>
-  <path class="crow" d="M582,1221 L594,1214 M582,1221 L594,1221 M582,1221 L594,1228"/>
-  <text class="lgd" x="604" y="1225">côté « plusieurs » — une Season, plusieurs TeamSeason</text>
+  <line class="crow" x1="52" y1="1255" x2="52" y2="1267"/>
+  <line class="lnk" x1="52" y1="1261" x2="86" y2="1261"/>
+  <text class="lgd" x="96" y="1265">côté « exactement un »</text>
+  <line class="lnk" x1="560" y1="1261" x2="594" y2="1261"/>
+  <path class="crow" d="M582,1261 L594,1254 M582,1261 L594,1261 M582,1261 L594,1268"/>
+  <text class="lgd" x="604" y="1265">côté « plusieurs » — une Season, plusieurs TeamSeason</text>
 
-  <line class="lnk" x1="52" y1="1245" x2="86" y2="1245"/>
-  <line class="crow" x1="54" y1="1239" x2="54" y2="1251"/>
-  <line class="crow" x1="84" y1="1239" x2="84" y2="1251"/>
-  <text class="lgd" x="96" y="1249">un de chaque côté — un compte, au plus une demande de vérification</text>
+  <line class="lnk" x1="52" y1="1285" x2="86" y2="1285"/>
+  <line class="crow" x1="54" y1="1279" x2="54" y2="1291"/>
+  <line class="crow" x1="84" y1="1279" x2="84" y2="1291"/>
+  <text class="lgd" x="96" y="1289">un de chaque côté — un compte, au plus une demande de vérification</text>
 
 </svg>

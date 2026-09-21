@@ -23,8 +23,8 @@ français est celui de l'interface et des conversations, l'anglais celui du code
 | **rôle** | `User.club_role` · `is_club_admin` | élève ou mentor, porté par le compte. Administrer est un droit en plus, pas un troisième rôle |
 | **consentement** | `Consent` | une décision datée sur le droit à l'image — accordé ou refusé ; la plus récente vaut, et sans décision on ne sait pas. L'état, jamais la pièce signée |
 | **vérification** | `User.assoconnect_id` · `VerificationRequest` | le lien entre un compte et son adhésion AssoConnect, posé par le numéro d'adhérent. Tant qu'il manque, le compte est mineur et sans décision sur son droit à l'image |
-| **créneau** | `MeetingSlot` | l'horaire habituel. Il n'est pas une séance : il fait *attendre* une séance, et c'est ce qui rend un trou visible |
-| **séance** | `Meeting` | une case datée, au niveau du club. Ne s'ouvre ni ne se ferme |
+| **créneau** | `WorkshopSlot` | l'horaire habituel de l'atelier, commun aux quatre équipes. Il n'est pas une séance : il fait *attendre* une séance, et c'est ce qui rend un trou visible |
+| **séance** | *une lecture* | la journée d'une équipe : ses traces, de 4 h à 4 h le lendemain. Aucune table ; ne s'ouvre ni ne se ferme |
 | **présence** | *une lecture* | qui a fait avancer quelque chose ce jour-là. Aucune table : elle se lit sur les inscriptions |
 | **remarque** | `Entry` · `note` | ce qui n'appartient à aucun chantier, écrit quand ça arrive. Sa portée : l'équipe, ou un chantier qu'elle attend |
 | **trace** | `Entry` | le tronc commun : tout ce que le cahier peut citer |
@@ -45,7 +45,7 @@ français est celui de l'interface et des conversations, l'anglais celui du code
 | **observation** | `Observation` | une mesure, par un observateur, sur un sujet, à un instant |
 | **campagne** | `Campaign` | l'observation mutualisée des quatre équipes sur un tournoi |
 | **pick list** | `PickList` | la liste ordonnée des partenaires souhaités — une par équipe |
-| **événement** | `Meeting` · *kind* | une compétition, une démonstration, une visite. Un moment, jamais un chantier |
+| **événement** | `Event` | une compétition, une démonstration, une visite. Un objet pour les quatre équipes ; un moment, jamais un chantier |
 | **export** | *une sortie* | ce qui quitte le club : cahier en PDF, lot de photos, récapitulatif remis. « Publier » ne veut dire que cela |
 | **partenaire** | `Partner` | une organisation ou une autre équipe. Nom et type, pas de fiche contact |
 | **média** | `MediaAsset` | photo, vidéo, plan, document |
