@@ -24,6 +24,7 @@ from .serializers import (
     OpenWorkItemSerializer,
     RenameTeamSerializer,
     SignUpSerializer,
+    UpdateWorkItemSerializer,
 )
 
 
@@ -233,3 +234,36 @@ class WorkItemListView(APIView):
         )
         serializer.is_valid(raise_exception=True)
         return Response(_work_item(serializer.save()), status=status.HTTP_201_CREATED)
+
+
+def _entry(entry: Entry) -> dict[str, object]:
+    return {
+        "id": entry.id,
+        "type": entry.type,
+        "body": entry.body,
+        "step": entry.step,
+        "occurred_at": entry.occurred_at,
+        "author": entry.author.display_name,
+        "participants": [user.display_name for user in entry.participants.all()],
+    }
+
+
+class WorkItemDetailView(APIView):
+    def _acted_on(self, request: Request, pk: int) -> WorkItem:
+        assert isinstance(request.user, User)
+        item = get_object_or_404(WorkItem, pk=pk)
+        team_season_acted_on(request.user, item.team_season_id)
+        return item
+
+    def get(self, request: Request, pk: int) -> Response:
+        item = self._acted_on(request, pk)
+        thread = item.entries.select_related("author").order_by("-occurred_at", "-id")
+        return Response(
+            {**_work_item(item), "thread": [_entry(entry) for entry in thread]}
+        )
+
+    def patch(self, request: Request, pk: int) -> Response:
+        item = self._acted_on(request, pk)
+        serializer = UpdateWorkItemSerializer(item, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        return Response(_work_item(serializer.save()))

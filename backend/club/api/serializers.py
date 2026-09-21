@@ -241,3 +241,21 @@ class OpenWorkItemSerializer(serializers.Serializer[WorkItem]):
             opened_at=None if suggested else timezone.now(),
             **validated_data,
         )
+
+
+class UpdateWorkItemSerializer(serializers.Serializer[WorkItem]):
+    """Only closing: a work item is reopened by working on it again."""
+
+    handover = serializers.CharField(allow_blank=True, required=False)
+    status = serializers.ChoiceField(
+        choices=[WorkItem.Status.DONE, WorkItem.Status.DROPPED], required=False
+    )
+
+    def update(self, instance: WorkItem, validated_data: dict[str, Any]) -> WorkItem:
+        if "handover" in validated_data:
+            instance.handover = validated_data["handover"]
+        if "status" in validated_data:
+            instance.status = validated_data["status"]
+            instance.closed_at = timezone.now()
+        instance.save(update_fields=["handover", "status", "closed_at"])
+        return instance

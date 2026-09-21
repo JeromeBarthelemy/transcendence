@@ -9,6 +9,7 @@ from .views import (
     SignUpView,
     TeamCreateView,
     TeamDetailView,
+    WorkItemDetailView,
     WorkItemListView,
 )
 
@@ -34,4 +35,5 @@ urlpatterns = [
         WorkItemListView.as_view(),
         name="work-item-list",
     ),
+    path("work-items/<int:pk>/", WorkItemDetailView.as_view(), name="work-item-detail"),
 ]
