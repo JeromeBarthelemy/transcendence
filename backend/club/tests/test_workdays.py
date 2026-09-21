@@ -15,7 +15,13 @@ from club.models import (
     WorkItem,
     WorkshopSlot,
 )
-from club.workdays import attendance, day_entries, gaps, workday
+from club.workdays import (
+    attendance,
+    day_entries,
+    gaps,
+    progress_of_the_day,
+    workday,
+)
 
 PARIS = ZoneInfo("Europe/Paris")
 
@@ -235,3 +241,43 @@ def test_a_day_still_to_come_is_not_a_gap():
     assert gaps(rouages, today - timedelta(days=7), today + timedelta(days=14)) == [
         today - timedelta(days=7)
     ]
+
+
+def test_a_work_item_nobody_ticked_today_has_no_progress_of_the_day():
+    rouages = team_season()
+    intake = WorkItem.objects.create(team_season=rouages, title="intake")
+
+    assert progress_of_the_day(intake, WEDNESDAY) is None
+
+
+def test_ticking_a_work_item_joins_the_progress_of_the_day():
+    rouages = team_season()
+    todays = progress(rouages, at(WEDNESDAY, 15), member("lina"))
+    progress(rouages, at(date(2026, 11, 19), 15), member("tom"))  # Thursday's
+
+    assert progress_of_the_day(todays.work_item, WEDNESDAY) == todays
+
+
+def test_after_a_change_of_step_the_latest_progress_is_joined():
+    # Prototyping in the morning, building in the afternoon: two progress
+    # entries, and whoever ticks now joins the one under way.
+    rouages = team_season()
+    lina = member("lina")
+    progress(rouages, at(WEDNESDAY, 10), lina)
+    afternoon = progress(rouages, at(WEDNESDAY, 15), lina)
+
+    assert progress_of_the_day(afternoon.work_item, WEDNESDAY) == afternoon
+
+
+def test_a_note_addressed_to_a_work_item_is_not_its_progress():
+    rouages = team_season()
+    intake = WorkItem.objects.create(team_season=rouages, title="intake")
+    Entry.objects.create(
+        team_season=rouages,
+        author=member("lina"),
+        work_item=intake,
+        type=Entry.Type.NOTE,
+        occurred_at=at(WEDNESDAY, 15),
+    )
+
+    assert progress_of_the_day(intake, WEDNESDAY) is None

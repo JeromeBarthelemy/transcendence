@@ -6,7 +6,7 @@ from datetime import date, datetime, time, timedelta
 from django.db.models import QuerySet
 from django.utils import timezone
 
-from club.models import Entry, TeamSeason, User, WorkshopSlot
+from club.models import Entry, TeamSeason, User, WorkItem, WorkshopSlot
 
 # A rush that ends at one in the morning belongs to the day it started, as
 # everyone but a clock thinks.
@@ -69,3 +69,15 @@ def gaps(team_season: TeamSeason, since: date, until: date) -> list[date]:
         ).values_list("occurred_at", flat=True)
     }
     return sorted(expected - worked)
+
+
+def progress_of_the_day(work_item: WorkItem, day: date) -> Entry | None:
+    """The progress someone ticking this work item joins, or None when they
+    are the first today and create it. After a change of step there are two;
+    the latest is the one under way."""
+    return (
+        day_entries(work_item.team_season, day)
+        .filter(work_item=work_item, type=Entry.Type.PROGRESS)
+        .order_by("-occurred_at", "-id")
+        .first()
+    )
