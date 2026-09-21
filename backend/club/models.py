@@ -4,6 +4,7 @@ One deployment serves one club, so there is no Club model: the organisation
 the subject asks us to create, edit and delete is the team.
 """
 
+import unicodedata
 from datetime import date
 from typing import Any
 
@@ -316,6 +317,17 @@ class Membership(models.Model):
         return f"{self.user} ({self.team_season})"
 
 
+def fold_title(title: str) -> str:
+    """A title as it is compared: typed by hand, the same subject comes back
+    with another case, an accent missing or a double space."""
+    without_accents = "".join(
+        letter
+        for letter in unicodedata.normalize("NFKD", title)
+        if not unicodedata.combining(letter)
+    )
+    return " ".join(without_accents.casefold().split())
+
+
 class WorkItem(models.Model):
     """A chantier: the thread a team reopens over a season, around one robot
     subsystem or one subject off the robot. Its title is the subsystem, so
@@ -332,6 +344,10 @@ class WorkItem(models.Model):
         TeamSeason, on_delete=models.PROTECT, related_name="work_items"
     )
     title = models.CharField("titre", max_length=120)
+    # Folded in Python and stored, like User.display_name_folded: SQLite folds
+    # neither accents nor anything beyond ASCII. Wider than the title, since
+    # casefold() may lengthen it.
+    title_folded = models.CharField(max_length=240, editable=False, default="")
     # Only a robot work item has steps.
     on_robot = models.BooleanField("sur le robot", default=False)
     status = models.CharField(
@@ -347,12 +363,20 @@ class WorkItem(models.Model):
         verbose_name = "chantier"
         constraints = [
             models.UniqueConstraint(
-                fields=["team_season", "title"], name="unique_work_item_title_per_team"
+                fields=["team_season", "title_folded"],
+                name="unique_work_item_title_per_team",
             ),
         ]
 
     def __str__(self) -> str:
         return f"{self.title} ({self.team_season})"
+
+    def save(self, *args: Any, **kwargs: Any) -> None:
+        self.title_folded = fold_title(self.title)
+        update_fields = kwargs.get("update_fields")
+        if update_fields is not None and "title" in update_fields:
+            kwargs["update_fields"] = {*update_fields, "title_folded"}
+        super().save(*args, **kwargs)
 
     @property
     def current_step(self) -> "str | None":

@@ -140,21 +140,22 @@
   <line class="crow" x1="324" y1="423" x2="324" y2="437"/>
 
   <!-- =========================== WorkItem =========================== -->
-  <rect class="bx" x="30" y="750" width="270" height="207" rx="3"/>
+  <rect class="bx" x="30" y="750" width="270" height="226" rx="3"/>
   <line class="sep" x1="30" y1="776" x2="300" y2="776"/>
   <text class="ttl" x="42" y="769">WorkItem</text>
   <text class="col" x="42" y="795">id</text>              <text class="ann" x="170" y="795">PK</text>
   <text class="col" x="42" y="814">team_season_id</text>  <text class="ann" x="170" y="814">FK PROTECT</text>
   <text class="col" x="42" y="833">title</text>
-  <text class="col" x="42" y="852">on_robot</text>
-  <text class="col" x="42" y="871">status</text>
-  <text class="col" x="42" y="890">opened_at</text>       <text class="ann" x="170" y="890">nullable</text>
-  <text class="col" x="42" y="909">closed_at</text>       <text class="ann" x="170" y="909">nullable</text>
-  <text class="col" x="42" y="928">handover</text>
-  <text class="ann" x="42" y="947">UNIQUE (team_season_id, title)</text>
-  <text class="cap" x="30" y="979">le chantier ; au robot, titre = sous-système</text>
-  <text class="cap" x="30" y="995">status : suggested · open · done · dropped</text>
-  <text class="cap" x="30" y="1011">l'étape courante se lit sur la dernière avancée</text>
+  <text class="col" x="42" y="852">title_folded</text>
+  <text class="col" x="42" y="871">on_robot</text>
+  <text class="col" x="42" y="890">status</text>
+  <text class="col" x="42" y="909">opened_at</text>       <text class="ann" x="170" y="909">nullable</text>
+  <text class="col" x="42" y="928">closed_at</text>       <text class="ann" x="170" y="928">nullable</text>
+  <text class="col" x="42" y="947">handover</text>
+  <text class="ann" x="42" y="966">UNIQUE (team_season_id, title_folded)</text>
+  <text class="cap" x="30" y="998">le chantier ; au robot, titre = sous-système</text>
+  <text class="cap" x="30" y="1014">status : suggested · open · done · dropped</text>
+  <text class="cap" x="30" y="1030">l'étape courante se lit sur la dernière avancée</text>
 
   <!-- ============================= Entry ============================ -->
   <rect class="bx" x="330" y="750" width="340" height="245" rx="3"/>
@@ -225,7 +226,7 @@
   <text class="lgt" x="560" y="1139">PROTECT</text>
   <text class="lgd" x="690" y="1139">refuse la suppression de la cible</text>
   <text class="lgt" x="560" y="1158">_folded</text>
-  <text class="lgd" x="690" y="1158">le pseudo replié (casefold) : Lina = lina = LINA</text>
+  <text class="lgd" x="690" y="1158">replié pour comparer : Lina = lina, Électro = electro</text>
 
   <line class="sep" x1="45" y1="1194" x2="1015" y2="1194"/>
 
