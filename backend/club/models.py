@@ -317,6 +317,47 @@ class Membership(models.Model):
         return f"{self.user} ({self.team_season})"
 
 
+class WorkshopSlot(models.Model):
+    """A usual workshop time, when every team is expected: a slot day with no
+    progress is a gap. Changing a slot closes this row and opens another, so
+    what was expected in November stays expected."""
+
+    class Weekday(models.IntegerChoices):
+        # Numbered as date.weekday() numbers them.
+        MONDAY = 0, "lundi"
+        TUESDAY = 1, "mardi"
+        WEDNESDAY = 2, "mercredi"
+        THURSDAY = 3, "jeudi"
+        FRIDAY = 4, "vendredi"
+        SATURDAY = 5, "samedi"
+        SUNDAY = 6, "dimanche"
+
+    season = models.ForeignKey(
+        Season, on_delete=models.PROTECT, related_name="workshop_slots"
+    )
+    weekday = models.PositiveSmallIntegerField("jour", choices=Weekday.choices)
+    # Shown, never computed with: nothing closes at the end of a slot.
+    start_time = models.TimeField("début")
+    end_time = models.TimeField("fin", null=True, blank=True)
+    valid_from = models.DateField("à partir du")
+    valid_until = models.DateField("jusqu'au", null=True, blank=True)
+
+    class Meta:
+        ordering = ["weekday", "start_time"]
+        verbose_name = "créneau d'atelier"
+        verbose_name_plural = "créneaux d'atelier"
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(valid_until__isnull=True)
+                | models.Q(valid_until__gte=models.F("valid_from")),
+                name="slot_ends_after_it_starts",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.get_weekday_display()} {self.start_time:%H:%M}"
+
+
 def fold_title(title: str) -> str:
     """A title as it is compared: typed by hand, the same subject comes back
     with another case, an accent missing or a double space."""
