@@ -60,10 +60,14 @@ def test_a_mentor_steps_in_on_a_team_that_is_not_theirs(client):
 def test_a_member_lists_the_work_items_of_their_team(client):
     rouages = team_season(12345)
     lina = member_of(rouages)
-    intake = WorkItem.objects.create(
-        team_season=rouages, title="intake", on_robot=True, handover="galets"
+    intake = WorkItem.objects.create(team_season=rouages, title="intake", on_robot=True)
+    record_progress(
+        intake,
+        lina,
+        "Rouleaux imprimés.",
+        step=Entry.Step.PROTOTYPING,
+        handover="Essayer les galets.",
     )
-    record_progress(intake, lina, "Rouleaux imprimés.", step=Entry.Step.PROTOTYPING)
     WorkItem.objects.create(team_season=team_season(67890), title="châssis")
     client.force_login(lina)
 
@@ -73,7 +77,8 @@ def test_a_member_lists_the_work_items_of_their_team(client):
     assert item["on_robot"] is True
     assert item["status"] == "open"
     assert item["current_step"] == "prototyping"
-    assert item["handover"] == "galets"
+    assert item["handover"]["body"] == "Essayer les galets."
+    assert item["handover"]["author"] == "lina"
     assert item["last_progress"]["participants"] == ["lina"]
 
 
@@ -88,6 +93,7 @@ def test_a_work_item_nobody_worked_on_has_no_last_progress(client):
 
     assert item["current_step"] is None
     assert item["last_progress"] is None
+    assert item["handover"] is None
 
 
 # --- opening a work item ---
@@ -150,7 +156,13 @@ def test_a_work_item_comes_with_its_thread_newest_first(client):
     lina = member_of(rouages)
     intake = WorkItem.objects.create(team_season=rouages, title="intake", on_robot=True)
     record_progress(intake, lina, "Maquette carton.")
-    record_progress(intake, lina, "Rouleaux imprimés.", step=Entry.Step.PROTOTYPING)
+    record_progress(
+        intake,
+        lina,
+        "Rouleaux imprimés.",
+        step=Entry.Step.PROTOTYPING,
+        handover="Tester à 12 V.",
+    )
     Entry.objects.create(
         team_season=rouages,
         author=lina,
@@ -173,6 +185,7 @@ def test_a_work_item_comes_with_its_thread_newest_first(client):
     assert newest_progress["step"] == "prototyping"
     assert newest_progress["author"] == "lina"
     assert newest_progress["participants"] == ["lina"]
+    assert newest_progress["handover"] == "Tester à 12 V."
 
 
 def test_a_work_item_of_another_team_is_refused(client):
@@ -186,22 +199,6 @@ def test_an_unknown_work_item_is_not_found(client):
     client.force_login(mentor())
 
     assert client.get("/api/work-items/999/").status_code == 404
-
-
-def test_a_member_leaves_a_handover(client):
-    rouages = team_season()
-    intake = WorkItem.objects.create(team_season=rouages, title="intake")
-    client.force_login(member_of(rouages))
-
-    response = client.patch(
-        detail(intake),
-        {"handover": "Ne pas resserrer la courroie."},
-        content_type="application/json",
-    )
-
-    assert response.status_code == 200
-    intake.refresh_from_db()
-    assert intake.handover == "Ne pas resserrer la courroie."
 
 
 def test_a_member_closes_a_work_item(client):
@@ -238,9 +235,9 @@ def test_a_student_cannot_change_another_teams_work_item(client):
     client.force_login(member_of(team_season(67890)))
 
     response = client.patch(
-        detail(intake), {"handover": "…"}, content_type="application/json"
+        detail(intake), {"status": "done"}, content_type="application/json"
     )
 
     assert response.status_code == 403
     intake.refresh_from_db()
-    assert intake.handover == ""
+    assert intake.status == WorkItem.Status.OPEN

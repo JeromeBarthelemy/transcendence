@@ -19,12 +19,12 @@ from .errors import Conflict
 from .permissions import IsClubAdmin, team_season_acted_on
 from .serializers import (
     AddMembershipSerializer,
+    CloseWorkItemSerializer,
     CreateTeamSerializer,
     LoginSerializer,
     OpenWorkItemSerializer,
     RenameTeamSerializer,
     SignUpSerializer,
-    UpdateWorkItemSerializer,
 )
 
 
@@ -203,6 +203,7 @@ def _work_item(item: WorkItem) -> dict[str, object]:
         .order_by("-occurred_at", "-id")
         .first()
     )
+    handover = item.last_handover
     return {
         "id": item.id,
         "title": item.title,
@@ -210,7 +211,13 @@ def _work_item(item: WorkItem) -> dict[str, object]:
         "status": item.status,
         # The latest progress already carries it: read once, not twice.
         "current_step": latest.step if latest else None,
-        "handover": item.handover,
+        "handover": {
+            "body": handover.handover,
+            "author": handover.author.display_name,
+            "occurred_at": handover.occurred_at,
+        }
+        if handover
+        else None,
         "last_progress": {
             "occurred_at": latest.occurred_at,
             "participants": [user.display_name for user in latest.participants.all()],
@@ -242,6 +249,7 @@ def _entry(entry: Entry) -> dict[str, object]:
         "type": entry.type,
         "body": entry.body,
         "step": entry.step,
+        "handover": entry.handover,
         "occurred_at": entry.occurred_at,
         "author": entry.author.display_name,
         "participants": [user.display_name for user in entry.participants.all()],
@@ -264,6 +272,6 @@ class WorkItemDetailView(APIView):
 
     def patch(self, request: Request, pk: int) -> Response:
         item = self._acted_on(request, pk)
-        serializer = UpdateWorkItemSerializer(item, data=request.data, partial=True)
+        serializer = CloseWorkItemSerializer(item, data=request.data)
         serializer.is_valid(raise_exception=True)
         return Response(_work_item(serializer.save()))

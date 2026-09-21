@@ -243,19 +243,15 @@ class OpenWorkItemSerializer(serializers.Serializer[WorkItem]):
         )
 
 
-class UpdateWorkItemSerializer(serializers.Serializer[WorkItem]):
+class CloseWorkItemSerializer(serializers.Serializer[WorkItem]):
     """Only closing: a work item is reopened by working on it again."""
 
-    handover = serializers.CharField(allow_blank=True, required=False)
     status = serializers.ChoiceField(
-        choices=[WorkItem.Status.DONE, WorkItem.Status.DROPPED], required=False
+        choices=[WorkItem.Status.DONE, WorkItem.Status.DROPPED]
     )
 
     def update(self, instance: WorkItem, validated_data: dict[str, Any]) -> WorkItem:
-        if "handover" in validated_data:
-            instance.handover = validated_data["handover"]
-        if "status" in validated_data:
-            instance.status = validated_data["status"]
-            instance.closed_at = timezone.now()
-        instance.save(update_fields=["handover", "status", "closed_at"])
+        instance.status = validated_data["status"]
+        instance.closed_at = timezone.now()
+        instance.save(update_fields=["status", "closed_at"])
         return instance
