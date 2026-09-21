@@ -1,6 +1,9 @@
+from datetime import timedelta
+
 import pytest
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError
+from django.utils import timezone
 
 from club.models import Entry, Season, Team, TeamSeason, User, WorkItem
 from club.progress import edit_progress, join, record_progress
@@ -93,6 +96,23 @@ def test_a_first_progress_opens_a_suggested_work_item():
     intake.refresh_from_db()
     assert intake.status == WorkItem.Status.OPEN
     assert intake.opened_at is not None
+
+
+@pytest.mark.parametrize("status", [WorkItem.Status.DONE, WorkItem.Status.DROPPED])
+def test_a_progress_reopens_a_closed_work_item(status):
+    # A work item thought finished is reopened by working on it again.
+    opened = timezone.now() - timedelta(days=30)
+    intake = work_item(status=status)
+    WorkItem.objects.filter(pk=intake.pk).update(
+        opened_at=opened, closed_at=timezone.now()
+    )
+
+    record_progress(intake, student(), "Finalement, on reprend.")
+
+    intake.refresh_from_db()
+    assert intake.status == WorkItem.Status.OPEN
+    assert intake.closed_at is None
+    assert intake.opened_at == opened
 
 
 def test_a_student_who_records_a_progress_is_signed_up_to_it():
