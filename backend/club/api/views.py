@@ -25,6 +25,7 @@ from .serializers import (
     CloseWorkItemSerializer,
     CreateTeamSerializer,
     LoginSerializer,
+    NoteSerializer,
     OpenWorkItemSerializer,
     RenameTeamSerializer,
     SignUpSerializer,
@@ -333,3 +334,15 @@ class EntryDetailView(APIView):
             handover=data.get("handover"),
         )
         return Response(_entry(entry))
+
+
+class NoteCreateView(APIView):
+    def post(self, request: Request, team_season_id: int) -> Response:
+        user = request.user
+        assert isinstance(user, User)
+        team_season = team_season_acted_on(user, team_season_id)
+        serializer = NoteSerializer(
+            data=request.data, context={"team_season": team_season, "author": user}
+        )
+        serializer.is_valid(raise_exception=True)
+        return Response(_entry(serializer.save()), status=status.HTTP_201_CREATED)

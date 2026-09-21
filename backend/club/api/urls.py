@@ -7,6 +7,7 @@ from .views import (
     MembershipCreateView,
     MembershipDetailView,
     MeView,
+    NoteCreateView,
     SignUpView,
     TeamCreateView,
     TeamDetailView,
@@ -40,4 +41,9 @@ urlpatterns = [
     path("work-items/<int:pk>/", WorkItemDetailView.as_view(), name="work-item-detail"),
     path("work-items/<int:pk>/tick/", TickView.as_view(), name="work-item-tick"),
     path("entries/<int:pk>/", EntryDetailView.as_view(), name="entry-detail"),
+    path(
+        "team-seasons/<int:team_season_id>/notes/",
+        NoteCreateView.as_view(),
+        name="note-create",
+    ),
 ]

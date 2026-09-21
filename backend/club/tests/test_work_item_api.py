@@ -394,3 +394,65 @@ def test_a_student_cannot_write_another_teams_progress(client):
     client.force_login(member_of(team_season(12345)))
 
     assert write(client, entry, body="Pas chez moi.").status_code == 403
+
+
+# --- notes ---
+
+
+def note(client, team, **body):
+    return client.post(
+        f"/api/team-seasons/{team.id}/notes/", body, content_type="application/json"
+    )
+
+
+def test_a_member_writes_a_note_for_the_team(client):
+    rouages = team_season()
+    client.force_login(member_of(rouages))
+
+    response = note(client, rouages, body="Perceuse HS, à remplacer avant vendredi.")
+
+    assert response.status_code == 201
+    written = Entry.objects.get()
+    assert written.type == Entry.Type.NOTE
+    assert written.team_season == rouages
+    assert written.author.display_name == "lina"
+    assert written.work_item is None
+
+
+def test_a_note_addressed_to_a_work_item_waits_in_its_thread(client):
+    rouages = team_season()
+    bras = WorkItem.objects.create(team_season=rouages, title="bras", on_robot=True)
+    client.force_login(member_of(rouages))
+
+    note(client, rouages, body="Le câblage est à refaire.", work_item=bras.id)
+
+    [waiting] = client.get(f"/api/work-items/{bras.id}/").json()["thread"]
+    assert waiting["type"] == "note"
+    assert waiting["body"] == "Le câblage est à refaire."
+
+
+def test_a_note_cannot_be_addressed_to_another_teams_work_item(client):
+    rouages = team_season(12345)
+    theirs = WorkItem.objects.create(team_season=team_season(67890), title="bras")
+    client.force_login(member_of(rouages))
+
+    response = note(client, rouages, body="Câblage.", work_item=theirs.id)
+
+    assert response.status_code == 400
+    assert response.json()["work_item"][0]["code"] == "work_item_not_in_team"
+    assert not Entry.objects.exists()
+
+
+def test_an_empty_note_is_refused(client):
+    rouages = team_season()
+    client.force_login(member_of(rouages))
+
+    assert note(client, rouages, body="").status_code == 400
+
+
+def test_a_student_cannot_write_a_note_in_another_team(client):
+    rouages = team_season(12345)
+    client.force_login(member_of(team_season(67890)))
+
+    assert note(client, rouages, body="Coucou.").status_code == 403
+    assert not Entry.objects.exists()

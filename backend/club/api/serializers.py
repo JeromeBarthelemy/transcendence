@@ -266,3 +266,26 @@ class WriteProgressSerializer(serializers.Serializer[Entry]):
     body = serializers.CharField(allow_blank=True, required=False)
     step = serializers.ChoiceField(choices=Entry.Step.choices, required=False)
     handover = serializers.CharField(allow_blank=True, required=False)
+
+
+class NoteSerializer(serializers.Serializer[Entry]):
+    body = serializers.CharField()
+    work_item = serializers.PrimaryKeyRelatedField(
+        queryset=WorkItem.objects.all(), required=False
+    )
+
+    def validate_work_item(self, value: WorkItem) -> WorkItem:
+        if value.team_season != self.context["team_season"]:
+            raise serializers.ValidationError(
+                "Ce chantier n'est pas celui de l'équipe.",
+                code="work_item_not_in_team",
+            )
+        return value
+
+    def create(self, validated_data: dict[str, Any]) -> Entry:
+        return Entry.objects.create(
+            team_season=self.context["team_season"],
+            author=self.context["author"],
+            type=Entry.Type.NOTE,
+            **validated_data,
+        )
