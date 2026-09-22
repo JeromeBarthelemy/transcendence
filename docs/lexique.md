@@ -26,15 +26,14 @@ français est celui de l'interface et des conversations, l'anglais celui du code
 | **créneau** | `MeetingSlot` | l'horaire habituel. Il n'est pas une séance : il fait *attendre* une séance, et c'est ce qui rend un trou visible |
 | **séance** | `Meeting` | une case datée, au niveau du club. Ne s'ouvre ni ne se ferme |
 | **présence** | *une lecture* | qui a fait avancer quelque chose ce jour-là. Aucune table : elle se lit sur les inscriptions |
-| **remarque** | `Entry` · `note` | ce qui n'appartient à aucun chantier, écrit quand ça arrive. Sa portée : l'équipe, ou le club |
+| **remarque** | `Entry` · `note` | ce qui n'appartient à aucun chantier, écrit quand ça arrive. Sa portée : l'équipe, ou un chantier qu'elle attend |
 | **trace** | `Entry` | le tronc commun : tout ce que le cahier peut citer |
 | **avancée** | `Entry` · `progress` | ce qu'une séance a fait sur un chantier. Le croisement des deux, et l'atome du modèle |
 | **décision** | `Entry` · `decision` | ce qu'une réunion a tranché |
 | **chantier** | `WorkItem` | le fil d'un sous-système sur une saison — ou d'un sujet, hors robot. L'unité que le cahier raconte |
-| **passation** | `WorkItem.handover` | ce qu'il faut savoir pour reprendre — et ce qu'il ne faut pas défaire |
-| **étiquette** | `Tag` | une valeur sur l'un des deux axes. Le sous-système tient au chantier, l'étape à l'avancée |
-| **sous-système** | `subsystem` | la partie du robot. Au club, refait chaque saison |
-| **étape** | `step` | où en est la conception. Fixe et ordonné, *réparation* mise à part. À l'écran : « avancement » |
+| **passation** | `Entry.handover` | ce qu'il faut savoir pour reprendre — et ce qu'il ne faut pas défaire. Laissée avec l'avancée ; le chantier montre la plus récente |
+| **sous-système** | `WorkItem.title` · `on_robot` | la partie du robot : le titre d'un chantier de robot. Au club, refait chaque saison |
+| **étape** | `Entry.step` | où en est la conception, portée par l'avancée. Fixe et ordonné, *réparation* mise à part. À l'écran : « avancement » |
 | **cahier** | `NotebookSection` · `NotebookBlock` | le livrable narratif, par équipe et par saison |
 | **bloc** | `NotebookBlock` | un paragraphe du cahier ; c'est lui qui cite |
 | **tableau** | *une vue* | les chantiers en colonnes. Aucune donnée propre : il se regarde, il ne se tient pas |
@@ -74,12 +73,11 @@ qu'il faut choisir *avec* le club plutôt que pour lui.
 
 ## Ce que ce lexique ne fige pas
 
-Les **valeurs** des étiquettes n'y sont pas, à une exception près. Les
-sous-systèmes appartiennent au club et changent chaque saison ; les livrer figés
-contredirait le modèle, qui les veut éditables et construits par l'usage. Seules
-les étapes sont fixées, parce qu'elles décrivent une démarche de conception et
-non un jeu. Le reste est une liste de départ, livrée pour qu'un club n'ouvre pas
-un formulaire vide.
+Les **sous-systèmes** n'y sont pas. Ils changent avec le jeu, et chacun n'est
+que le titre d'un chantier de robot : les figer contredirait le modèle, qui les
+veut construits par l'usage. L'écran en propose une liste de départ, pour qu'une
+équipe n'ouvre pas un formulaire vide. Seules les **étapes** sont fixées, dans
+le code, parce qu'elles décrivent une démarche de conception et non un jeu.
 
 ---
 

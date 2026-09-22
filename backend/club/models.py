@@ -4,6 +4,7 @@ One deployment serves one club, so there is no Club model: the organisation
 the subject asks us to create, edit and delete is the team.
 """
 
+import unicodedata
 from datetime import date
 from typing import Any
 
@@ -314,6 +315,178 @@ class Membership(models.Model):
 
     def __str__(self) -> str:
         return f"{self.user} ({self.team_season})"
+
+
+def fold_title(title: str) -> str:
+    """A title as it is compared: typed by hand, the same subject comes back
+    with another case, an accent missing or a double space."""
+    without_accents = "".join(
+        letter
+        for letter in unicodedata.normalize("NFKD", title)
+        if not unicodedata.combining(letter)
+    )
+    return " ".join(without_accents.casefold().split())
+
+
+class WorkItem(models.Model):
+    """A chantier: the thread a team reopens over a season, around one robot
+    subsystem or one subject off the robot. Its title is the subsystem, so
+    the robot needs no separate subsystem list."""
+
+    class Status(models.TextChoices):
+        # Listed in September, not started: the pre-season list is this table.
+        SUGGESTED = "suggested", "suggéré"
+        OPEN = "open", "ouvert"
+        DONE = "done", "terminé"
+        DROPPED = "dropped", "abandonné"
+
+    team_season = models.ForeignKey(
+        TeamSeason, on_delete=models.PROTECT, related_name="work_items"
+    )
+    title = models.CharField("titre", max_length=120)
+    # Folded in Python and stored, like User.display_name_folded: SQLite folds
+    # neither accents nor anything beyond ASCII. Wider than the title, since
+    # casefold() may lengthen it.
+    title_folded = models.CharField(max_length=240, editable=False, default="")
+    # Only a robot work item has steps.
+    on_robot = models.BooleanField("sur le robot", default=False)
+    status = models.CharField(
+        "statut", max_length=10, choices=Status.choices, default=Status.OPEN
+    )
+    opened_at = models.DateTimeField("ouvert le", null=True, blank=True)
+    closed_at = models.DateTimeField("fermé le", null=True, blank=True)
+
+    class Meta:
+        ordering = ["title"]
+        verbose_name = "chantier"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["team_season", "title_folded"],
+                name="unique_work_item_title_per_team",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.title} ({self.team_season})"
+
+    def save(self, *args: Any, **kwargs: Any) -> None:
+        self.title_folded = fold_title(self.title)
+        update_fields = kwargs.get("update_fields")
+        if update_fields is not None and "title" in update_fields:
+            kwargs["update_fields"] = {*update_fields, "title_folded"}
+        super().save(*args, **kwargs)
+
+    @property
+    def current_step(self) -> "str | None":
+        """Never stored: the step of the latest progress, so moving back a
+        step is an entry like any other."""
+        latest = (
+            self.entries.filter(type=Entry.Type.PROGRESS)
+            .order_by("-occurred_at", "-id")
+            .first()
+        )
+        return latest.step if latest else None
+
+    @property
+    def last_handover(self) -> "Entry | None":
+        """The progress whose handover is shown: the latest that left one. It
+        carries who left it and when; a progress with nothing to hand over
+        leaves the previous one in place."""
+        return (
+            self.entries.filter(type=Entry.Type.PROGRESS)
+            .exclude(handover="")
+            .order_by("-occurred_at", "-id")
+            .first()
+        )
+
+
+class Entry(models.Model):
+    """A trace: anything the notebook can cite, whatever its kind. One table
+    so that a citation points at one kind of thing."""
+
+    class Type(models.TextChoices):
+        PROGRESS = "progress", "avancée"
+        NOTE = "note", "remarque"
+        DECISION = "decision", "décision"
+
+    class Step(models.TextChoices):
+        """Fixed and ordered; repair happens at any point, off the sequence."""
+
+        BRAINSTORMING = "brainstorming", "brainstorming"
+        PROTOTYPING = "prototyping", "prototypage"
+        BUILDING = "building", "construction"
+        DRY_TESTS = "dry_tests", "tests à vide"
+        INTEGRATION = "integration", "intégration"
+        TEST_ZERO = "test_zero", "test zéro"
+        TUNING = "tuning", "optimisation"
+        REPAIR = "repair", "réparation"
+
+    team_season = models.ForeignKey(
+        TeamSeason, on_delete=models.PROTECT, related_name="entries"
+    )
+    # PROTECT until the GDPR module decides what a deleted member's traces become.
+    author = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="entries"
+    )
+    work_item = models.ForeignKey(
+        WorkItem,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="entries",
+    )
+    type = models.CharField("type", max_length=10, choices=Type.choices)
+    body = models.TextField("texte", blank=True)
+    # What to know before picking the work item up again, and what not to undo.
+    handover = models.TextField("passation", blank=True)
+    step = models.CharField(
+        "étape", max_length=15, choices=Step.choices, null=True, blank=True
+    )
+    # Apart from created_at, so that a backfilled trace shows the gap.
+    occurred_at = models.DateTimeField("survenu le", default=timezone.now)
+    created_at = models.DateTimeField("créé le", auto_now_add=True)
+    updated_at = models.DateTimeField("modifié le", null=True, blank=True)
+    updated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="+",
+        verbose_name="modifié par",
+    )
+    participants = models.ManyToManyField(
+        settings.AUTH_USER_MODEL,
+        through="EntryParticipant",
+        related_name="participations",
+        blank=True,
+    )
+
+    class Meta:
+        ordering = ["-occurred_at", "-id"]
+        verbose_name = "trace"
+
+    def __str__(self) -> str:
+        return f"{self.get_type_display()} — {self.team_season}"
+
+
+class EntryParticipant(models.Model):
+    """Who moved a work item forward that day, each signed up by themselves:
+    the day's attendance is read here, and stored nowhere else."""
+
+    entry = models.ForeignKey(Entry, on_delete=models.CASCADE)
+    # PROTECT until the GDPR module decides what a deleted member's traces become.
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
+
+    class Meta:
+        verbose_name = "participation"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["entry", "user"], name="unique_participant_per_entry"
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.user} ({self.entry})"
 
 
 class ConsentQuerySet(models.QuerySet["Consent"]):

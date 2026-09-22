@@ -327,6 +327,12 @@ fonctionnalité.
 **Démo (2 min)** — deux sessions. Adresser une remarque à un chantier suivi par
 l'autre, la voir arriver. Modifier, supprimer, montrer le fil et le non-lu.
 
+**Et l'annonce du club.** Une remarque appartient toujours à une équipe : ce qui
+concerne tout le club sans concerner aucun cahier — la perceuse à remplacer avant
+vendredi — n'est pas une trace. Une annonce, hors `Entry` et jamais citée, dont
+la seule raison d'être est d'être notifiée à chacun. À trancher en concevant ce
+module.
+
 ---
 
 ## 14 · Recherche avancée — Minor, 1 pt

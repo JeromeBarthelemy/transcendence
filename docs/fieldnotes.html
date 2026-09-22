@@ -590,7 +590,7 @@ hors séquence   réparation</pre></div>
 
   <h3>Passer la main</h3>
   <p>Ceux du mercredi ne sont pas ceux du vendredi. Le problème n'est pas que les suivants ignorent ce qui a été fait — c'est qu'ils le <b>défont</b> : une pièce remontée autrement, un réglage rétabli alors qu'il avait été abandonné la veille pour de bonnes raisons, et deux séances s'annulent. Aucune photo ne le rattrape, parce que ce qui manque n'est pas l'état de la pièce mais l'intention de celui qui l'a laissée ainsi.</p>
-  <p>D'où le seul champ que le chantier réclame vraiment : une ligne de <b>passation</b>, écrite pour ceux qui reprendront, écrasée à chaque avancée, et affichée au moment où elle sert — quand on coche le chantier, pas au fond d'un historique. Elle dit ce qu'aucune autre trace ne dit : par où continuer, et ce qu'il ne faut surtout pas refaire.</p>
+  <p>D'où le seul champ que le chantier réclame vraiment : une ligne de <b>passation</b>, écrite avec l'avancée pour ceux qui reprendront, et affichée au moment où elle sert — quand on coche le chantier, pas au fond d'un historique. Elle dit ce qu'aucune autre trace ne dit : par où continuer, et ce qu'il ne faut surtout pas refaire. Seule la plus récente est montrée, avec qui l'a laissée et quand ; les précédentes restent dans leur avancée, et le fil garde ainsi l'histoire des consignes.</p>
   <p>Le reste est déjà là. L'avancée précédente porte sa date et ses participants, donc celui qui reprend sait aussi à qui demander. C'est le bénéfice le moins spectaculaire de cocher les participants séance par séance, et sans doute le plus utilisé au quotidien. Ce champ figurait au modèle initial comme une convention de cahier — une prochaine étape à montrer au jury. Sa vraie raison est opérationnelle, et c'est pour ça qu'il sera rempli.</p>
   <p>Un chantier n'est pas une carte de kanban : ni assigné, ni échéance. Il naît du travail fait, pas d'une planification, et il ne connaît que trois états — ouvert, fini, abandonné. « Abandonné » n'est pas un échec de l'outil : une piste qu'on ferme après l'avoir prototypée est exactement ce qu'un jury veut voir dans un cahier d'ingénierie.</p>
   <p>Il y a bien un <b>tableau</b>, mais c'est une <em>vue</em> des chantiers, pas un objet de plus : des colonnes par étape ou par sous-système, où déplacer une carte revient à changer une étiquette. Il ne se tient pas, il se regarde — et il se remplit tout seul depuis le compte-rendu du mercredi, ce qui lui retire le seul vrai défaut d'un kanban en milieu scolaire : supposer que l'équipe adopte un rituel supplémentaire. Ce qu'un élève lui demande vraiment — <em>qu'est-ce que je fais aujourd'hui ?</em> — est mieux servi ainsi, puisque chaque chantier y affiche sa ligne de passation. Et comme il ne porte aucune donnée qui lui soit propre, le retirer un jour ne coûterait qu'un écran.</p>
@@ -600,7 +600,7 @@ hors séquence   réparation</pre></div>
   <p>Ce sont les traces les plus précieuses du cahier, parce que la démarche de conception se juge sur les arbitrages, et que ceux-là ne laissent aucune autre trace — ni photo, ni commit, ni mesure. Ce qui n'est pas écrit ce soir-là est perdu. Une réunion qui ne décide rien, elle, ne laisse rien : les remarques diverses suffisent.</p>
 
   <h3>Ce qu'on remarque en travaillant</h3>
-  <p>En réparant l'intake on voit que le câblage du bras est à refaire. C'est le genre d'observation qui se perd en dix minutes, et qu'aucune passation ne rattrape puisqu'elle ne concerne pas le chantier ouvert. Le bouton <b>remarque</b> répond déjà au besoin, à ceci près qu'il lui faut une portée de plus : cette équipe, tout le club, ou <b>un autre chantier</b>. Adressée à un chantier, la remarque s'affiche à celui qui l'ouvrira la prochaine fois, à côté de ce qu'il y a à faire.</p>
+  <p>En réparant l'intake on voit que le câblage du bras est à refaire. C'est le genre d'observation qui se perd en dix minutes, et qu'aucune passation ne rattrape puisqu'elle ne concerne pas le chantier ouvert. Le bouton <b>remarque</b> répond déjà au besoin, à ceci près qu'il lui faut une portée de plus : cette équipe, ou <b>un autre chantier</b>. Adressée à un chantier, la remarque s'affiche à celui qui l'ouvrira la prochaine fois, à côté de ce qu'il y a à faire.</p>
   <p>Elle n'est pas une tâche pour autant, et il faut s'y tenir : ni assignée, ni datée, ni prioritaire. Elle existe jusqu'à ce que quelqu'un en fasse quelque chose ou la trouve caduque — le kanban a été écarté une fois, il n'a pas à revenir par la porte de service.</p>
   <p>Reste le cas de septembre, où l'on ne remarque pas, on projette : le jeu est annoncé, l'équipe liste ce qu'il faudra construire. Ce sont des chantiers qui n'ont pas commencé, et <code>status</code> les accueille avec une valeur de plus — <em>suggéré</em>, avant <em>ouvert</em>. La liste de rentrée n'est donc pas un objet nouveau mais la même liste de chantiers, filtrée sur ceux que personne n'a encore ouverts ; ouvrir un chantier, c'est s'y mettre. Un projet qui n'a jamais été ouvert de toute la saison se voit, et raconte quelque chose lui aussi.</p>
 
@@ -610,7 +610,7 @@ hors séquence   réparation</pre></div>
   <p>L'intégration au dépôt cesse donc d'être une fondation. Un essai cite la version testée par un <b>lien</b>, ce qui coûte un copier-coller et relie la mesure au changement — c'est tout ce dont la chaîne a besoin. Aspirer les commits pour en faire des traces reste faisable et sympathique, mais rejoint la réserve, avec les autres agréments : dépendance externe, jeton à gérer, API mouvante. Et si on le fait un jour, ce sera par interrogation périodique plutôt que par <em>webhook</em> — un webhook exige que GitLab puisse joindre l'instance, ce qui tombe dès qu'elle vit sur le réseau du club.</p>
   <p>Deux choses en découlent. Le compte-rendu du mercredi ne réclame pas ce travail : il agrège ce qui porte sa date, pas ce qui porte la semaine. Et la chronologie n'y perd rien, puisqu'elle se lit sur les traces et non sur les séances — un créneau vide reste un trou dans le rituel, même si le dépôt a tourné toute la semaine.</p>
 
-  <div class="ceiling"><b>plafond assumé :</b> deux étiquettes, aucune arborescence — un sous-système n'a pas de sous-sous-système. Un tag mal saisi se renomme ; ni fusion de masse ni historique de renommage. Le coût de saisie est tenu par la reprise : une avancée hérite des étiquettes de la précédente, et on ne les touche que si elles ont changé. Si le vocabulaire dérive, une revue de fin de saison le remet d'aplomb.</div>
+  <div class="ceiling"><b>plafond assumé :</b> deux étiquettes, aucune arborescence — un sous-système n'a pas de sous-sous-système. Un chantier mal nommé se renomme ; ni fusion de masse ni historique de renommage. Le coût de saisie est tenu par la reprise : une avancée hérite de l'étape de la précédente, et on n'y touche que si elle a changé. Si le vocabulaire dérive, une revue de fin de saison le remet d'aplomb.</div>
 </section>
 
 <section>
@@ -720,7 +720,7 @@ hors séquence   réparation</pre></div>
   <p>La présence s'y compte sur l'effectif de l'équipe — six sur douze — parce que c'est le seul rapport qui apprenne quelque chose : six élèves un mercredi n'a pas le même sens dans une équipe de huit et dans une équipe de vingt. Les mentors n'y figurent pas du tout : ils encadrent, ils ne constituent pas l'effectif, et leur présence n'apprend rien qu'on ait envie de suivre.</p>
   <p>Enfin, l'accueil donne accès au résumé de la <b>séance précédente</b> autant qu'à celui du jour, et le résumé lui-même se feuillette d'un mercredi à l'autre. Ce n'est pas de la navigation d'archive : c'est ce que consulte celui qui n'était pas là vendredi. Les chantiers lui diront quoi faire ; le résumé de vendredi lui dira ce qu'il a manqué, et c'est une question différente.</p>
   <p>Un mot sur ce qu'il ne fait pas : il ne <em>clôt</em> rien. Rien ne se verrouille, ici comme ailleurs, et un bouton « clore la séance » aurait promis l'inverse — celui qui l'aurait cliqué se serait demandé s'il pouvait encore corriger, alors que la réponse est oui, indéfiniment. Le pied de l'accueil ne propose donc pas une fermeture mais un lien vers le résumé de la journée — et son libellé le dit, puisque c'est tout ce qu'on y trouve. Il n'y reste même aucun champ. Corriger, si besoin, se fait là où la chose a été écrite : on rouvre le chantier.</p>
-  <p>Car une remarque ne s'écrit pas dans un résumé — elle s'écrit quand la perceuse casse. Un bouton <b>remarque</b> est donc présent partout, et la seule chose qu'il demande en plus du texte est sa <b>portée</b> : cette équipe, ou tout le club. C'est un choix que l'auteur seul peut faire au moment où il écrit, et qui serait insoluble le soir venu. Le modèle n'a rien à ajouter pour l'accueillir : une remarque est une trace comme les autres, rattachée à sa séance par sa date, et sa portée est la colonne d'équipe nullable qui sert déjà aux événements de club. Elle devient citable par le cahier au passage, ce qu'un champ de formulaire n'aurait jamais été — une panne d'outil qui a retardé un sous-système a sa place dans son chapitre.</p>
+  <p>Car une remarque ne s'écrit pas dans un résumé — elle s'écrit quand la perceuse casse. Un bouton <b>remarque</b> est donc présent partout, et il ne demande rien de plus que le texte : elle appartient à l'équipe de celui qui l'écrit, ou au chantier qu'elle attend. Le modèle n'a rien à ajouter pour l'accueillir : une remarque est une trace comme les autres, rattachée à sa séance par sa date. Elle devient citable par le cahier au passage, ce qu'un champ de formulaire n'aurait jamais été — une panne d'outil qui a retardé un sous-système a sa place dans son chapitre. Ce qui concerne tout le club sans concerner aucun cahier — la perceuse à remplacer avant vendredi — n'est pas une trace mais une <b>annonce</b>, et c'est aux notifications de la porter à chacun.</p>
   <div class="mock" aria-label="Maquette du compte-rendu de séance">
     <div class="mock-bar"><b>Mercredi 11 mars</b><span>Rouages &amp; Cie · changer d'équipe ▾ &nbsp;·&nbsp; ◂ vendredi 6 &nbsp;|&nbsp; mercredi 18 ▸</span></div>
 
@@ -743,7 +743,7 @@ hors séquence   réparation</pre></div>
       </div>
 
       <div class="mrow"><span class="k">aussi</span><span class="chip">1 décision — passer l'intake aux galets</span></div>
-      <div class="mrow"><span class="k">remarque</span><span class="field">perceuse HS, à remplacer avant vendredi</span><span class="chip out">tout le club</span></div>
+      <div class="mrow"><span class="k">remarque</span><span class="field">foret de 4 cassé, il n'en reste qu'un</span></div>
     </div>
 
     <div class="mock-sec">
@@ -959,53 +959,56 @@ Forums (CD, Reddit)  <i>&rarr; opinion, sans valeur réglementaire</i></pre></di
   <p>Un adhérent absent de l'export de la saison n'a pas renouvelé. L'import le signale sans agir, parce que les renouvellements tardifs sont la règle ; l'administrateur désactive le compte quand la période est close. Rien n'est supprimé : ses avancées et ses photos sont citées dans des cahiers, et l'historique de son droit à l'image prouve ce qui valait. L'effacement vient sur demande ou au terme de la durée de conservation, et c'est l'affaire du module RGPD. L'API AssoConnect existe mais s'obtient au cas par cas et vise les fédérations : en dépendre rendrait le projet indémontrable chez un correcteur qui n'a pas les identifiants. L'export est la voie sûre, et le volume — un effectif de club, quelques mouvements par an — ne justifie pas mieux.</p>
 
   <h4>Traces d'activité</h4>
-  <div class="codewrap"><pre><b>Entry</b>           id, team_season_id NULLABLE, meeting_id NULLABLE,
-                author_id, work_item_id NULLABLE, type, title, body,
-                occurred_at, visibility, created_at,
+  <div class="codewrap"><pre><b>Entry</b>           id, team_season_id, meeting_id NULLABLE,
+                author_id, work_item_id NULLABLE, type, body,
+                step NULLABLE, handover, occurred_at, visibility, created_at,
                 updated_at NULLABLE, updated_by NULLABLE
                 <i>occurred_at vs created_at → l'écart dit si c'est reconstitué</i>
-                <i>type ∈ {progress, note, media, meeting, test, decision, commit}</i>
+                <i>type ∈ {progress, note, media, test, decision, commit}</i>
                 <i>test → une session de mesure ; commit → en réserve</i>
                 <i>note → une remarque ; portée : team_season_id, ou work_item_id</i>
                 <i>       adressée à un chantier, elle attend celui qui l'ouvrira</i>
                 <i>decision → ce qu'une réunion a tranché, dans la séance</i>
                 <i>visibility ∈ {private, team, public}</i>
                 <i>public → peut sortir du club ; rien n'est mis en ligne</i>
-                <i>team_season_id NULL → trace de club, citable par les 4 cahiers</i>
+                <i>team_season_id   → toujours une équipe : d'un moment commun,</i>
+                <i>                   chaque équipe écrit sa propre trace</i>
                 <i>meeting_id       → rattache la trace à sa séance</i>
                 <i>work_item_id     → rattache l'avancée à son chantier</i>
-<b>Tag</b>             id, season_id NULLABLE, axis, label, position, archived
-                <i>axis ∈ {subsystem, step}</i>
-                <i>subsystem → châssis, intake, autonome, vision… — scopé saison</i>
-                <i>            un sous-système = un chantier ; le logiciel en est un</i>
-                <i>            pas de sous-système → chantier hors robot</i>
-                <i>step      → brainstorming, prototypage, construction,</i>
-                <i>            tests à vide, intégration, test zéro,</i>
-                <i>            optimisation — fixe, ordonné par position</i>
-                <i>            réparation — position NULL, hors séquence</i>
-                <i>subsystem sur le chantier ; step sur l'avancée</i>
-                <i>season_id NULL → traverse les saisons (les étapes)</i>
-<b>EntryTag</b>        entry_id, tag_id       <i>-- l'étape de l'avancée</i>
-<b>WorkItem</b>        id, team_season_id, title, status, opened_at, closed_at,
-                handover NULLABLE
-                <i>title repris du sous-système ; saisi seulement hors robot</i>
-                <i>handover → la passation : par où continuer, quoi ne pas défaire</i>
-                <i>            écrasé à chaque avancée, montré à la reprise</i>
+                <i>step → brainstorming, prototypage, construction,</i>
+                <i>       tests à vide, intégration, test zéro,</i>
+                <i>       optimisation — fixe, ordonné ; réparation hors séquence</i>
+                <i>       un choix dans le code, pas une table : il ne bouge pas</i>
+                <i>       seulement sur un chantier de robot ; par défaut,</i>
+                <i>       celle de l'avancée précédente</i>
+                <i>handover → la passation laissée avec l'avancée : par où</i>
+                <i>           continuer, quoi ne pas défaire. Le chantier montre</i>
+                <i>           la plus récente, avec son auteur et sa date</i>
+<b>WorkItem</b>        id, team_season_id, title, on_robot, status, opened_at,
+                closed_at
+                <i>on_robot → chantier de robot : son titre est le sous-système</i>
+                <i>           châssis, intake, autonome, vision… — le logiciel en est un</i>
+                <i>           hors robot : le sujet, saisi à la main</i>
+                <i>title unique dans l'équipe-saison, sans égard à la casse,</i>
+                <i>aux accents ni aux espaces : un sous-système, un chantier</i>
+                <i>l'avancement affiché → l'étape de la dernière avancée, jamais stocké</i>
                 <i>status ∈ {suggested, open, done, dropped}</i>
-                <i>suggested → projeté en septembre, pas encore commencé</i>
+                <i>suggested → projeté en septembre, pas encore commencé ;</i>
+                <i>            sa première avancée l'ouvre</i>
                 <i>ni assigné, ni échéance — le tableau n'est qu'une vue de ceci</i>
-<b>WorkItemTag</b>     work_item_id, tag_id   <i>-- le sous-système, s'il y en a un</i>
 <b>EntryParticipant</b> entry_id, user_id
                 <i>qui a fait avancer ce chantier ce jour-là</i>
                 <i>toujours de première main : nul ne s'inscrit à la place d'un autre</i>
+                <i>l'élève qui écrit l'avancée y est inscrit ; seuls les inscrits</i>
+                <i>l'écrivent — et les mentors, qui corrigent sans être comptés</i>
                 <i>la présence du jour se lit ici — aucune table ne la double</i>
 <b>MediaAsset</b>      entry_id PK/FK, path, mime, size, width, height,
                 duration, captured_at
                 <i>photo, vidéo, PDF, plan, export CAO — mime décide,</i>
                 <i>width / height / duration nullables</i>
 <b>MediaSubject</b>    media_id, user_id      <i>-- qui est sur la photo, quand ça compte</i></pre></div>
-  <p><code>Entry</code> est un tronc commun, pas une table fourre-tout : les champs partagés sont mutualisés parce que le cahier doit pouvoir citer n'importe quoi de façon uniforme. Seuls <code>MediaAsset</code> et <code>Meeting</code> méritent une extension — un essai ou une décision, c'est du texte, et une avancée de chantier n'est qu'un texte doublé d'un lien.</p>
-  <p>Deux colonnes portent le gros du travail. <code>meeting_id</code> est le mécanisme d'agrégation : tout ce qui s'est passé un jour donné remonte dans le compte-rendu de ce jour. <code>team_season_id</code> nullable permet à un événement de club — une visite d'entreprise, une démonstration en école — d'être cité par les quatre cahiers sans duplication.</p>
+  <p><code>Entry</code> est un tronc commun, pas une table fourre-tout : les champs partagés sont mutualisés parce que le cahier doit pouvoir citer n'importe quoi de façon uniforme. Seul <code>MediaAsset</code> mérite une extension — un essai ou une décision, c'est du texte, et une avancée de chantier n'est qu'un texte doublé d'un lien.</p>
+  <p>Deux colonnes portent le gros du travail. <code>meeting_id</code> est le mécanisme d'agrégation : tout ce qui s'est passé un jour donné remonte dans le compte-rendu de ce jour. <code>team_season_id</code>, lui, est toujours renseigné : un événement vécu par les quatre équipes — une visite d'entreprise, une démonstration en école — donne à chacune sa propre trace, parce que c'est à chacune de le raconter dans son cahier.</p>
 
   <h4>Séances et événements</h4>
   <div class="codewrap"><pre><b>MeetingSlot</b>     id, season_id, weekday, start_time,
@@ -1092,7 +1095,7 @@ Forums (CD, Reddit)  <i>&rarr; opinion, sans valeur réglementaire</i></pre></di
   <h2>Le lexique</h2>
   <p>Un même objet appelé de deux façons finit par devenir deux objets. Ce projet en a déjà fait l'expérience en une journée de conception — un axe nommé tantôt <em>discipline</em> tantôt <em>type de travail</em>, un autre tantôt <em>apport</em>, tantôt <em>phase</em>, tantôt <em>étape</em> — et ce qui coûte une relecture dans une note coûte une intégration ratée dans un dépôt à cinq. Les mots du modèle sont donc des décisions au même titre que le schéma : le français est celui de l'interface et des conversations, l'anglais celui du code.</p>
   <div class="note"><p><b>Le tableau a quitté ce document.</b> Il vit désormais dans le dépôt, à <code>docs/lexique.md</code> — <a href="https://github.com/JeromeBarthelemy/transcendence/blob/main/docs/lexique.md">le lire ici</a> — parce qu'un terme qui change doit apparaître comme un diff qu'une <em>pull request</em> peut contredire, et non comme une phrase modifiée au milieu d'un paragraphe mis en forme. C'est arrivé : deux tickets ont proposé <code>Chantier</code>, <code>Avancée</code> et <code>Séance</code> pour des tables que le lexique nommait déjà <code>WorkItem</code>, <code>Entry</code> et <code>Meeting</code>. Une seule source, du côté où le code se relit.</p></div>
-  <p>Y figurent, outre les trente-cinq termes : les deux pièges sur lesquels ce document s'est lui-même fait prendre — une <em>séance</em> n'est pas une <em>session</em>, un <em>avancement</em> n'est pas une <em>avancée</em> —, ceux des mots qui seront prononcés par le club et doivent donc être choisis avec lui, et ce que le lexique se garde de figer.</p>
+  <p>Y figurent, outre les trente-quatre termes : les deux pièges sur lesquels ce document s'est lui-même fait prendre — une <em>séance</em> n'est pas une <em>session</em>, un <em>avancement</em> n'est pas une <em>avancée</em> —, ceux des mots qui seront prononcés par le club et doivent donc être choisis avec lui, et ce que le lexique se garde de figer.</p>
 </section>
 
 <section>
