@@ -252,8 +252,10 @@ make check
 ```
 
 Runs, from the activated virtual environment, Ruff (lint and formatting),
-mypy, a check that no model change is missing its migration, and the frontend
-TypeScript check. It must pass before every commit. CI runs it on every pull
+mypy, a check that no model change is missing its migration, the frontend
+TypeScript check, and Biome (frontend lint and formatting). It must pass before
+every commit. It only reports; `make format` applies the formatting on both
+sides, for you to review before committing. CI runs `make check` on every pull
 request, followed by the frontend production build:
 
 ```sh
@@ -266,11 +268,13 @@ problem, not a type error.
 
 ## Testing
 
-### Backend
-
 ```sh
 make test
 ```
+
+Runs both suites, backend then frontend.
+
+### Backend
 
 Runs the suite with pytest and pytest-django — not `manage.py test`. Tests
 live next to the code, under `backend/<app>/tests/`. Every test has database
@@ -278,11 +282,10 @@ access without `@pytest.mark.django_db` (see `backend/conftest.py`).
 
 ### Frontend
 
-The initial frontend skeleton has no automated component tests yet. Until
-Vitest and React Testing Library are introduced with the first tested feature,
-verify it with the type-check, production build and browser checks described
-above. The health check exercises TanStack Query and the development proxy end
-to end; domain API clients will add component tests with their first features.
+Vitest runs the unit tests, next to the code they test (`health.test.ts`
+beside `health.ts`); `npm --prefix frontend test` runs them alone. There are no
+component tests yet: React Testing Library comes with the first screen that
+carries logic.
 
 ## Contributing
 
