@@ -2,6 +2,20 @@
 
 from django.db import migrations, models
 
+from club.models import fold_title
+
+
+def fold_existing_titles(apps, schema_editor):
+    """Without this the column is empty on every existing row, and the unique
+    index below refuses a team's second work item. Two titles that do fold
+    alike still stop the migration: that is what the constraint refuses, and
+    merging their progress silently is not a migration's call."""
+    WorkItem = apps.get_model("club", "WorkItem")
+    for work_item in WorkItem.objects.all():
+        WorkItem.objects.filter(pk=work_item.pk).update(
+            title_folded=fold_title(work_item.title)
+        )
+
 
 class Migration(migrations.Migration):
 
@@ -18,6 +32,9 @@ class Migration(migrations.Migration):
             model_name="workitem",
             name="title_folded",
             field=models.CharField(default="", editable=False, max_length=240),
+        ),
+        migrations.RunPython(
+            fold_existing_titles, migrations.RunPython.noop, elidable=True
         ),
         migrations.AddConstraint(
             model_name="workitem",
