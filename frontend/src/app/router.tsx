@@ -1,14 +1,26 @@
-import { createBrowserRouter } from "react-router-dom";
-
+import { createBrowserRouter, type RouteObject } from "react-router-dom";
 import { HomePage } from "../pages/HomePage";
+import { AppLayout } from "./AppLayout";
 
-export const router = createBrowserRouter([
+export const routes: RouteObject[] = [
   {
-    path: "/",
-    element: <HomePage />,
+    element: <AppLayout />,
+    children: [
+      { path: "/", element: <HomePage /> },
+      {
+        path: "/signup",
+        lazy: async () => ({
+          Component: (await import("../pages/SignUpPage")).SignUpPage,
+        }),
+      },
+      {
+        path: "/login",
+        lazy: async () => ({
+          Component: (await import("../pages/LoginPage")).LoginPage,
+        }),
+      },
+    ],
   },
-  {
-    path: "/test",
-    element: <p>La route fonctionne</p>,
-  },
-]);
+];
+
+export const router = createBrowserRouter(routes);
