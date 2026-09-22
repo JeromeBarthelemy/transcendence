@@ -9,7 +9,7 @@ from typing import Any
 from django.contrib.auth import authenticate
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.utils import timezone
 from rest_framework import serializers
 from rest_framework.exceptions import ErrorDetail
@@ -68,8 +68,8 @@ class SignUpSerializer(serializers.Serializer[User]):
         taken = User.objects.filter(display_name_folded=value.casefold()).exists()
         if taken:
             # Same code and same sentence as the database constraint, which
-            # stays underneath as the backstop: two callers racing would
-            # otherwise reach it and get a 500.
+            # stays underneath as the backstop for two callers racing past
+            # this check (see `create`).
             raise serializers.ValidationError(
                 "Ce nom d'affichage est déjà pris. Ajoutez une initiale, "
                 "par exemple « Marie D. ».",
@@ -102,8 +102,26 @@ class SignUpSerializer(serializers.Serializer[User]):
             ) from refused
         return attrs
 
-    @transaction.atomic
     def create(self, validated_data: dict[str, Any]) -> User:
+        try:
+            return self._create(validated_data)
+        except IntegrityError:
+            # Another sign-up passed the same checks at the same moment and
+            # wrote first. Its account is committed now, so running the checks
+            # again finds it and refuses this one as they would a second later.
+            checks = {
+                "email": self.validate_email,
+                "display_name": self.validate_display_name,
+            }
+            for field, check in checks.items():
+                try:
+                    check(validated_data.get(field, ""))
+                except serializers.ValidationError as taken:
+                    raise serializers.ValidationError({field: taken.detail}) from None
+            raise
+
+    @transaction.atomic
+    def _create(self, validated_data: dict[str, Any]) -> User:
         """All or nothing: an account without its verification request would
         never be matched, and would stay a minor for ever."""
         email = validated_data.get("email") or reserved_email(

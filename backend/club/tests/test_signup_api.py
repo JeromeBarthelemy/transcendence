@@ -1,5 +1,7 @@
 import pytest
+from django.test import Client
 
+from club.api.serializers import SignUpSerializer
 from club.models import User, VerificationRequest
 
 URL = "/api/auth/signup/"
@@ -143,3 +145,47 @@ def test_a_declared_role_is_ignored(client):
     signup(client, club_role="mentor")
 
     assert User.objects.get(email="marie@example.org").club_role == "student"
+
+
+def overtaken_by(monkeypatch, **rival):
+    """Lets a rival sign-up through between the validation of the request under
+    test and its write: the interleaving two simultaneous requests produce."""
+    save = SignUpSerializer.save
+    answers = []
+
+    def rival_first(serializer, **kwargs):
+        # The rival goes through the real save, or it would be overtaken too.
+        monkeypatch.setattr(SignUpSerializer, "save", save)
+        answers.append(signup(Client(), **rival).status_code)
+        return save(serializer, **kwargs)
+
+    monkeypatch.setattr(SignUpSerializer, "save", rival_first)
+    return answers
+
+
+def test_of_two_simultaneous_sign_ups_on_one_display_name_the_second_is_refused(
+    client, monkeypatch
+):
+    rival = overtaken_by(monkeypatch, email="autre@example.org", display_name="marie")
+
+    response = signup(client)
+
+    assert rival == [201]
+    assert response.status_code == 400
+    (refusal,) = response.json()["display_name"]
+    assert refusal["code"] == "display_name_taken"
+    assert User.objects.count() == VerificationRequest.objects.count() == 1
+
+
+def test_of_two_simultaneous_sign_ups_on_one_address_the_second_is_refused(
+    client, monkeypatch
+):
+    rival = overtaken_by(monkeypatch, display_name="Marie D.")
+
+    response = signup(client)
+
+    assert rival == [201]
+    assert response.status_code == 400
+    (refusal,) = response.json()["email"]
+    assert refusal["code"] == "email_taken"
+    assert User.objects.count() == VerificationRequest.objects.count() == 1
