@@ -14,6 +14,7 @@ from django.utils import timezone
 from rest_framework import serializers
 from rest_framework.exceptions import ErrorDetail
 
+from club.export import CATEGORY_KEYS
 from club.models import (
     Entry,
     Membership,
@@ -298,3 +299,19 @@ class DaySerializer(serializers.Serializer[None]):
 class PeriodSerializer(serializers.Serializer[None]):
     since = serializers.DateField()
     until = serializers.DateField()
+
+
+class ExportSerializer(serializers.Serializer[None]):
+    format = serializers.ChoiceField(choices=["markdown"], default="markdown")
+    category = serializers.ChoiceField(choices=CATEGORY_KEYS, required=False)
+    work_item = serializers.PrimaryKeyRelatedField(
+        queryset=WorkItem.objects.all(), required=False
+    )
+
+    def validate_work_item(self, value: WorkItem) -> WorkItem:
+        if value.team_season != self.context["team_season"]:
+            raise serializers.ValidationError(
+                "Ce chantier n'est pas celui de l'équipe.",
+                code="work_item_not_in_team",
+            )
+        return value

@@ -27,26 +27,26 @@ français est celui de l'interface et des conversations, l'anglais celui du code
 | **séance** | *une lecture* | la journée d'une équipe : ses traces, de 4 h à 4 h le lendemain. Aucune table ; ne s'ouvre ni ne se ferme |
 | **présence** | *une lecture* | qui a fait avancer quelque chose ce jour-là. Aucune table : elle se lit sur les inscriptions |
 | **remarque** | `Entry` · `note` | ce qui n'appartient à aucun chantier, écrit quand ça arrive. Sa portée : l'équipe, ou un chantier qu'elle attend |
-| **trace** | `Entry` | le tronc commun : tout ce que le cahier peut citer |
+| **trace** | `Entry` | le tronc commun : tout ce que le cahier consigne, et que l'export fournit |
 | **avancée** | `Entry` · `progress` | ce qu'une séance a fait sur un chantier. Le croisement des deux, et l'atome du modèle |
 | **décision** | `Entry` · `decision` | ce qu'une réunion a tranché |
 | **chantier** | `WorkItem` | le fil d'un sous-système sur une saison — ou d'un sujet, hors robot. L'unité que le cahier raconte |
 | **passation** | `Entry.handover` | ce qu'il faut savoir pour reprendre — et ce qu'il ne faut pas défaire. Laissée avec l'avancée ; le chantier montre la plus récente |
 | **sous-système** | `WorkItem.title` · `on_robot` | la partie du robot : le titre d'un chantier de robot. Au club, refait chaque saison |
 | **étape** | `Entry.step` | où en est la conception, portée par l'avancée. Fixe et ordonné, *réparation* mise à part. À l'écran : « avancement » |
-| **cahier** | `NotebookSection` · `NotebookBlock` | le livrable narratif, par équipe et par saison |
-| **bloc** | `NotebookBlock` | un paragraphe du cahier ; c'est lui qui cite |
+| **cahier** | *l'application* | le cahier d'ingénierie d'une équipe pour une saison : ses traces, rangées par chantier. Il se tient, il ne se rédige pas |
+| **engineering notebook** | *l'application* | le nom FTC du **cahier**. Le manuel de compétition n'en parle pas : seul le portfolio y est réglementé |
+| **portfolio** | *hors de l'outil* | le document que jugent les juges FIRST, rédigé par les élèves ailleurs (Canva ou autre) à partir de l'export. Ses règles — nombre de pages, dates, noms — ne valent que pour lui |
 | **tableau** | *une vue* | les chantiers en colonnes. Aucune donnée propre : il se regarde, il ne se tient pas |
-| **citation** | `Citation` | le lien entre un bloc de narration et sa preuve. L'objet à défendre en évaluation |
 | **grille** | `MetricSet` | ce qu'on mesure : partagée par l'entraînement et le scouting |
-| **session** | `Session` | une série d'observations sur une grille. C'est une trace, donc elle se cite. **Rien à voir avec une séance** |
+| **session** | `Session` | une série d'observations sur une grille. C'est une trace, donc elle entre dans le cahier. **Rien à voir avec une séance** |
 | **essai** | `Session` · chantier | une session rattachée à un chantier : on mesure une modification précise |
 | **match d'entraînement** | `Session` · sans chantier | le robot entier et sa drive team. Relié à rien, un point dans la courbe |
 | **observation** | `Observation` | une mesure, par un observateur, sur un sujet, à un instant |
 | **campagne** | `Campaign` | l'observation mutualisée des quatre équipes sur un tournoi |
 | **pick list** | `PickList` | la liste ordonnée des partenaires souhaités — une par équipe |
 | **événement** | `Event` | une compétition, une démonstration, une visite. Un objet pour les quatre équipes ; un moment, jamais un chantier |
-| **export** | *une sortie* | ce qui sort de l'outil : cahier, lot de photos, récapitulatif. Un document de travail interne, pas une publication — publier se fait ailleurs, et c'est là qu'on vérifie le droit à l'image |
+| **export** | *une sortie* | ce qui sort de l'outil : le cahier rangé par catégorie — construction du robot, outreach, vie de l'équipe — comme matière du portfolio, un lot de photos, un récapitulatif. Un document de travail interne, pas une publication — publier se fait ailleurs, et c'est là qu'on vérifie le droit à l'image |
 | **partenaire** | `Partner` | une organisation ou une autre équipe. Nom et type, pas de fiche contact |
 | **média** | `MediaAsset` | photo, vidéo, plan, document |
 

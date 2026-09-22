@@ -3,6 +3,7 @@ from django.urls import path
 from .views import (
     DayView,
     EntryDetailView,
+    ExportView,
     GapsView,
     LoginView,
     LogoutView,
@@ -57,5 +58,10 @@ urlpatterns = [
         "team-seasons/<int:team_season_id>/gaps/",
         GapsView.as_view(),
         name="gaps",
+    ),
+    path(
+        "team-seasons/<int:team_season_id>/export/",
+        ExportView.as_view(),
+        name="export",
     ),
 ]

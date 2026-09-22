@@ -262,11 +262,18 @@ anyone else gets a `403` with the code `not_a_member`.
 | `POST /api/team-seasons/{id}/notes/` | a note for the team, or addressed to one of its work items |
 | `GET /api/team-seasons/{id}/days/{YYYY-MM-DD}/` | the day's entries, who was there, and the roster they count against |
 | `GET /api/team-seasons/{id}/gaps/?since=&until=` | the workshop-slot days on which nothing moved forward |
+| `GET /api/team-seasons/{id}/export/?format=markdown` | the season's notebook as a `.zip`, one Markdown file per category; `category` (`robot`, `outreach`, `team-life`) and `work_item` narrow it |
 
 A day runs from 4 a.m. to 4 a.m., in Paris time: a late session belongs to
 the day it started. Ticking at another step than today's opens a second
 progress, and the handover shown on a work item is the latest one left,
 with who left it, when, and at which step.
+
+The export is raw material for the portfolio, which students write elsewhere:
+the season's entries by category — building the robot (work items on the
+robot), outreach (off the robot), team life (no work item) — each work item
+as a chapter, oldest first, every entry with its date, step and participants.
+A work item nobody worked on has nothing to give and is left out.
 
 ## Checking
 
@@ -358,7 +365,7 @@ requests — stays English.
 - `backend/club/` — accounts, teams, seasons, memberships, and the rules that
   govern signing up: two identifiers, a reserved domain, a contact address.
   Work items and entries, with the rules of a progress in `progress.py` and
-  the reading of a day in `workdays.py`.
+  the reading of a day in `workdays.py`, the notebook export in `export.py`.
 - `backend/club/api/` — sign-up and session, teams and memberships, work
   items, progress and the day, over Django REST framework.
 - `backend/config/views.py` — the minimal health endpoint used by the frontend.

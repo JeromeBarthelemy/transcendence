@@ -4,6 +4,7 @@ tenant to resolve: every route below is about the person calling it."""
 from django.contrib.auth import login, logout
 from django.db import transaction
 from django.db.models import ProtectedError
+from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from django.utils.decorators import method_decorator
@@ -14,6 +15,7 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from club.export import gather, to_markdown_zip
 from club.models import Entry, Membership, Team, User, WorkItem
 from club.progress import edit_progress, join, record_progress
 from club.workdays import attendance, day_entries, gaps, progress_of_the_day, workday
@@ -25,6 +27,7 @@ from .serializers import (
     CloseWorkItemSerializer,
     CreateTeamSerializer,
     DaySerializer,
+    ExportSerializer,
     LoginSerializer,
     NoteSerializer,
     OpenWorkItemSerializer,
@@ -384,3 +387,22 @@ class GapsView(APIView):
         serializer.is_valid(raise_exception=True)
         period = serializer.validated_data
         return Response(gaps(team_season, period["since"], period["until"]))
+
+
+class ExportView(APIView):
+    def get(self, request: Request, team_season_id: int) -> HttpResponse:
+        user = request.user
+        assert isinstance(user, User)
+        team_season = team_season_acted_on(user, team_season_id)
+        serializer = ExportSerializer(
+            data=request.query_params, context={"team_season": team_season}
+        )
+        serializer.is_valid(raise_exception=True)
+        query = serializer.validated_data
+        notebook = gather(team_season, query.get("category"), query.get("work_item"))
+        name = f"cahier-{team_season.team.number}-{team_season.season.start_year}.zip"
+        return HttpResponse(
+            to_markdown_zip(notebook),
+            content_type="application/zip",
+            headers={"Content-Disposition": f'attachment; filename="{name}"'},
+        )
