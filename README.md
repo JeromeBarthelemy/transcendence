@@ -254,9 +254,9 @@ make check
 Runs, from the activated virtual environment, Ruff (lint and formatting),
 mypy, a check that no model change is missing its migration, the frontend
 TypeScript check, and Biome (frontend lint and formatting). It must pass before
-every commit; `npm --prefix frontend run format` applies the frontend
-formatting, as `ruff format backend` does the backend's. CI runs it on every
-pull request, followed by the frontend production build:
+every commit. It only reports; `make format` applies the formatting on both
+sides, for you to review before committing. CI runs `make check` on every pull
+request, followed by the frontend production build:
 
 ```sh
 npm --prefix frontend run build
