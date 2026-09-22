@@ -6,6 +6,8 @@ check:
 	mypy backend
 	python backend/manage.py makemigrations --check --dry-run
 	npm --prefix frontend run typecheck
+	npm --prefix frontend run lint
 
 test:
 	pytest
+	npm --prefix frontend test
