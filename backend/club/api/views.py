@@ -128,6 +128,11 @@ def _avatar_url(user: User) -> str | None:
     return f"/api/users/{user.pk}/avatar/" if user.avatar else None
 
 
+def _member(user: User) -> dict[str, object]:
+    """A member wherever a list of them is shown: a face next to the name."""
+    return {"display_name": user.display_name, "avatar": _avatar_url(user)}
+
+
 class AvatarView(APIView):
     """One's own photo, and no one else's: the route names no member, so
     there is nobody else's to reach."""
@@ -275,7 +280,7 @@ def _work_item(item: WorkItem) -> dict[str, object]:
         else None,
         "last_progress": {
             "occurred_at": latest.occurred_at,
-            "participants": [user.display_name for user in latest.participants.all()],
+            "participants": [_member(user) for user in latest.participants.all()],
         }
         if latest
         else None,
@@ -307,7 +312,7 @@ def _entry(entry: Entry) -> dict[str, object]:
         "handover": entry.handover,
         "occurred_at": entry.occurred_at,
         "author": entry.author.display_name,
-        "participants": [user.display_name for user in entry.participants.all()],
+        "participants": [_member(user) for user in entry.participants.all()],
     }
 
 
@@ -413,9 +418,7 @@ class DayView(APIView):
                 "entries": [
                     _entry(entry) for entry in day_entries(team_season, the_day)
                 ],
-                "present": [
-                    user.display_name for user in attendance(team_season, the_day)
-                ],
+                "present": [_member(user) for user in attendance(team_season, the_day)],
                 "roster": roster.count(),
             }
         )

@@ -292,6 +292,10 @@ robot), outreach (off the robot), team life (no work item) — each work item
 as a chapter, oldest first, every entry with its date, step and participants.
 A work item nobody worked on has nothing to give and is left out.
 
+The members a route lists — a progress's participants, who was there on a
+day — each come as `{"display_name", "avatar"}`, so the interface can put a
+face next to a name without asking again.
+
 ## Checking
 
 ```sh
