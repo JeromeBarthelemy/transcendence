@@ -11,9 +11,10 @@ than an exception to it: a code is code — branched on, never read.
 
 from typing import Any
 
+from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework.exceptions import APIException
 from rest_framework.response import Response
-from rest_framework.status import HTTP_409_CONFLICT
+from rest_framework.status import HTTP_400_BAD_REQUEST, HTTP_409_CONFLICT
 from rest_framework.views import exception_handler as drf_exception_handler
 
 
@@ -28,6 +29,15 @@ class Conflict(APIException):
     default_detail = (
         "Cette suppression entrerait en conflit avec l'historique existant."
     )
+
+
+class Refused(APIException):
+    """A business rule said no — raised as Django's ValidationError by the
+    functions that hold the rules (`club/progress.py`), which DRF would
+    otherwise let through as a 500."""
+
+    status_code = HTTP_400_BAD_REQUEST
+    default_code = "invalid"
 
 
 def _with_codes(value: Any) -> Any:
@@ -49,6 +59,8 @@ def exception_handler(exc: Exception, context: dict[str, Any]) -> Response | Non
     never passes through here, which is why every view calls
     `is_valid(raise_exception=True)`.
     """
+    if isinstance(exc, DjangoValidationError):
+        exc = Refused(exc.messages[0], code=exc.code)
     response = drf_exception_handler(exc, context)
     if response is None:
         return None

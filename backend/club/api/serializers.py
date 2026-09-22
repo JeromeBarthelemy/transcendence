@@ -10,16 +10,20 @@ from django.contrib.auth import authenticate
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
+from django.utils import timezone
 from rest_framework import serializers
 from rest_framework.exceptions import ErrorDetail
 
 from club.models import (
+    Entry,
     Membership,
     Season,
     Team,
     TeamSeason,
     User,
     VerificationRequest,
+    WorkItem,
+    fold_title,
     no_at_sign,
 )
 from club.signup import reserved_email
@@ -208,3 +212,89 @@ class AddMembershipSerializer(serializers.Serializer[Membership]):
 
     def create(self, validated_data: dict[str, Any]) -> Membership:
         return Membership.objects.create(**validated_data)
+
+
+class OpenWorkItemSerializer(serializers.Serializer[WorkItem]):
+    """Opening a work item is starting on it; a work item listed in September
+    is only suggested, and opened by its first progress."""
+
+    title = serializers.CharField(max_length=120)
+    on_robot = serializers.BooleanField(default=False)
+    suggested = serializers.BooleanField(default=False, write_only=True)
+
+    def validate_title(self, value: str) -> str:
+        # Checked here so a duplicate is a coded 400; the folded unique
+        # constraint stays the backstop a race would reach.
+        taken = WorkItem.objects.filter(
+            team_season=self.context["team_season"], title_folded=fold_title(value)
+        )
+        if taken.exists():
+            raise serializers.ValidationError(
+                "Ce chantier existe déjà dans l'équipe.", code="work_item_title_taken"
+            )
+        return value
+
+    def create(self, validated_data: dict[str, Any]) -> WorkItem:
+        suggested = validated_data.pop("suggested")
+        return WorkItem.objects.create(
+            team_season=self.context["team_season"],
+            status=WorkItem.Status.SUGGESTED if suggested else WorkItem.Status.OPEN,
+            opened_at=None if suggested else timezone.now(),
+            **validated_data,
+        )
+
+
+class CloseWorkItemSerializer(serializers.Serializer[WorkItem]):
+    """Only closing: a work item is reopened by working on it again."""
+
+    status = serializers.ChoiceField(
+        choices=[WorkItem.Status.DONE, WorkItem.Status.DROPPED]
+    )
+
+    def update(self, instance: WorkItem, validated_data: dict[str, Any]) -> WorkItem:
+        instance.status = validated_data["status"]
+        instance.closed_at = timezone.now()
+        instance.save(update_fields=["status", "closed_at"])
+        return instance
+
+
+class TickSerializer(serializers.Serializer[Entry]):
+    step = serializers.ChoiceField(choices=Entry.Step.choices, required=False)
+
+
+class WriteProgressSerializer(serializers.Serializer[Entry]):
+    body = serializers.CharField(allow_blank=True, required=False)
+    step = serializers.ChoiceField(choices=Entry.Step.choices, required=False)
+    handover = serializers.CharField(allow_blank=True, required=False)
+
+
+class NoteSerializer(serializers.Serializer[Entry]):
+    body = serializers.CharField()
+    work_item = serializers.PrimaryKeyRelatedField(
+        queryset=WorkItem.objects.all(), required=False
+    )
+
+    def validate_work_item(self, value: WorkItem) -> WorkItem:
+        if value.team_season != self.context["team_season"]:
+            raise serializers.ValidationError(
+                "Ce chantier n'est pas celui de l'équipe.",
+                code="work_item_not_in_team",
+            )
+        return value
+
+    def create(self, validated_data: dict[str, Any]) -> Entry:
+        return Entry.objects.create(
+            team_season=self.context["team_season"],
+            author=self.context["author"],
+            type=Entry.Type.NOTE,
+            **validated_data,
+        )
+
+
+class DaySerializer(serializers.Serializer[None]):
+    day = serializers.DateField()
+
+
+class PeriodSerializer(serializers.Serializer[None]):
+    since = serializers.DateField()
+    until = serializers.DateField()

@@ -1,14 +1,21 @@
 from django.urls import path
 
 from .views import (
+    DayView,
+    EntryDetailView,
+    GapsView,
     LoginView,
     LogoutView,
     MembershipCreateView,
     MembershipDetailView,
     MeView,
+    NoteCreateView,
     SignUpView,
     TeamCreateView,
     TeamDetailView,
+    TickView,
+    WorkItemDetailView,
+    WorkItemListView,
 )
 
 # No password-reset route, and that is a decision, not an omission: one
@@ -27,5 +34,28 @@ urlpatterns = [
         "memberships/<int:pk>/",
         MembershipDetailView.as_view(),
         name="membership-detail",
+    ),
+    path(
+        "team-seasons/<int:team_season_id>/work-items/",
+        WorkItemListView.as_view(),
+        name="work-item-list",
+    ),
+    path("work-items/<int:pk>/", WorkItemDetailView.as_view(), name="work-item-detail"),
+    path("work-items/<int:pk>/tick/", TickView.as_view(), name="work-item-tick"),
+    path("entries/<int:pk>/", EntryDetailView.as_view(), name="entry-detail"),
+    path(
+        "team-seasons/<int:team_season_id>/notes/",
+        NoteCreateView.as_view(),
+        name="note-create",
+    ),
+    path(
+        "team-seasons/<int:team_season_id>/days/<str:day>/",
+        DayView.as_view(),
+        name="day",
+    ),
+    path(
+        "team-seasons/<int:team_season_id>/gaps/",
+        GapsView.as_view(),
+        name="gaps",
     ),
 ]

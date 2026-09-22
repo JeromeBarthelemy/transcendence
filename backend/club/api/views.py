@@ -5,6 +5,7 @@ from django.contrib.auth import login, logout
 from django.db import transaction
 from django.db.models import ProtectedError
 from django.shortcuts import get_object_or_404
+from django.utils import timezone
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_protect, ensure_csrf_cookie
 from rest_framework import status
@@ -13,16 +14,25 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from club.models import Membership, Team, User
+from club.models import Entry, Membership, Team, User, WorkItem
+from club.progress import edit_progress, join, record_progress
+from club.workdays import attendance, day_entries, gaps, progress_of_the_day, workday
 
 from .errors import Conflict
-from .permissions import IsClubAdmin
+from .permissions import IsClubAdmin, team_season_acted_on
 from .serializers import (
     AddMembershipSerializer,
+    CloseWorkItemSerializer,
     CreateTeamSerializer,
+    DaySerializer,
     LoginSerializer,
+    NoteSerializer,
+    OpenWorkItemSerializer,
+    PeriodSerializer,
     RenameTeamSerializer,
     SignUpSerializer,
+    TickSerializer,
+    WriteProgressSerializer,
 )
 
 
@@ -193,3 +203,184 @@ class MembershipDetailView(APIView):
         membership = get_object_or_404(Membership, pk=pk)
         membership.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+def _work_item(item: WorkItem) -> dict[str, object]:
+    latest = (
+        item.entries.filter(type=Entry.Type.PROGRESS)
+        .order_by("-occurred_at", "-id")
+        .first()
+    )
+    handover = item.last_handover
+    return {
+        "id": item.id,
+        "title": item.title,
+        "on_robot": item.on_robot,
+        "status": item.status,
+        # The latest progress already carries it: read once, not twice.
+        "current_step": latest.step if latest else None,
+        "handover": {
+            "body": handover.handover,
+            "author": handover.author.display_name,
+            "step": handover.step,
+            "occurred_at": handover.occurred_at,
+        }
+        if handover
+        else None,
+        "last_progress": {
+            "occurred_at": latest.occurred_at,
+            "participants": [user.display_name for user in latest.participants.all()],
+        }
+        if latest
+        else None,
+    }
+
+
+class WorkItemListView(APIView):
+    def get(self, request: Request, team_season_id: int) -> Response:
+        assert isinstance(request.user, User)
+        team_season = team_season_acted_on(request.user, team_season_id)
+        return Response([_work_item(item) for item in team_season.work_items.all()])
+
+    def post(self, request: Request, team_season_id: int) -> Response:
+        assert isinstance(request.user, User)
+        team_season = team_season_acted_on(request.user, team_season_id)
+        serializer = OpenWorkItemSerializer(
+            data=request.data, context={"team_season": team_season}
+        )
+        serializer.is_valid(raise_exception=True)
+        return Response(_work_item(serializer.save()), status=status.HTTP_201_CREATED)
+
+
+def _entry(entry: Entry) -> dict[str, object]:
+    return {
+        "id": entry.id,
+        "type": entry.type,
+        "body": entry.body,
+        "step": entry.step,
+        "handover": entry.handover,
+        "occurred_at": entry.occurred_at,
+        "author": entry.author.display_name,
+        "participants": [user.display_name for user in entry.participants.all()],
+    }
+
+
+def _work_item_acted_on(user: User, work_item_id: int) -> WorkItem:
+    item = get_object_or_404(WorkItem, pk=work_item_id)
+    team_season_acted_on(user, item.team_season_id)
+    return item
+
+
+class WorkItemDetailView(APIView):
+    def get(self, request: Request, pk: int) -> Response:
+        assert isinstance(request.user, User)
+        item = _work_item_acted_on(request.user, pk)
+        thread = item.entries.select_related("author").order_by("-occurred_at", "-id")
+        return Response(
+            {**_work_item(item), "thread": [_entry(entry) for entry in thread]}
+        )
+
+    def patch(self, request: Request, pk: int) -> Response:
+        assert isinstance(request.user, User)
+        item = _work_item_acted_on(request.user, pk)
+        serializer = CloseWorkItemSerializer(item, data=request.data)
+        serializer.is_valid(raise_exception=True)
+        return Response(_work_item(serializer.save()))
+
+
+class TickView(APIView):
+    """Ticking a work item is signing up to today's progress on it, which the
+    first to tick creates. Ticking at another step than today's opens a
+    second progress: the day moved from one step to the next."""
+
+    # With SQLite in IMMEDIATE mode (settings.py), the transaction takes the
+    # write lock before looking for today's progress: two students ticking in
+    # the same second are served one after the other, and the second joins
+    # the progress the first created instead of creating another.
+    @transaction.atomic
+    def post(self, request: Request, pk: int) -> Response:
+        user = request.user
+        assert isinstance(user, User)
+        item = _work_item_acted_on(user, pk)
+        serializer = TickSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        step = serializer.validated_data.get("step")
+
+        entry = progress_of_the_day(item, workday(timezone.now()))
+        created = entry is None or (step is not None and step != entry.step)
+        if created:
+            entry = record_progress(item, user, "", step=step)
+        assert entry is not None
+        if not entry.participants.filter(pk=user.pk).exists():
+            join(entry, user)
+        return Response(
+            _entry(entry),
+            status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
+        )
+
+
+class EntryDetailView(APIView):
+    def patch(self, request: Request, pk: int) -> Response:
+        user = request.user
+        assert isinstance(user, User)
+        entry = get_object_or_404(Entry, pk=pk)
+        team_season_acted_on(user, entry.team_season_id)
+        serializer = WriteProgressSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        edit_progress(
+            entry,
+            user,
+            data.get("body", entry.body),
+            step=data.get("step"),
+            handover=data.get("handover"),
+        )
+        return Response(_entry(entry))
+
+
+class NoteCreateView(APIView):
+    def post(self, request: Request, team_season_id: int) -> Response:
+        user = request.user
+        assert isinstance(user, User)
+        team_season = team_season_acted_on(user, team_season_id)
+        serializer = NoteSerializer(
+            data=request.data, context={"team_season": team_season, "author": user}
+        )
+        serializer.is_valid(raise_exception=True)
+        return Response(_entry(serializer.save()), status=status.HTTP_201_CREATED)
+
+
+class DayView(APIView):
+    def get(self, request: Request, team_season_id: int, day: str) -> Response:
+        user = request.user
+        assert isinstance(user, User)
+        team_season = team_season_acted_on(user, team_season_id)
+        serializer = DaySerializer(data={"day": day})
+        serializer.is_valid(raise_exception=True)
+        the_day = serializer.validated_data["day"]
+        # The roster the attendance is counted against: students, as mentors
+        # are never counted present.
+        roster = team_season.memberships.filter(user__club_role=User.ClubRole.STUDENT)
+        return Response(
+            {
+                "day": the_day,
+                "entries": [
+                    _entry(entry) for entry in day_entries(team_season, the_day)
+                ],
+                "present": [
+                    user.display_name for user in attendance(team_season, the_day)
+                ],
+                "roster": roster.count(),
+            }
+        )
+
+
+class GapsView(APIView):
+    def get(self, request: Request, team_season_id: int) -> Response:
+        user = request.user
+        assert isinstance(user, User)
+        team_season = team_season_acted_on(user, team_season_id)
+        serializer = PeriodSerializer(data=request.query_params)
+        serializer.is_valid(raise_exception=True)
+        period = serializer.validated_data
+        return Response(gaps(team_season, period["since"], period["until"]))
