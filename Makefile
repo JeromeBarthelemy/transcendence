@@ -1,4 +1,4 @@
-.PHONY: check test
+.PHONY: check format test
 
 check:
 	ruff check backend
@@ -7,6 +7,10 @@ check:
 	python backend/manage.py makemigrations --check --dry-run
 	npm --prefix frontend run typecheck
 	npm --prefix frontend run lint
+
+format:
+	ruff format backend
+	npm --prefix frontend run format
 
 test:
 	pytest
