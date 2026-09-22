@@ -335,8 +335,11 @@ class AvatarSerializer(serializers.Serializer[User]):
     avatar = serializers.FileField()
 
     def validate_avatar(self, value: UploadedFile) -> ContentFile:
+        # Django sizes every file it receives; the type allows None only for
+        # files built by hand.
+        assert value.size is not None
         # Before Pillow opens anything, so an oversized file costs nothing.
-        if value.size is None or value.size > self.MAX_BYTES:
+        if value.size > self.MAX_BYTES:
             raise serializers.ValidationError(
                 "Cette photo dépasse 10 Mo.", code="avatar_too_large"
             )
