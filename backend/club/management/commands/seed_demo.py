@@ -33,10 +33,11 @@ WEEKS = 4
 Step = Entry.Step
 Weekday = WorkshopSlot.Weekday
 
-# The slots the concept note describes; an entry is dated within its slot.
+# The slots the concept note describes, start and end. Entries are dated at
+# most 105 minutes after the start, so within even the two-hour Friday slot.
 SLOTS = {
-    Weekday.WEDNESDAY: (time(14), time(17), time(15)),
-    Weekday.FRIDAY: (time(17), time(19), time(17, 30)),
+    Weekday.WEDNESDAY: (time(14), time(17)),
+    Weekday.FRIDAY: (time(17), time(19)),
 }
 
 TEAMS = [
@@ -112,7 +113,7 @@ class Demo:
     def build(self) -> None:
         start_year = self.today.year if self.today.month >= 9 else self.today.year - 1
         season = Season.objects.create(start_year=start_year, game_name="BioBuzz")
-        for weekday, (start, end, _) in SLOTS.items():
+        for weekday, (start, end) in SLOTS.items():
             WorkshopSlot.objects.create(
                 season=season,
                 weekday=weekday,
@@ -192,7 +193,7 @@ class Demo:
             # team: the gaps a mentor is meant to notice.
             if (index + rank) % 4 == 3:
                 continue
-            at = SLOTS[Weekday(day.weekday())][2]
+            at = SLOTS[Weekday(day.weekday())][0]
             for turn in range(2):
                 title = titles[(2 * active + turn) % len(titles)]
                 path = ROBOT[title]
@@ -210,7 +211,7 @@ class Demo:
                     else "",
                 )
                 join(entry, members[(active + turn + 1) % len(members)])
-                self.date(entry, day, at, minutes=45 * turn)
+                self.date(entry, day, at, minutes=30 * (turn + 1))
             if active % 2 == 0:
                 entry = record_progress(
                     sponsoring,
@@ -225,7 +226,7 @@ class Demo:
                     type=Entry.Type.NOTE,
                     body="Penser à charger les batteries avant vendredi.",
                 )
-                self.date(note, day, at, minutes=100)
+                self.date(note, day, at, minutes=105)
             if active == 3:
                 note = Entry.objects.create(
                     team_season=team_season,
@@ -234,7 +235,7 @@ class Demo:
                     type=Entry.Type.NOTE,
                     body="Regardez comment les autres équipes guident la balle.",
                 )
-                self.date(note, day, at, minutes=110)
+                self.date(note, day, at, minutes=105)
             active += 1
         for item in [*items.values(), sponsoring]:
             first = item.entries.order_by("occurred_at").first()
