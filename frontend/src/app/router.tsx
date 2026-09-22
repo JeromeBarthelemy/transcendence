@@ -10,5 +10,5 @@ export const router = createBrowserRouter([
   {
     path: "/test",
     element: <p>La route fonctionne</p>,
-  }
+  },
 ]);

@@ -34,7 +34,11 @@ export function HomePage() {
         <p className="mt-10 w-fit rounded-full border border-stone-300 bg-white/60 px-4 py-2 text-sm text-stone-700">
           {t("app.ready")}
         </p>
-        <p className="mt-3 text-sm text-stone-600" role="status" aria-live="polite">
+        <p
+          className="mt-3 text-sm text-stone-600"
+          role="status"
+          aria-live="polite"
+        >
           {apiStatus}
         </p>
       </section>
