@@ -1,8 +1,9 @@
 """The project's URL map. One instance serves one club, so there is no
-per-client routing: the admin, and in development the media files."""
+per-client routing: the API and the admin.
 
-from django.conf import settings
-from django.conf.urls.static import static
+No media URL, not even in development: every uploaded file is private and
+reaches the browser through a view that checks who is asking."""
+
 from django.contrib import admin
 from django.urls import URLPattern, URLResolver, include, path
 
@@ -13,8 +14,3 @@ urlpatterns: list[URLPattern | URLResolver] = [
     path("api/", include("club.api.urls")),
     path("admin/", admin.site.urls),
 ]
-
-# Development only: private media must never be served as plain static files,
-# since that would bypass the consent check.
-if settings.DEBUG:
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

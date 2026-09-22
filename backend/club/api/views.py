@@ -4,7 +4,7 @@ tenant to resolve: every route below is about the person calling it."""
 from django.contrib.auth import login, logout
 from django.db import transaction
 from django.db.models import ProtectedError
-from django.http import HttpResponse
+from django.http import FileResponse, Http404, HttpResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from django.utils.decorators import method_decorator
@@ -24,6 +24,7 @@ from .errors import Conflict
 from .permissions import IsClubAdmin, team_season_acted_on
 from .serializers import (
     AddMembershipSerializer,
+    AvatarSerializer,
     CloseWorkItemSerializer,
     CreateTeamSerializer,
     DaySerializer,
@@ -36,6 +37,7 @@ from .serializers import (
     SignUpSerializer,
     TickSerializer,
     WriteProgressSerializer,
+    remove_after_commit,
 )
 
 
@@ -118,7 +120,48 @@ def _identity(user: User) -> dict[str, object]:
         "display_name": user.display_name,
         "club_role": user.club_role,
         "is_club_admin": user.is_club_admin,
+        "avatar": _avatar_url(user),
     }
+
+
+def _avatar_url(user: User) -> str | None:
+    return f"/api/users/{user.pk}/avatar/" if user.avatar else None
+
+
+class AvatarView(APIView):
+    """One's own photo, and no one else's: the route names no member, so
+    there is nobody else's to reach."""
+
+    def put(self, request: Request) -> Response:
+        assert isinstance(request.user, User)
+        serializer = AvatarSerializer(request.user, data=request.data)
+        serializer.is_valid(raise_exception=True)
+        return Response(_identity(serializer.save()))
+
+    def delete(self, request: Request) -> Response:
+        user = request.user
+        assert isinstance(user, User)
+        previous = user.avatar.name
+        user.avatar.name = ""
+        user.save(update_fields=["avatar"])
+        remove_after_commit(user, previous)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class MemberAvatarView(APIView):
+    """Served through a view rather than from a media URL, so that only a
+    signed-in member ever sees a face."""
+
+    def get(self, request: Request, pk: int) -> FileResponse:
+        user = get_object_or_404(User, pk=pk)
+        if not user.avatar:
+            raise Http404
+        response = FileResponse(user.avatar.open("rb"), content_type="image/webp")
+        # The address stays the same when the photo changes: the browser asks
+        # again each time instead of showing the old face, and no proxy on
+        # the way keeps a copy.
+        response["Cache-Control"] = "private, no-cache"
+        return response
 
 
 def _team(team: Team) -> dict[str, object]:

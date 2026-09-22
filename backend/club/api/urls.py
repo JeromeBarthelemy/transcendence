@@ -1,12 +1,14 @@
 from django.urls import path
 
 from .views import (
+    AvatarView,
     DayView,
     EntryDetailView,
     ExportView,
     GapsView,
     LoginView,
     LogoutView,
+    MemberAvatarView,
     MembershipCreateView,
     MembershipDetailView,
     MeView,
@@ -28,6 +30,8 @@ urlpatterns = [
     path("auth/login/", LoginView.as_view(), name="login"),
     path("auth/logout/", LogoutView.as_view(), name="logout"),
     path("auth/me/", MeView.as_view(), name="me"),
+    path("auth/me/avatar/", AvatarView.as_view(), name="avatar"),
+    path("users/<int:pk>/avatar/", MemberAvatarView.as_view(), name="member-avatar"),
     path("teams/", TeamCreateView.as_view(), name="team-create"),
     path("teams/<int:pk>/", TeamDetailView.as_view(), name="team-detail"),
     path("memberships/", MembershipCreateView.as_view(), name="membership-create"),
