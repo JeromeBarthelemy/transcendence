@@ -1,6 +1,9 @@
 from datetime import date, datetime, time
 from zoneinfo import ZoneInfo
 
+from django.test import Client
+
+from club.api.serializers import OpenWorkItemSerializer
 from club.models import (
     Entry,
     EntryParticipant,
@@ -13,6 +16,8 @@ from club.models import (
     WorkshopSlot,
 )
 from club.progress import record_progress
+
+from .races import overtaken_by
 
 
 def team_season(number=12345):
@@ -147,6 +152,27 @@ def test_a_taken_title_is_refused_with_a_code(client):
 
     assert response.status_code == 400
     assert response.json()["title"][0]["code"] == "work_item_title_taken"
+
+
+def test_of_two_simultaneous_openings_of_one_title_the_second_is_refused(
+    client, monkeypatch
+):
+    rouages = team_season()
+    client.force_login(member_of(rouages, "lina"))
+    tom = Client()
+    tom.force_login(member_of(rouages, "tom"))
+    rival = overtaken_by(
+        monkeypatch,
+        OpenWorkItemSerializer,
+        lambda: tom.post(url(rouages), {"title": "Intake"}),
+    )
+
+    response = client.post(url(rouages), {"title": "intake"})
+
+    assert rival == [201]
+    assert response.status_code == 400
+    assert response.json()["title"][0]["code"] == "work_item_title_taken"
+    assert rouages.work_items.count() == 1
 
 
 def test_a_student_cannot_open_a_work_item_in_another_team(client):

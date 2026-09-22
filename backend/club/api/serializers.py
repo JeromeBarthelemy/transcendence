@@ -4,15 +4,17 @@ Validation runs here and in the browser both, as the subject requires; this
 side is the one that decides.
 """
 
+from collections.abc import Callable
 from typing import Any
 
 from django.contrib.auth import authenticate
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.utils import timezone
 from rest_framework import serializers
 from rest_framework.exceptions import ErrorDetail
+from rest_framework.settings import api_settings
 
 from club.models import (
     Entry,
@@ -27,6 +29,19 @@ from club.models import (
     no_at_sign,
 )
 from club.signup import reserved_email
+
+
+def recheck(checks: dict[str, Callable[[], object]]) -> None:
+    """For a write the database refused: another request passed the same
+    checks at the same moment and wrote first. Its row is committed now, so
+    running the checks again finds it and refuses this request as they would
+    a second later, each under its field. If none finds anything, the caller
+    re-raises the database's error as it came."""
+    for field, check in checks.items():
+        try:
+            check()
+        except serializers.ValidationError as taken:
+            raise serializers.ValidationError({field: taken.detail}) from None
 
 
 class SignUpSerializer(serializers.Serializer[User]):
@@ -177,8 +192,15 @@ class CreateTeamSerializer(serializers.Serializer[Team]):
                 "Cette saison n'existe pas.", code="season_not_found"
             ) from None
 
-    @transaction.atomic
     def create(self, validated_data: dict[str, Any]) -> Team:
+        try:
+            return self._create(validated_data)
+        except IntegrityError:
+            recheck({"number": lambda: self.validate_number(validated_data["number"])})
+            raise
+
+    @transaction.atomic
+    def _create(self, validated_data: dict[str, Any]) -> Team:
         season = validated_data.pop("season")
         team = Team.objects.create(**validated_data)
         TeamSeason.objects.create(team=team, season=season)
@@ -193,8 +215,9 @@ class RenameTeamSerializer(serializers.Serializer[Team]):
 
 class AddMembershipSerializer(serializers.Serializer[Membership]):
     """The database constraint (`unique_membership_per_team_season`) already
-    refuses a duplicate — checked here first so a race is the only way it is
-    ever actually reached, same backstop pattern as sign-up's display name."""
+    refuses a duplicate — checked here first so a coded 400 is the answer,
+    and a race that still reaches the constraint is refused the same way
+    (see `create`)."""
 
     user = serializers.PrimaryKeyRelatedField(queryset=User.objects.all())
     team_season = serializers.PrimaryKeyRelatedField(queryset=TeamSeason.objects.all())
@@ -211,7 +234,16 @@ class AddMembershipSerializer(serializers.Serializer[Membership]):
         return attrs
 
     def create(self, validated_data: dict[str, Any]) -> Membership:
-        return Membership.objects.create(**validated_data)
+        try:
+            # A savepoint of its own, so a refused write leaves the
+            # transaction usable for the check that follows.
+            with transaction.atomic():
+                return Membership.objects.create(**validated_data)
+        except IntegrityError:
+            # The check spans both fields, so its refusal names neither.
+            key = api_settings.NON_FIELD_ERRORS_KEY
+            recheck({key: lambda: self.validate(validated_data)})
+            raise
 
 
 class OpenWorkItemSerializer(serializers.Serializer[WorkItem]):
@@ -223,8 +255,8 @@ class OpenWorkItemSerializer(serializers.Serializer[WorkItem]):
     suggested = serializers.BooleanField(default=False, write_only=True)
 
     def validate_title(self, value: str) -> str:
-        # Checked here so a duplicate is a coded 400; the folded unique
-        # constraint stays the backstop a race would reach.
+        # Checked here so a duplicate is a coded 400; a race that reaches the
+        # folded unique constraint is refused the same way (see `create`).
         taken = WorkItem.objects.filter(
             team_season=self.context["team_season"], title_folded=fold_title(value)
         )
@@ -236,12 +268,18 @@ class OpenWorkItemSerializer(serializers.Serializer[WorkItem]):
 
     def create(self, validated_data: dict[str, Any]) -> WorkItem:
         suggested = validated_data.pop("suggested")
-        return WorkItem.objects.create(
-            team_season=self.context["team_season"],
-            status=WorkItem.Status.SUGGESTED if suggested else WorkItem.Status.OPEN,
-            opened_at=None if suggested else timezone.now(),
-            **validated_data,
-        )
+        status = WorkItem.Status.SUGGESTED if suggested else WorkItem.Status.OPEN
+        try:
+            with transaction.atomic():
+                return WorkItem.objects.create(
+                    team_season=self.context["team_season"],
+                    status=status,
+                    opened_at=None if suggested else timezone.now(),
+                    **validated_data,
+                )
+        except IntegrityError:
+            recheck({"title": lambda: self.validate_title(validated_data["title"])})
+            raise
 
 
 class CloseWorkItemSerializer(serializers.Serializer[WorkItem]):
