@@ -18,7 +18,7 @@ français est celui de l'interface et des conversations, l'anglais celui du code
 | **club** | *l'instance* | l'association. Une instance n'en sert qu'une : aucune table, et tout ce qui n'a pas d'équipe lui appartient sans le dire |
 | **équipe** | `Team` · `TeamSeason` | l'équipe, et l'équipe *dans une saison* — c'est la seconde qui porte tout |
 | **saison** | `Season` | l'année de jeu, qui porte deux noms : ses années et son jeu — « 2026-2027 · BioBuzz ». Tout ce qui change avec le jeu y est scopé |
-| **membre** | `User` | avoir un compte actif, c'est être membre du club — les parents n'en ont pas, un ancien garde le sien désactivé |
+| **membre** | `User` | avoir un compte actif, c'est être membre du club — les parents n'en ont pas. Qui part est anonymisé : son nom s'efface, ses traces restent à l'équipe. Désactiver ne fait que suspendre |
 | **affectation** | `Membership` | l'appartenance d'un membre à une équipe pour une saison. Sans rôle. Rien à voir avec l'*adhésion*, qui est l'inscription au club dans AssoConnect : on peut avoir adhéré sans être encore affecté |
 | **rôle** | `User.club_role` · `is_club_admin` | élève ou mentor, porté par le compte. Administrer est un droit en plus, pas un troisième rôle |
 | **consentement** | `Consent` | une décision datée sur le droit à l'image — accordé ou refusé ; la plus récente vaut, et sans décision on ne sait pas. L'état, jamais la pièce signée |
@@ -46,7 +46,7 @@ français est celui de l'interface et des conversations, l'anglais celui du code
 | **campagne** | `Campaign` | l'observation mutualisée des quatre équipes sur un tournoi |
 | **pick list** | `PickList` | la liste ordonnée des partenaires souhaités — une par équipe |
 | **événement** | `Event` | une compétition, une démonstration, une visite. Un objet pour les quatre équipes ; un moment, jamais un chantier |
-| **export** | *une sortie* | ce qui quitte le club : le cahier rangé par catégorie — construction du robot, outreach, vie de l'équipe — comme matière du portfolio, un lot de photos, un récapitulatif remis. « Publier » ne veut dire que cela |
+| **export** | *une sortie* | ce qui sort de l'outil : le cahier rangé par catégorie — construction du robot, outreach, vie de l'équipe — comme matière du portfolio, un lot de photos, un récapitulatif. Un document de travail interne, pas une publication — publier se fait ailleurs, et c'est là qu'on vérifie le droit à l'image |
 | **partenaire** | `Partner` | une organisation ou une autre équipe. Nom et type, pas de fiche contact |
 | **média** | `MediaAsset` | photo, vidéo, plan, document |
 
