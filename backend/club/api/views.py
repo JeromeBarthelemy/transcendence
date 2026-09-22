@@ -394,10 +394,15 @@ class ExportView(APIView):
         user = request.user
         assert isinstance(user, User)
         team_season = team_season_acted_on(user, team_season_id)
-        ExportSerializer(data=request.query_params).is_valid(raise_exception=True)
+        serializer = ExportSerializer(
+            data=request.query_params, context={"team_season": team_season}
+        )
+        serializer.is_valid(raise_exception=True)
+        query = serializer.validated_data
+        notebook = gather(team_season, query.get("category"), query.get("work_item"))
         name = f"cahier-{team_season.team.number}-{team_season.season.start_year}.zip"
         return HttpResponse(
-            to_markdown_zip(gather(team_season)),
+            to_markdown_zip(notebook),
             content_type="application/zip",
             headers={"Content-Disposition": f'attachment; filename="{name}"'},
         )

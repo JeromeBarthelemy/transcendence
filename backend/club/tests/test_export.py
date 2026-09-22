@@ -139,6 +139,34 @@ def test_another_teams_work_is_not_in_the_notebook():
     assert gather(rouages).categories == []
 
 
+def test_a_selective_export_keeps_only_the_category_asked_for():
+    rouages = team_season()
+    lina = member("lina")
+    intake = WorkItem.objects.create(team_season=rouages, title="Intake", on_robot=True)
+    entry(rouages, date(2026, 10, 7), lina, work_item=intake)
+    entry(rouages, date(2026, 10, 8), lina, type=Entry.Type.NOTE)
+
+    notebook = gather(rouages, category="robot")
+
+    assert [c.title for c in notebook.categories] == ["Construction du robot"]
+
+
+def test_a_selective_export_keeps_only_the_work_item_asked_for():
+    rouages = team_season()
+    lina = member("lina")
+    intake = WorkItem.objects.create(team_season=rouages, title="Intake", on_robot=True)
+    lanceur = WorkItem.objects.create(
+        team_season=rouages, title="Lanceur", on_robot=True
+    )
+    entry(rouages, date(2026, 10, 7), lina, work_item=intake)
+    entry(rouages, date(2026, 10, 7), lina, work_item=lanceur)
+    entry(rouages, date(2026, 10, 8), lina, type=Entry.Type.NOTE)
+
+    [robot] = gather(rouages, work_item=intake).categories
+
+    assert [chapter.title for chapter in robot.chapters] == ["Intake"]
+
+
 # --- the Markdown rendering ---
 
 
@@ -241,3 +269,56 @@ def test_a_student_cannot_export_another_teams_notebook(client):
     client.force_login(sam)
 
     assert client.get(export_url(rouages)).status_code == 403
+
+
+def test_a_member_downloads_one_category(client):
+    rouages = team_season()
+    lina = member("lina")
+    Membership.objects.create(user=lina, team_season=rouages)
+    sponsoring = WorkItem.objects.create(team_season=rouages, title="Sponsoring")
+    entry(rouages, date(2026, 10, 7), lina, work_item=sponsoring)
+    entry(rouages, date(2026, 10, 8), lina, type=Entry.Type.NOTE)
+    client.force_login(lina)
+
+    response = client.get(export_url(rouages, category="outreach"))
+
+    assert list(unzip(response.content)) == ["1-outreach.md"]
+
+
+def test_a_member_downloads_one_work_item(client):
+    rouages = team_season()
+    lina = member("lina")
+    Membership.objects.create(user=lina, team_season=rouages)
+    sponsoring = WorkItem.objects.create(team_season=rouages, title="Sponsoring")
+    entry(rouages, date(2026, 10, 7), lina, work_item=sponsoring)
+    entry(rouages, date(2026, 10, 8), lina, type=Entry.Type.NOTE)
+    client.force_login(lina)
+
+    response = client.get(export_url(rouages, work_item=sponsoring.id))
+
+    assert list(unzip(response.content)) == ["1-outreach.md"]
+
+
+def test_an_unknown_category_is_refused(client):
+    rouages = team_season()
+    lina = member("lina")
+    Membership.objects.create(user=lina, team_season=rouages)
+    client.force_login(lina)
+
+    response = client.get(export_url(rouages, category="robots"))
+
+    assert response.status_code == 400
+    assert response.json()["category"][0]["code"] == "invalid_choice"
+
+
+def test_another_teams_work_item_cannot_be_exported(client):
+    rouages = team_season(12345)
+    lina = member("lina")
+    Membership.objects.create(user=lina, team_season=rouages)
+    theirs = WorkItem.objects.create(team_season=team_season(67890), title="Intake")
+    client.force_login(lina)
+
+    response = client.get(export_url(rouages, work_item=theirs.id))
+
+    assert response.status_code == 400
+    assert response.json()["work_item"][0]["code"] == "work_item_not_in_team"

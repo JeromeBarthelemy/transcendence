@@ -262,7 +262,7 @@ anyone else gets a `403` with the code `not_a_member`.
 | `POST /api/team-seasons/{id}/notes/` | a note for the team, or addressed to one of its work items |
 | `GET /api/team-seasons/{id}/days/{YYYY-MM-DD}/` | the day's entries, who was there, and the roster they count against |
 | `GET /api/team-seasons/{id}/gaps/?since=&until=` | the workshop-slot days on which nothing moved forward |
-| `GET /api/team-seasons/{id}/export/?format=markdown` | the season's notebook as a `.zip`, one Markdown file per category |
+| `GET /api/team-seasons/{id}/export/?format=markdown` | the season's notebook as a `.zip`, one Markdown file per category; `category` (`robot`, `outreach`, `team-life`) and `work_item` narrow it |
 
 A day runs from 4 a.m. to 4 a.m., in Paris time: a late session belongs to
 the day it started. Ticking at another step than today's opens a second

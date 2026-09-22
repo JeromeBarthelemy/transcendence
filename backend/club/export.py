@@ -34,8 +34,13 @@ class Chapter:
 
 @dataclass
 class Category:
+    # What a selective export names the category by.
+    key: str
     title: str
     chapters: list[Chapter]
+
+
+CATEGORY_KEYS = ["robot", "outreach", "team-life"]
 
 
 @dataclass
@@ -57,15 +62,22 @@ def _item(entry: Entry) -> Item:
     )
 
 
-def gather(team_season: TeamSeason) -> Notebook:
+def gather(
+    team_season: TeamSeason,
+    category: str | None = None,
+    work_item: WorkItem | None = None,
+) -> Notebook:
     """Categories are read off the work items, never tagged by hand. A work
     item nobody worked on has no material and is left out; within a chapter,
-    entries run oldest first, so a thread reads as a story."""
+    entries run oldest first, so a thread reads as a story. A selective export
+    keeps one category, one work item, or both."""
     entries = (
         team_season.entries.select_related("author", "work_item")
         .prefetch_related("participants")
         .order_by("occurred_at", "id")
     )
+    if work_item is not None:
+        entries = entries.filter(work_item=work_item)
     robot: dict[int, Chapter] = {}
     outreach: dict[int, Chapter] = {}
     life = Chapter(title="Vie de l'équipe", status=None)
@@ -79,14 +91,18 @@ def gather(team_season: TeamSeason) -> Notebook:
         chapter.items.append(_item(entry))
 
     categories = [
-        Category("Construction du robot", list(robot.values())),
-        Category("Outreach", list(outreach.values())),
-        Category("Vie de l'équipe", [life] if life.items else []),
+        Category("robot", "Construction du robot", list(robot.values())),
+        Category("outreach", "Outreach", list(outreach.values())),
+        Category("team-life", "Vie de l'équipe", [life] if life.items else []),
     ]
     return Notebook(
         team=str(team_season.team),
         season=team_season.season.label,
-        categories=[category for category in categories if category.chapters],
+        categories=[
+            kept
+            for kept in categories
+            if kept.chapters and category in (None, kept.key)
+        ],
     )
 
 
