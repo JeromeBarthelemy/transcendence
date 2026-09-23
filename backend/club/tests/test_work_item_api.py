@@ -42,6 +42,10 @@ def url(team_season):
     return f"/api/team-seasons/{team_season.id}/work-items/"
 
 
+def names(members):
+    return [member["display_name"] for member in members]
+
+
 # --- who may act on a team ---
 
 
@@ -99,7 +103,7 @@ def test_a_member_lists_the_work_items_of_their_team(client):
     assert item["handover"]["author"] == "lina"
     # Left at another step than the current one, the screen can flag it stale.
     assert item["handover"]["step"] == "prototyping"
-    assert item["last_progress"]["participants"] == ["lina"]
+    assert names(item["last_progress"]["participants"]) == ["lina"]
 
 
 def test_a_work_item_nobody_worked_on_has_no_last_progress(client):
@@ -225,7 +229,7 @@ def test_a_work_item_comes_with_its_thread_newest_first(client):
     assert newest_progress["body"] == "Rouleaux imprimés."
     assert newest_progress["step"] == "prototyping"
     assert newest_progress["author"] == "lina"
-    assert newest_progress["participants"] == ["lina"]
+    assert names(newest_progress["participants"]) == ["lina"]
     assert newest_progress["handover"] == "Tester à 12 V."
 
 
@@ -305,7 +309,7 @@ def test_the_first_tick_of_the_day_creates_the_progress(client):
     response = tick(client, intake)
 
     assert response.status_code == 201
-    assert response.json()["participants"] == ["lina"]
+    assert names(response.json()["participants"]) == ["lina"]
 
 
 def test_a_second_member_ticking_joins_the_progress_of_the_day(client):
@@ -318,8 +322,27 @@ def test_a_second_member_ticking_joins_the_progress_of_the_day(client):
     response = tick(client, intake)
 
     assert response.status_code == 200
-    assert response.json()["participants"] == ["lina", "tom"]
+    assert names(response.json()["participants"]) == ["lina", "tom"]
     assert intake.entries.count() == 1
+
+
+def with_avatar(user):
+    user.avatar.name = "avatars/lina.webp"
+    user.save(update_fields=["avatar"])
+    return user
+
+
+def test_a_participant_is_listed_with_their_avatar(client):
+    rouages = team_season()
+    intake = robot_work_item(rouages)
+    lina = with_avatar(member_of(rouages))
+    client.force_login(lina)
+
+    response = tick(client, intake)
+
+    assert response.json()["participants"] == [
+        {"display_name": "lina", "avatar": f"/api/users/{lina.pk}/avatar/"}
+    ]
 
 
 def test_ticking_twice_signs_up_once(client):
@@ -330,7 +353,7 @@ def test_ticking_twice_signs_up_once(client):
 
     response = tick(client, intake)
 
-    assert response.json()["participants"] == ["lina"]
+    assert names(response.json()["participants"]) == ["lina"]
     assert intake.entries.count() == 1
 
 
@@ -339,7 +362,7 @@ def test_a_mentor_who_ticks_is_signed_up(client):
     intake = robot_work_item(rouages)
     client.force_login(mentor())
 
-    assert tick(client, intake).json()["participants"] == ["paul"]
+    assert names(tick(client, intake).json()["participants"]) == ["paul"]
 
 
 def test_ticking_at_another_step_opens_a_second_progress(client):
@@ -529,9 +552,23 @@ def test_a_day_shows_its_entries_and_who_was_there_out_of_the_roster(client):
     day = client.get(f"/api/team-seasons/{rouages.id}/days/2026-09-09/").json()
 
     assert len(day["entries"]) == 1
-    assert day["present"] == ["lina", "tom"]
+    assert names(day["present"]) == ["lina", "tom"]
     # The roster counts students: mentors supervise, they are not the team.
     assert day["roster"] == 3
+
+
+def test_who_was_there_is_listed_with_their_avatars(client):
+    rouages = team_season()
+    lina, tom = with_avatar(member_of(rouages, "lina")), member_of(rouages, "tom")
+    progress_on(rouages, WEDNESDAY, lina, tom)
+    client.force_login(lina)
+
+    day = client.get(f"/api/team-seasons/{rouages.id}/days/2026-09-09/").json()
+
+    assert day["present"] == [
+        {"display_name": "lina", "avatar": f"/api/users/{lina.pk}/avatar/"},
+        {"display_name": "tom", "avatar": None},
+    ]
 
 
 def test_an_unreadable_day_is_refused(client):

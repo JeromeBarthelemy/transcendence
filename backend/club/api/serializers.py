@@ -5,17 +5,23 @@ side is the one that decides.
 """
 
 from collections.abc import Callable
+from io import BytesIO
 from typing import Any
+from uuid import uuid4
 
 from django.contrib.auth import authenticate
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
+from django.core.files.base import ContentFile
+from django.core.files.uploadedfile import UploadedFile
 from django.db import IntegrityError, transaction
 from django.utils import timezone
+from PIL import Image, ImageOps
 from rest_framework import serializers
 from rest_framework.exceptions import ErrorDetail
 from rest_framework.settings import api_settings
 
+from club.export import CATEGORY_KEYS
 from club.models import (
     Entry,
     Membership,
@@ -82,8 +88,8 @@ class SignUpSerializer(serializers.Serializer[User]):
         taken = User.objects.filter(display_name_folded=value.casefold()).exists()
         if taken:
             # Same code and same sentence as the database constraint, which
-            # stays underneath as the backstop: two callers racing would
-            # otherwise reach it and get a 500.
+            # stays underneath as the backstop for two callers racing past
+            # this check (see `create`).
             raise serializers.ValidationError(
                 "Ce nom d'affichage est déjà pris. Ajoutez une initiale, "
                 "par exemple « Marie D. ».",
@@ -116,8 +122,26 @@ class SignUpSerializer(serializers.Serializer[User]):
             ) from refused
         return attrs
 
-    @transaction.atomic
     def create(self, validated_data: dict[str, Any]) -> User:
+        try:
+            return self._create(validated_data)
+        except IntegrityError:
+            # Another sign-up passed the same checks at the same moment and
+            # wrote first. Its account is committed now, so running the checks
+            # again finds it and refuses this one as they would a second later.
+            checks = {
+                "email": self.validate_email,
+                "display_name": self.validate_display_name,
+            }
+            for field, check in checks.items():
+                try:
+                    check(validated_data.get(field, ""))
+                except serializers.ValidationError as taken:
+                    raise serializers.ValidationError({field: taken.detail}) from None
+            raise
+
+    @transaction.atomic
+    def _create(self, validated_data: dict[str, Any]) -> User:
         """All or nothing: an account without its verification request would
         never be matched, and would stay a minor for ever."""
         email = validated_data.get("email") or reserved_email(
@@ -336,3 +360,86 @@ class DaySerializer(serializers.Serializer[None]):
 class PeriodSerializer(serializers.Serializer[None]):
     since = serializers.DateField()
     until = serializers.DateField()
+
+
+class ExportSerializer(serializers.Serializer[None]):
+    format = serializers.ChoiceField(choices=["markdown"], default="markdown")
+    category = serializers.ChoiceField(choices=CATEGORY_KEYS, required=False)
+    work_item = serializers.PrimaryKeyRelatedField(
+        queryset=WorkItem.objects.all(), required=False
+    )
+
+    def validate_work_item(self, value: WorkItem) -> WorkItem:
+        if value.team_season != self.context["team_season"]:
+            raise serializers.ValidationError(
+                "Ce chantier n'est pas celui de l'équipe.",
+                code="work_item_not_in_team",
+            )
+        return value
+
+
+class AvatarSerializer(serializers.Serializer[User]):
+    """Trusts neither the file's extension nor the type the browser announces,
+    only what Pillow reads in it. What is stored is always re-encoded: upright,
+    at most 512 pixels a side, and stripped of the photo's metadata, which on a
+    phone photo includes where it was taken."""
+
+    MAX_BYTES = 10 * 1024 * 1024
+    FORMATS = {"JPEG", "PNG", "WEBP"}
+    SIDE = 512
+
+    avatar = serializers.FileField()
+
+    def validate_avatar(self, value: UploadedFile) -> ContentFile:
+        # Django sizes every file it receives; the type allows None only for
+        # files built by hand.
+        assert value.size is not None
+        # Before Pillow opens anything, so an oversized file costs nothing.
+        if value.size > self.MAX_BYTES:
+            raise serializers.ValidationError(
+                "Cette photo dépasse 10 Mo.", code="avatar_too_large"
+            )
+        too_many_pixels = serializers.ValidationError(
+            "Cette photo compte trop de pixels.", code="avatar_too_many_pixels"
+        )
+        try:
+            image = Image.open(value)
+            # Pillow only warns between its threshold and twice it, and would
+            # decode such a file whole: a few hundred kilobytes can take
+            # hundreds of megabytes in the one process serving the club. None
+            # would switch the guard off, which nothing here does.
+            assert Image.MAX_IMAGE_PIXELS is not None
+            if image.width * image.height > Image.MAX_IMAGE_PIXELS:
+                raise too_many_pixels
+            image.load()
+        except Image.DecompressionBombError:
+            raise too_many_pixels from None
+        except OSError:
+            raise serializers.ValidationError(
+                "Ce fichier n'est pas une image.", code="avatar_not_an_image"
+            ) from None
+        if image.format not in self.FORMATS:
+            raise serializers.ValidationError(
+                "Formats acceptés : JPEG, PNG ou WebP.", code="avatar_format_refused"
+            )
+        upright = ImageOps.exif_transpose(image).convert("RGBA")
+        upright.thumbnail((self.SIDE, self.SIDE))
+        encoded = BytesIO()
+        upright.save(encoded, "WEBP")
+        # A random name: the file says nothing about whose face it is.
+        return ContentFile(encoded.getvalue(), name=f"{uuid4().hex}.webp")
+
+    def update(self, instance: User, validated_data: dict[str, Any]) -> User:
+        previous = instance.avatar.name
+        instance.avatar = validated_data["avatar"]
+        instance.save(update_fields=["avatar"])
+        remove_after_commit(instance, previous)
+        return instance
+
+
+def remove_after_commit(user: User, name: str | None) -> None:
+    """Only once the account no longer points at it: removed any earlier, a
+    failed save would leave the account with a photo that is gone."""
+    if name:
+        storage = user.avatar.storage
+        transaction.on_commit(lambda: storage.delete(name))

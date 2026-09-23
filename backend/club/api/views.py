@@ -4,6 +4,7 @@ tenant to resolve: every route below is about the person calling it."""
 from django.contrib.auth import login, logout
 from django.db import transaction
 from django.db.models import ProtectedError
+from django.http import FileResponse, Http404, HttpResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from django.utils.decorators import method_decorator
@@ -14,6 +15,7 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from club.export import gather, to_markdown_zip
 from club.models import Entry, Membership, Team, User, WorkItem
 from club.progress import edit_progress, join, record_progress
 from club.workdays import attendance, day_entries, gaps, progress_of_the_day, workday
@@ -22,9 +24,11 @@ from .errors import Conflict
 from .permissions import IsClubAdmin, team_season_acted_on
 from .serializers import (
     AddMembershipSerializer,
+    AvatarSerializer,
     CloseWorkItemSerializer,
     CreateTeamSerializer,
     DaySerializer,
+    ExportSerializer,
     LoginSerializer,
     NoteSerializer,
     OpenWorkItemSerializer,
@@ -33,6 +37,7 @@ from .serializers import (
     SignUpSerializer,
     TickSerializer,
     WriteProgressSerializer,
+    remove_after_commit,
 )
 
 
@@ -115,7 +120,53 @@ def _identity(user: User) -> dict[str, object]:
         "display_name": user.display_name,
         "club_role": user.club_role,
         "is_club_admin": user.is_club_admin,
+        "avatar": _avatar_url(user),
     }
+
+
+def _avatar_url(user: User) -> str | None:
+    return f"/api/users/{user.pk}/avatar/" if user.avatar else None
+
+
+def _member(user: User) -> dict[str, object]:
+    """A member wherever a list of them is shown: a face next to the name."""
+    return {"display_name": user.display_name, "avatar": _avatar_url(user)}
+
+
+class AvatarView(APIView):
+    """One's own photo, and no one else's: the route names no member, so
+    there is nobody else's to reach."""
+
+    def put(self, request: Request) -> Response:
+        assert isinstance(request.user, User)
+        serializer = AvatarSerializer(request.user, data=request.data)
+        serializer.is_valid(raise_exception=True)
+        return Response(_identity(serializer.save()))
+
+    def delete(self, request: Request) -> Response:
+        user = request.user
+        assert isinstance(user, User)
+        previous = user.avatar.name
+        user.avatar.name = ""
+        user.save(update_fields=["avatar"])
+        remove_after_commit(user, previous)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class MemberAvatarView(APIView):
+    """Served through a view rather than from a media URL, so that only a
+    signed-in member ever sees a face."""
+
+    def get(self, request: Request, pk: int) -> FileResponse:
+        user = get_object_or_404(User, pk=pk)
+        if not user.avatar:
+            raise Http404
+        response = FileResponse(user.avatar.open("rb"), content_type="image/webp")
+        # The address stays the same when the photo changes: the browser asks
+        # again each time instead of showing the old face, and no proxy on
+        # the way keeps a copy.
+        response["Cache-Control"] = "private, no-cache"
+        return response
 
 
 def _team(team: Team) -> dict[str, object]:
@@ -229,7 +280,7 @@ def _work_item(item: WorkItem) -> dict[str, object]:
         else None,
         "last_progress": {
             "occurred_at": latest.occurred_at,
-            "participants": [user.display_name for user in latest.participants.all()],
+            "participants": [_member(user) for user in latest.participants.all()],
         }
         if latest
         else None,
@@ -261,7 +312,7 @@ def _entry(entry: Entry) -> dict[str, object]:
         "handover": entry.handover,
         "occurred_at": entry.occurred_at,
         "author": entry.author.display_name,
-        "participants": [user.display_name for user in entry.participants.all()],
+        "participants": [_member(user) for user in entry.participants.all()],
     }
 
 
@@ -367,9 +418,7 @@ class DayView(APIView):
                 "entries": [
                     _entry(entry) for entry in day_entries(team_season, the_day)
                 ],
-                "present": [
-                    user.display_name for user in attendance(team_season, the_day)
-                ],
+                "present": [_member(user) for user in attendance(team_season, the_day)],
                 "roster": roster.count(),
             }
         )
@@ -384,3 +433,22 @@ class GapsView(APIView):
         serializer.is_valid(raise_exception=True)
         period = serializer.validated_data
         return Response(gaps(team_season, period["since"], period["until"]))
+
+
+class ExportView(APIView):
+    def get(self, request: Request, team_season_id: int) -> HttpResponse:
+        user = request.user
+        assert isinstance(user, User)
+        team_season = team_season_acted_on(user, team_season_id)
+        serializer = ExportSerializer(
+            data=request.query_params, context={"team_season": team_season}
+        )
+        serializer.is_valid(raise_exception=True)
+        query = serializer.validated_data
+        notebook = gather(team_season, query.get("category"), query.get("work_item"))
+        name = f"cahier-{team_season.team.number}-{team_season.season.start_year}.zip"
+        return HttpResponse(
+            to_markdown_zip(notebook),
+            content_type="application/zip",
+            headers={"Content-Disposition": f'attachment; filename="{name}"'},
+        )
