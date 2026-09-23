@@ -136,6 +136,31 @@ it("shows a backend email refusal under the email field", async () => {
   ).toBe("true");
 });
 
+it("shows an unknown error when a refusal has no API body", async () => {
+  const fetchMock = vi.fn(async (path: string) => {
+    if (path === "/api/auth/me/") {
+      setDocumentCookie("csrftoken=first-token; path=/");
+      return json({ detail: issue("not_authenticated") }, 403);
+    }
+    if (path === "/api/auth/signup/") {
+      return new Response("<h1>CSRF verification failed</h1>", {
+        status: 403,
+        headers: { "Content-Type": "text/html" },
+      });
+    }
+    throw new Error(`Unexpected request: ${path}`);
+  });
+  vi.stubGlobal("fetch", fetchMock);
+  renderAt("/signup");
+
+  const user = await fillSignup();
+  await user.click(screen.getByRole("button", { name: "Créer mon compte" }));
+
+  expect(
+    await screen.findByText("Une erreur inattendue est survenue."),
+  ).toBeTruthy();
+});
+
 it("stops mismatched passwords before sending an account request", async () => {
   const fetchMock = vi.fn(async (path: string) => {
     if (path === "/api/auth/me/") {

@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next";
 
-import { type ApiIssue, ApiRequestError } from "../api/auth";
+import { type ApiIssue, ApiRequestError } from "../api/client";
 import fr from "../locales/fr.json";
 
 function hasTranslation(code: string): code is keyof typeof fr.errors {
@@ -66,8 +66,10 @@ export function RequestError({
     }
     // Known fields are shown below their inputs. A new server field must not
     // make the refusal disappear just because this form has no input for it.
+    const fields = Object.keys(error.issues);
     if (
-      Object.keys(error.issues).every((field) => handledFields.includes(field))
+      fields.length > 0 &&
+      fields.every((field) => handledFields.includes(field))
     ) {
       return null;
     }
