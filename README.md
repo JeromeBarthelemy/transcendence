@@ -190,6 +190,32 @@ HTTPS, which the subject requires on every connection to the backend, will
 be handled by the final deployment's reverse proxy — not by Django's or
 Vite's development servers, nor by this development Compose stack.
 
+### Demo data
+
+A fresh database is empty. To give every screen and route something to show,
+fill it with a demo club — before creating any account of your own:
+
+```sh
+python backend/manage.py migrate
+python backend/manage.py seed_demo
+python backend/manage.py createsuperuser   # afterwards, for the Django admin
+```
+
+It creates the current season (BioBuzz) with its Wednesday and Friday
+workshop slots, four fictional teams of three students, a mentor (Claire) and
+a club admin (Paul), and four weeks of work: work items at their steps, one
+back in prototyping after its test zero, one done, one only suggested,
+progress with handovers, notes, and slot days on which nothing moved. Dates
+are relative to the day it runs, so the recent days are always filled. One
+student has refused image rights and one is not yet matched with AssoConnect,
+since a real club has both.
+
+Every demo account signs in with its display name and the password
+`rouage-demo-2026`. The command refuses a database that already holds
+accounts, teams or seasons: it never overwrites anything, and it is never
+meant for the club's own instance. To start over, delete
+`backend/db.sqlite3` and migrate again.
+
 ## Accounts and sessions
 
 No page yet — that is issue #40.
