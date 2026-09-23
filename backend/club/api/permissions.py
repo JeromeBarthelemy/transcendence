@@ -1,6 +1,7 @@
 """Permissions beyond authenticated-or-not, which is all DRF's own classes
 know how to say."""
 
+from django.db.models import QuerySet
 from django.shortcuts import get_object_or_404
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import BasePermission
@@ -35,3 +36,12 @@ def team_season_acted_on(user: User, team_season_id: int) -> TeamSeason:
             "Vous n'êtes pas membre de cette équipe.", code="not_a_member"
         )
     return team_season
+
+
+def team_seasons_open_to(user: User) -> QuerySet[TeamSeason]:
+    """The same rule as `team_season_acted_on`, as a list: what the front end
+    may offer to open."""
+    team_seasons = TeamSeason.objects.select_related("team", "season")
+    if user.club_role == User.ClubRole.MENTOR:
+        return team_seasons.all()
+    return team_seasons.filter(memberships__user=user)

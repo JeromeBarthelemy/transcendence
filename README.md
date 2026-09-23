@@ -190,6 +190,32 @@ HTTPS, which the subject requires on every connection to the backend, will
 be handled by the final deployment's reverse proxy — not by Django's or
 Vite's development servers, nor by this development Compose stack.
 
+### Demo data
+
+A fresh database is empty. To give every screen and route something to show,
+fill it with a demo club — before creating any account of your own:
+
+```sh
+python backend/manage.py migrate
+python backend/manage.py seed_demo
+python backend/manage.py createsuperuser   # afterwards, for the Django admin
+```
+
+It creates the current season (BioBuzz) with its Wednesday and Friday
+workshop slots, four fictional teams of three students, a mentor (Claire) and
+a club admin (Paul), and four weeks of work: work items at their steps, one
+back in prototyping after its test zero, one done, one only suggested,
+progress with handovers, notes, and slot days on which nothing moved. Dates
+are relative to the day it runs, so the recent days are always filled. One
+student has refused image rights and one is not yet matched with AssoConnect,
+since a real club has both.
+
+Every demo account signs in with its display name and the password
+`rouage-demo-2026`. The command refuses a database that already holds
+accounts, teams or seasons: it never overwrites anything, and it is never
+meant for the club's own instance. To start over, delete
+`backend/db.sqlite3` and migrate again.
+
 ## Accounts and sessions
 
 The frontend uses these four routes from `/`, `/signup` and `/login`:
@@ -200,10 +226,30 @@ The frontend uses these four routes from `/`, `/signup` and `/login`:
 | `POST /api/auth/login/` | `200` with the identity below |
 | `POST /api/auth/logout/` | `204` |
 | `GET /api/auth/me/` | `200` with the identity, or `403` |
+| `PUT /api/auth/me/avatar/` | `200` with the identity — one's own photo, as `multipart/form-data` field `avatar` |
+| `DELETE /api/auth/me/avatar/` | `204` |
+| `GET /api/users/{id}/avatar/` | the photo, to signed-in members only; `404` if there is none |
 
 The identity is deliberately small — `display_name`, `club_role`,
-`is_club_admin`. A session tells the interface what to draw, not what the
-account holds.
+`is_club_admin`, `avatar`, the photo's address or `null`, and `team_seasons`,
+the team seasons the account may open (its own teams for a student, every team
+for a mentor), newest season first. A session tells the interface what to
+draw, not what the account holds.
+
+### Avatars
+
+The server trusts neither a file's extension nor the type the browser
+announces: it takes JPEG, PNG or WebP up to 10 MB and about 89 million
+pixels (Pillow's own decompression-bomb threshold), as Pillow reads them, and
+refuses anything else with `avatar_too_large`, `avatar_too_many_pixels`,
+`avatar_not_an_image` or `avatar_format_refused`. What it stores is never the
+file sent but a WebP re-encoded from it — upright, at most 512 pixels a side,
+under a random name, and without the photo's metadata, which on a phone
+includes where it was taken. A replaced or deleted photo leaves the disk once
+the account no longer points at it.
+
+No uploaded file has a public URL, not even in development: every one goes
+through a view that checks the caller is signed in.
 
 ```sh
 curl -X POST http://127.0.0.1:8000/api/auth/signup/ \
@@ -274,6 +320,10 @@ the season's entries by category — building the robot (work items on the
 robot), outreach (off the robot), team life (no work item) — each work item
 as a chapter, oldest first, every entry with its date, step and participants.
 A work item nobody worked on has nothing to give and is left out.
+
+The members a route lists — a progress's participants, who was there on a
+day — each come as `{"display_name", "avatar"}`, so the interface can put a
+face next to a name without asking again.
 
 ## Checking
 

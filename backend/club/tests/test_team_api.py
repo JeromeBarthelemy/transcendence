@@ -4,7 +4,12 @@ test client — it exercises whatever view answers the URL, DRF or not, so
 these do not wait on DRF landing to be written.
 """
 
+from django.test import Client
+
+from club.api.serializers import AddMembershipSerializer, CreateTeamSerializer
 from club.models import Membership, Season, Team, TeamSeason, User, WorkItem
+
+from .races import overtaken_by
 
 
 def season(start_year=2026, game_name="BioBuzz"):
@@ -62,6 +67,37 @@ def test_creating_a_team_with_a_taken_number_is_refused_cleanly(client):
     # comes back as a bare 500 (IntegrityError), not a clean refusal.
     assert response.status_code == 400
     assert Team.objects.filter(number=12345).count() == 1
+
+
+def as_admin(user):
+    """A second browser, for the rival request."""
+    rival = Client()
+    rival.force_login(user)
+    return rival
+
+
+def test_of_two_simultaneous_creations_of_one_team_number_the_second_is_refused(
+    client, monkeypatch
+):
+    boss = admin()
+    client.force_login(boss)
+    season(2026, "BioBuzz")
+    rival = overtaken_by(
+        monkeypatch,
+        CreateTeamSerializer,
+        lambda: as_admin(boss).post(
+            "/api/teams/", {"number": 12345, "name": "Rouages", "season": 2026}
+        ),
+    )
+
+    response = client.post(
+        "/api/teams/", {"number": 12345, "name": "Une autre", "season": 2026}
+    )
+
+    assert rival == [201]
+    assert response.status_code == 400
+    assert response.json()["number"][0]["code"] == "team_number_taken"
+    assert Team.objects.count() == TeamSeason.objects.count() == 1
 
 
 def test_creating_a_team_for_an_unknown_season_is_refused(client):
@@ -211,6 +247,28 @@ def test_adding_the_same_member_twice_is_rejected_cleanly(client):
     # Same spirit as #3 again: the unique constraint must not reach the
     # client as an IntegrityError traceback.
     assert response.status_code == 400
+    assert Membership.objects.filter(user=lina, team_season=rouages_2026).count() == 1
+
+
+def test_of_two_simultaneous_additions_of_one_member_the_second_is_refused(
+    client, monkeypatch
+):
+    boss = admin()
+    client.force_login(boss)
+    rouages_2026 = team_season()
+    lina = student("lina@club.fr", "Lina")
+    body = {"user": lina.id, "team_season": rouages_2026.id}
+    rival = overtaken_by(
+        monkeypatch,
+        AddMembershipSerializer,
+        lambda: as_admin(boss).post("/api/memberships/", body),
+    )
+
+    response = client.post("/api/memberships/", body)
+
+    assert rival == [201]
+    assert response.status_code == 400
+    assert response.json()["non_field_errors"][0]["code"] == "membership_exists"
     assert Membership.objects.filter(user=lina, team_season=rouages_2026).count() == 1
 
 
