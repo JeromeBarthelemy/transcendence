@@ -21,7 +21,7 @@ from club.progress import edit_progress, join, record_progress
 from club.workdays import attendance, day_entries, gaps, progress_of_the_day, workday
 
 from .errors import Conflict
-from .permissions import IsClubAdmin, team_season_acted_on
+from .permissions import IsClubAdmin, team_season_acted_on, team_seasons_open_to
 from .serializers import (
     AddMembershipSerializer,
     AvatarSerializer,
@@ -121,6 +121,17 @@ def _identity(user: User) -> dict[str, object]:
         "club_role": user.club_role,
         "is_club_admin": user.is_club_admin,
         "avatar": _avatar_url(user),
+        "team_seasons": [
+            {
+                "id": team_season.id,
+                "team": _team(team_season.team),
+                "season": {
+                    "start_year": team_season.season.start_year,
+                    "game_name": team_season.season.game_name,
+                },
+            }
+            for team_season in team_seasons_open_to(user)
+        ],
     }
 
 

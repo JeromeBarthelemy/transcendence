@@ -155,7 +155,13 @@ def test_the_identity_says_only_what_an_interface_has_to_draw(client):
 
     identity = login(client, "Ada").json()
 
-    assert set(identity) == {"display_name", "club_role", "is_club_admin", "avatar"}
+    assert set(identity) == {
+        "display_name",
+        "club_role",
+        "is_club_admin",
+        "avatar",
+        "team_seasons",
+    }
 
 
 def csrf_client():
