@@ -45,3 +45,14 @@ def team_seasons_open_to(user: User) -> QuerySet[TeamSeason]:
     if user.club_role == User.ClubRole.MENTOR:
         return team_seasons.all()
     return team_seasons.filter(memberships__user=user)
+
+
+def not_self(request: Request, target: User) -> None:
+    """An admin manages other members here, never their own account:
+    demoting or deactivating yourself has no recovery path but another
+    admin — and on a single-admin club there may not be one."""
+    if target == request.user:
+        raise PermissionDenied(
+            "Vous ne pouvez pas modifier votre propre compte ici.",
+            code="cannot_target_self",
+        )

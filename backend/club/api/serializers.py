@@ -443,3 +443,19 @@ def remove_after_commit(user: User, name: str | None) -> None:
     if name:
         storage = user.avatar.storage
         transaction.on_commit(lambda: storage.delete(name))
+
+
+class UserRoleSerializer(serializers.Serializer[User]):
+    """The two fields an admin manages about another account: making them a
+    mentor, and making them an administrator. Everything else — the name,
+    the password — stays where it already is, the Django admin (README,
+    "Sessions")."""
+
+    club_role = serializers.ChoiceField(choices=User.ClubRole.choices, required=False)
+    is_club_admin = serializers.BooleanField(required=False)
+
+    def update(self, instance: User, validated_data: dict[str, Any]) -> User:
+        for field, value in validated_data.items():
+            setattr(instance, field, value)
+        instance.save(update_fields=list(validated_data))
+        return instance

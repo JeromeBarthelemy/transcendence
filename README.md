@@ -260,9 +260,10 @@ curl -X POST http://127.0.0.1:8000/api/auth/signup/ \
 ```
 
 Sign-up takes no role. Every account starts a student, and a mentor is made
-by the club admin from the Django admin — the same place a forgotten password
-is reset. The AssoConnect export confirms names, never roles, so a role
-declared at sign-up would be a role granted by asking for it.
+by the club admin, over the API below or from the Django admin — the latter
+is still where a forgotten password is reset. The AssoConnect export confirms
+names, never roles, so a role declared at sign-up would be a role granted by
+asking for it.
 
 The address is optional: a member who has none is given one on a reserved
 `.invalid` domain, which can never deliver. Sign-up echoes the address back
@@ -290,6 +291,31 @@ Sign-up and log-in say `csrf_protect` explicitly. `SessionAuthentication`
 enforces CSRF only once it has *found* a session, so the two routes that run
 without one — the routes that hand a session out — are precisely the ones it
 would not protect.
+
+## Members and roles
+
+The admin CRUD `docs/modules.md` §4 asks for, on top of the model it already
+settles: `User.club_role` and `Membership` are enough to derive who may act
+where, and this is its surface. No page yet.
+
+| route | answers |
+| --- | --- |
+| `GET /api/users/` | `200` with every account, active or not |
+| `GET /api/users/{id}/` | `200` with one account |
+| `PATCH /api/users/{id}/` | `200` — `club_role` and/or `is_club_admin` |
+| `DELETE /api/users/{id}/` | `204` — deactivates, never deletes |
+
+Every route needs `is_club_admin`; anyone else gets a `403`. An admin cannot
+target their own account through this surface — the refusal carries
+`cannot_target_self` — because locking yourself out of your own admin rights,
+or deactivating yourself, has no recovery path but another admin, and on a
+single-admin club there may not be one.
+
+`DELETE` deactivates rather than removes the row. A member's traces —
+progress, participations — stay attributed after they leave (`club/models.py`,
+`User`), and a literal delete would either orphan them or be refused outright
+by the `PROTECT` relationships that hold them. `is_active=False` is the same
+state AssoConnect verification already uses for someone who has left.
 
 ## Work items and the day
 

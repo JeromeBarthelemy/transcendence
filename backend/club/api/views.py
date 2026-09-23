@@ -21,7 +21,12 @@ from club.progress import edit_progress, join, record_progress
 from club.workdays import attendance, day_entries, gaps, progress_of_the_day, workday
 
 from .errors import Conflict
-from .permissions import IsClubAdmin, team_season_acted_on, team_seasons_open_to
+from .permissions import (
+    IsClubAdmin,
+    not_self,
+    team_season_acted_on,
+    team_seasons_open_to,
+)
 from .serializers import (
     AddMembershipSerializer,
     AvatarSerializer,
@@ -36,6 +41,7 @@ from .serializers import (
     RenameTeamSerializer,
     SignUpSerializer,
     TickSerializer,
+    UserRoleSerializer,
     WriteProgressSerializer,
     remove_after_commit,
 )
@@ -178,6 +184,53 @@ class MemberAvatarView(APIView):
         # the way keeps a copy.
         response["Cache-Control"] = "private, no-cache"
         return response
+
+
+def _user(user: User) -> dict[str, object]:
+    return {
+        "id": user.id,
+        "display_name": user.display_name,
+        "email": user.email,
+        "club_role": user.club_role,
+        "is_club_admin": user.is_club_admin,
+        "is_active": user.is_active,
+    }
+
+
+class UserListView(APIView):
+    """Every account, active or not: an admin managing roles has to see who
+    left as well as who is here, or a name would just vanish from the list
+    with no explanation."""
+
+    permission_classes = [IsClubAdmin]
+
+    def get(self, request: Request) -> Response:
+        return Response([_user(user) for user in User.objects.order_by("display_name")])
+
+
+class UserDetailView(APIView):
+    permission_classes = [IsClubAdmin]
+
+    def get(self, request: Request, pk: int) -> Response:
+        return Response(_user(get_object_or_404(User, pk=pk)))
+
+    def patch(self, request: Request, pk: int) -> Response:
+        user = get_object_or_404(User, pk=pk)
+        not_self(request, user)
+        serializer = UserRoleSerializer(user, data=request.data)
+        serializer.is_valid(raise_exception=True)
+        return Response(_user(serializer.save()))
+
+    def delete(self, request: Request, pk: int) -> Response:
+        # A member never disappears — their traces stay attributed
+        # (club/models.py, `User`) — so "delete" here is deactivation, the
+        # same is_active a departure already means everywhere else in the
+        # club's data.
+        user = get_object_or_404(User, pk=pk)
+        not_self(request, user)
+        user.is_active = False
+        user.save(update_fields=["is_active"])
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 def _team(team: Team) -> dict[str, object]:
