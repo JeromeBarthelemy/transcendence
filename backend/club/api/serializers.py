@@ -13,7 +13,7 @@ from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.core.files.base import ContentFile
 from django.core.files.uploadedfile import UploadedFile
-from django.db import transaction, IntegrityError
+from django.db import IntegrityError, transaction
 from django.utils import timezone
 from PIL import Image, ImageOps
 from rest_framework import serializers
