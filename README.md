@@ -231,8 +231,10 @@ No page yet — that is issue #40.
 | `GET /api/users/{id}/avatar/` | the photo, to signed-in members only; `404` if there is none |
 
 The identity is deliberately small — `display_name`, `club_role`,
-`is_club_admin`, and `avatar`, the photo's address or `null`. A session tells
-the interface what to draw, not what the account holds.
+`is_club_admin`, `avatar`, the photo's address or `null`, and `team_seasons`,
+the team seasons the account may open (its own teams for a student, every team
+for a mentor), newest season first. A session tells the interface what to
+draw, not what the account holds.
 
 ### Avatars
 
@@ -240,11 +242,11 @@ The server trusts neither a file's extension nor the type the browser
 announces: it takes JPEG, PNG or WebP up to 10 MB and about 89 million
 pixels (Pillow's own decompression-bomb threshold), as Pillow reads them, and
 refuses anything else with `avatar_too_large`, `avatar_too_many_pixels`,
-`avatar_not_an_image` or `avatar_format_refused`. What it stores is never the file sent but a WebP
-re-encoded from it — upright, at most 512 pixels a side, under a random name,
-and without the photo's metadata, which on a phone includes where it was
-taken. A replaced or deleted photo leaves the disk once the account no longer
-points at it.
+`avatar_not_an_image` or `avatar_format_refused`. What it stores is never the
+file sent but a WebP re-encoded from it — upright, at most 512 pixels a side,
+under a random name, and without the photo's metadata, which on a phone
+includes where it was taken. A replaced or deleted photo leaves the disk once
+the account no longer points at it.
 
 No uploaded file has a public URL, not even in development: every one goes
 through a view that checks the caller is signed in.
