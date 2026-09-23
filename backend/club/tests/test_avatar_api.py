@@ -139,6 +139,33 @@ def test_a_file_over_ten_megabytes_is_refused(client):
     assert response.json()["avatar"][0]["code"] == "avatar_too_large"
 
 
+def test_a_small_file_decoding_to_too_many_pixels_is_refused(client, monkeypatch):
+    # Lowered so the photo lands where Pillow only warns — between its
+    # threshold and twice it — without building a hundred-megapixel image.
+    monkeypatch.setattr(Image, "MAX_IMAGE_PIXELS", 1000)
+    lina = member()
+    client.force_login(lina)
+
+    response = upload(client, photo(size=(40, 40)))
+
+    assert response.status_code == 400
+    assert response.json()["avatar"][0]["code"] == "avatar_too_many_pixels"
+    lina.refresh_from_db()
+    assert not lina.avatar
+
+
+def test_a_file_pillow_itself_rejects_as_a_bomb_is_called_too_many_pixels(
+    client, monkeypatch
+):
+    monkeypatch.setattr(Image, "MAX_IMAGE_PIXELS", 1000)
+    client.force_login(member())
+
+    response = upload(client, photo(size=(50, 50)))
+
+    assert response.status_code == 400
+    assert response.json()["avatar"][0]["code"] == "avatar_too_many_pixels"
+
+
 # --- replacing and deleting ---
 
 

@@ -211,9 +211,10 @@ the interface what to draw, not what the account holds.
 ### Avatars
 
 The server trusts neither a file's extension nor the type the browser
-announces: it takes JPEG, PNG or WebP up to 10 MB, as Pillow reads them, and
-refuses anything else with `avatar_too_large`, `avatar_not_an_image` or
-`avatar_format_refused`. What it stores is never the file sent but a WebP
+announces: it takes JPEG, PNG or WebP up to 10 MB and about 89 million
+pixels (Pillow's own decompression-bomb threshold), as Pillow reads them, and
+refuses anything else with `avatar_too_large`, `avatar_too_many_pixels`,
+`avatar_not_an_image` or `avatar_format_refused`. What it stores is never the file sent but a WebP
 re-encoded from it — upright, at most 512 pixels a side, under a random name,
 and without the photo's metadata, which on a phone includes where it was
 taken. A replaced or deleted photo leaves the disk once the account no longer
