@@ -4,13 +4,18 @@ Validation runs here and in the browser both, as the subject requires; this
 side is the one that decides.
 """
 
+from io import BytesIO
 from typing import Any
+from uuid import uuid4
 
 from django.contrib.auth import authenticate
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
+from django.core.files.base import ContentFile
+from django.core.files.uploadedfile import UploadedFile
 from django.db import IntegrityError, transaction
 from django.utils import timezone
+from PIL import Image, ImageOps
 from rest_framework import serializers
 from rest_framework.exceptions import ErrorDetail
 
@@ -333,3 +338,70 @@ class ExportSerializer(serializers.Serializer[None]):
                 code="work_item_not_in_team",
             )
         return value
+
+
+class AvatarSerializer(serializers.Serializer[User]):
+    """Trusts neither the file's extension nor the type the browser announces,
+    only what Pillow reads in it. What is stored is always re-encoded: upright,
+    at most 512 pixels a side, and stripped of the photo's metadata, which on a
+    phone photo includes where it was taken."""
+
+    MAX_BYTES = 10 * 1024 * 1024
+    FORMATS = {"JPEG", "PNG", "WEBP"}
+    SIDE = 512
+
+    avatar = serializers.FileField()
+
+    def validate_avatar(self, value: UploadedFile) -> ContentFile:
+        # Django sizes every file it receives; the type allows None only for
+        # files built by hand.
+        assert value.size is not None
+        # Before Pillow opens anything, so an oversized file costs nothing.
+        if value.size > self.MAX_BYTES:
+            raise serializers.ValidationError(
+                "Cette photo dépasse 10 Mo.", code="avatar_too_large"
+            )
+        too_many_pixels = serializers.ValidationError(
+            "Cette photo compte trop de pixels.", code="avatar_too_many_pixels"
+        )
+        try:
+            image = Image.open(value)
+            # Pillow only warns between its threshold and twice it, and would
+            # decode such a file whole: a few hundred kilobytes can take
+            # hundreds of megabytes in the one process serving the club. None
+            # would switch the guard off, which nothing here does.
+            assert Image.MAX_IMAGE_PIXELS is not None
+            if image.width * image.height > Image.MAX_IMAGE_PIXELS:
+                raise too_many_pixels
+            image.load()
+        except Image.DecompressionBombError:
+            raise too_many_pixels from None
+        except OSError:
+            raise serializers.ValidationError(
+                "Ce fichier n'est pas une image.", code="avatar_not_an_image"
+            ) from None
+        if image.format not in self.FORMATS:
+            raise serializers.ValidationError(
+                "Formats acceptés : JPEG, PNG ou WebP.", code="avatar_format_refused"
+            )
+        upright = ImageOps.exif_transpose(image).convert("RGBA")
+        upright.thumbnail((self.SIDE, self.SIDE))
+        encoded = BytesIO()
+        upright.save(encoded, "WEBP")
+        # A random name: the file says nothing about whose face it is.
+        return ContentFile(encoded.getvalue(), name=f"{uuid4().hex}.webp")
+
+    def update(self, instance: User, validated_data: dict[str, Any]) -> User:
+        previous = instance.avatar.name
+        instance.avatar = validated_data["avatar"]
+        instance.save(update_fields=["avatar"])
+        remove_after_commit(instance, previous)
+        return instance
+
+
+def remove_after_commit(user: User, name: str | None) -> None:
+    """Only once the account no longer points at it: removed any earlier, a
+    failed save would leave the account with a photo that is gone."""
+    if name:
+        storage = user.avatar.storage
+        transaction.on_commit(lambda: storage.delete(name))
