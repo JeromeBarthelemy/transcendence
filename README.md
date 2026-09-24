@@ -324,6 +324,16 @@ robot), outreach (off the robot), team life (no work item) — each work item
 as a chapter, oldest first, every entry with its date, step and participants.
 A work item nobody worked on has nothing to give and is left out.
 
+Attached files travel in the archive, not as links: under `fichiers/`, each
+named by its id and its original name, and every entry lists its own as
+relative links. The archive is written to a temporary file and streamed, so
+a season of videos never has to fit in memory. At its root, `A-LIRE.md`
+says the notebook is an internal working document, lists the refusals of
+image rights in force among the team's members — "aucun" most of the time —
+and the files to check before any publication: those with people on them,
+in a team where a refusal is in force today. The Django admin filters the
+attachments on the same rule, under "À vérifier".
+
 The members a route lists — a progress's participants, who was there on a
 day — each come as `{"display_name", "avatar"}`, so the interface can put a
 face next to a name without asking again.

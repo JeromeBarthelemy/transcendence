@@ -532,6 +532,19 @@ class EntryParticipant(models.Model):
         return f"{self.user} ({self.entry})"
 
 
+class AttachmentQuerySet(models.QuerySet["Attachment"]):
+    def to_check(self) -> "AttachmentQuerySet":
+        """Files with people on them, in a team where a member's refusal is in
+        force now: a later refusal stops use from its date and a later grant
+        reopens it, whatever the date of the photo. Nobody outside the team is
+        tracked — the tool flags, it does not police."""
+        refusing = [decision.user_id for decision in Consent.objects.refusals()]
+        return self.filter(
+            people_recognisable=True,
+            entry__team_season__memberships__user__in=refusing,
+        ).distinct()
+
+
 class Attachment(models.Model):
     """A file kept with an entry: a photo of the prototype, a plan, a video
     of a test run. Anyone on the team adds one to any of its entries; only
@@ -556,6 +569,8 @@ class Attachment(models.Model):
         "personnes reconnaissables", default=False
     )
     uploaded_at = models.DateTimeField("déposé le", auto_now_add=True)
+
+    objects = AttachmentQuerySet.as_manager()
 
     class Meta:
         ordering = ["uploaded_at", "id"]
