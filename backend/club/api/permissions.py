@@ -45,3 +45,20 @@ def team_seasons_open_to(user: User) -> QuerySet[TeamSeason]:
     if user.club_role == User.ClubRole.MENTOR:
         return team_seasons.all()
     return team_seasons.filter(memberships__user=user)
+
+
+def not_the_last_admin(user: User) -> None:
+    """There is no password reset by email on this instance (README,
+    "Sessions") — the club admin is the recovery path for everyone else.
+    Deleting the last one leaves nobody who can set anything right."""
+    if (
+        user.is_club_admin
+        and not User.objects.filter(is_club_admin=True, is_active=True)
+        .exclude(pk=user.pk)
+        .exists()
+    ):
+        raise PermissionDenied(
+            "Vous êtes le seul administrateur du club : vous ne pouvez pas "
+            "supprimer votre compte.",
+            code="last_admin_cannot_leave",
+        )

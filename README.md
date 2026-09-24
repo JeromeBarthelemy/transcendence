@@ -291,6 +291,26 @@ enforces CSRF only once it has *found* a session, so the two routes that run
 without one — the routes that hand a session out — are precisely the ones it
 would not protect.
 
+### Data export and deletion
+
+| route | answers |
+| --- | --- |
+| `POST /api/auth/me/export/` | `202` — a JSON copy of the account, by e-mail |
+| `DELETE /api/auth/me/` | `204` — deactivates the account, confirmed by e-mail |
+
+Neither goes to the login address: it identifies an account without being
+assumed to deliver, and the youngest members have none that does. Both go to
+`contact_email` instead — the member's own for an adult, their legal
+guardian's for a minor — and both are refused with `no_contact_email` when
+that column is empty, before anything changes.
+
+`DELETE` deactivates rather than deletes the row: `Entry.author` and
+`EntryParticipant.user` are `PROTECT`, so a literal delete would either orphan
+a member's traces or be refused outright the moment they have any. The sole
+club admin is refused with `last_admin_cannot_leave` — the club has no
+password-reset-by-email fallback, so another admin is the only recovery path
+for everyone else, and there has to be one left.
+
 ## Work items and the day
 
 What the three screens read and write. Every route needs a session; a student

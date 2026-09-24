@@ -18,12 +18,18 @@ from rest_framework.views import APIView
 
 from club.attachments import DOWNLOAD_ONLY
 from club.export import gather, to_markdown_zip
+from club.gdpr import request_deletion, send_export
 from club.models import Attachment, Entry, Membership, Team, User, WorkItem
 from club.progress import edit_progress, join, record_progress
 from club.workdays import attendance, day_entries, gaps, progress_of_the_day, workday
 
 from .errors import Conflict
-from .permissions import IsClubAdmin, team_season_acted_on, team_seasons_open_to
+from .permissions import (
+    IsClubAdmin,
+    not_the_last_admin,
+    team_season_acted_on,
+    team_seasons_open_to,
+)
 from .serializers import (
     AddMembershipSerializer,
     AttachmentSerializer,
@@ -112,6 +118,27 @@ class MeView(APIView):
         # instead of an AttributeError deeper down.
         assert isinstance(request.user, User)
         return Response(_identity(request.user))
+
+    def delete(self, request: Request) -> Response:
+        """The right to erasure (docs/modules.md §10), for one's own account
+        only — an admin manages everyone else's through #52's surface."""
+        user = request.user
+        assert isinstance(user, User)
+        not_the_last_admin(user)
+        request_deletion(user)
+        logout(request)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class MemberDataExportView(APIView):
+    """The right of access (docs/modules.md §10): a copy of one's own data,
+    by e-mail — never shown on screen, since the confirmation is the point."""
+
+    def post(self, request: Request) -> Response:
+        user = request.user
+        assert isinstance(user, User)
+        send_export(user)
+        return Response(status=status.HTTP_202_ACCEPTED)
 
 
 def _identity(user: User) -> dict[str, object]:
