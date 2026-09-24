@@ -10,13 +10,15 @@ from django.utils import timezone
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_protect, ensure_csrf_cookie
 from rest_framework import status
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import AllowAny
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from club.attachments import DOWNLOAD_ONLY
 from club.export import gather, to_markdown_zip
-from club.models import Entry, Membership, Team, User, WorkItem
+from club.models import Attachment, Entry, Membership, Team, User, WorkItem
 from club.progress import edit_progress, join, record_progress
 from club.workdays import attendance, day_entries, gaps, progress_of_the_day, workday
 
@@ -24,6 +26,7 @@ from .errors import Conflict
 from .permissions import IsClubAdmin, team_season_acted_on, team_seasons_open_to
 from .serializers import (
     AddMembershipSerializer,
+    AttachmentSerializer,
     AvatarSerializer,
     CloseWorkItemSerializer,
     CreateTeamSerializer,
@@ -324,6 +327,18 @@ def _entry(entry: Entry) -> dict[str, object]:
         "occurred_at": entry.occurred_at,
         "author": entry.author.display_name,
         "participants": [_member(user) for user in entry.participants.all()],
+        "attachments": [_attachment(file) for file in entry.attachments.all()],
+    }
+
+
+def _attachment(attachment: Attachment) -> dict[str, object]:
+    return {
+        "id": attachment.id,
+        "name": attachment.name,
+        "content_type": attachment.content_type,
+        "url": f"/api/attachments/{attachment.id}/",
+        "people_recognisable": attachment.people_recognisable,
+        "uploaded_by": attachment.uploaded_by.display_name,
     }
 
 
@@ -379,6 +394,57 @@ class TickView(APIView):
             _entry(entry),
             status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
         )
+
+
+class EntryAttachmentsView(APIView):
+    """Anyone on the team adds to any of its entries: an outing's photos come
+    from everyone who was there, not from whoever wrote it up."""
+
+    def post(self, request: Request, pk: int) -> Response:
+        user = request.user
+        assert isinstance(user, User)
+        entry = get_object_or_404(Entry, pk=pk)
+        team_season_acted_on(user, entry.team_season_id)
+        serializer = AttachmentSerializer(
+            data=request.data, context={"entry": entry, "user": user}
+        )
+        serializer.is_valid(raise_exception=True)
+        return Response(_attachment(serializer.save()), status=status.HTTP_201_CREATED)
+
+
+class AttachmentView(APIView):
+    """Served through a view rather than from a media URL, so that only the
+    team and its mentors ever reach a file."""
+
+    def get(self, request: Request, pk: int) -> FileResponse:
+        attachment = self._acted_on(request, pk)
+        return FileResponse(
+            attachment.file.open("rb"),
+            content_type=attachment.content_type,
+            as_attachment=attachment.content_type == DOWNLOAD_ONLY,
+            filename=attachment.name,
+        )
+
+    def delete(self, request: Request, pk: int) -> Response:
+        attachment = self._acted_on(request, pk)
+        user = request.user
+        assert isinstance(user, User)
+        is_mentor = user.club_role == User.ClubRole.MENTOR
+        if not is_mentor and attachment.uploaded_by_id != user.pk:
+            raise PermissionDenied(
+                "Seuls la personne qui l'a déposé et les mentors retirent un fichier.",
+                code="delete_not_uploader",
+            )
+        attachment.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    def _acted_on(self, request: Request, pk: int) -> Attachment:
+        assert isinstance(request.user, User)
+        attachment = get_object_or_404(
+            Attachment.objects.select_related("entry"), pk=pk
+        )
+        team_season_acted_on(request.user, attachment.entry.team_season_id)
+        return attachment
 
 
 class EntryDetailView(APIView):

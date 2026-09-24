@@ -1,8 +1,10 @@
 from django.urls import path
 
 from .views import (
+    AttachmentView,
     AvatarView,
     DayView,
+    EntryAttachmentsView,
     EntryDetailView,
     ExportView,
     GapsView,
@@ -48,6 +50,12 @@ urlpatterns = [
     path("work-items/<int:pk>/", WorkItemDetailView.as_view(), name="work-item-detail"),
     path("work-items/<int:pk>/tick/", TickView.as_view(), name="work-item-tick"),
     path("entries/<int:pk>/", EntryDetailView.as_view(), name="entry-detail"),
+    path(
+        "entries/<int:pk>/attachments/",
+        EntryAttachmentsView.as_view(),
+        name="entry-attachments",
+    ),
+    path("attachments/<int:pk>/", AttachmentView.as_view(), name="attachment"),
     path(
         "team-seasons/<int:team_season_id>/notes/",
         NoteCreateView.as_view(),

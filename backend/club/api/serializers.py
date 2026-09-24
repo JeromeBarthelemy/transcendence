@@ -21,9 +21,10 @@ from rest_framework import serializers
 from rest_framework.exceptions import ErrorDetail
 from rest_framework.settings import api_settings
 
-from club import images
+from club import attachments, images
 from club.export import CATEGORY_KEYS
 from club.models import (
+    Attachment,
     Entry,
     Membership,
     Season,
@@ -377,6 +378,25 @@ class ExportSerializer(serializers.Serializer[None]):
                 code="work_item_not_in_team",
             )
         return value
+
+
+class AttachmentSerializer(serializers.Serializer[Attachment]):
+    file = serializers.FileField()
+    people_recognisable = serializers.BooleanField(default=False)
+
+    def validate_file(self, value: UploadedFile) -> attachments.Checked:
+        return attachments.check(value)
+
+    def create(self, validated_data: dict[str, Any]) -> Attachment:
+        checked = validated_data["file"]
+        return Attachment.objects.create(
+            entry=self.context["entry"],
+            uploaded_by=self.context["user"],
+            file=checked.file,
+            name=checked.name,
+            content_type=checked.content_type,
+            people_recognisable=validated_data["people_recognisable"],
+        )
 
 
 class AvatarSerializer(serializers.Serializer[User]):

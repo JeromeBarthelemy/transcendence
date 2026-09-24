@@ -16,7 +16,9 @@ from django.contrib.auth.models import (
 )
 from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator
-from django.db import models
+from django.db import models, transaction
+from django.db.models.signals import post_delete
+from django.dispatch import receiver
 from django.utils import timezone
 
 
@@ -528,6 +530,51 @@ class EntryParticipant(models.Model):
 
     def __str__(self) -> str:
         return f"{self.user} ({self.entry})"
+
+
+class Attachment(models.Model):
+    """A file kept with an entry: a photo of the prototype, a plan, a video
+    of a test run. Anyone on the team adds one to any of its entries; only
+    whoever added it, or a mentor, takes it away."""
+
+    entry = models.ForeignKey(
+        Entry, on_delete=models.CASCADE, related_name="attachments"
+    )
+    # PROTECT until the GDPR module decides what a deleted member's traces become.
+    uploaded_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="+",
+        verbose_name="déposé par",
+    )
+    # Stored under a random name; the one it was sent with is kept apart.
+    file = models.FileField("fichier", upload_to="attachments/")
+    name = models.CharField("nom", max_length=255)
+    # Read from the file's content when it was accepted, never from its name.
+    content_type = models.CharField("type", max_length=50)
+    people_recognisable = models.BooleanField(
+        "personnes reconnaissables", default=False
+    )
+    uploaded_at = models.DateTimeField("déposé le", auto_now_add=True)
+
+    class Meta:
+        ordering = ["uploaded_at", "id"]
+        verbose_name = "pièce jointe"
+        verbose_name_plural = "pièces jointes"
+
+    def __str__(self) -> str:
+        return self.name
+
+
+@receiver(post_delete, sender=Attachment)
+def remove_attachment_file(instance: Attachment, **kwargs: Any) -> None:
+    """A signal rather than delete(), which an entry's deletion never calls
+    on its attachments. After the commit: removed any earlier, a rollback
+    would leave a row pointing at a file that is gone."""
+    storage, name = instance.file.storage, instance.file.name
+    # Always set on a saved attachment; the type allows None for a new field.
+    assert name is not None
+    transaction.on_commit(lambda: storage.delete(name))
 
 
 class ConsentQuerySet(models.QuerySet["Consent"]):
