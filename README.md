@@ -239,9 +239,9 @@ draw, not what the account holds.
 ### Avatars
 
 The server trusts neither a file's extension nor the type the browser
-announces: it takes JPEG, PNG or WebP up to 10 MB and about 89 million
-pixels (Pillow's own decompression-bomb threshold), as Pillow reads them, and
-refuses anything else with `avatar_too_large`, `avatar_too_many_pixels`,
+announces: it takes JPEG, PNG, WebP or an iPhone's HEIC up to 10 MB and about
+89 million pixels (Pillow's own decompression-bomb threshold), as Pillow reads
+them, and refuses anything else with `avatar_too_large`, `avatar_too_many_pixels`,
 `avatar_not_an_image` or `avatar_format_refused`. What it stores is never the
 file sent but a WebP re-encoded from it — upright, at most 512 pixels a side,
 under a random name, and without the photo's metadata, which on a phone
@@ -353,14 +353,16 @@ opened it:
 | kind | formats | up to | kept |
 | --- | --- | --- | --- |
 | photo | JPEG, PNG, WebP | 20 MB | same size and format, upright, without its metadata |
+| iPhone photo | HEIC | 20 MB | the same, as a JPEG named after it — only Safari shows HEIC |
 | video | MP4 (Android), MOV (iPhone), WebM | 200 MB | as sent |
 | document | PDF | 20 MB | as sent |
 | CAD | STEP, STL | 50 MB | as sent, downloaded rather than shown |
 
 Anything else is refused with `attachment_type_refused`, a file over its limit
 with `attachment_too_large`, a photo decoding to too many pixels with
-`attachment_too_many_pixels`. An iPhone photo in HEIC gets its own
-`attachment_heic_refused`: Pillow cannot read it yet.
+`attachment_too_many_pixels`. HEIC is read through `pillow-heif`, registered
+when the application starts; `libheif` applies the rotation an iPhone stores
+in the file itself, so the photo comes out upright.
 
 Files live under `backend/media/`, beside the database, and a backup takes
 both: the database only records where each file is. A removed attachment, or
