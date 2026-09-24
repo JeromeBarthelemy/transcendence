@@ -16,11 +16,12 @@ from django.core.files.base import ContentFile
 from django.core.files.uploadedfile import UploadedFile
 from django.db import IntegrityError, transaction
 from django.utils import timezone
-from PIL import Image, ImageOps
+from PIL import ImageOps
 from rest_framework import serializers
 from rest_framework.exceptions import ErrorDetail
 from rest_framework.settings import api_settings
 
+from club import images
 from club.export import CATEGORY_KEYS
 from club.models import (
     Entry,
@@ -399,22 +400,13 @@ class AvatarSerializer(serializers.Serializer[User]):
             raise serializers.ValidationError(
                 "Cette photo dépasse 10 Mo.", code="avatar_too_large"
             )
-        too_many_pixels = serializers.ValidationError(
-            "Cette photo compte trop de pixels.", code="avatar_too_many_pixels"
-        )
         try:
-            image = Image.open(value)
-            # Pillow only warns between its threshold and twice it, and would
-            # decode such a file whole: a few hundred kilobytes can take
-            # hundreds of megabytes in the one process serving the club. None
-            # would switch the guard off, which nothing here does.
-            assert Image.MAX_IMAGE_PIXELS is not None
-            if image.width * image.height > Image.MAX_IMAGE_PIXELS:
-                raise too_many_pixels
-            image.load()
-        except Image.DecompressionBombError:
-            raise too_many_pixels from None
-        except OSError:
+            image = images.decode(value)
+        except images.TooManyPixels:
+            raise serializers.ValidationError(
+                "Cette photo compte trop de pixels.", code="avatar_too_many_pixels"
+            ) from None
+        except images.Unreadable:
             raise serializers.ValidationError(
                 "Ce fichier n'est pas une image.", code="avatar_not_an_image"
             ) from None
