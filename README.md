@@ -337,7 +337,7 @@ anyone else gets a `403` with the code `not_a_member`.
 
 | route | does |
 | --- | --- |
-| `GET /api/team-seasons/{id}/work-items/` | the team's work items, each with its current step, last progress and handover; progress dates include their 4 a.m.–4 a.m. workday |
+| `GET /api/team-seasons/{id}/work-items/` | the team's work items, each with when it was opened, its current step, last progress and handover; progress dates include their 4 a.m.–4 a.m. workday |
 | `POST /api/team-seasons/{id}/work-items/` | open one — or list it for September with `"suggested": true` |
 | `GET /api/work-items/{id}/` | one work item and its thread, newest first |
 | `PATCH /api/work-items/{id}/` | close it, `done` or `dropped`; working on it again reopens it |
@@ -347,7 +347,7 @@ anyone else gets a `403` with the code `not_a_member`.
 | `GET /api/attachments/{id}/` | the file, to the team and mentors |
 | `DELETE /api/attachments/{id}/` | remove it — whoever attached it, or a mentor; anyone else gets `delete_not_uploader` |
 | `POST /api/team-seasons/{id}/notes/` | a note for the team, or addressed to one of its work items |
-| `GET /api/team-seasons/{id}/days/{YYYY-MM-DD}/` | the day's entries, number of work items advanced, who was there, and the roster they count against; `today` resolves the current 4 a.m.–4 a.m. workday on the server |
+| `GET /api/team-seasons/{id}/days/{YYYY-MM-DD}/` | the day's entries, number of work items advanced, who was there, the roster they count against, and the `previous` and `next` days the team left a trace; `today` resolves the current 4 a.m.–4 a.m. workday on the server |
 | `GET /api/team-seasons/{id}/gaps/?since=&until=` | the workshop-slot days on which nothing moved forward |
 | `GET /api/team-seasons/{id}/export/?format=markdown` | the season's notebook as a `.zip`, one Markdown file per category; `category` (`robot`, `outreach`, `team-life`) and `work_item` narrow it |
 
@@ -355,6 +355,11 @@ A day runs from 4 a.m. to 4 a.m., in Paris time: a late session belongs to
 the day it started. Ticking at another step than today's opens a second
 progress, and the handover shown on a work item is the latest one left,
 with who left it, when, and at which step.
+
+Every entry names its work item, `{"id", "title"}`, or `null` for a note to
+the whole team. A day skips to the closest days with something in them: an
+empty day has nothing to read, and the slots on which nothing moved are what
+`gaps` lists.
 
 The export is raw material for the portfolio, which students write elsewhere:
 the season's entries by category — building the robot (work items on the

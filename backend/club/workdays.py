@@ -35,6 +35,22 @@ def day_entries(team_season: TeamSeason, day: date) -> QuerySet[Entry]:
     )
 
 
+def neighbours(team_season: TeamSeason, day: date) -> tuple[date | None, date | None]:
+    """The closest days before and after on which the team left a trace. An
+    empty day is skipped: there is nothing in it to read, and the slots on
+    which nothing moved are what `gaps` is for."""
+    start, end = _bounds(day)
+    instants = Entry.objects.filter(team_season=team_season).values_list(
+        "occurred_at", flat=True
+    )
+    before = instants.filter(occurred_at__lt=start).order_by("-occurred_at").first()
+    after = instants.filter(occurred_at__gte=end).order_by("occurred_at").first()
+    return (
+        workday(before) if before else None,
+        workday(after) if after else None,
+    )
+
+
 def attendance(team_season: TeamSeason, day: date) -> QuerySet[User]:
     """The students signed up to one of the team's progress entries that day.
     Mentors supervise and are not the roster; being there without moving
