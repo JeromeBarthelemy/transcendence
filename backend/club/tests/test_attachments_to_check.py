@@ -114,3 +114,32 @@ def test_the_admin_lists_only_the_files_to_check(client):
 
     assert "demo-college.jpg" in page
     assert "plan-intake.pdf" not in page
+
+
+def test_the_admin_cannot_add_a_file(client):
+    client.force_login(User.objects.create_superuser("admin@example.org", "admin"))
+
+    assert client.get("/admin/club/attachment/add/").status_code == 403
+
+
+def test_the_admin_clears_the_flag_but_cannot_replace_the_file(client):
+    rouages = team_season()
+    photo = attached(rouages, member_of(rouages, "lina"))
+    stored = photo.file.name
+    client.force_login(User.objects.create_superuser("admin@example.org", "admin"))
+
+    client.post(
+        f"/admin/club/attachment/{photo.pk}/change/",
+        {
+            "entry": photo.entry_id,
+            "uploaded_by": photo.uploaded_by_id,
+            "file": ContentFile(b"<script>", name="page.html"),
+            "name": "page.html",
+            "content_type": "text/html",
+        },
+    )
+
+    photo.refresh_from_db()
+    assert not photo.people_recognisable
+    assert photo.file.name == stored
+    assert (photo.name, photo.content_type) == ("photo.jpg", "image/jpeg")

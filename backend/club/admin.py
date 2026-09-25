@@ -123,5 +123,12 @@ class ToCheckFilter(admin.SimpleListFilter):
 
 @admin.register(Attachment)
 class AttachmentAdmin(admin.ModelAdmin):
+    """A file only comes in through the API, which checks it; here the club
+    can only clear the flag once it has looked, or delete."""
+
     list_display = ["name", "entry", "uploaded_by", "people_recognisable"]
     list_filter = [ToCheckFilter, "people_recognisable"]
+    readonly_fields = ["entry", "uploaded_by", "file", "name", "content_type"]
+
+    def has_add_permission(self, request: HttpRequest) -> bool:
+        return False
