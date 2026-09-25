@@ -295,8 +295,8 @@ would not protect.
 
 | route | answers |
 | --- | --- |
-| `POST /api/auth/me/export/` | `202` — a JSON copy of the account, by e-mail |
-| `DELETE /api/auth/me/` | `204` — deactivates the account, confirmed by e-mail |
+| `POST /api/auth/me/export/` | `202` — a JSON copy of the account, plus the avatar, by e-mail |
+| `DELETE /api/auth/me/` | `204` — anonymizes the account, confirmed by e-mail |
 
 Neither goes to the login address: it identifies an account without being
 assumed to deliver, and the youngest members have none that does. Both go to
@@ -304,12 +304,21 @@ assumed to deliver, and the youngest members have none that does. Both go to
 guardian's for a minor — and both are refused with `no_contact_email` when
 that column is empty, before anything changes.
 
-`DELETE` deactivates rather than deletes the row: `Entry.author` and
-`EntryParticipant.user` are `PROTECT`, so a literal delete would either orphan
-a member's traces or be refused outright the moment they have any. The sole
-club admin is refused with `last_admin_cannot_leave` — the club has no
-password-reset-by-email fallback, so another admin is the only recovery path
-for everyone else, and there has to be one left.
+`DELETE` anonymizes rather than deletes the row (`club/gdpr.py`,
+`anonymize`): `Entry.author` and `EntryParticipant.user` are `PROTECT`, so
+what a member wrote stays in the team's notebook, attributed — what goes is
+the identity (name, address, birth date, AssoConnect id, avatar, password).
+The consent log stays, since it still decides whether past content may be
+published. The whole thing is one transaction, the confirmation e-mail last,
+so a failed send leaves the account exactly as it was rather than deleted
+with nobody told. The sole club admin is refused with
+`last_admin_cannot_leave` — the club has no password-reset-by-email
+fallback, so another admin is the only recovery path for everyone else, and
+there has to be one left. That check is re-read inside the same
+transaction, so two admins leaving at the same instant still serialize
+correctly — `config/settings.py` takes the database's write lock the moment
+the transaction opens, not through row locking (SQLite ignores
+`select_for_update()` outright).
 
 ## Work items and the day
 

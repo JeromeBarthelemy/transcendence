@@ -2,7 +2,24 @@
 e-mail to their contact address — never the login one (docs/modules.md §10).
 """
 
-from club.models import Consent, Membership, Season, Team, TeamSeason, User
+import pytest
+from django.core.files.base import ContentFile
+
+from club.models import (
+    Consent,
+    Membership,
+    Season,
+    Team,
+    TeamSeason,
+    User,
+    VerificationRequest,
+)
+
+
+@pytest.fixture(autouse=True)
+def media_root(settings, tmp_path):
+    settings.MEDIA_ROOT = tmp_path
+    return tmp_path
 
 
 def student(email="eleve@club.fr", display_name="Élève", contact_email=""):
@@ -66,6 +83,70 @@ def test_the_export_carries_memberships_and_image_rights_decisions(client, mailo
     assert "granted" in content
 
 
+def test_the_export_includes_the_avatar_as_a_second_attachment(client, mailoutbox):
+    lina = student(contact_email="parent.lina@club.fr")
+    lina.avatar.save("photo.webp", ContentFile(b"fake-webp-bytes"), save=True)
+    client.force_login(lina)
+
+    client.post("/api/auth/me/export/")
+
+    (mail,) = mailoutbox
+    assert len(mail.attachments) == 2
+    name, content, mimetype = mail.attachments[1]
+    assert name == "avatar.webp"
+    assert content == b"fake-webp-bytes"
+    assert mimetype == "image/webp"
+
+
+def test_the_export_has_no_second_attachment_without_an_avatar(client, mailoutbox):
+    lina = student(contact_email="parent.lina@club.fr")
+    client.force_login(lina)
+
+    client.post("/api/auth/me/export/")
+
+    (mail,) = mailoutbox
+    assert len(mail.attachments) == 1
+
+
+def test_the_export_carries_assoconnect_id_and_pending_verification(client, mailoutbox):
+    lina = student(contact_email="parent.lina@club.fr")
+    lina.assoconnect_id = "AC-42"
+    lina.save(update_fields=["assoconnect_id"])
+    VerificationRequest.objects.create(
+        user=lina,
+        first_name="Lina",
+        last_name="Dupont",
+        birth_date="2010-05-01",
+    )
+    client.force_login(lina)
+
+    client.post("/api/auth/me/export/")
+
+    (mail,) = mailoutbox
+    (_, content, _) = mail.attachments[0]
+    assert "AC-42" in content
+    assert "Dupont" in content
+    assert "2010-05-01" in content
+
+
+def test_the_export_leaves_out_the_teams_notebook(client, mailoutbox):
+    # Entries stay the team's history, attributed, after a member leaves —
+    # a different export (#38) serves that different reader.
+    lina = student(contact_email="parent.lina@club.fr")
+    client.force_login(lina)
+    season = Season.objects.create(start_year=2026, game_name="BioBuzz")
+    team = Team.objects.create(number=12345, name="Rouages")
+    team_season = TeamSeason.objects.create(team=team, season=season)
+    Membership.objects.create(user=lina, team_season=team_season)
+
+    client.post("/api/auth/me/export/")
+
+    (mail,) = mailoutbox
+    (_, content, _) = mail.attachments[0]
+    assert "entries" not in content
+    assert "entry" not in content
+
+
 def test_without_a_contact_address_the_export_is_refused(client, mailoutbox):
     lina = student(contact_email="")
     client.force_login(lina)
@@ -95,6 +176,98 @@ def test_a_member_deletes_their_own_account(client, mailoutbox):
     assert lina.is_active is False
     (mail,) = mailoutbox
     assert mail.to == ["parent.lina@club.fr"]
+
+
+def test_deletion_anonymizes_the_display_name_and_login_address(client, mailoutbox):
+    lina = student(contact_email="parent.lina@club.fr")
+    client.force_login(lina)
+
+    client.delete("/api/auth/me/")
+
+    lina.refresh_from_db()
+    assert lina.display_name == f"Ancien membre {lina.id}"
+    assert lina.email == f"ancien-membre-{lina.id}@rouages.invalid"
+
+
+def test_deletion_clears_contact_email_birth_date_and_assoconnect_id(
+    client, mailoutbox
+):
+    lina = student(contact_email="parent.lina@club.fr")
+    lina.birth_date = "2010-05-01"
+    lina.assoconnect_id = "AC-42"
+    lina.save(update_fields=["birth_date", "assoconnect_id"])
+    client.force_login(lina)
+
+    client.delete("/api/auth/me/")
+
+    lina.refresh_from_db()
+    assert lina.contact_email == ""
+    assert lina.birth_date is None
+    assert lina.assoconnect_id is None
+
+
+def test_deletion_removes_the_avatar_file(
+    client, mailoutbox, tmp_path, django_capture_on_commit_callbacks
+):
+    lina = student(contact_email="parent.lina@club.fr")
+    lina.avatar.save("photo.webp", ContentFile(b"fake-webp-bytes"), save=True)
+    stored_at = tmp_path / lina.avatar.name
+    assert stored_at.exists()
+    client.force_login(lina)
+
+    with django_capture_on_commit_callbacks(execute=True):
+        client.delete("/api/auth/me/")
+
+    lina.refresh_from_db()
+    assert not lina.avatar
+    assert not stored_at.exists()
+
+
+def test_deletion_deletes_the_pending_verification_request(client, mailoutbox):
+    lina = student(contact_email="parent.lina@club.fr")
+    VerificationRequest.objects.create(
+        user=lina, first_name="Lina", last_name="Dupont", birth_date="2010-05-01"
+    )
+    client.force_login(lina)
+
+    client.delete("/api/auth/me/")
+
+    assert not VerificationRequest.objects.filter(user=lina).exists()
+
+
+def test_deletion_leaves_the_password_unusable(client, mailoutbox):
+    lina = student(contact_email="parent.lina@club.fr")
+    client.force_login(lina)
+
+    client.delete("/api/auth/me/")
+
+    lina.refresh_from_db()
+    assert lina.has_usable_password() is False
+
+
+def test_a_failed_confirmation_e_mail_leaves_the_account_unchanged(
+    client, mailoutbox, monkeypatch
+):
+    from club import gdpr
+
+    def broken_send_mail(*args, **kwargs):
+        raise RuntimeError("SMTP is down")
+
+    monkeypatch.setattr(gdpr, "send_mail", broken_send_mail)
+    lina = student(contact_email="parent.lina@club.fr")
+    lina.set_password("correct-horse-battery-staple")
+    lina.save(update_fields=["password"])
+    original_email = lina.email
+    client.force_login(lina)
+
+    with pytest.raises(RuntimeError):
+        client.delete("/api/auth/me/")
+
+    lina.refresh_from_db()
+    assert lina.is_active is True
+    assert lina.email == original_email
+    assert lina.has_usable_password() is True
+    assert mailoutbox == []
 
 
 def test_a_deleted_account_still_exists_and_keeps_its_traces(client, mailoutbox):

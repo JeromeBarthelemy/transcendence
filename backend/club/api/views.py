@@ -19,14 +19,21 @@ from rest_framework.views import APIView
 from club.attachments import DOWNLOAD_ONLY
 from club.export import gather, to_markdown_zip
 from club.gdpr import request_deletion, send_export
-from club.models import Attachment, Entry, Membership, Team, User, WorkItem
+from club.models import (
+    Attachment,
+    Entry,
+    Membership,
+    Team,
+    User,
+    WorkItem,
+    remove_after_commit,
+)
 from club.progress import edit_progress, join, record_progress
 from club.workdays import attendance, day_entries, gaps, progress_of_the_day, workday
 
 from .errors import Conflict
 from .permissions import (
     IsClubAdmin,
-    not_the_last_admin,
     team_season_acted_on,
     team_seasons_open_to,
 )
@@ -46,7 +53,6 @@ from .serializers import (
     SignUpSerializer,
     TickSerializer,
     WriteProgressSerializer,
-    remove_after_commit,
 )
 
 
@@ -124,7 +130,6 @@ class MeView(APIView):
         only — an admin manages everyone else's through #52's surface."""
         user = request.user
         assert isinstance(user, User)
-        not_the_last_admin(user)
         request_deletion(user)
         logout(request)
         return Response(status=status.HTTP_204_NO_CONTENT)

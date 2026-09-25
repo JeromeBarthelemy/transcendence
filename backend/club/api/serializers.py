@@ -35,6 +35,7 @@ from club.models import (
     WorkItem,
     fold_title,
     no_at_sign,
+    remove_after_commit,
 )
 from club.signup import reserved_email
 
@@ -447,11 +448,3 @@ class AvatarSerializer(serializers.Serializer[User]):
         instance.save(update_fields=["avatar"])
         remove_after_commit(instance, previous)
         return instance
-
-
-def remove_after_commit(user: User, name: str | None) -> None:
-    """Only once the account no longer points at it: removed any earlier, a
-    failed save would leave the account with a photo that is gone."""
-    if name:
-        storage = user.avatar.storage
-        transaction.on_commit(lambda: storage.delete(name))
