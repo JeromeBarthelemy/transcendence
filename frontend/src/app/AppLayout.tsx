@@ -20,7 +20,13 @@ export function AppLayout() {
       } catch (error) {
         // Another tab may already have ended the session. From the member's
         // point of view, the requested state has still been reached.
-        if (!(error instanceof ApiRequestError && error.status === 403)) {
+        const alreadyLoggedOut =
+          error instanceof ApiRequestError &&
+          error.status === 403 &&
+          error
+            .forField("detail")
+            .some((issue) => issue.code === "not_authenticated");
+        if (!alreadyLoggedOut) {
           throw error;
         }
       }

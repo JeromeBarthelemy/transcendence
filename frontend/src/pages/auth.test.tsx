@@ -314,6 +314,34 @@ it("clears a stale session when logout says it is already gone", async () => {
   ).toBeNull();
 });
 
+it("keeps a logout permission refusal visible", async () => {
+  const fetchMock = vi.fn(async (path: string) => {
+    if (path === "/api/auth/me/") {
+      return json(
+        { display_name: "Marie", club_role: "student", is_club_admin: false },
+        200,
+      );
+    }
+    if (path === "/api/auth/logout/") {
+      return json({ detail: issue("permission_denied") }, 403);
+    }
+    throw new Error(`Unexpected request: ${path}`);
+  });
+  setDocumentCookie("csrftoken=stale-token; path=/");
+  vi.stubGlobal("fetch", fetchMock);
+  renderAt("/");
+
+  const user = userEvent.setup();
+  await user.click(
+    await screen.findByRole("button", { name: "Se déconnecter" }),
+  );
+
+  expect(
+    await screen.findByText("Vous n'avez pas l'autorisation nécessaire."),
+  ).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Se déconnecter" })).toBeTruthy();
+});
+
 it("distinguishes a current-user server failure from a network failure", async () => {
   vi.stubGlobal(
     "fetch",
