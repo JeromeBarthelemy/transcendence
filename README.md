@@ -305,6 +305,9 @@ anyone else gets a `403` with the code `not_a_member`.
 | `PATCH /api/work-items/{id}/` | close it, `done` or `dropped`; working on it again reopens it |
 | `POST /api/work-items/{id}/tick/` | sign up to today's progress, created by the first to tick |
 | `PATCH /api/entries/{id}/` | write a progress — sentence, step, handover — for its participants and mentors |
+| `POST /api/entries/{id}/attachments/` | attach a file to any of the team's entries, as `multipart/form-data` fields `file` and `people_recognisable` |
+| `GET /api/attachments/{id}/` | the file, to the team and mentors |
+| `DELETE /api/attachments/{id}/` | remove it — whoever attached it, or a mentor; anyone else gets `delete_not_uploader` |
 | `POST /api/team-seasons/{id}/notes/` | a note for the team, or addressed to one of its work items |
 | `GET /api/team-seasons/{id}/days/{YYYY-MM-DD}/` | the day's entries, who was there, and the roster they count against |
 | `GET /api/team-seasons/{id}/gaps/?since=&until=` | the workshop-slot days on which nothing moved forward |
@@ -324,6 +327,31 @@ A work item nobody worked on has nothing to give and is left out.
 The members a route lists — a progress's participants, who was there on a
 day — each come as `{"display_name", "avatar"}`, so the interface can put a
 face next to a name without asking again.
+
+### Attachments
+
+Every entry comes with its `attachments`, each as `{"id", "name",
+"content_type", "url", "people_recognisable", "uploaded_by"}`. The server
+reads what a file contains, never its name or the type the browser announces,
+and takes a closed list — every file is served back from the application's
+own address, where an HTML or SVG page would run with the session of whoever
+opened it:
+
+| kind | formats | up to | kept |
+| --- | --- | --- | --- |
+| photo | JPEG, PNG, WebP | 20 MB | same size and format, upright, without its metadata |
+| video | MP4 (Android), MOV (iPhone), WebM | 200 MB | as sent |
+| document | PDF | 20 MB | as sent |
+| CAD | STEP, STL | 50 MB | as sent, downloaded rather than shown |
+
+Anything else is refused with `attachment_type_refused`, a file over its limit
+with `attachment_too_large`, a photo decoding to too many pixels with
+`attachment_too_many_pixels`. An iPhone photo in HEIC gets its own
+`attachment_heic_refused`: Pillow cannot read it yet.
+
+Files live under `backend/media/`, beside the database, and a backup takes
+both: the database only records where each file is. A removed attachment, or
+the entry it belongs to, leaves the disk once the deletion is committed.
 
 ## Checking
 
