@@ -2,6 +2,7 @@ import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 
 import { useCurrentUser } from "../app/useCurrentUser";
+import { RequestError } from "../components/ApiErrors";
 
 export function HomePage() {
   const { t } = useTranslation();
@@ -59,11 +60,7 @@ export function HomePage() {
             </Link>
           </div>
         )}
-        {currentUser.isError && (
-          <p role="alert" className="mt-4 text-sm text-red-800">
-            {t("errors.network")}
-          </p>
-        )}
+        {currentUser.isError && <RequestError error={currentUser.error} />}
       </section>
 
       <aside className="relative overflow-hidden rounded-[2rem] bg-[linear-gradient(145deg,#041894_0%,#004fc5_45%,#009edf_100%)] p-8 text-white shadow-[0_22px_70px_#004fc528] sm:p-10">

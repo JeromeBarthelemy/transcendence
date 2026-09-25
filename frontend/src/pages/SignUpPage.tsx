@@ -116,27 +116,18 @@ export function SignUpPage() {
       <AuthPageFrame
         eyebrow={t("signup.successEyebrow")}
         title={t("signup.successTitle")}
-        description={t("signup.successDescription")}
+        description={t("signup.successDescription", {
+          name: signup.data.display_name,
+        })}
       >
-        <div className="rounded-2xl border border-[#009edf]/20 bg-[#eefaff] p-5">
-          <p className="text-sm font-semibold text-[#506784]">
-            {t("signup.identifierLabel")}
+        {signup.variables?.email && (
+          <p className="rounded-2xl border border-[#009edf]/20 bg-[#eefaff] p-5 text-sm leading-6 text-[#506784]">
+            {t("signup.emailLoginHelp", { email: signup.data.email })}
           </p>
-          <p className="mt-2 break-all font-mono text-lg font-semibold text-[#041894]">
-            {signup.data.email}
-          </p>
-          {signup.variables?.email === "" && (
-            <p className="mt-3 text-sm leading-6 text-[#506784]">
-              {t("signup.generatedIdentifierHelp")}
-            </p>
-          )}
-        </div>
-        <p className="mt-5 text-sm leading-6 text-[#506784]">
-          {t("signup.displayNameLoginHelp", { name: signup.data.display_name })}
-        </p>
+        )}
         <Link
           to="/login"
-          state={{ username: signup.data.email }}
+          state={{ username: signup.data.display_name }}
           className="form-submit mt-7 inline-flex justify-center text-center"
         >
           {t("auth.login")}

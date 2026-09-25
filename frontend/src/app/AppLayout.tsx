@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Link, Outlet, useNavigate } from "react-router-dom";
 
 import { logOut } from "../api/auth";
+import { ApiRequestError } from "../api/client";
 import logo from "../assets/logo.webp";
 import { RequestError } from "../components/ApiErrors";
 import { currentUserQueryKey, useCurrentUser } from "./useCurrentUser";
@@ -13,7 +14,17 @@ export function AppLayout() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const logout = useMutation({
-    mutationFn: logOut,
+    mutationFn: async () => {
+      try {
+        await logOut();
+      } catch (error) {
+        // Another tab may already have ended the session. From the member's
+        // point of view, the requested state has still been reached.
+        if (!(error instanceof ApiRequestError && error.status === 403)) {
+          throw error;
+        }
+      }
+    },
     onSuccess: () => {
       queryClient.setQueryData(currentUserQueryKey, null);
       navigate("/", { replace: true });

@@ -78,7 +78,7 @@ afterEach(() => {
   setDocumentCookie("csrftoken=; Max-Age=0; path=/");
 });
 
-it("creates an account without email and shows the generated identifier", async () => {
+it("creates an account without email and recommends the display name", async () => {
   const fetchMock = vi.fn(async (path: string, options?: RequestInit) => {
     if (path === "/api/auth/me/") {
       setDocumentCookie("csrftoken=first-token; path=/");
@@ -100,9 +100,41 @@ it("creates an account without email and shows the generated identifier", async 
   const user = await fillSignup();
   await user.click(screen.getByRole("button", { name: "Créer mon compte" }));
 
-  expect(await screen.findByText("marie.dubois@rouages.invalid")).toBeTruthy();
-  expect(screen.getByText(/ne reçoit pas de courriels/)).toBeTruthy();
+  expect(
+    await screen.findByText(
+      "Connectez-vous avec votre nom d'affichage « Marie » et votre mot de passe.",
+    ),
+  ).toBeTruthy();
+  expect(screen.queryByText("marie.dubois@rouages.invalid")).toBeNull();
   expect(fetchMock).toHaveBeenCalledTimes(2);
+});
+
+it("shows a real email as an alternative after sign-up", async () => {
+  const fetchMock = vi.fn(async (path: string) => {
+    if (path === "/api/auth/me/") {
+      setDocumentCookie("csrftoken=first-token; path=/");
+      return json({ detail: issue("not_authenticated") }, 403);
+    }
+    if (path === "/api/auth/signup/") {
+      return json({ email: "marie@example.org", display_name: "Marie" }, 201);
+    }
+    throw new Error(`Unexpected request: ${path}`);
+  });
+  vi.stubGlobal("fetch", fetchMock);
+  renderAt("/signup");
+
+  const user = await fillSignup();
+  await user.type(
+    screen.getByLabelText("Adresse e-mail (facultative)"),
+    "marie@example.org",
+  );
+  await user.click(screen.getByRole("button", { name: "Créer mon compte" }));
+
+  expect(
+    await screen.findByText(
+      "Vous pouvez aussi utiliser votre adresse marie@example.org.",
+    ),
+  ).toBeTruthy();
 });
 
 it("shows a backend email refusal under the email field", async () => {
@@ -250,4 +282,47 @@ it("opens and closes a session using the rotated CSRF cookie", async () => {
     expect(screen.getByRole("link", { name: "Créer mon compte" })).toBeTruthy();
   });
   expect(fetchMock).toHaveBeenCalledTimes(3);
+});
+
+it("clears a stale session when logout says it is already gone", async () => {
+  const fetchMock = vi.fn(async (path: string) => {
+    if (path === "/api/auth/me/") {
+      return json(
+        { display_name: "Marie", club_role: "student", is_club_admin: false },
+        200,
+      );
+    }
+    if (path === "/api/auth/logout/") {
+      return json({ detail: issue("not_authenticated") }, 403);
+    }
+    throw new Error(`Unexpected request: ${path}`);
+  });
+  setDocumentCookie("csrftoken=stale-token; path=/");
+  vi.stubGlobal("fetch", fetchMock);
+  renderAt("/");
+
+  const user = userEvent.setup();
+  await user.click(
+    await screen.findByRole("button", { name: "Se déconnecter" }),
+  );
+
+  expect(
+    await screen.findByRole("link", { name: "Créer mon compte" }),
+  ).toBeTruthy();
+  expect(
+    screen.queryByText("Vous devez vous connecter pour continuer."),
+  ).toBeNull();
+});
+
+it("distinguishes a current-user server failure from a network failure", async () => {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async () => json({}, 500)),
+  );
+  renderAt("/");
+
+  expect(
+    await screen.findByText("Une erreur inattendue est survenue."),
+  ).toBeTruthy();
+  expect(screen.queryByText(/Impossible de joindre le serveur/)).toBeNull();
 });

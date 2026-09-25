@@ -59,10 +59,8 @@
     "alreadyMember": "Vous avez déjà un compte ?",
     "successEyebrow": "Compte créé",
     "successTitle": "Bienvenue sur Fieldnotes.",
-    "successDescription": "Conservez votre identifiant pour vous connecter.",
-    "identifierLabel": "Votre identifiant",
-    "generatedIdentifierHelp": "Cette adresse sert uniquement à vous identifier : elle ne reçoit pas de courriels.",
-    "displayNameLoginHelp": "Vous pouvez aussi vous connecter avec votre nom d'affichage « {{name}} »."
+    "successDescription": "Connectez-vous avec votre nom d'affichage « {{name}} » et votre mot de passe.",
+    "emailLoginHelp": "Vous pouvez aussi utiliser votre adresse {{email}}."
   },
   "validation": {
     "required": "Ce champ est obligatoire.",
