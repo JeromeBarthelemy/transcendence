@@ -215,7 +215,20 @@ class UserDetailView(APIView):
     def get(self, request: Request, pk: int) -> Response:
         return Response(_user(get_object_or_404(User, pk=pk)))
 
+    @transaction.atomic
     def patch(self, request: Request, pk: int) -> Response:
+        # The read has to be inside the same transaction as the write, not
+        # just before it: two overlapping PATCHes each validating a
+        # different field against their own stale read can each pass —
+        # "club_role": "student" against an instance still showing
+        # is_club_admin=False, "is_club_admin": true against one still
+        # showing club_role=mentor — and together leave a row neither
+        # request alone would have written. `transaction_mode: "IMMEDIATE"`
+        # (config/settings.py) takes SQLite's write lock the moment this
+        # transaction opens, so a genuinely concurrent second request
+        # blocks here until this one commits, and then reads the row this
+        # one actually left — not select_for_update(), which SQLite
+        # silently ignores (see club/gdpr.py, `request_deletion`).
         user = get_object_or_404(User, pk=pk)
         not_self(request, user)
         not_staff_target(request, user)

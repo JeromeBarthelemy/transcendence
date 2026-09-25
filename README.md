@@ -302,14 +302,24 @@ where, and this is its surface. No page yet.
 | --- | --- |
 | `GET /api/users/` | `200` with every account, active or not |
 | `GET /api/users/{id}/` | `200` with one account |
-| `PATCH /api/users/{id}/` | `200` — `club_role` and/or `is_club_admin` |
+| `PATCH /api/users/{id}/` | `200` — any of `club_role`, `is_club_admin`, `is_active` |
 | `DELETE /api/users/{id}/` | `204` — deactivates, never deletes |
 
 Every route needs `is_club_admin`; anyone else gets a `403`. An admin cannot
 target their own account through this surface — the refusal carries
 `cannot_target_self` — because locking yourself out of your own admin rights,
 or deactivating yourself, has no recovery path but another admin, and on a
-single-admin club there may not be one.
+single-admin club there may not be one. Nor a staff account, unless the
+caller is staff too (`cannot_target_staff`) — staff is what resets a
+forgotten password from the Django admin, and a non-staff admin locking that
+out would leave the club with no recovery path but `manage.py`.
+
+`PATCH` refuses a `club_role`/`is_club_admin` combination that would leave an
+administrator who is not a mentor (`admin_must_be_mentor`) — checked against
+the account's resulting state, not just the fields one request happens to
+touch, inside the same transaction as the write: two admins editing the same
+account's role and flag at once are ordered by the database's own write lock
+rather than by whichever read either request happened to see first.
 
 `DELETE` deactivates rather than removes the row. A member's traces —
 progress, participations — stay attributed after they leave (`club/models.py`,
