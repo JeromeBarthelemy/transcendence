@@ -56,3 +56,16 @@ def not_self(request: Request, target: User) -> None:
             "Vous ne pouvez pas modifier votre propre compte ici.",
             code="cannot_target_self",
         )
+
+
+def not_staff_target(request: Request, target: User) -> None:
+    """A club admin's reach stops at Django staff: staff is what resets a
+    forgotten password from the Django admin (README, "Sessions"). A staff
+    account demoted or deactivated by a club admin without staff access
+    would leave the club with no recovery path but `manage.py`."""
+    if target.is_staff and not request.user.is_staff:
+        raise PermissionDenied(
+            "Ce compte a accès à l'admin Django ; seul un accès équivalent "
+            "peut le modifier.",
+            code="cannot_target_staff",
+        )

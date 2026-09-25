@@ -7,7 +7,12 @@ from club.models import User
 
 
 def admin(email="admin@club.fr", display_name="Admin"):
-    return User.objects.create_user(email, display_name, is_club_admin=True)
+    # An administrator is a mentor who also administrates (club/models.py,
+    # `User`) — the fixture keeps that true, now that `UserRoleSerializer`
+    # enforces it too.
+    return User.objects.create_user(
+        email, display_name, club_role=User.ClubRole.MENTOR, is_club_admin=True
+    )
 
 
 def student(email="eleve@club.fr", display_name="Élève"):
@@ -16,6 +21,10 @@ def student(email="eleve@club.fr", display_name="Élève"):
 
 def mentor(email="mentor@club.fr", display_name="Mentor"):
     return User.objects.create_user(email, display_name, club_role=User.ClubRole.MENTOR)
+
+
+def superuser(email="root@club.fr", display_name="Root"):
+    return User.objects.create_superuser(email, display_name)
 
 
 # --- listing ---
@@ -164,6 +173,124 @@ def test_a_student_cannot_edit_a_member(client):
     assert response.status_code == 403
     lina.refresh_from_db()
     assert lina.club_role == User.ClubRole.STUDENT
+
+
+def test_a_student_cannot_be_made_admin_without_being_made_a_mentor(client):
+    # The model says an administrator is a mentor who also administrates
+    # (club/models.py, `User`) — a student with the flag set would pass
+    # every admin check while getting 403 not_a_member on their own team.
+    client.force_login(admin())
+    lina = student("lina@club.fr", "Lina")
+
+    response = client.patch(
+        f"/api/users/{lina.id}/",
+        {"is_club_admin": True},
+        content_type="application/json",
+    )
+
+    assert response.status_code == 400
+    assert response.json()["non_field_errors"][0]["code"] == "admin_must_be_mentor"
+    lina.refresh_from_db()
+    assert lina.is_club_admin is False
+
+
+def test_demoting_an_admin_without_clearing_the_flag_is_refused(client):
+    client.force_login(admin())
+    other = admin("other@club.fr", "Autre admin")
+
+    response = client.patch(
+        f"/api/users/{other.id}/",
+        {"club_role": "student"},
+        content_type="application/json",
+    )
+
+    assert response.status_code == 400
+    assert response.json()["non_field_errors"][0]["code"] == "admin_must_be_mentor"
+    other.refresh_from_db()
+    assert other.club_role == User.ClubRole.MENTOR
+    assert other.is_club_admin is True
+
+
+def test_demoting_an_admin_and_clearing_the_flag_together_is_accepted(client):
+    client.force_login(admin())
+    other = admin("other@club.fr", "Autre admin")
+
+    response = client.patch(
+        f"/api/users/{other.id}/",
+        {"club_role": "student", "is_club_admin": False},
+        content_type="application/json",
+    )
+
+    assert response.status_code == 200
+    other.refresh_from_db()
+    assert other.club_role == User.ClubRole.STUDENT
+    assert other.is_club_admin is False
+
+
+# --- reactivating ---
+
+
+def test_a_club_admin_reactivates_a_suspended_member(client):
+    client.force_login(admin())
+    lina = student("lina@club.fr", "Lina")
+    lina.is_active = False
+    lina.save(update_fields=["is_active"])
+
+    response = client.patch(
+        f"/api/users/{lina.id}/",
+        {"is_active": True},
+        content_type="application/json",
+    )
+
+    assert response.status_code == 200
+    lina.refresh_from_db()
+    assert lina.is_active is True
+
+
+# --- staff accounts ---
+
+
+def test_a_non_staff_admin_cannot_deactivate_a_staff_account(client):
+    client.force_login(admin())
+    root = superuser()
+
+    response = client.delete(f"/api/users/{root.id}/")
+
+    assert response.status_code == 403
+    assert response.json()["detail"]["code"] == "cannot_target_staff"
+    root.refresh_from_db()
+    assert root.is_active is True
+
+
+def test_a_non_staff_admin_cannot_demote_a_staff_account(client):
+    client.force_login(admin())
+    root = superuser()
+
+    response = client.patch(
+        f"/api/users/{root.id}/",
+        {"is_club_admin": False},
+        content_type="application/json",
+    )
+
+    assert response.status_code == 403
+    assert response.json()["detail"]["code"] == "cannot_target_staff"
+    root.refresh_from_db()
+    assert root.is_club_admin is True
+
+
+def test_a_staff_admin_can_edit_another_staff_account(client):
+    client.force_login(superuser("caller@club.fr", "Caller"))
+    root = superuser("root@club.fr", "Root")
+
+    response = client.patch(
+        f"/api/users/{root.id}/",
+        {"is_club_admin": False},
+        content_type="application/json",
+    )
+
+    assert response.status_code == 200
+    root.refresh_from_db()
+    assert root.is_club_admin is False
 
 
 # --- deactivating ---

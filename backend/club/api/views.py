@@ -24,6 +24,7 @@ from .errors import Conflict
 from .permissions import (
     IsClubAdmin,
     not_self,
+    not_staff_target,
     team_season_acted_on,
     team_seasons_open_to,
 )
@@ -217,6 +218,7 @@ class UserDetailView(APIView):
     def patch(self, request: Request, pk: int) -> Response:
         user = get_object_or_404(User, pk=pk)
         not_self(request, user)
+        not_staff_target(request, user)
         serializer = UserRoleSerializer(user, data=request.data)
         serializer.is_valid(raise_exception=True)
         return Response(_user(serializer.save()))
@@ -228,6 +230,7 @@ class UserDetailView(APIView):
         # club's data.
         user = get_object_or_404(User, pk=pk)
         not_self(request, user)
+        not_staff_target(request, user)
         user.is_active = False
         user.save(update_fields=["is_active"])
         return Response(status=status.HTTP_204_NO_CONTENT)
