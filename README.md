@@ -296,13 +296,16 @@ would not protect.
 | route | answers |
 | --- | --- |
 | `POST /api/auth/me/export/` | `202` — a JSON copy of the account, plus the avatar, by e-mail |
-| `DELETE /api/auth/me/` | `204` — anonymizes the account, confirmed by e-mail |
+| `DELETE /api/auth/me/` | `204` — `password` confirms it; anonymizes the account, confirmed by e-mail |
 
 Neither goes to the login address: it identifies an account without being
 assumed to deliver, and the youngest members have none that does. Both go to
 `contact_email` instead — the member's own for an adult, their legal
 guardian's for a minor — and both are refused with `no_contact_email` when
-that column is empty, before anything changes.
+that column is empty, before anything changes. `DELETE` also takes the
+account's own `password` in its body and refuses a missing or wrong one with
+`wrong_password`, nothing changed — a session left open on a shared club
+computer must not delete the account in one click.
 
 `DELETE` anonymizes rather than deletes the row (`club/gdpr.py`,
 `anonymize`): `Entry.author` and `EntryParticipant.user` are `PROTECT`, so
@@ -319,6 +322,12 @@ transaction, so two admins leaving at the same instant still serialize
 correctly — `config/settings.py` takes the database's write lock the moment
 the transaction opens, not through row locking (SQLite ignores
 `select_for_update()` outright).
+
+A club admin anonymizes a member who has left through the Django admin's own
+"Anonymiser les membres sélectionnés" action on the user list — a
+confirmation page first, the same shape as Django's own "Delete selected".
+It calls the same `anonymize`, with the same guards and confirmation e-mail,
+but no password: a staff sign-in already confirms who is acting.
 
 ## Work items and the day
 

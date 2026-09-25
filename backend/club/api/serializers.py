@@ -190,6 +190,20 @@ class LoginSerializer(serializers.Serializer[dict[str, Any]]):
         return attrs
 
 
+class DeleteAccountSerializer(serializers.Serializer[None]):
+    """Just enough to read `password` out of `request.data` typed — the
+    check against the account itself lives in `club/gdpr.py`'s
+    `request_deletion`, the same place the rest of what deletion refuses
+    for (no contact address, the last admin) already lives. Not required:
+    a missing password is refused the same `wrong_password` way a wrong
+    one is, rather than DRF's own, differently-shaped "this field is
+    required"."""
+
+    password = serializers.CharField(
+        required=False, default="", write_only=True, style={"input_type": "password"}
+    )
+
+
 class CreateTeamSerializer(serializers.Serializer[Team]):
     """Creating a team and opening it for a season are one act, not two: a
     team with no season would have nowhere to hold members. `season` names

@@ -33,8 +33,9 @@ def export_data(user: User) -> dict[str, Any]:
     """The member's own identity and account-level decisions — exactly what
     `anonymize` erases or already keeps — plus their memberships. Not the
     club's notebook: entries and their attachments are the team's history,
-    kept and still attributed after a member leaves, and that export (#38)
-    serves a different reader, the portfolio, for a request this is not."""
+    kept and still attributed after a member leaves, and the notebook
+    export serves a different reader, the portfolio, for a request this is
+    not."""
     verification = getattr(user, "verification_request", None)
     return {
         "display_name": user.display_name,
@@ -104,24 +105,16 @@ def send_export(user: User) -> None:
 
 
 def anonymize(user: User) -> None:
-    """What "deletion" actually means (the privacy policy settled in #79):
-    `Entry.author` and `EntryParticipant.user` are `PROTECT` on purpose —
-    what a member wrote belongs to the team's history and stays in its
-    notebook, attributed. What goes is the identity: `display_name` becomes
-    "Ancien membre" plus the account's own id, already unique; `email`
-    likewise on the reserved `.invalid` domain sign-up already uses for an
-    address nobody gave (`club/signup.py`); `contact_email`, `birth_date`
-    and `assoconnect_id` cleared; the avatar removed, file included (the
-    same after-commit removal as #77); the password made unusable; the
-    pending verification request, if any, deleted — it would otherwise
-    name someone this account no longer says it is. The consent log stays:
-    it still decides whether the member's past content may be published.
+    """What "deletion" actually means: `Entry.author` and
+    `EntryParticipant.user` are `PROTECT` on purpose, so what a member
+    wrote stays in the team's notebook, attributed. What goes is the
+    identity — name, address, birth date, AssoConnect id, avatar,
+    password, any pending verification request. The consent log stays: it
+    still decides whether past content may be published.
 
-    Two callers, and only these two: a member's own deletion request, once
-    its confirmation is sent (`request_deletion`), and a club admin
-    anonymizing someone who has left, from the Django admin. Deactivating an
-    account (#88's suspension) must never reach here — a suspension is
-    temporary, and this is not."""
+    Called only from `request_deletion` (a member's own request) or the
+    Django admin's anonymize action (someone who has left) — never from a
+    suspension, which is temporary, and this is not."""
     domain = settings.SIGNUP_RESERVED_EMAIL_DOMAIN
     previous_avatar = user.avatar.name
     user.display_name = f"Ancien membre {user.pk}"
@@ -149,22 +142,23 @@ def anonymize(user: User) -> None:
 
 
 @transaction.atomic
-def request_deletion(user: User) -> None:
-    """The right to erasure, an anonymization rather than a row deleted
-    (`anonymize`) — `Entry.author` and `EntryParticipant.user` are
-    `PROTECT`, so a literal delete would either orphan a member's traces or
-    be refused outright the moment they have any, which is almost everyone.
+def request_deletion(user: User, *, password: str | None) -> None:
+    """The right to erasure: confirmed by `password` (a session left open
+    on a shared computer must not delete the account in one click), then
+    anonymized. `password=None` skips that check — only the Django admin
+    action passes it, since a staff sign-in already confirms who is acting.
 
-    Atomic, the confirmation e-mail last: a failed send must leave the
-    account exactly as it was, or a member who could not be told would also
-    be unable to sign back in and ask again. `not_the_last_admin` is
-    checked inside this same transaction, not before it, so a second admin
-    leaving at the same instant is checked against this one's write rather
-    than a count read before it — `config/settings.py` takes the database's
-    write lock the moment the transaction opens (`transaction_mode:
-    "IMMEDIATE"`), which is what actually orders the two; SQLite ignores
-    `select_for_update()` outright (`has_select_for_update` is `False`), so
-    that would guard nothing here."""
+    Atomic, the e-mail sent last: a failed send leaves the account exactly
+    as it was. `not_the_last_admin` is checked inside this same
+    transaction rather than before it, so two admins leaving at once are
+    ordered by the database's own write lock (`transaction_mode:
+    "IMMEDIATE"`, config/settings.py) instead of a stale read —
+    `select_for_update()` would say the same thing but SQLite ignores it."""
+    if password is not None and not user.check_password(password):
+        raise ValidationError(
+            "Mot de passe incorrect : le compte n'a pas été supprimé.",
+            code="wrong_password",
+        )
     to = _contact_email(user)  # checked first: no confirmation, no change.
     not_the_last_admin(user)
     display_name = user.display_name

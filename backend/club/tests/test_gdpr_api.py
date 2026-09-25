@@ -22,13 +22,28 @@ def media_root(settings, tmp_path):
     return tmp_path
 
 
+PASSWORD = "correct-horse-battery-staple"
+
+
 def student(email="eleve@club.fr", display_name="Élève", contact_email=""):
-    return User.objects.create_user(email, display_name, contact_email=contact_email)
+    return User.objects.create_user(
+        email, display_name, PASSWORD, contact_email=contact_email
+    )
 
 
 def admin(email="admin@club.fr", display_name="Admin", contact_email="admin@club.fr"):
     return User.objects.create_user(
-        email, display_name, is_club_admin=True, contact_email=contact_email
+        email,
+        display_name,
+        PASSWORD,
+        is_club_admin=True,
+        contact_email=contact_email,
+    )
+
+
+def delete(client, password=PASSWORD):
+    return client.delete(
+        "/api/auth/me/", {"password": password}, content_type="application/json"
     )
 
 
@@ -131,7 +146,7 @@ def test_the_export_carries_assoconnect_id_and_pending_verification(client, mail
 
 def test_the_export_leaves_out_the_teams_notebook(client, mailoutbox):
     # Entries stay the team's history, attributed, after a member leaves —
-    # a different export (#38) serves that different reader.
+    # the notebook export serves a different reader, the portfolio.
     lina = student(contact_email="parent.lina@club.fr")
     client.force_login(lina)
     season = Season.objects.create(start_year=2026, game_name="BioBuzz")
@@ -169,7 +184,7 @@ def test_a_member_deletes_their_own_account(client, mailoutbox):
     lina = student(contact_email="parent.lina@club.fr")
     client.force_login(lina)
 
-    response = client.delete("/api/auth/me/")
+    response = delete(client)
 
     assert response.status_code == 204
     lina.refresh_from_db()
@@ -182,7 +197,7 @@ def test_deletion_anonymizes_the_display_name_and_login_address(client, mailoutb
     lina = student(contact_email="parent.lina@club.fr")
     client.force_login(lina)
 
-    client.delete("/api/auth/me/")
+    delete(client)
 
     lina.refresh_from_db()
     assert lina.display_name == f"Ancien membre {lina.id}"
@@ -198,7 +213,7 @@ def test_deletion_clears_contact_email_birth_date_and_assoconnect_id(
     lina.save(update_fields=["birth_date", "assoconnect_id"])
     client.force_login(lina)
 
-    client.delete("/api/auth/me/")
+    delete(client)
 
     lina.refresh_from_db()
     assert lina.contact_email == ""
@@ -216,7 +231,7 @@ def test_deletion_removes_the_avatar_file(
     client.force_login(lina)
 
     with django_capture_on_commit_callbacks(execute=True):
-        client.delete("/api/auth/me/")
+        delete(client)
 
     lina.refresh_from_db()
     assert not lina.avatar
@@ -230,7 +245,7 @@ def test_deletion_deletes_the_pending_verification_request(client, mailoutbox):
     )
     client.force_login(lina)
 
-    client.delete("/api/auth/me/")
+    delete(client)
 
     assert not VerificationRequest.objects.filter(user=lina).exists()
 
@@ -239,7 +254,7 @@ def test_deletion_leaves_the_password_unusable(client, mailoutbox):
     lina = student(contact_email="parent.lina@club.fr")
     client.force_login(lina)
 
-    client.delete("/api/auth/me/")
+    delete(client)
 
     lina.refresh_from_db()
     assert lina.has_usable_password() is False
@@ -255,13 +270,11 @@ def test_a_failed_confirmation_e_mail_leaves_the_account_unchanged(
 
     monkeypatch.setattr(gdpr, "send_mail", broken_send_mail)
     lina = student(contact_email="parent.lina@club.fr")
-    lina.set_password("correct-horse-battery-staple")
-    lina.save(update_fields=["password"])
     original_email = lina.email
     client.force_login(lina)
 
     with pytest.raises(RuntimeError):
-        client.delete("/api/auth/me/")
+        delete(client)
 
     lina.refresh_from_db()
     assert lina.is_active is True
@@ -274,7 +287,7 @@ def test_a_deleted_account_still_exists_and_keeps_its_traces(client, mailoutbox)
     lina = student(contact_email="parent.lina@club.fr")
     client.force_login(lina)
 
-    client.delete("/api/auth/me/")
+    delete(client)
 
     assert User.objects.filter(id=lina.id).exists()
 
@@ -283,9 +296,53 @@ def test_deleting_ones_account_signs_one_out(client, mailoutbox):
     lina = student(contact_email="parent.lina@club.fr")
     client.force_login(lina)
 
-    client.delete("/api/auth/me/")
+    delete(client)
 
     assert client.get("/api/auth/me/").status_code == 403
+
+
+def test_a_wrong_password_refuses_deletion_and_nothing_changes(client, mailoutbox):
+    lina = student(contact_email="parent.lina@club.fr")
+    client.force_login(lina)
+
+    response = delete(client, password="not-the-right-one")
+
+    assert response.status_code == 400
+    assert response.json()["detail"]["code"] == "wrong_password"
+    lina.refresh_from_db()
+    assert lina.is_active is True
+    assert lina.has_usable_password() is True
+    assert mailoutbox == []
+
+
+def test_a_missing_password_refuses_deletion_the_same_way(client, mailoutbox):
+    lina = student(contact_email="parent.lina@club.fr")
+    client.force_login(lina)
+
+    response = client.delete("/api/auth/me/", {}, content_type="application/json")
+
+    assert response.status_code == 400
+    assert response.json()["detail"]["code"] == "wrong_password"
+    lina.refresh_from_db()
+    assert lina.is_active is True
+    assert mailoutbox == []
+
+
+def test_deactivating_an_account_does_not_anonymize_it(client, mailoutbox):
+    # A suspension is temporary; anonymize() is not, and must only ever run
+    # from `request_deletion` or the Django admin action.
+    lina = student(contact_email="parent.lina@club.fr")
+    original_display_name = lina.display_name
+    original_email = lina.email
+
+    lina.is_active = False
+    lina.save(update_fields=["is_active"])
+
+    lina.refresh_from_db()
+    assert lina.display_name == original_display_name
+    assert lina.email == original_email
+    assert lina.contact_email == "parent.lina@club.fr"
+    assert lina.has_usable_password() is True
 
 
 def test_without_a_contact_address_deletion_is_refused_and_nothing_changes(
@@ -294,7 +351,7 @@ def test_without_a_contact_address_deletion_is_refused_and_nothing_changes(
     lina = student(contact_email="")
     client.force_login(lina)
 
-    response = client.delete("/api/auth/me/")
+    response = delete(client)
 
     assert response.status_code == 400
     assert response.json()["detail"]["code"] == "no_contact_email"
@@ -307,7 +364,7 @@ def test_the_only_admin_cannot_delete_their_own_account(client, mailoutbox):
     boss = admin()
     client.force_login(boss)
 
-    response = client.delete("/api/auth/me/")
+    response = delete(client)
 
     assert response.status_code == 403
     assert response.json()["detail"]["code"] == "last_admin_cannot_leave"
@@ -321,7 +378,7 @@ def test_an_admin_can_leave_if_another_one_remains(client, mailoutbox):
     admin("other@club.fr", "Other", "other@club.fr")
     client.force_login(boss)
 
-    response = client.delete("/api/auth/me/")
+    response = delete(client)
 
     assert response.status_code == 204
     boss.refresh_from_db()
@@ -329,4 +386,4 @@ def test_an_admin_can_leave_if_another_one_remains(client, mailoutbox):
 
 
 def test_an_anonymous_caller_cannot_delete_an_account(client):
-    assert client.delete("/api/auth/me/").status_code in (401, 403)
+    assert delete(client).status_code in (401, 403)

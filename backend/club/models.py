@@ -88,8 +88,11 @@ class UserManager(BaseUserManager["User"]):
 
 
 class User(AbstractBaseUser, PermissionsMixin):
-    """An active account is club membership. Parents have no account; a member
-    who leaves keeps theirs, deactivated, so their traces stay attributed."""
+    """An active account is club membership. Parents have no account.
+    Suspended (`is_active=False`) is temporary; a member who asks to leave
+    for good is anonymized instead (`club/gdpr.py`, `anonymize`) — the row
+    stays, so what they wrote stays attributed, but nothing else about who
+    they were does."""
 
     class ClubRole(models.TextChoices):
         STUDENT = "student", "élève"
@@ -205,9 +208,9 @@ class User(AbstractBaseUser, PermissionsMixin):
 
 def remove_after_commit(user: User, name: str | None) -> None:
     """Only once the account no longer points at it: removed any earlier, a
-    failed save would leave the account with a photo that is gone. Shared by
-    the avatar API (#77) and account anonymization (#56, `club/gdpr.py`) —
-    both replace or clear `avatar` and need the old file gone the same way."""
+    failed save would leave the account with a photo that is gone. Shared
+    by the avatar API and account anonymization (`club/gdpr.py`) — both
+    replace or clear `avatar` and need the old file gone the same way."""
     if name:
         storage = user.avatar.storage
         transaction.on_commit(lambda: storage.delete(name))
@@ -550,7 +553,10 @@ class Attachment(models.Model):
     entry = models.ForeignKey(
         Entry, on_delete=models.CASCADE, related_name="attachments"
     )
-    # PROTECT until the GDPR module decides what a deleted member's traces become.
+    # PROTECT, not CASCADE: an anonymized member's files stay in the team's
+    # notebook, attributed to "Ancien membre" like the rest of what they
+    # wrote (club/gdpr.py, `anonymize`) — deletion removes the identity,
+    # never the history.
     uploaded_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.PROTECT,

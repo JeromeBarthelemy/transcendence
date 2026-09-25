@@ -1,0 +1,22 @@
+{% extends "admin/base_site.html" %}
+
+{% block content %}
+<p>
+  Anonymiser {{ queryset|length }} compte(s) ? Le nom, l'adresse, la date de
+  naissance, le numéro AssoConnect, la photo et le mot de passe seront
+  effacés, pour de bon. Ce que ces membres ont écrit reste dans le classeur
+  de l'équipe, attribué à « Ancien membre ».
+</p>
+<ul>
+  {% for user in queryset %}<li>{{ user }}</li>{% endfor %}
+</ul>
+<form method="post">
+  {% csrf_token %}
+  {% for obj in queryset %}
+    <input type="hidden" name="{{ action_checkbox_name }}" value="{{ obj.pk }}">
+  {% endfor %}
+  <input type="hidden" name="action" value="anonymize_selected">
+  <input type="hidden" name="post" value="yes">
+  <input type="submit" value="Oui, anonymiser">
+</form>
+{% endblock %}

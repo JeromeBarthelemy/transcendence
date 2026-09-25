@@ -44,6 +44,7 @@ from .serializers import (
     CloseWorkItemSerializer,
     CreateTeamSerializer,
     DaySerializer,
+    DeleteAccountSerializer,
     ExportSerializer,
     LoginSerializer,
     NoteSerializer,
@@ -126,11 +127,15 @@ class MeView(APIView):
         return Response(_identity(request.user))
 
     def delete(self, request: Request) -> Response:
-        """The right to erasure (docs/modules.md §10), for one's own account
-        only — an admin manages everyone else's through #52's surface."""
+        """The right to erasure, for one's own account only — an admin
+        manages everyone else's through the Django admin's own action.
+        `password` confirms it: a session left open on a shared computer
+        must not delete the account in one click."""
         user = request.user
         assert isinstance(user, User)
-        request_deletion(user)
+        serializer = DeleteAccountSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        request_deletion(user, password=serializer.validated_data["password"])
         logout(request)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
