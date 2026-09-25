@@ -47,10 +47,9 @@ The frontend foundation installed by the initial skeleton is:
   system module will still require at least ten reusable components built on
   top of it.
 
-Feature-specific tools will be added only with the feature that first uses
-them: **React Hook Form and Zod** for forms and runtime validation, **Vitest
-and React Testing Library** for automated frontend tests, and
-**vite-plugin-pwa/Workbox and IndexedDB** for the PWA and durable offline
+**React Hook Form and Zod** validate the account forms in the browser, while
+**Vitest and React Testing Library** exercise their user flows. The PWA will
+add **vite-plugin-pwa/Workbox and IndexedDB** when it needs durable offline
 support. IndexedDB will store pending scouting operations; TanStack Query's
 cache alone is not durable offline storage.
 
@@ -116,10 +115,9 @@ cp backend/.env.example backend/.env
 docker compose up --build
 ```
 
-Open <http://localhost:5173/>. The landing page reports `API Django connectée`
-when React has reached `GET /api/health/` through TanStack Query and Vite's
-development proxy. The Django admin remains available at
-<http://localhost:8000/admin/>.
+Open <http://localhost:5173/> for the landing, sign-up and log-in pages. Vite
+proxies `/api` to Django, so the browser keeps one origin for session and CSRF
+cookies. The Django admin remains available at <http://localhost:8000/admin/>.
 
 This Compose stack is for development and proves the frontend/backend
 integration. The final deployment will build static frontend assets and put
@@ -161,9 +159,10 @@ intentionally adding or updating a dependency.
 ### Frontend
 
 With the frontend development server running, open <http://localhost:5173/>.
-The current landing page proves that React, routing, the French catalogue and
-Tailwind are wired together. With Django running on port 8000, it also displays
-the API connection status obtained from `GET /api/health/`.
+From the landing page, create an account, keep the returned identifier, then
+sign in with that identifier or the display name. Refresh the page to verify
+the session persists, and use the header to sign out. Leaving the email blank
+at sign-up shows the generated `.invalid` identifier on the success screen.
 
 To verify the production build locally:
 
@@ -172,8 +171,9 @@ npm --prefix frontend run build
 npm --prefix frontend run preview
 ```
 
-Open the URL printed by Vite, normally <http://localhost:4173/>. The production
-preview should display the same landing page as the development server.
+Open the URL printed by Vite, normally <http://localhost:4173/>, to inspect
+the built pages. Account actions need the development server's `/api` proxy or
+the final deployment's reverse proxy.
 
 ### Backend
 
@@ -218,7 +218,7 @@ meant for the club's own instance. To start over, delete
 
 ## Accounts and sessions
 
-No page yet — that is issue #40.
+The frontend uses these four routes from `/`, `/signup` and `/login`:
 
 | route | answers |
 | --- | --- |
@@ -390,10 +390,14 @@ access without `@pytest.mark.django_db` (see `backend/conftest.py`).
 
 ### Frontend
 
-Vitest runs the unit tests, next to the code they test (`health.test.ts`
-beside `health.ts`); `npm --prefix frontend test` runs them alone. There are no
-component tests yet: React Testing Library comes with the first screen that
-carries logic.
+```sh
+npm --prefix frontend test
+```
+
+Vitest runs the tests next to the code they exercise. The health client has
+unit coverage; React Testing Library covers account creation without an email,
+field and login refusals, and opening and closing a session with the rotated
+CSRF cookie.
 
 ## Contributing
 
@@ -446,7 +450,7 @@ requests — stays English.
   the reading of a day in `workdays.py`, the notebook export in `export.py`.
 - `backend/club/api/` — sign-up and session, teams and memberships, work
   items, progress and the day, over Django REST framework.
-- `backend/config/views.py` — the minimal health endpoint used by the frontend.
+- `backend/config/views.py` — the minimal health endpoint.
 - `frontend/src/app/` — shared router and TanStack Query configuration.
 - `frontend/src/api/` — typed clients for Django endpoints.
 - `frontend/src/pages/` — route-level React screens.
@@ -454,5 +458,5 @@ requests — stays English.
 - `frontend/src/styles.css` — Tailwind entry point and global styles.
 - `compose.yml` — the complete development stack in one command.
 
-The frontend currently contains a minimal landing page connected to Django's
-health endpoint. The three product screens are the next frontend slices.
+The frontend currently contains the landing, sign-up and log-in screens. The
+team workspaces come in later slices.
