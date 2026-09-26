@@ -106,12 +106,12 @@ class ToCheckFilter(admin.SimpleListFilter):
     there is no screen for it in the application."""
 
     title = "droit à l'image"
-    parameter_name = "a_verifier"
+    parameter_name = "refus"
 
     def lookups(
         self, request: HttpRequest, model_admin: admin.ModelAdmin
     ) -> list[tuple[str, str]]:
-        return [("oui", "À vérifier")]
+        return [("oui", "Refus dans l'équipe")]
 
     def queryset(
         self, request: HttpRequest, queryset: QuerySet[Attachment]
@@ -124,7 +124,7 @@ class ToCheckFilter(admin.SimpleListFilter):
 @admin.register(Attachment)
 class AttachmentAdmin(admin.ModelAdmin):
     """A file only comes in through the API, which checks it; here the club
-    can only clear the flag once it has looked, or delete."""
+    can only correct a wrong answer on recognisable people, or delete."""
 
     list_display = ["name", "entry", "uploaded_by", "people_recognisable"]
     list_filter = [ToCheckFilter, "people_recognisable"]

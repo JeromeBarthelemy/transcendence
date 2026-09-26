@@ -566,7 +566,11 @@ class Attachment(models.Model):
     # Read from the file's content when it was accepted, never from its name.
     content_type = models.CharField("type", max_length=50)
     people_recognisable = models.BooleanField(
-        "personnes reconnaissables", default=False
+        "personnes reconnaissables",
+        default=False,
+        help_text="Au moins une personne, quelle qu'elle soit, est reconnaissable "
+        "sur le fichier. Ne décocher que si personne ne l'est, pas seulement "
+        "parce que celle qui refuse n'y figure pas.",
     )
     uploaded_at = models.DateTimeField("déposé le", auto_now_add=True)
 

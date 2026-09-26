@@ -332,7 +332,10 @@ says the notebook is an internal working document, lists the refusals of
 image rights in force among the team's members — "aucun" most of the time —
 and the files to check before any publication: those with people on them,
 in a team where a refusal is in force today. The Django admin filters the
-attachments on the same rule, under "À vérifier".
+attachments on the same rule, under "Refus dans l'équipe": a list to read
+before publishing, not one to empty. A mentor corrects a wrong answer on
+recognisable people there, but never clears it because the member who
+refuses is not on the photo: someone else on it may refuse later.
 
 The members a route lists — a progress's participants, who was there on a
 day — each come as `{"display_name", "avatar"}`, so the interface can put a

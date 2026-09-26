@@ -110,7 +110,7 @@ def test_the_admin_lists_only_the_files_to_check(client):
     decides(member_of(rouages, "jade"), Consent.Decision.REFUSED, month=9)
     client.force_login(User.objects.create_superuser("admin@example.org", "admin"))
 
-    page = client.get("/admin/club/attachment/?a_verifier=oui").content.decode()
+    page = client.get("/admin/club/attachment/?refus=oui").content.decode()
 
     assert "demo-college.jpg" in page
     assert "plan-intake.pdf" not in page
