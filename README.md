@@ -458,5 +458,7 @@ requests — stays English.
 - `frontend/src/styles.css` — Tailwind entry point and global styles.
 - `compose.yml` — the complete development stack in one command.
 
-The frontend currently contains the landing, sign-up and log-in screens. The
-team workspaces come in later slices.
+The frontend contains the public landing, sign-up and log-in screens. Once
+signed in, the home screen lists the selected team's robot and off-robot work
+items, with pending handovers highlighted. A mentor can switch between the
+team seasons exposed by their identity.

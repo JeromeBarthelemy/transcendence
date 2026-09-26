@@ -3,10 +3,15 @@ import { Link } from "react-router-dom";
 
 import { useCurrentUser } from "../app/useCurrentUser";
 import { RequestError } from "../components/ApiErrors";
+import { TeamHomePage } from "./TeamHomePage";
 
 export function HomePage() {
   const { t } = useTranslation();
   const currentUser = useCurrentUser();
+
+  if (currentUser.data) {
+    return <TeamHomePage identity={currentUser.data} />;
+  }
 
   return (
     <main className="mx-auto grid w-full max-w-6xl flex-1 items-center gap-12 px-5 py-14 sm:px-8 lg:grid-cols-[1.15fr_0.85fr] lg:gap-20 lg:py-20">
@@ -32,18 +37,6 @@ export function HomePage() {
           <p role="status" className="mt-9 text-sm text-[#506784]">
             {t("auth.checkingSession")}
           </p>
-        ) : currentUser.data ? (
-          <div className="mt-9 rounded-2xl border border-[#009edf]/20 bg-white/80 p-5 shadow-sm">
-            <p className="text-xs font-bold tracking-[0.14em] text-[#0078dd] uppercase">
-              {t("home.signedInLabel")}
-            </p>
-            <p className="brand-title mt-2 text-2xl text-[#041894]">
-              {t("home.welcome", { name: currentUser.data.display_name })}
-            </p>
-            <p className="mt-2 text-sm text-[#506784]">
-              {t("home.signedInDescription")}
-            </p>
-          </div>
         ) : (
           <div className="mt-9 flex flex-wrap items-center gap-3">
             <Link
