@@ -90,9 +90,10 @@ def stl_binary():
     )
 
 
-def attach(client, entry, file, **fields):
+def attach(client, entry, file, people_recognisable="false", **fields):
     return client.post(
-        f"/api/entries/{entry.id}/attachments/", {"file": file, **fields}
+        f"/api/entries/{entry.id}/attachments/",
+        {"file": file, "people_recognisable": people_recognisable, **fields},
     )
 
 
@@ -140,10 +141,22 @@ def test_an_attachment_records_whether_people_are_recognisable_on_it(client):
     client.force_login(entry.author)
 
     flagged = attach(client, entry, photo(), people_recognisable="true").json()
-    unflagged = attach(client, entry, photo()).json()
+    unflagged = attach(client, entry, photo(), people_recognisable="false").json()
 
     assert flagged["people_recognisable"] is True
     assert unflagged["people_recognisable"] is False
+
+
+def test_whoever_attaches_a_file_must_say_whether_people_are_recognisable(client):
+    rouages = team_season()
+    entry = note(rouages, member_of(rouages))
+    client.force_login(entry.author)
+
+    response = client.post(f"/api/entries/{entry.id}/attachments/", {"file": photo()})
+
+    assert response.status_code == 400
+    assert response.json()["people_recognisable"][0]["code"] == "required"
+    assert not entry.attachments.exists()
 
 
 # --- where attachments show ---

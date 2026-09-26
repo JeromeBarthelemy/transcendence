@@ -305,7 +305,7 @@ anyone else gets a `403` with the code `not_a_member`.
 | `PATCH /api/work-items/{id}/` | close it, `done` or `dropped`; working on it again reopens it |
 | `POST /api/work-items/{id}/tick/` | sign up to today's progress, created by the first to tick |
 | `PATCH /api/entries/{id}/` | write a progress — sentence, step, handover — for its participants and mentors |
-| `POST /api/entries/{id}/attachments/` | attach a file to any of the team's entries, as `multipart/form-data` fields `file` and `people_recognisable` |
+| `POST /api/entries/{id}/attachments/` | attach a file to any of the team's entries, as `multipart/form-data` fields `file` and `people_recognisable`, the latter always answered: left out, it is `required`, never read as no |
 | `GET /api/attachments/{id}/` | the file, to the team and mentors |
 | `DELETE /api/attachments/{id}/` | remove it — whoever attached it, or a mentor; anyone else gets `delete_not_uploader` |
 | `POST /api/team-seasons/{id}/notes/` | a note for the team, or addressed to one of its work items |
