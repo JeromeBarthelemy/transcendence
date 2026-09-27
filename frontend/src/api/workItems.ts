@@ -24,11 +24,13 @@ const workItemSchema = z.object({
       author: z.string(),
       step: z.nullable(workItemStepSchema),
       occurred_at: z.string(),
+      day: z.string(),
     }),
   ),
   last_progress: z.nullable(
     z.object({
       occurred_at: z.string(),
+      day: z.string(),
       participants: z.array(
         z.object({
           display_name: z.string(),

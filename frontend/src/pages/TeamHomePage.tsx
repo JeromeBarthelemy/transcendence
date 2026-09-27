@@ -1,15 +1,18 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  type UseQueryResult,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { type FormEvent, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import type { Identity, TeamSeasonSummary } from "../api/auth";
-import { createTeamNote, getWorkday } from "../api/workdays";
+import { createTeamNote, getWorkday, type Workday } from "../api/workdays";
 import { getWorkItems, type WorkItem } from "../api/workItems";
 import { RequestError } from "../components/ApiErrors";
 
-const WORKDAY_BOUNDARY_HOURS = 4;
-
-type StatusFilter = "all" | WorkItem["status"];
+type StatusFilter = "active" | "all" | WorkItem["status"];
 const WORK_ITEM_STATUSES: WorkItem["status"][] = [
   "suggested",
   "open",
@@ -19,9 +22,11 @@ const WORK_ITEM_STATUSES: WorkItem["status"][] = [
 
 const dateFormatter = new Intl.DateTimeFormat("fr-FR", {
   dateStyle: "long",
+  timeZone: "UTC",
 });
 const weekdayFormatter = new Intl.DateTimeFormat("fr-FR", {
   weekday: "long",
+  timeZone: "UTC",
 });
 const relativeFormatter = new Intl.RelativeTimeFormat("fr-FR", {
   numeric: "auto",
@@ -35,59 +40,30 @@ const workdayDateFormatter = new Intl.DateTimeFormat("fr-FR", {
   weekday: "long",
   day: "numeric",
   month: "long",
+  timeZone: "UTC",
 });
 const noteTimeFormatter = new Intl.DateTimeFormat("fr-FR", {
   hour: "2-digit",
   minute: "2-digit",
 });
-const parisCalendarFormatter = new Intl.DateTimeFormat("en-CA", {
-  timeZone: "Europe/Paris",
-  year: "numeric",
-  month: "2-digit",
-  day: "2-digit",
-  hour: "2-digit",
-  hourCycle: "h23",
-});
-
-function workdayKey(value: Date | string) {
-  const date = typeof value === "string" ? new Date(value) : value;
-  const parts = Object.fromEntries(
-    parisCalendarFormatter
-      .formatToParts(date)
-      .filter((part) => part.type !== "literal")
-      .map((part) => [part.type, part.value]),
-  );
-  const day = `${parts.year}-${parts.month}-${parts.day}`;
-  if (Number(parts.hour) >= WORKDAY_BOUNDARY_HOURS) {
-    return day;
-  }
-
-  const previousDay = new Date(
-    Date.UTC(
-      Number(parts.year),
-      Number(parts.month) - 1,
-      Number(parts.day) - 1,
-    ),
-  );
-  return previousDay.toISOString().slice(0, 10);
-}
-
 function formatWorkdayDate(day: string) {
   return workdayDateFormatter.format(new Date(`${day}T12:00:00Z`));
 }
 
-function startOfDay(date: Date) {
-  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
-}
-
-function formatActivityDate(value: string) {
-  const date = new Date(value);
+function formatActivityDate(day: string, currentWorkday?: string) {
+  const date = new Date(`${day}T12:00:00Z`);
+  if (!currentWorkday) {
+    return dateFormatter.format(date);
+  }
   const elapsedDays = Math.round(
-    (startOfDay(new Date()).getTime() - startOfDay(date).getTime()) /
+    (new Date(`${currentWorkday}T12:00:00Z`).getTime() - date.getTime()) /
       (24 * 60 * 60 * 1000),
   );
 
-  if (elapsedDays >= 0 && elapsedDays < 2) {
+  if (elapsedDays < 0) {
+    return dateFormatter.format(date);
+  }
+  if (elapsedDays < 2) {
     return relativeFormatter.format(-elapsedDays, "day");
   }
   if (elapsedDays < 7) {
@@ -99,7 +75,13 @@ function formatActivityDate(value: string) {
   return dateFormatter.format(date);
 }
 
-function WorkItemCard({ item }: { item: WorkItem }) {
+function WorkItemCard({
+  item,
+  currentWorkday,
+}: {
+  item: WorkItem;
+  currentWorkday?: string;
+}) {
   const { t } = useTranslation();
   const participants = item.last_progress
     ? nameFormatter.format(
@@ -126,7 +108,7 @@ function WorkItemCard({ item }: { item: WorkItem }) {
         <p className="mt-2 text-sm text-[#506784]">
           {t("teamHome.lastProgress", {
             people: participants || t("teamHome.noParticipants"),
-            date: formatActivityDate(item.last_progress.occurred_at),
+            date: formatActivityDate(item.last_progress.day, currentWorkday),
           })}
         </p>
       ) : (
@@ -144,7 +126,7 @@ function WorkItemCard({ item }: { item: WorkItem }) {
           <p className="mt-2 text-xs text-[#7a6221]">
             {t("teamHome.handoverMeta", {
               author: item.handover.author,
-              date: formatActivityDate(item.handover.occurred_at),
+              date: formatActivityDate(item.handover.day, currentWorkday),
             })}
           </p>
         </div>
@@ -157,10 +139,12 @@ function WorkItemSection({
   id,
   title,
   items,
+  currentWorkday,
 }: {
   id: string;
   title: string;
   items: WorkItem[];
+  currentWorkday?: string;
 }) {
   const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(true);
@@ -198,7 +182,11 @@ function WorkItemSection({
         {items.length > 0 ? (
           <div className="divide-y divide-[#004fc5]/10 overflow-hidden rounded-2xl border border-[#004fc5]/12 bg-white shadow-sm">
             {items.map((item) => (
-              <WorkItemCard key={item.id} item={item} />
+              <WorkItemCard
+                key={item.id}
+                item={item}
+                currentWorkday={currentWorkday}
+              />
             ))}
           </div>
         ) : (
@@ -213,22 +201,17 @@ function WorkItemSection({
 
 function DayFooter({
   teamSeasonId,
-  workItems,
+  day,
 }: {
   teamSeasonId: number;
-  workItems: WorkItem[];
+  day: UseQueryResult<Workday, Error>;
 }) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
-  const today = workdayKey(new Date());
   const [isNoteOpen, setIsNoteOpen] = useState(false);
   const [noteBody, setNoteBody] = useState("");
   const [noteSaved, setNoteSaved] = useState(false);
-  const dayQueryKey = ["team-seasons", teamSeasonId, "days", today] as const;
-  const day = useQuery({
-    queryKey: dayQueryKey,
-    queryFn: () => getWorkday(teamSeasonId, today),
-  });
+  const dayQueryKey = ["team-seasons", teamSeasonId, "days", "today"] as const;
   const note = useMutation({
     mutationFn: (body: string) => createTeamNote(teamSeasonId, body),
     onSuccess: async () => {
@@ -238,11 +221,6 @@ function DayFooter({
       await queryClient.invalidateQueries({ queryKey: dayQueryKey });
     },
   });
-  const advancedWorkItems = workItems.filter(
-    (item) =>
-      item.last_progress !== null &&
-      workdayKey(item.last_progress.occurred_at) === today,
-  ).length;
   const dayNotes =
     day.data?.entries.filter((entry) => entry.type === "note") ?? [];
 
@@ -288,7 +266,7 @@ function DayFooter({
               </span>
               <span aria-hidden="true"> · </span>
               {t("teamHome.advancedWorkItemCount", {
-                count: advancedWorkItems,
+                count: day.data.advanced_work_items,
               })}
               <span aria-hidden="true"> · </span>
               {t("teamHome.presentCount", {
@@ -396,7 +374,7 @@ function teamLabel(teamSeason: TeamSeasonSummary) {
 export function TeamHomePage({ identity }: { identity: Identity }) {
   const { t } = useTranslation();
   const [selectedId, setSelectedId] = useState<number | null>(null);
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("active");
   const selectedTeamSeason =
     identity.team_seasons.find((item) => item.id === selectedId) ??
     identity.team_seasons[0];
@@ -405,6 +383,14 @@ export function TeamHomePage({ identity }: { identity: Identity }) {
     queryKey: ["team-seasons", teamSeasonId, "work-items"],
     queryFn: () =>
       teamSeasonId === null ? Promise.resolve([]) : getWorkItems(teamSeasonId),
+    enabled: teamSeasonId !== null,
+  });
+  const day = useQuery({
+    queryKey: ["team-seasons", teamSeasonId, "days", "today"],
+    queryFn: () =>
+      teamSeasonId === null
+        ? Promise.reject(new Error("A team is required"))
+        : getWorkday(teamSeasonId, "today"),
     enabled: teamSeasonId !== null,
   });
 
@@ -427,7 +413,11 @@ export function TeamHomePage({ identity }: { identity: Identity }) {
   }
 
   const visibleItems = (workItems.data ?? []).filter(
-    (item) => statusFilter === "all" || item.status === statusFilter,
+    (item) =>
+      statusFilter === "all" ||
+      (statusFilter === "active" &&
+        ["suggested", "open"].includes(item.status)) ||
+      item.status === statusFilter,
   );
   const robotItems = visibleItems.filter((item) => item.on_robot);
   const offRobotItems = visibleItems.filter((item) => !item.on_robot);
@@ -491,6 +481,7 @@ export function TeamHomePage({ identity }: { identity: Identity }) {
                   setStatusFilter(event.target.value as StatusFilter)
                 }
               >
+                <option value="active">{t("teamHome.activeStatuses")}</option>
                 <option value="all">{t("teamHome.allStatuses")}</option>
                 {WORK_ITEM_STATUSES.map((status) => (
                   <option key={status} value={status}>
@@ -506,11 +497,13 @@ export function TeamHomePage({ identity }: { identity: Identity }) {
               id="robot-work-items"
               title={t("teamHome.robot")}
               items={robotItems}
+              currentWorkday={day.data?.day}
             />
             <WorkItemSection
               id="off-robot-work-items"
               title={t("teamHome.offRobot")}
               items={offRobotItems}
+              currentWorkday={day.data?.day}
             />
           </div>
         </div>
@@ -519,7 +512,7 @@ export function TeamHomePage({ identity }: { identity: Identity }) {
       <DayFooter
         key={selectedTeamSeason.id}
         teamSeasonId={selectedTeamSeason.id}
-        workItems={workItems.data ?? []}
+        day={day}
       />
     </main>
   );

@@ -13,9 +13,6 @@
     "description": "Fieldnotes rassemble le travail des équipes de robotique tout au long de la saison, du premier essai au cahier d'ingénierie.",
     "createAccount": "Créer mon compte",
     "alreadyMember": "J'ai déjà un compte",
-    "signedInLabel": "Session ouverte",
-    "welcome": "Bonjour, {{name}}.",
-    "signedInDescription": "Vous êtes connecté à Fieldnotes.",
     "panelEyebrow": "Une saison · une histoire",
     "panelTitle": "Le travail du club, au même endroit.",
     "panelDescription": "Retrouvez les idées, les essais et les décisions qui font avancer chaque robot."
@@ -46,6 +43,7 @@
     "workItemCount_one": "{{count}} chantier",
     "workItemCount_other": "{{count}} chantiers",
     "filterByStatus": "Filtrer par statut",
+    "activeStatuses": "Actifs",
     "allStatuses": "Tous les statuts",
     "noWorkItems": "Aucun chantier correspondant dans cette catégorie.",
     "notStarted": "Pas encore commencé.",

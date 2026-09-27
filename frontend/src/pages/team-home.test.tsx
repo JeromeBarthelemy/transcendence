@@ -49,17 +49,23 @@ function identity(teamSeasons: object[]) {
   };
 }
 
+const testWorkday = new Date();
+testWorkday.setHours(12, 0, 0, 0);
+const testWorkdayDay = testWorkday.toISOString().slice(0, 10);
+
 function workday(
-  path: string,
+  _path: string,
   present: object[] = [],
   roster = 12,
   entries: object[] = [],
+  advancedWorkItems = 0,
 ): Response {
   return json({
-    day: path.split("/").at(-2),
+    day: testWorkdayDay,
     entries,
     present,
     roster,
+    advanced_work_items: advancedWorkItems,
   });
 }
 
@@ -72,6 +78,7 @@ afterEach(() => {
 it("splits a team's work items and highlights its handover", async () => {
   const twoWeeksAgo = new Date();
   twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
+  const twoWeeksAgoDay = twoWeeksAgo.toISOString().slice(0, 10);
 
   const fetchMock = vi.fn(async (path: string) => {
     if (path === "/api/auth/me/") {
@@ -90,9 +97,11 @@ it("splits a team's work items and highlights its handover", async () => {
             author: "Lina",
             step: "prototyping",
             occurred_at: twoWeeksAgo.toISOString(),
+            day: twoWeeksAgoDay,
           },
           last_progress: {
             occurred_at: twoWeeksAgo.toISOString(),
+            day: twoWeeksAgoDay,
             participants: [
               { display_name: "Lina", avatar: null },
               { display_name: "Tom", avatar: null },
@@ -108,6 +117,7 @@ it("splits a team's work items and highlights its handover", async () => {
           handover: null,
           last_progress: {
             occurred_at: twoWeeksAgo.toISOString(),
+            day: twoWeeksAgoDay,
             participants: [{ display_name: "Marie", avatar: null }],
           },
         },
@@ -186,6 +196,7 @@ it("loads another team's work items when the selection changes", async () => {
           handover: null,
           last_progress: {
             occurred_at: new Date().toISOString(),
+            day: testWorkdayDay,
             participants: [{ display_name: "Marie", avatar: null }],
           },
         },
@@ -223,10 +234,11 @@ it("shows every work item and filters them by status", async () => {
       current_step: "building",
       handover: null,
       last_progress:
-        index === 7
+        index === 0 || index === 7
           ? null
           : {
               occurred_at: occurredAt.toISOString(),
+              day: occurredAt.toISOString().slice(0, 10),
               participants: [{ display_name: "Marie", avatar: null }],
             },
     };
@@ -247,10 +259,16 @@ it("shows every work item and filters them by status", async () => {
   renderHome();
 
   expect(await screen.findByText("Chantier 1")).toBeTruthy();
-  expect(screen.getByText("Chantier 8")).toBeTruthy();
+  expect(screen.getByText("Chantier 2")).toBeTruthy();
+  expect(screen.queryByText("Chantier 3")).toBeNull();
+  expect(screen.queryByText("Chantier 8")).toBeNull();
   expect(screen.getByText("Pas encore commencé.")).toBeTruthy();
 
   const statusFilter = screen.getByLabelText("Filtrer par statut");
+  expect((statusFilter as HTMLSelectElement).value).toBe("active");
+  await userEvent.selectOptions(statusFilter, "all");
+
+  expect(screen.getByText("Chantier 8")).toBeTruthy();
   await userEvent.selectOptions(statusFilter, "done");
 
   expect(screen.getByText("Chantier 3")).toBeTruthy();
@@ -288,6 +306,7 @@ it("summarizes today and saves a team note", async () => {
             handover: null,
             last_progress: {
               occurred_at: new Date().toISOString(),
+              day: testWorkdayDay,
               participants: [{ display_name: "Marie", avatar: null }],
             },
           },
@@ -299,6 +318,7 @@ it("summarizes today and saves a team note", async () => {
           [{ display_name: "Marie", avatar: null }],
           10,
           dayEntries,
+          1,
         );
       }
       if (path === "/api/team-seasons/7/notes/" && options?.method === "POST") {

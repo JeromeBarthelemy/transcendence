@@ -18,6 +18,7 @@ const workdaySchema = z.object({
   previous: z.optional(z.nullable(z.string())),
   next: z.optional(z.nullable(z.string())),
   entries: z.array(entrySchema),
+  advanced_work_items: z.number(),
   present: z.array(memberSchema),
   roster: z.number(),
 });
