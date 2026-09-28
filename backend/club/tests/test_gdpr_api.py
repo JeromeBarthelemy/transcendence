@@ -385,5 +385,20 @@ def test_an_admin_can_leave_if_another_one_remains(client, mailoutbox):
     assert boss.is_active is False
 
 
+def test_an_admin_who_leaves_loses_the_admin_flag_too(client, mailoutbox):
+    # Found reviewing #88: an anonymized admin kept is_club_admin set —
+    # reactivated by mistake (nothing else makes sense once the password is
+    # unusable), it would count as another live admin to
+    # `not_the_last_admin`, although nobody can sign in to it.
+    boss = admin("boss@club.fr", "Boss", "boss@club.fr")
+    admin("other@club.fr", "Other", "other@club.fr")
+    client.force_login(boss)
+
+    delete(client)
+
+    boss.refresh_from_db()
+    assert boss.is_club_admin is False
+
+
 def test_an_anonymous_caller_cannot_delete_an_account(client):
     assert delete(client).status_code in (401, 403)

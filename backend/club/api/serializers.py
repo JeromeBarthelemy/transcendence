@@ -473,3 +473,35 @@ class AvatarSerializer(serializers.Serializer[User]):
         instance.save(update_fields=["avatar"])
         remove_after_commit(instance, previous)
         return instance
+
+
+class UserRoleSerializer(serializers.Serializer[User]):
+    """What an admin manages about another account: making them a mentor,
+    making them an administrator, and lifting or imposing a suspension.
+    Everything else — the name, the password — stays where it already is,
+    the Django admin (README, "Sessions")."""
+
+    club_role = serializers.ChoiceField(choices=User.ClubRole.choices, required=False)
+    is_club_admin = serializers.BooleanField(required=False)
+    is_active = serializers.BooleanField(required=False)
+
+    def validate(self, attrs: dict[str, Any]) -> dict[str, Any]:
+        # Checked against the account's *resulting* state, not just the
+        # fields this call happens to touch — an admin demoted to student
+        # in one request and left with the flag from a previous one would
+        # be just as inconsistent as setting both wrong at once.
+        instance = self.instance
+        assert isinstance(instance, User)
+        club_role = attrs.get("club_role", instance.club_role)
+        is_club_admin = attrs.get("is_club_admin", instance.is_club_admin)
+        if is_club_admin and club_role != User.ClubRole.MENTOR:
+            raise serializers.ValidationError(
+                "Un administrateur doit être mentor.", code="admin_must_be_mentor"
+            )
+        return attrs
+
+    def update(self, instance: User, validated_data: dict[str, Any]) -> User:
+        for field, value in validated_data.items():
+            setattr(instance, field, value)
+        instance.save(update_fields=list(validated_data))
+        return instance

@@ -109,8 +109,10 @@ def anonymize(user: User) -> None:
     `EntryParticipant.user` are `PROTECT` on purpose, so what a member
     wrote stays in the team's notebook, attributed. What goes is the
     identity — name, address, birth date, AssoConnect id, avatar,
-    password, any pending verification request. The consent log stays: it
-    still decides whether past content may be published.
+    password, any pending verification request, and any admin rights,
+    which an unusable password leaves no way to exercise anyway. The
+    consent log stays: it still decides whether past content may be
+    published.
 
     Called only from `request_deletion` (a member's own request) or the
     Django admin's anonymize action (someone who has left) — never from a
@@ -125,6 +127,7 @@ def anonymize(user: User) -> None:
     user.avatar.name = ""
     user.set_unusable_password()
     user.is_active = False
+    user.is_club_admin = False
     user.save(
         update_fields=[
             "display_name",
@@ -135,6 +138,7 @@ def anonymize(user: User) -> None:
             "avatar",
             "password",
             "is_active",
+            "is_club_admin",
         ]
     )
     remove_after_commit(user, previous_avatar)

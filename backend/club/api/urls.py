@@ -20,6 +20,8 @@ from .views import (
     TeamCreateView,
     TeamDetailView,
     TickView,
+    UserDetailView,
+    UserListView,
     WorkItemDetailView,
     WorkItemListView,
 )
@@ -36,6 +38,8 @@ urlpatterns = [
     path("auth/me/avatar/", AvatarView.as_view(), name="avatar"),
     path("auth/me/export/", MemberDataExportView.as_view(), name="member-export"),
     path("users/<int:pk>/avatar/", MemberAvatarView.as_view(), name="member-avatar"),
+    path("users/", UserListView.as_view(), name="user-list"),
+    path("users/<int:pk>/", UserDetailView.as_view(), name="user-detail"),
     path("teams/", TeamCreateView.as_view(), name="team-create"),
     path("teams/<int:pk>/", TeamDetailView.as_view(), name="team-detail"),
     path("memberships/", MembershipCreateView.as_view(), name="membership-create"),

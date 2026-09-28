@@ -36,6 +36,8 @@ from club.workdays import attendance, day_entries, gaps, progress_of_the_day, wo
 from .errors import Conflict
 from .permissions import (
     IsClubAdmin,
+    not_self,
+    not_staff_target,
     team_season_acted_on,
     team_seasons_open_to,
 )
@@ -55,6 +57,7 @@ from .serializers import (
     RenameTeamSerializer,
     SignUpSerializer,
     TickSerializer,
+    UserRoleSerializer,
     WriteProgressSerializer,
 )
 
@@ -130,9 +133,10 @@ class MeView(APIView):
 
     def delete(self, request: Request) -> Response:
         """The right to erasure, for one's own account only — an admin
-        manages everyone else's through the Django admin's own action.
-        `password` confirms it: a session left open on a shared computer
-        must not delete the account in one click."""
+        manages everyone else's through `UserDetailView.delete` or the
+        Django admin's own action. `password` confirms it: a session left
+        open on a shared computer must not delete the account in one
+        click."""
         user = request.user
         assert isinstance(user, User)
         serializer = DeleteAccountSerializer(data=request.data)
@@ -220,6 +224,72 @@ class MemberAvatarView(APIView):
         # the way keeps a copy.
         response["Cache-Control"] = "private, no-cache"
         return response
+
+
+def _user(user: User) -> dict[str, object]:
+    return {
+        "id": user.id,
+        "display_name": user.display_name,
+        "email": user.email,
+        "club_role": user.club_role,
+        "is_club_admin": user.is_club_admin,
+        "is_active": user.is_active,
+    }
+
+
+class UserListView(APIView):
+    """Every account, active or not: an admin managing roles has to see who
+    left as well as who is here, or a name would just vanish from the list
+    with no explanation."""
+
+    permission_classes = [IsClubAdmin]
+
+    def get(self, request: Request) -> Response:
+        return Response([_user(user) for user in User.objects.order_by("display_name")])
+
+
+class UserDetailView(APIView):
+    permission_classes = [IsClubAdmin]
+
+    def get(self, request: Request, pk: int) -> Response:
+        return Response(_user(get_object_or_404(User, pk=pk)))
+
+    @transaction.atomic
+    def patch(self, request: Request, pk: int) -> Response:
+        # The read has to be inside the same transaction as the write, not
+        # just before it: two overlapping PATCHes each validating a
+        # different field against their own stale read can each pass —
+        # "club_role": "student" against an instance still showing
+        # is_club_admin=False, "is_club_admin": true against one still
+        # showing club_role=mentor — and together leave a row neither
+        # request alone would have written. `transaction_mode: "IMMEDIATE"`
+        # (config/settings.py) takes SQLite's write lock the moment this
+        # transaction opens, so a genuinely concurrent second request
+        # blocks here until this one commits, and then reads the row this
+        # one actually left — not select_for_update(), which SQLite
+        # silently ignores (see club/gdpr.py, `request_deletion`).
+        user = get_object_or_404(User, pk=pk)
+        not_self(request, user)
+        not_staff_target(request, user)
+        serializer = UserRoleSerializer(user, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        return Response(_user(serializer.save()))
+
+    def delete(self, request: Request, pk: int) -> Response:
+        # A member never disappears — their traces stay attributed
+        # (club/models.py, `User`) — so "delete" here is the same
+        # anonymization the Django admin's own action and a member's own
+        # request both call (club/gdpr.py, `anonymize`), never a
+        # suspension: that one is temporary and stays on `PATCH
+        # {"is_active": …}`. `not_the_last_admin` is `request_deletion`'s
+        # own guard, checked inside its transaction; `not_self` and
+        # `not_staff_target` are this surface's own, since neither
+        # self-service deletion nor a staff sign-in needs them.
+        user = get_object_or_404(User, pk=pk)
+        not_self(request, user)
+        not_staff_target(request, user)
+        request_deletion(user, password=None)
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 def _team(team: Team) -> dict[str, object]:
