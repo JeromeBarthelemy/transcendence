@@ -367,10 +367,6 @@ class WorkItemListView(APIView):
 
 
 def _entry(entry: Entry) -> dict[str, object]:
-    # `entry.work_item` costs a query wherever the caller did not
-    # select_related it — cheap for the single-entry responses below
-    # (TickView, EntryDetailView, NoteCreateView), worth doing only where a
-    # list of entries would multiply it (see WorkItemDetailView's thread).
     return {
         "id": entry.id,
         "work_item": {"id": entry.work_item.id, "title": entry.work_item.title}
@@ -408,10 +404,6 @@ class WorkItemDetailView(APIView):
     def get(self, request: Request, pk: int) -> Response:
         assert isinstance(request.user, User)
         item = _work_item_acted_on(request.user, pk)
-        # Not select_related("work_item"): every entry's work_item here is
-        # `item` itself, already in hand, so `_entry()` still pays one query
-        # per entry to fetch what is already known. Minor — worth fixing if
-        # a thread ever grows long enough for it to show, not blocking.
         thread = item.entries.select_related("author").order_by("-occurred_at", "-id")
         return Response(
             {**_work_item(item), "thread": [_entry(entry) for entry in thread]}
