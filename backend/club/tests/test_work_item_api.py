@@ -1,4 +1,4 @@
-from datetime import date, datetime, time
+from datetime import date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
 from django.test import Client
@@ -16,6 +16,7 @@ from club.models import (
     WorkshopSlot,
 )
 from club.progress import record_progress
+from club.workdays import workday
 
 from .races import overtaken_by
 
@@ -83,7 +84,7 @@ def test_a_member_lists_the_work_items_of_their_team(client):
     rouages = team_season(12345)
     lina = member_of(rouages)
     intake = WorkItem.objects.create(team_season=rouages, title="intake", on_robot=True)
-    record_progress(
+    progress = record_progress(
         intake,
         lina,
         "Rouleaux imprimés.",
@@ -103,6 +104,8 @@ def test_a_member_lists_the_work_items_of_their_team(client):
     assert item["handover"]["author"] == "lina"
     # Left at another step than the current one, the screen can flag it stale.
     assert item["handover"]["step"] == "prototyping"
+    assert item["handover"]["day"] == str(workday(progress.occurred_at))
+    assert item["last_progress"]["day"] == str(workday(progress.occurred_at))
     assert names(item["last_progress"]["participants"]) == ["lina"]
 
 
@@ -555,6 +558,36 @@ def test_a_day_shows_its_entries_and_who_was_there_out_of_the_roster(client):
     assert names(day["present"]) == ["lina", "tom"]
     # The roster counts students: mentors supervise, they are not the team.
     assert day["roster"] == 3
+    assert day["advanced_work_items"] == 1
+
+
+def test_today_means_the_current_club_workday(client, monkeypatch):
+    rouages = team_season()
+    lina = member_of(rouages)
+    progress_on(rouages, WEDNESDAY, lina)
+    after_midnight = datetime.combine(
+        WEDNESDAY + timedelta(days=1), time(1), tzinfo=PARIS
+    )
+    monkeypatch.setattr("club.api.views.timezone.now", lambda: after_midnight)
+    client.force_login(lina)
+
+    day = client.get(f"/api/team-seasons/{rouages.id}/days/today/").json()
+
+    assert day["day"] == str(WEDNESDAY)
+    assert len(day["entries"]) == 1
+
+
+def test_a_day_counts_distinct_work_items_advanced(client):
+    rouages = team_season()
+    lina = member_of(rouages)
+    progress_on(rouages, WEDNESDAY, lina)
+    progress_on(rouages, WEDNESDAY, lina)
+    client.force_login(lina)
+
+    day = client.get(f"/api/team-seasons/{rouages.id}/days/2026-09-09/").json()
+
+    assert len(day["entries"]) == 2
+    assert day["advanced_work_items"] == 1
 
 
 def test_who_was_there_is_listed_with_their_avatars(client):

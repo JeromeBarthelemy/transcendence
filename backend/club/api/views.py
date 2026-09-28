@@ -328,11 +328,13 @@ def _work_item(item: WorkItem) -> dict[str, object]:
             "author": handover.author.display_name,
             "step": handover.step,
             "occurred_at": handover.occurred_at,
+            "day": workday(handover.occurred_at),
         }
         if handover
         else None,
         "last_progress": {
             "occurred_at": latest.occurred_at,
+            "day": workday(latest.occurred_at),
             "participants": [_member(user) for user in latest.participants.all()],
         }
         if latest
@@ -522,18 +524,28 @@ class DayView(APIView):
         user = request.user
         assert isinstance(user, User)
         team_season = team_season_acted_on(user, team_season_id)
-        serializer = DaySerializer(data={"day": day})
-        serializer.is_valid(raise_exception=True)
-        the_day = serializer.validated_data["day"]
+        if day == "today":
+            the_day = workday(timezone.now())
+        else:
+            serializer = DaySerializer(data={"day": day})
+            serializer.is_valid(raise_exception=True)
+            the_day = serializer.validated_data["day"]
+        entries = list(day_entries(team_season, the_day))
         # The roster the attendance is counted against: students, as mentors
         # are never counted present.
         roster = team_season.memberships.filter(user__club_role=User.ClubRole.STUDENT)
         return Response(
             {
                 "day": the_day,
-                "entries": [
-                    _entry(entry) for entry in day_entries(team_season, the_day)
-                ],
+                "entries": [_entry(entry) for entry in entries],
+                "advanced_work_items": len(
+                    {
+                        entry.work_item_id
+                        for entry in entries
+                        if entry.type == Entry.Type.PROGRESS
+                        and entry.work_item_id is not None
+                    }
+                ),
                 "present": [_member(user) for user in attendance(team_season, the_day)],
                 "roster": roster.count(),
             }

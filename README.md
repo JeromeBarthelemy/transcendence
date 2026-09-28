@@ -337,7 +337,7 @@ anyone else gets a `403` with the code `not_a_member`.
 
 | route | does |
 | --- | --- |
-| `GET /api/team-seasons/{id}/work-items/` | the team's work items, each with its current step, last progress and handover |
+| `GET /api/team-seasons/{id}/work-items/` | the team's work items, each with its current step, last progress and handover; progress dates include their 4 a.m.–4 a.m. workday |
 | `POST /api/team-seasons/{id}/work-items/` | open one — or list it for September with `"suggested": true` |
 | `GET /api/work-items/{id}/` | one work item and its thread, newest first |
 | `PATCH /api/work-items/{id}/` | close it, `done` or `dropped`; working on it again reopens it |
@@ -347,7 +347,7 @@ anyone else gets a `403` with the code `not_a_member`.
 | `GET /api/attachments/{id}/` | the file, to the team and mentors |
 | `DELETE /api/attachments/{id}/` | remove it — whoever attached it, or a mentor; anyone else gets `delete_not_uploader` |
 | `POST /api/team-seasons/{id}/notes/` | a note for the team, or addressed to one of its work items |
-| `GET /api/team-seasons/{id}/days/{YYYY-MM-DD}/` | the day's entries, who was there, and the roster they count against |
+| `GET /api/team-seasons/{id}/days/{YYYY-MM-DD}/` | the day's entries, number of work items advanced, who was there, and the roster they count against; `today` resolves the current 4 a.m.–4 a.m. workday on the server |
 | `GET /api/team-seasons/{id}/gaps/?since=&until=` | the workshop-slot days on which nothing moved forward |
 | `GET /api/team-seasons/{id}/export/?format=markdown` | the season's notebook as a `.zip`, one Markdown file per category; `category` (`robot`, `outreach`, `team-life`) and `work_item` narrow it |
 
@@ -511,5 +511,7 @@ requests — stays English.
 - `frontend/src/styles.css` — Tailwind entry point and global styles.
 - `compose.yml` — the complete development stack in one command.
 
-The frontend currently contains the landing, sign-up and log-in screens. The
-team workspaces come in later slices.
+The frontend contains the public landing, sign-up and log-in screens. Once
+signed in, the home screen lists the selected team's robot and off-robot work
+items, with pending handovers highlighted. A mentor can switch between the
+team seasons exposed by their identity.

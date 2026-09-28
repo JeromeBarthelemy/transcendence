@@ -253,7 +253,13 @@ it("opens and closes a session using the rotated CSRF cookie", async () => {
       expect(options?.headers).toMatchObject({ "X-CSRFToken": "first-token" });
       setDocumentCookie("csrftoken=rotated-token; path=/");
       return json(
-        { display_name: "Marie", club_role: "student", is_club_admin: false },
+        {
+          display_name: "Marie",
+          club_role: "student",
+          is_club_admin: false,
+          avatar: null,
+          team_seasons: [],
+        },
         200,
       );
     }
@@ -288,7 +294,13 @@ it("clears a stale session when logout says it is already gone", async () => {
   const fetchMock = vi.fn(async (path: string) => {
     if (path === "/api/auth/me/") {
       return json(
-        { display_name: "Marie", club_role: "student", is_club_admin: false },
+        {
+          display_name: "Marie",
+          club_role: "student",
+          is_club_admin: false,
+          avatar: null,
+          team_seasons: [],
+        },
         200,
       );
     }
@@ -318,7 +330,13 @@ it("keeps a logout permission refusal visible", async () => {
   const fetchMock = vi.fn(async (path: string) => {
     if (path === "/api/auth/me/") {
       return json(
-        { display_name: "Marie", club_role: "student", is_club_admin: false },
+        {
+          display_name: "Marie",
+          club_role: "student",
+          is_club_admin: false,
+          avatar: null,
+          team_seasons: [],
+        },
         200,
       );
     }
