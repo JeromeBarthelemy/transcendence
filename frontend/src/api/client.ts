@@ -105,20 +105,36 @@ async function csrfToken(): Promise<string> {
   return token;
 }
 
-export async function post(
+async function send(
+  method: "POST" | "PATCH" | "DELETE",
   path: string,
-  body: object = {},
+  body?: object,
 ): Promise<ApiResponse> {
-  // Django rotates the CSRF token on login, so read the cookie for each POST.
+  // Django rotates the CSRF token on login, so read the cookie for each write.
   const token = await csrfToken();
   return request(path, {
-    method: "POST",
+    method,
     credentials: "same-origin",
     headers: {
       Accept: "application/json",
       "Content-Type": "application/json",
       "X-CSRFToken": token,
     },
-    body: JSON.stringify(body),
+    body: body === undefined ? undefined : JSON.stringify(body),
   });
+}
+
+export async function post(
+  path: string,
+  body: object = {},
+): Promise<ApiResponse> {
+  return send("POST", path, body);
+}
+
+export async function patch(path: string, body: object): Promise<ApiResponse> {
+  return send("PATCH", path, body);
+}
+
+export async function del(path: string): Promise<ApiResponse> {
+  return send("DELETE", path);
 }

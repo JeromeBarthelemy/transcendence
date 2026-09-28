@@ -63,6 +63,14 @@ export function AppLayout() {
               </span>
             ) : currentUser.data ? (
               <>
+                {currentUser.data.is_club_admin && (
+                  <Link
+                    to="/teams"
+                    className="rounded-full px-3 py-2 text-sm font-semibold text-[#041894] transition hover:bg-[#eaf5ff] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00c2d0]"
+                  >
+                    {t("nav.teams")}
+                  </Link>
+                )}
                 <span className="hidden text-sm text-[#506784] sm:inline">
                   {currentUser.data.display_name}
                 </span>

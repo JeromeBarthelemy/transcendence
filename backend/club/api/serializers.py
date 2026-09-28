@@ -255,6 +255,16 @@ class RenameTeamSerializer(serializers.Serializer[Team]):
     name = serializers.CharField(max_length=120)
 
 
+class UserSearchSerializer(serializers.Serializer[User]):
+    """The query string of the member list: `search` absent is the full list,
+    present — even blank — is the typeahead."""
+
+    search = serializers.CharField(required=False, allow_blank=True)
+    team_season = serializers.PrimaryKeyRelatedField(
+        queryset=TeamSeason.objects.all(), required=False
+    )
+
+
 class AddMembershipSerializer(serializers.Serializer[Membership]):
     """The database constraint (`unique_membership_per_team_season`) already
     refuses a duplicate — checked here first so a coded 400 is the answer,

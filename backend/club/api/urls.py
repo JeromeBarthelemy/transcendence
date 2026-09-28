@@ -17,8 +17,8 @@ from .views import (
     MeView,
     NoteCreateView,
     SignUpView,
-    TeamCreateView,
     TeamDetailView,
+    TeamListView,
     TickView,
     UserDetailView,
     UserListView,
@@ -40,7 +40,7 @@ urlpatterns = [
     path("users/<int:pk>/avatar/", MemberAvatarView.as_view(), name="member-avatar"),
     path("users/", UserListView.as_view(), name="user-list"),
     path("users/<int:pk>/", UserDetailView.as_view(), name="user-detail"),
-    path("teams/", TeamCreateView.as_view(), name="team-create"),
+    path("teams/", TeamListView.as_view(), name="team-list"),
     path("teams/<int:pk>/", TeamDetailView.as_view(), name="team-detail"),
     path("memberships/", MembershipCreateView.as_view(), name="membership-create"),
     path(

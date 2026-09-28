@@ -309,3 +309,111 @@ def test_removing_a_member_deletes_the_membership(client):
     client.delete(f"/api/memberships/{membership.id}/")
 
     assert not Membership.objects.filter(id=membership.id).exists()
+
+
+# --- listing teams, for the management screen ---
+
+
+def test_the_team_list_shows_the_current_seasons_teams_and_their_rosters(client):
+    client.force_login(admin())
+    season(2025, "Into the Deep")
+    current = team_season(12345, 2026, "BioBuzz")
+    Membership.objects.create(user=student("z@club.fr", "Zoé"), team_season=current)
+    Membership.objects.create(user=student("m@club.fr", "marie"), team_season=current)
+
+    body = client.get("/api/teams/").json()
+
+    assert body["season"] == {"start_year": 2026, "game_name": "BioBuzz"}
+    [listed] = body["teams"]
+    assert listed["number"] == 12345
+    assert listed["team_season"] == current.id
+    # Folded, so a lower-case name is not sorted after Z.
+    assert [member["display_name"] for member in listed["members"]] == [
+        "marie",
+        "Zoé",
+    ]
+
+
+def test_the_team_list_leaves_out_a_team_not_opened_this_season(client):
+    client.force_login(admin())
+    old = team_season(111, 2025, "Into the Deep")
+    TeamSeason.objects.create(team=team(222), season=season(2026, "BioBuzz"))
+
+    body = client.get("/api/teams/").json()
+
+    assert [listed["number"] for listed in body["teams"]] == [222]
+    assert old.team.number not in [listed["number"] for listed in body["teams"]]
+
+
+def test_the_team_list_with_no_season_is_empty(client):
+    client.force_login(admin())
+
+    assert client.get("/api/teams/").json() == {"season": None, "teams": []}
+
+
+def test_the_team_list_requires_a_club_admin(client):
+    client.force_login(student())
+
+    assert client.get("/api/teams/").status_code == 403
+
+
+# --- searching members to add ---
+
+
+def test_searching_users_ignores_case_and_accents_as_typed(client):
+    client.force_login(admin())
+    student("e@club.fr", "Élodie")
+    student("m@club.fr", "Marie")
+
+    body = client.get("/api/users/", {"search": "éLO"}).json()
+
+    assert [user["display_name"] for user in body] == ["Élodie"]
+    assert body[0]["club_role"] == "student"
+
+
+def test_searching_users_leaves_out_inactive_accounts(client):
+    client.force_login(admin())
+    gone = student("g@club.fr", "Gaston")
+    gone.is_active = False
+    gone.save()
+
+    assert client.get("/api/users/", {"search": "gas"}).json() == []
+
+
+def test_an_empty_search_lists_nobody(client):
+    client.force_login(admin())
+    student()
+
+    assert client.get("/api/users/", {"search": "  "}).json() == []
+
+
+def test_searching_users_requires_a_club_admin(client):
+    client.force_login(student())
+
+    assert client.get("/api/users/", {"search": "a"}).status_code == 403
+
+
+def test_searching_for_a_team_leaves_its_members_out_before_the_cap(client):
+    client.force_login(admin())
+    current = team_season()
+    for index in range(10):
+        member = student(f"a{index}@club.fr", f"Alex {index}")
+        Membership.objects.create(user=member, team_season=current)
+    outsider = student("z@club.fr", "Alex Z")
+
+    body = client.get(
+        "/api/users/", {"search": "alex", "team_season": current.id}
+    ).json()
+
+    assert [user["id"] for user in body] == [outsider.id]
+
+
+def test_without_a_search_the_user_list_is_still_every_account(client):
+    client.force_login(admin())
+    gone = student("g@club.fr", "Gaston")
+    gone.is_active = False
+    gone.save()
+
+    body = client.get("/api/users/").json()
+
+    assert gone.id in [user["id"] for user in body]
