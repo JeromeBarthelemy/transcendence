@@ -35,6 +35,22 @@ def no_at_sign(value: str) -> None:
         )
 
 
+# What `anonymize` (club/gdpr.py) renames an account to, followed by its id.
+ANONYMIZED_NAME = "Ancien membre"
+
+
+def not_an_anonymized_name(value: str) -> None:
+    """Names are unique: a member already called "Ancien membre 13" would
+    make the anonymization of account 13 fail, and with it an erasure the
+    club owes. Reserved as typed by hand — any case, accent or spacing —
+    which also makes the name a reliable mark of an anonymized account."""
+    if fold_title(value).startswith(fold_title(ANONYMIZED_NAME)):
+        raise ValidationError(
+            "Ce nom est réservé aux comptes des anciens membres.",
+            code="display_name_reserved",
+        )
+
+
 class UserManager(BaseUserManager["User"]):
     """Required by a custom user model; `createsuperuser` goes through it.
     The AssoConnect import never does: it verifies accounts, it never creates
@@ -106,7 +122,9 @@ class User(AbstractBaseUser, PermissionsMixin):
     # siblings share one mailbox — and never a key.
     contact_email = models.EmailField("adresse de contact", blank=True)
     display_name = models.CharField(
-        "nom d'affichage", max_length=80, validators=[no_at_sign]
+        "nom d'affichage",
+        max_length=80,
+        validators=[no_at_sign, not_an_anonymized_name],
     )
     # The name folded for comparison, because SQLite cannot fold it for us:
     # its lower() is ASCII-only, so Lower("display_name") leaves Élodie as

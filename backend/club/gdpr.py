@@ -16,7 +16,14 @@ from django.core.mail import EmailMessage, send_mail
 from django.db import transaction
 
 from .api.permissions import not_the_last_admin
-from .models import Consent, Membership, User, VerificationRequest, remove_after_commit
+from .models import (
+    ANONYMIZED_NAME,
+    Consent,
+    Membership,
+    User,
+    VerificationRequest,
+    remove_after_commit,
+)
 
 
 def _contact_email(user: User) -> str:
@@ -117,7 +124,7 @@ def anonymize(user: User) -> None:
     suspension, which is temporary, and this is not."""
     domain = settings.SIGNUP_RESERVED_EMAIL_DOMAIN
     previous_avatar = user.avatar.name
-    user.display_name = f"Ancien membre {user.pk}"
+    user.display_name = f"{ANONYMIZED_NAME} {user.pk}"
     user.email = f"ancien-membre-{user.pk}@{domain}"
     user.contact_email = ""
     user.birth_date = None

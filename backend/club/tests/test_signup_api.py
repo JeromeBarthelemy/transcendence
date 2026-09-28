@@ -122,6 +122,13 @@ def test_a_display_name_holding_an_at_sign_is_refused(client):
     assert response.json()["display_name"][0]["code"] == "display_name_has_at_sign"
 
 
+def test_a_display_name_anonymization_would_give_is_refused(client):
+    response = signup(client, display_name="Ancien membre 13")
+
+    assert response.status_code == 400
+    assert response.json()["display_name"][0]["code"] == "display_name_reserved"
+
+
 def test_nothing_is_left_behind_when_sign_up_is_refused(client):
     signup(client, password="1234")
 
