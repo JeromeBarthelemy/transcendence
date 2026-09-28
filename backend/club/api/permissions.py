@@ -80,6 +80,9 @@ def not_staff_target(request: Request, target: User) -> None:
             "Ce compte a un accès superutilisateur ; seul un accès "
             "équivalent peut le modifier.",
             code="cannot_target_superuser",
+        )
+
+
 def not_the_last_admin(user: User) -> None:
     """There is no password reset by email on this instance (README,
     "Sessions") — the club admin is the recovery path for everyone else.

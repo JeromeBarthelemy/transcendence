@@ -475,14 +475,6 @@ class AvatarSerializer(serializers.Serializer[User]):
         return instance
 
 
-def remove_after_commit(user: User, name: str | None) -> None:
-    """Only once the account no longer points at it: removed any earlier, a
-    failed save would leave the account with a photo that is gone."""
-    if name:
-        storage = user.avatar.storage
-        transaction.on_commit(lambda: storage.delete(name))
-
-
 class UserRoleSerializer(serializers.Serializer[User]):
     """What an admin manages about another account: making them a mentor,
     making them an administrator, and lifting or imposing a suspension.
