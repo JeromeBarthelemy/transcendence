@@ -6,6 +6,7 @@ import {
 } from "@tanstack/react-query";
 import { type FormEvent, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { Link } from "react-router-dom";
 
 import type { Identity, TeamSeasonSummary } from "../api/auth";
 import { createTeamNote, getWorkday, type Workday } from "../api/workdays";
@@ -90,47 +91,52 @@ function WorkItemCard({
     : null;
 
   return (
-    <article className="p-4 sm:p-5">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <h3 className="brand-title text-xl text-[#041894]">{item.title}</h3>
-        <span className="rounded-full bg-[#eaf5ff] px-3 py-1 text-xs font-semibold text-[#0078dd]">
-          {t(`teamHome.statuses.${item.status}`)}
-        </span>
-      </div>
+    <article>
+      <Link
+        to={`/work-items/${item.id}`}
+        className="block p-4 transition hover:bg-[#f8fbff] focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#00c2d0] sm:p-5"
+      >
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <h3 className="brand-title text-xl text-[#041894]">{item.title}</h3>
+          <span className="rounded-full bg-[#eaf5ff] px-3 py-1 text-xs font-semibold text-[#0078dd]">
+            {t(`teamHome.statuses.${item.status}`)}
+          </span>
+        </div>
 
-      {item.current_step && (
-        <p className="mt-3 text-sm font-semibold text-[#0078dd]">
-          {t(`teamHome.steps.${item.current_step}`)}
-        </p>
-      )}
-
-      {item.last_progress ? (
-        <p className="mt-2 text-sm text-[#506784]">
-          {t("teamHome.lastProgress", {
-            people: participants || t("teamHome.noParticipants"),
-            date: formatActivityDate(item.last_progress.day, currentWorkday),
-          })}
-        </p>
-      ) : (
-        <p className="mt-2 text-sm text-[#506784]">
-          {t("teamHome.notStarted")}
-        </p>
-      )}
-
-      {item.handover && (
-        <div className="mt-3 border-l-4 border-[#d59600] bg-[#fff7dc] py-2 pr-3 pl-3 text-[#634c12]">
-          <p className="text-xs font-bold tracking-[0.12em] uppercase">
-            {t("teamHome.handover")}
+        {item.current_step && (
+          <p className="mt-3 text-sm font-semibold text-[#0078dd]">
+            {t(`teamHome.steps.${item.current_step}`)}
           </p>
-          <p className="mt-2 text-sm leading-6">{item.handover.body}</p>
-          <p className="mt-2 text-xs text-[#7a6221]">
-            {t("teamHome.handoverMeta", {
-              author: item.handover.author,
-              date: formatActivityDate(item.handover.day, currentWorkday),
+        )}
+
+        {item.last_progress ? (
+          <p className="mt-2 text-sm text-[#506784]">
+            {t("teamHome.lastProgress", {
+              people: participants || t("teamHome.noParticipants"),
+              date: formatActivityDate(item.last_progress.day, currentWorkday),
             })}
           </p>
-        </div>
-      )}
+        ) : (
+          <p className="mt-2 text-sm text-[#506784]">
+            {t("teamHome.notStarted")}
+          </p>
+        )}
+
+        {item.handover && (
+          <div className="mt-3 border-l-4 border-[#d59600] bg-[#fff7dc] py-2 pr-3 pl-3 text-[#634c12]">
+            <p className="text-xs font-bold tracking-[0.12em] uppercase">
+              {t("teamHome.handover")}
+            </p>
+            <p className="mt-2 text-sm leading-6">{item.handover.body}</p>
+            <p className="mt-2 text-xs text-[#7a6221]">
+              {t("teamHome.handoverMeta", {
+                author: item.handover.author,
+                date: formatActivityDate(item.handover.day, currentWorkday),
+              })}
+            </p>
+          </div>
+        )}
+      </Link>
     </article>
   );
 }
@@ -222,7 +228,9 @@ function DayFooter({
     },
   });
   const dayNotes =
-    day.data?.entries.filter((entry) => entry.type === "note") ?? [];
+    day.data?.entries.filter(
+      (entry) => entry.type === "note" && entry.work_item === null,
+    ) ?? [];
 
   function submitNote(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();

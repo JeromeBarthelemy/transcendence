@@ -7,6 +7,12 @@ const memberSchema = z.object({
 });
 const entrySchema = z.object({
   id: z.number(),
+  work_item: z.nullable(
+    z.object({
+      id: z.number(),
+      title: z.string(),
+    }),
+  ),
   type: z.string(),
   body: z.string(),
   occurred_at: z.string(),
@@ -25,6 +31,12 @@ const workdaySchema = z.object({
 
 const noteSchema = z.object({
   id: z.number(),
+  work_item: z.nullable(
+    z.object({
+      id: z.number(),
+      title: z.string(),
+    }),
+  ),
   type: z.literal("note"),
   body: z.string(),
   occurred_at: z.string(),
