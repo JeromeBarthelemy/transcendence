@@ -31,7 +31,14 @@ from club.models import (
     remove_after_commit,
 )
 from club.progress import edit_progress, join, record_progress
-from club.workdays import attendance, day_entries, gaps, progress_of_the_day, workday
+from club.workdays import (
+    attendance,
+    day_entries,
+    gaps,
+    neighbours,
+    progress_of_the_day,
+    workday,
+)
 
 from .errors import Conflict
 from .permissions import (
@@ -391,6 +398,7 @@ def _work_item(item: WorkItem) -> dict[str, object]:
         "title": item.title,
         "on_robot": item.on_robot,
         "status": item.status,
+        "opened_at": item.opened_at,
         # The latest progress already carries it: read once, not twice.
         "current_step": latest.step if latest else None,
         "handover": {
@@ -431,6 +439,9 @@ class WorkItemListView(APIView):
 def _entry(entry: Entry) -> dict[str, object]:
     return {
         "id": entry.id,
+        "work_item": {"id": entry.work_item.id, "title": entry.work_item.title}
+        if entry.work_item
+        else None,
         "type": entry.type,
         "body": entry.body,
         "step": entry.step,
@@ -600,13 +611,18 @@ class DayView(APIView):
             serializer = DaySerializer(data={"day": day})
             serializer.is_valid(raise_exception=True)
             the_day = serializer.validated_data["day"]
-        entries = list(day_entries(team_season, the_day))
+        entries = list(
+            day_entries(team_season, the_day).select_related("author", "work_item")
+        )
         # The roster the attendance is counted against: students, as mentors
         # are never counted present.
         roster = team_season.memberships.filter(user__club_role=User.ClubRole.STUDENT)
+        previous, following = neighbours(team_season, the_day)
         return Response(
             {
                 "day": the_day,
+                "previous": previous,
+                "next": following,
                 "entries": [_entry(entry) for entry in entries],
                 "advanced_work_items": len(
                     {

@@ -646,3 +646,89 @@ def test_a_student_cannot_read_another_teams_day(client):
     response = client.get(f"/api/team-seasons/{rouages.id}/days/2026-09-09/")
 
     assert response.status_code == 403
+
+
+# --- what the screens show ---
+
+
+def day_of(client, team, day):
+    return client.get(f"/api/team-seasons/{team.id}/days/{day.isoformat()}/").json()
+
+
+def test_each_entry_of_a_day_names_its_work_item(client):
+    rouages = team_season()
+    lina = member_of(rouages)
+    progress = progress_on(rouages, WEDNESDAY, lina)
+    Entry.objects.create(
+        team_season=rouages,
+        author=lina,
+        type=Entry.Type.NOTE,
+        body="Foret de 4 cassé.",
+        occurred_at=datetime.combine(WEDNESDAY, time(16), tzinfo=PARIS),
+    )
+    client.force_login(lina)
+
+    entries = day_of(client, rouages, WEDNESDAY)["entries"]
+
+    assert [entry["work_item"] for entry in entries] == [
+        None,
+        {"id": progress.work_item_id, "title": "intake"},
+    ]
+
+
+def test_a_work_item_says_when_it_was_opened(client):
+    rouages = team_season()
+    client.force_login(member_of(rouages))
+    client.post(url(rouages), {"title": "intake", "on_robot": True})
+    client.post(url(rouages), {"title": "lanceur", "on_robot": True, "suggested": True})
+
+    listed = {item["title"]: item for item in client.get(url(rouages)).json()}
+
+    intake = WorkItem.objects.get(team_season=rouages, title="intake")
+    assert intake.opened_at is not None
+    assert listed["intake"]["opened_at"] == intake.opened_at.isoformat().replace(
+        "+00:00", "Z"
+    )
+    assert listed["lanceur"]["opened_at"] is None
+
+
+def test_a_day_points_to_the_last_and_next_days_the_team_left_a_trace(client):
+    rouages = team_season()
+    lina = member_of(rouages)
+    for day in (date(2026, 9, 4), WEDNESDAY, date(2026, 9, 16)):
+        progress_on(rouages, day, lina)
+    client.force_login(lina)
+
+    day = day_of(client, rouages, WEDNESDAY)
+
+    # Friday the 11th left nothing, so the next day is the Wednesday after.
+    assert (day["previous"], day["next"]) == ("2026-09-04", "2026-09-16")
+
+
+def test_a_trace_left_after_midnight_belongs_to_the_day_before(client):
+    rouages = team_season()
+    lina = member_of(rouages)
+    progress_on(rouages, WEDNESDAY, lina)
+    Entry.objects.create(
+        team_season=rouages,
+        author=lina,
+        type=Entry.Type.NOTE,
+        occurred_at=datetime(2026, 9, 12, 1, 0, tzinfo=PARIS),
+    )
+    client.force_login(lina)
+
+    assert day_of(client, rouages, WEDNESDAY)["next"] == "2026-09-11"
+
+
+def test_a_day_with_no_trace_before_or_after_points_nowhere(client):
+    rouages = team_season(12345)
+    lina = member_of(rouages)
+    progress_on(rouages, WEDNESDAY, lina)
+    court_circuit = team_season(67890)
+    progress_on(court_circuit, date(2026, 9, 4), member_of(court_circuit, "hugo"))
+    client.force_login(lina)
+
+    day = day_of(client, rouages, WEDNESDAY)
+
+    # Another team's Friday is not this team's.
+    assert (day["previous"], day["next"]) == (None, None)
