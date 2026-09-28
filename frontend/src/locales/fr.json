@@ -51,6 +51,14 @@
     "lastProgress": "{{people}} · {{date}}",
     "handover": "À reprendre",
     "handoverMeta": "{{author}} · {{date}}",
+    "exportNotebook": "Exporter le cahier",
+    "exportCategory": "Partie du cahier",
+    "exportWholeSeason": "Toute la saison",
+    "exportCategories": {
+      "robot": "Construction du robot",
+      "outreach": "Outreach",
+      "team-life": "Vie de l'équipe"
+    },
     "noTeamTitle": "Vous n'avez pas encore d'équipe.",
     "noTeamDescription": "Un mentor vous affectera à une équipe. Ses chantiers apparaîtront ensuite ici.",
     "statuses": {

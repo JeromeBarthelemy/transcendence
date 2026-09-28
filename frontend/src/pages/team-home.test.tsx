@@ -363,3 +363,49 @@ it("summarizes today and saves a team note", async () => {
     body: "Foret de 4 cassé.",
   });
 });
+
+function teamWithoutWorkItems(path: string): Response {
+  if (path === "/api/auth/me/") {
+    return json(identity([teamSeason(7, 1796, "Les Rouages")]));
+  }
+  if (path === "/api/team-seasons/7/work-items/") {
+    return json([]);
+  }
+  if (path.startsWith("/api/team-seasons/7/days/")) {
+    return workday(path);
+  }
+  throw new Error(`Unexpected request: ${path}`);
+}
+
+it("offers the team's whole season as a notebook export", async () => {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (path: string) => teamWithoutWorkItems(path)),
+  );
+  renderHome();
+
+  const link = await screen.findByRole("link", { name: "Exporter le cahier" });
+  expect(link.getAttribute("href")).toBe(
+    "/api/team-seasons/7/export/?format=markdown",
+  );
+  expect(link.hasAttribute("download")).toBe(true);
+});
+
+it("narrows the notebook export to the chosen category", async () => {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (path: string) => teamWithoutWorkItems(path)),
+  );
+  renderHome();
+
+  await userEvent.selectOptions(
+    await screen.findByRole("combobox", { name: "Partie du cahier" }),
+    "Vie de l'équipe",
+  );
+
+  expect(
+    screen
+      .getByRole("link", { name: "Exporter le cahier" })
+      .getAttribute("href"),
+  ).toBe("/api/team-seasons/7/export/?format=markdown&category=team-life");
+});

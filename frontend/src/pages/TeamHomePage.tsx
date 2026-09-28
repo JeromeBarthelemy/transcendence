@@ -367,6 +367,46 @@ function DayFooter({
   );
 }
 
+const EXPORT_CATEGORIES = ["robot", "outreach", "team-life"] as const;
+
+function NotebookExport({ teamSeasonId }: { teamSeasonId: number }) {
+  const { t } = useTranslation();
+  const [category, setCategory] = useState("");
+  // A plain link: the session cookie goes with it, and the response names
+  // the file. Every team shown here is one the export lets this user read.
+  const query = new URLSearchParams({ format: "markdown" });
+  if (category) {
+    query.set("category", category);
+  }
+
+  return (
+    <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-end">
+      <label className="text-sm font-semibold text-[#041894]">
+        {t("teamHome.exportCategory")}
+        <select
+          className="mt-2 block w-full rounded-xl border border-[#004fc5]/20 bg-white px-3 py-2 font-normal sm:w-auto"
+          value={category}
+          onChange={(event) => setCategory(event.target.value)}
+        >
+          <option value="">{t("teamHome.exportWholeSeason")}</option>
+          {EXPORT_CATEGORIES.map((key) => (
+            <option key={key} value={key}>
+              {t(`teamHome.exportCategories.${key}`)}
+            </option>
+          ))}
+        </select>
+      </label>
+      <a
+        className="rounded-xl bg-[#004fc5] px-4 py-2 text-center text-sm font-semibold text-white"
+        href={`/api/team-seasons/${teamSeasonId}/export/?${query}`}
+        download
+      >
+        {t("teamHome.exportNotebook")}
+      </a>
+    </div>
+  );
+}
+
 function teamLabel(teamSeason: TeamSeasonSummary) {
   return `${teamSeason.team.number} · ${teamSeason.team.name}`;
 }
@@ -462,6 +502,8 @@ export function TeamHomePage({ identity }: { identity: Identity }) {
           </label>
         )}
       </div>
+
+      <NotebookExport teamSeasonId={selectedTeamSeason.id} />
 
       {workItems.isPending ? (
         <p role="status" className="mt-10 text-sm text-[#506784]">
