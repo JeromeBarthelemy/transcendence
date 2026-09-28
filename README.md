@@ -312,7 +312,10 @@ or deactivating yourself, has no recovery path but another admin, and on a
 single-admin club there may not be one. Nor a staff account, unless the
 caller is staff too (`cannot_target_staff`) — staff is what resets a
 forgotten password from the Django admin, and a non-staff admin locking that
-out would leave the club with no recovery path but `manage.py`.
+out would leave the club with no recovery path but `manage.py`. Nor a
+superuser, unless the caller is one too (`cannot_target_superuser`) — a
+second, stricter boundary layered on top of the staff one, since `is_staff`
+alone says nothing about `is_superuser`.
 
 `PATCH` refuses a `club_role`/`is_club_admin` combination that would leave an
 administrator who is not a mentor (`admin_must_be_mentor`) — checked against
@@ -326,6 +329,7 @@ progress, participations — stay attributed after they leave (`club/models.py`,
 `User`), and a literal delete would either orphan them or be refused outright
 by the `PROTECT` relationships that hold them. `is_active=False` is the same
 state AssoConnect verification already uses for someone who has left.
+
 ### Data export and deletion
 
 | route | answers |
