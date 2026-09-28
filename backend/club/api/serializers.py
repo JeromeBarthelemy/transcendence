@@ -36,6 +36,7 @@ from club.models import (
     WorkItem,
     fold_title,
     no_at_sign,
+    not_an_anonymized_name,
     remove_after_commit,
 )
 from club.signup import reserved_email
@@ -62,7 +63,9 @@ class SignUpSerializer(serializers.Serializer[User]):
     # empty string is how it says "I have no address".
     email = serializers.EmailField(required=False, allow_blank=True)
     password = serializers.CharField(write_only=True, style={"input_type": "password"})
-    display_name = serializers.CharField(max_length=80, validators=[no_at_sign])
+    display_name = serializers.CharField(
+        max_length=80, validators=[no_at_sign, not_an_anonymized_name]
+    )
     # Not a field: nobody declares their own role. Sign-up is open to whoever
     # has the address, so a role declared here would be a role granted by
     # asking for it — and #52 is about to build permissions on top of it. The

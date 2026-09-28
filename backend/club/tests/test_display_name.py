@@ -68,3 +68,26 @@ def test_an_accented_name_is_taken_whatever_case_is_typed():
 
     with pytest.raises(IntegrityError):
         User.objects.create_user("elodie.g@club.fr", "élodie")
+
+
+@pytest.mark.parametrize(
+    "name", ["Ancien membre 13", "ANCIEN MEMBRE", "ancien  membre 7", "Ancien mèmbre 2"]
+)
+def test_the_names_anonymization_gives_are_reserved(name):
+    # `anonymize` renames an account "Ancien membre {pk}" and names are
+    # unique: a member already holding that name would make the erasure fail.
+    impostor = User(email="lina@club.fr", display_name=name)
+    impostor.set_unusable_password()
+
+    with pytest.raises(ValidationError) as excinfo:
+        impostor.full_clean()
+
+    codes = [error.code for error in excinfo.value.error_dict["display_name"]]
+    assert codes == ["display_name_reserved"]
+
+
+def test_a_name_that_only_starts_like_the_reserved_one_is_allowed():
+    member = User(email="lina@club.fr", display_name="Ancienne élève")
+    member.set_unusable_password()
+
+    member.full_clean()

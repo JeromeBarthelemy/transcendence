@@ -170,6 +170,7 @@
     "email_taken": "Cette adresse est déjà utilisée.",
     "display_name_taken": "Ce nom d'affichage est déjà pris. Ajoutez une initiale, par exemple « Marie D. ».",
     "display_name_has_at_sign": "Un nom d'affichage ne peut pas contenir « @ ».",
+    "display_name_reserved": "Ce nom est réservé aux comptes des anciens membres.",
     "bad_credentials": "Identifiant ou mot de passe incorrect.",
     "password_too_short": "Ce mot de passe est trop court. Il doit contenir au minimum 8 caractères.",
     "password_too_common": "Ce mot de passe est trop courant.",

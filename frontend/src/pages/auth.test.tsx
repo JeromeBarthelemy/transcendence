@@ -168,6 +168,30 @@ it("shows a backend email refusal under the email field", async () => {
   ).toBe("true");
 });
 
+it("explains in French that the names of former members are reserved", async () => {
+  const fetchMock = vi.fn(async (path: string) => {
+    if (path === "/api/auth/me/") {
+      setDocumentCookie("csrftoken=first-token; path=/");
+      return json({ detail: issue("not_authenticated") }, 403);
+    }
+    if (path === "/api/auth/signup/") {
+      return json({ display_name: [issue("display_name_reserved")] }, 400);
+    }
+    throw new Error(`Unexpected request: ${path}`);
+  });
+  vi.stubGlobal("fetch", fetchMock);
+  renderAt("/signup");
+
+  const user = await fillSignup();
+  await user.click(screen.getByRole("button", { name: "Créer mon compte" }));
+
+  expect(
+    await screen.findByText(
+      "Ce nom est réservé aux comptes des anciens membres.",
+    ),
+  ).toBeTruthy();
+});
+
 it("shows an unknown error when a refusal has no API body", async () => {
   const fetchMock = vi.fn(async (path: string) => {
     if (path === "/api/auth/me/") {
