@@ -305,7 +305,7 @@ anyone else gets a `403` with the code `not_a_member`.
 | `PATCH /api/work-items/{id}/` | close it, `done` or `dropped`; working on it again reopens it |
 | `POST /api/work-items/{id}/tick/` | sign up to today's progress, created by the first to tick |
 | `PATCH /api/entries/{id}/` | write a progress — sentence, step, handover — for its participants and mentors |
-| `POST /api/entries/{id}/attachments/` | attach a file to any of the team's entries, as `multipart/form-data` fields `file` and `people_recognisable` |
+| `POST /api/entries/{id}/attachments/` | attach a file to any of the team's entries, as `multipart/form-data` fields `file` and `people_recognisable`, the latter always answered: left out, it is `required`, never read as no |
 | `GET /api/attachments/{id}/` | the file, to the team and mentors |
 | `DELETE /api/attachments/{id}/` | remove it — whoever attached it, or a mentor; anyone else gets `delete_not_uploader` |
 | `POST /api/team-seasons/{id}/notes/` | a note for the team, or addressed to one of its work items |
@@ -323,6 +323,19 @@ the season's entries by category — building the robot (work items on the
 robot), outreach (off the robot), team life (no work item) — each work item
 as a chapter, oldest first, every entry with its date, step and participants.
 A work item nobody worked on has nothing to give and is left out.
+
+Attached files travel in the archive, not as links: under `fichiers/`, each
+named by its id and its original name, and every entry lists its own as
+relative links. The archive is written to a temporary file and streamed, so
+a season of videos never has to fit in memory. At its root, `A-LIRE.md`
+says the notebook is an internal working document, lists the refusals of
+image rights in force among the team's members — "aucun" most of the time —
+and the files to check before any publication: those with people on them,
+in a team where a refusal is in force today. The Django admin filters the
+attachments on the same rule, under "Refus dans l'équipe": a list to read
+before publishing, not one to empty. A mentor corrects a wrong answer on
+recognisable people there, but never clears it because the member who
+refuses is not on the photo: someone else on it may refuse later.
 
 The members a route lists — a progress's participants, who was there on a
 day — each come as `{"display_name", "avatar"}`, so the interface can put a

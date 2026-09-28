@@ -19,6 +19,7 @@ from django.utils import timezone
 from PIL import ImageOps
 from rest_framework import serializers
 from rest_framework.exceptions import ErrorDetail
+from rest_framework.fields import empty
 from rest_framework.settings import api_settings
 
 from club import attachments, images
@@ -380,9 +381,17 @@ class ExportSerializer(serializers.Serializer[None]):
         return value
 
 
+class AnswerField(serializers.BooleanField):
+    """A yes or no that must be given: a form leaves an unticked box out, so
+    DRF reads a missing boolean as False, and a forgotten answer would pass
+    for "no"."""
+
+    default_empty_html = empty
+
+
 class AttachmentSerializer(serializers.Serializer[Attachment]):
     file = serializers.FileField()
-    people_recognisable = serializers.BooleanField(default=False)
+    people_recognisable = AnswerField()
 
     def validate_file(self, value: UploadedFile) -> attachments.Checked:
         return attachments.check(value)

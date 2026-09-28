@@ -1,10 +1,12 @@
 """The club's HTTP surface. One instance serves one club, so there is no
 tenant to resolve: every route below is about the person calling it."""
 
+import tempfile
+
 from django.contrib.auth import login, logout
 from django.db import transaction
 from django.db.models import ProtectedError
-from django.http import FileResponse, Http404, HttpResponse
+from django.http import FileResponse, Http404
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from django.utils.decorators import method_decorator
@@ -513,7 +515,7 @@ class GapsView(APIView):
 
 
 class ExportView(APIView):
-    def get(self, request: Request, team_season_id: int) -> HttpResponse:
+    def get(self, request: Request, team_season_id: int) -> FileResponse:
         user = request.user
         assert isinstance(user, User)
         team_season = team_season_acted_on(user, team_season_id)
@@ -524,8 +526,11 @@ class ExportView(APIView):
         query = serializer.validated_data
         notebook = gather(team_season, query.get("category"), query.get("work_item"))
         name = f"cahier-{team_season.team.number}-{team_season.season.start_year}.zip"
-        return HttpResponse(
-            to_markdown_zip(notebook),
-            content_type="application/zip",
-            headers={"Content-Disposition": f'attachment; filename="{name}"'},
+        # No `with`: the response closes it once sent, and the system then
+        # removes it.
+        archive = tempfile.TemporaryFile()  # noqa: SIM115
+        to_markdown_zip(notebook, archive)
+        archive.seek(0)
+        return FileResponse(
+            archive, as_attachment=True, filename=name, content_type="application/zip"
         )
