@@ -16,13 +16,16 @@ from django.core.files.base import ContentFile
 from django.core.files.uploadedfile import UploadedFile
 from django.db import IntegrityError, transaction
 from django.utils import timezone
-from PIL import Image, ImageOps
+from PIL import ImageOps
 from rest_framework import serializers
 from rest_framework.exceptions import ErrorDetail
+from rest_framework.fields import empty
 from rest_framework.settings import api_settings
 
+from club import attachments, images
 from club.export import CATEGORY_KEYS
 from club.models import (
+    Attachment,
     Entry,
     Membership,
     Season,
@@ -33,6 +36,7 @@ from club.models import (
     WorkItem,
     fold_title,
     no_at_sign,
+    remove_after_commit,
 )
 from club.signup import reserved_email
 
@@ -185,6 +189,20 @@ class LoginSerializer(serializers.Serializer[dict[str, Any]]):
             )
         attrs["user"] = user
         return attrs
+
+
+class DeleteAccountSerializer(serializers.Serializer[None]):
+    """Just enough to read `password` out of `request.data` typed — the
+    check against the account itself lives in `club/gdpr.py`'s
+    `request_deletion`, the same place the rest of what deletion refuses
+    for (no contact address, the last admin) already lives. Not required:
+    a missing password is refused the same `wrong_password` way a wrong
+    one is, rather than DRF's own, differently-shaped "this field is
+    required"."""
+
+    password = serializers.CharField(
+        required=False, default="", write_only=True, style={"input_type": "password"}
+    )
 
 
 class CreateTeamSerializer(serializers.Serializer[Team]):
@@ -378,6 +396,33 @@ class ExportSerializer(serializers.Serializer[None]):
         return value
 
 
+class AnswerField(serializers.BooleanField):
+    """A yes or no that must be given: a form leaves an unticked box out, so
+    DRF reads a missing boolean as False, and a forgotten answer would pass
+    for "no"."""
+
+    default_empty_html = empty
+
+
+class AttachmentSerializer(serializers.Serializer[Attachment]):
+    file = serializers.FileField()
+    people_recognisable = AnswerField()
+
+    def validate_file(self, value: UploadedFile) -> attachments.Checked:
+        return attachments.check(value)
+
+    def create(self, validated_data: dict[str, Any]) -> Attachment:
+        checked = validated_data["file"]
+        return Attachment.objects.create(
+            entry=self.context["entry"],
+            uploaded_by=self.context["user"],
+            file=checked.file,
+            name=checked.name,
+            content_type=checked.content_type,
+            people_recognisable=validated_data["people_recognisable"],
+        )
+
+
 class AvatarSerializer(serializers.Serializer[User]):
     """Trusts neither the file's extension nor the type the browser announces,
     only what Pillow reads in it. What is stored is always re-encoded: upright,
@@ -385,7 +430,8 @@ class AvatarSerializer(serializers.Serializer[User]):
     phone photo includes where it was taken."""
 
     MAX_BYTES = 10 * 1024 * 1024
-    FORMATS = {"JPEG", "PNG", "WEBP"}
+    # HEIF is how iPhones take their photos.
+    FORMATS = {"JPEG", "PNG", "WEBP", "HEIF"}
     SIDE = 512
 
     avatar = serializers.FileField()
@@ -399,28 +445,20 @@ class AvatarSerializer(serializers.Serializer[User]):
             raise serializers.ValidationError(
                 "Cette photo dépasse 10 Mo.", code="avatar_too_large"
             )
-        too_many_pixels = serializers.ValidationError(
-            "Cette photo compte trop de pixels.", code="avatar_too_many_pixels"
-        )
         try:
-            image = Image.open(value)
-            # Pillow only warns between its threshold and twice it, and would
-            # decode such a file whole: a few hundred kilobytes can take
-            # hundreds of megabytes in the one process serving the club. None
-            # would switch the guard off, which nothing here does.
-            assert Image.MAX_IMAGE_PIXELS is not None
-            if image.width * image.height > Image.MAX_IMAGE_PIXELS:
-                raise too_many_pixels
-            image.load()
-        except Image.DecompressionBombError:
-            raise too_many_pixels from None
-        except OSError:
+            image = images.decode(value)
+        except images.TooManyPixels:
+            raise serializers.ValidationError(
+                "Cette photo compte trop de pixels.", code="avatar_too_many_pixels"
+            ) from None
+        except images.Unreadable:
             raise serializers.ValidationError(
                 "Ce fichier n'est pas une image.", code="avatar_not_an_image"
             ) from None
         if image.format not in self.FORMATS:
             raise serializers.ValidationError(
-                "Formats acceptés : JPEG, PNG ou WebP.", code="avatar_format_refused"
+                "Formats acceptés : JPEG, PNG, WebP ou HEIC.",
+                code="avatar_format_refused",
             )
         upright = ImageOps.exif_transpose(image).convert("RGBA")
         upright.thumbnail((self.SIDE, self.SIDE))

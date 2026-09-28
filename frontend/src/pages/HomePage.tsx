@@ -1,47 +1,82 @@
-import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
+import { Link } from "react-router-dom";
 
-import { getHealth } from "../api/health";
+import { useCurrentUser } from "../app/useCurrentUser";
+import { RequestError } from "../components/ApiErrors";
+import { TeamHomePage } from "./TeamHomePage";
 
 export function HomePage() {
   const { t } = useTranslation();
-  const health = useQuery({
-    queryKey: ["api", "health"],
-    queryFn: getHealth,
-  });
+  const currentUser = useCurrentUser();
 
-  const apiStatus = health.isSuccess
-    ? t("api.connected")
-    : health.isError
-      ? t("api.unavailable")
-      : t("api.checking");
+  if (currentUser.data) {
+    return <TeamHomePage identity={currentUser.data} />;
+  }
 
   return (
-    <main className="grid min-h-screen place-items-center px-6 py-12">
-      <section className="w-full max-w-3xl" aria-labelledby="page-title">
-        <p className="mb-3 text-xs font-bold tracking-[0.18em] text-amber-800 uppercase">
-          {t("app.eyebrow")}
+    <main className="mx-auto grid w-full max-w-6xl flex-1 items-center gap-12 px-5 py-14 sm:px-8 lg:grid-cols-[1.15fr_0.85fr] lg:gap-20 lg:py-20">
+      <section aria-labelledby="home-title">
+        <p className="mb-5 inline-flex items-center gap-2 rounded-full border border-[#009edf]/20 bg-[#eaf8ff] px-4 py-2 text-xs font-bold tracking-[0.14em] text-[#0078dd] uppercase">
+          <span
+            aria-hidden="true"
+            className="size-2 rounded-full bg-[#00c2d0]"
+          />
+          {t("home.eyebrow")}
         </p>
         <h1
-          id="page-title"
-          className="font-serif text-6xl leading-none tracking-[-0.055em] text-green-900 sm:text-8xl"
+          id="home-title"
+          className="brand-title max-w-3xl text-[clamp(3.25rem,7vw,6.5rem)] leading-[0.98] tracking-[-0.055em] text-[#041894]"
         >
-          {t("app.name")}
+          {t("home.title")}
         </h1>
-        <p className="mt-6 max-w-xl text-lg leading-8 text-stone-600">
-          {t("app.description")}
+        <p className="mt-7 max-w-xl text-lg leading-8 text-[#506784]">
+          {t("home.description")}
         </p>
-        <p className="mt-10 w-fit rounded-full border border-stone-300 bg-white/60 px-4 py-2 text-sm text-stone-700">
-          {t("app.ready")}
-        </p>
-        <p
-          className="mt-3 text-sm text-stone-600"
-          role="status"
-          aria-live="polite"
-        >
-          {apiStatus}
-        </p>
+
+        {currentUser.isPending ? (
+          <p role="status" className="mt-9 text-sm text-[#506784]">
+            {t("auth.checkingSession")}
+          </p>
+        ) : (
+          <div className="mt-9 flex flex-wrap items-center gap-3">
+            <Link
+              to="/signup"
+              className="rounded-full bg-[#004fc5] px-6 py-3 text-sm font-bold text-white shadow-[0_8px_22px_#004fc530] transition hover:bg-[#0078dd] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00c2d0]"
+            >
+              {t("home.createAccount")}
+            </Link>
+            <Link
+              to="/login"
+              className="rounded-full border border-[#004fc5]/25 px-6 py-3 text-sm font-bold text-[#041894] transition hover:bg-[#eaf5ff] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00c2d0]"
+            >
+              {t("home.alreadyMember")}
+            </Link>
+          </div>
+        )}
+        {currentUser.isError && <RequestError error={currentUser.error} />}
       </section>
+
+      <aside className="relative overflow-hidden rounded-[2rem] bg-[linear-gradient(145deg,#041894_0%,#004fc5_45%,#009edf_100%)] p-8 text-white shadow-[0_22px_70px_#004fc528] sm:p-10">
+        <div
+          aria-hidden="true"
+          className="absolute -top-20 -right-20 size-64 rounded-full border border-white/20"
+        />
+        <div
+          aria-hidden="true"
+          className="absolute -top-8 -right-8 size-64 rounded-full border border-white/10"
+        />
+        <p className="relative text-xs font-bold tracking-[0.22em] text-[#a8f4e7] uppercase">
+          {t("home.panelEyebrow")}
+        </p>
+        <h2 className="brand-title relative mt-16 max-w-sm text-4xl leading-tight tracking-[-0.035em] sm:text-5xl">
+          {t("home.panelTitle")}
+        </h2>
+        <div className="relative mt-10 border-t border-white/20 pt-6">
+          <p className="max-w-sm text-sm leading-7 text-[#d9f7ff]">
+            {t("home.panelDescription")}
+          </p>
+        </div>
+      </aside>
     </main>
   );
 }

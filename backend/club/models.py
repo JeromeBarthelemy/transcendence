@@ -16,7 +16,9 @@ from django.contrib.auth.models import (
 )
 from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator
-from django.db import models
+from django.db import models, transaction
+from django.db.models.signals import post_delete
+from django.dispatch import receiver
 from django.utils import timezone
 
 
@@ -86,8 +88,11 @@ class UserManager(BaseUserManager["User"]):
 
 
 class User(AbstractBaseUser, PermissionsMixin):
-    """An active account is club membership. Parents have no account; a member
-    who leaves keeps theirs, deactivated, so their traces stay attributed."""
+    """An active account is club membership. Parents have no account.
+    Suspended (`is_active=False`) is temporary; a member who asks to leave
+    for good is anonymized instead (`club/gdpr.py`, `anonymize`) — the row
+    stays, so what they wrote stays attributed, but nothing else about who
+    they were does."""
 
     class ClubRole(models.TextChoices):
         STUDENT = "student", "élève"
@@ -199,6 +204,16 @@ class User(AbstractBaseUser, PermissionsMixin):
         )
         age = day.year - self.birth_date.year - (0 if birthday_passed else 1)
         return age < 18
+
+
+def remove_after_commit(user: User, name: str | None) -> None:
+    """Only once the account no longer points at it: removed any earlier, a
+    failed save would leave the account with a photo that is gone. Shared
+    by the avatar API and account anonymization (`club/gdpr.py`) — both
+    replace or clear `avatar` and need the old file gone the same way."""
+    if name:
+        storage = user.avatar.storage
+        transaction.on_commit(lambda: storage.delete(name))
 
 
 class VerificationRequest(models.Model):
@@ -528,6 +543,73 @@ class EntryParticipant(models.Model):
 
     def __str__(self) -> str:
         return f"{self.user} ({self.entry})"
+
+
+class AttachmentQuerySet(models.QuerySet["Attachment"]):
+    def to_check(self) -> "AttachmentQuerySet":
+        """Files with people on them, in a team where a member's refusal is in
+        force now: a later refusal stops use from its date and a later grant
+        reopens it, whatever the date of the photo. Nobody outside the team is
+        tracked — the tool flags, it does not police."""
+        refusing = [decision.user_id for decision in Consent.objects.refusals()]
+        return self.filter(
+            people_recognisable=True,
+            entry__team_season__memberships__user__in=refusing,
+        ).distinct()
+
+
+class Attachment(models.Model):
+    """A file kept with an entry: a photo of the prototype, a plan, a video
+    of a test run. Anyone on the team adds one to any of its entries; only
+    whoever added it, or a mentor, takes it away."""
+
+    entry = models.ForeignKey(
+        Entry, on_delete=models.CASCADE, related_name="attachments"
+    )
+    # PROTECT, not CASCADE: an anonymized member's files stay in the team's
+    # notebook, attributed to "Ancien membre" like the rest of what they
+    # wrote (club/gdpr.py, `anonymize`) — deletion removes the identity,
+    # never the history.
+    uploaded_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="+",
+        verbose_name="déposé par",
+    )
+    # Stored under a random name; the one it was sent with is kept apart.
+    file = models.FileField("fichier", upload_to="attachments/")
+    name = models.CharField("nom", max_length=255)
+    # Read from the file's content when it was accepted, never from its name.
+    content_type = models.CharField("type", max_length=50)
+    people_recognisable = models.BooleanField(
+        "personnes reconnaissables",
+        default=False,
+        help_text="Au moins une personne, quelle qu'elle soit, est reconnaissable "
+        "sur le fichier. Ne décocher que si personne ne l'est, pas seulement "
+        "parce que celle qui refuse n'y figure pas.",
+    )
+    uploaded_at = models.DateTimeField("déposé le", auto_now_add=True)
+
+    objects = AttachmentQuerySet.as_manager()
+
+    class Meta:
+        ordering = ["uploaded_at", "id"]
+        verbose_name = "pièce jointe"
+        verbose_name_plural = "pièces jointes"
+
+    def __str__(self) -> str:
+        return self.name
+
+
+@receiver(post_delete, sender=Attachment)
+def remove_attachment_file(instance: Attachment, **kwargs: Any) -> None:
+    """A signal rather than delete(), which an entry's deletion never calls
+    on its attachments. After the commit: removed any earlier, a rollback
+    would leave a row pointing at a file that is gone."""
+    storage, name = instance.file.storage, instance.file.name
+    # Always set on a saved attachment; the type allows None for a new field.
+    assert name is not None
+    transaction.on_commit(lambda: storage.delete(name))
 
 
 class ConsentQuerySet(models.QuerySet["Consent"]):

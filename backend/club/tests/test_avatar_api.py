@@ -101,6 +101,18 @@ def test_an_avatar_is_stored_without_the_metadata_of_the_photo(client):
     assert not stored(lina).getexif()
 
 
+def test_an_iphone_photo_in_heic_is_accepted_as_an_avatar(client):
+    lina = member()
+    client.force_login(lina)
+    buffer = BytesIO()
+    Image.new("RGB", (1024, 768), "teal").save(buffer, "HEIF")
+
+    response = upload(client, SimpleUploadedFile("IMG_0042.HEIC", buffer.getvalue()))
+
+    assert response.status_code == 200
+    assert stored(lina).format == "WEBP"
+
+
 def test_an_anonymous_caller_cannot_upload_an_avatar(client):
     assert upload(client, photo()).status_code == 403
 

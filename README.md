@@ -47,10 +47,9 @@ The frontend foundation installed by the initial skeleton is:
   system module will still require at least ten reusable components built on
   top of it.
 
-Feature-specific tools will be added only with the feature that first uses
-them: **React Hook Form and Zod** for forms and runtime validation, **Vitest
-and React Testing Library** for automated frontend tests, and
-**vite-plugin-pwa/Workbox and IndexedDB** for the PWA and durable offline
+**React Hook Form and Zod** validate the account forms in the browser, while
+**Vitest and React Testing Library** exercise their user flows. The PWA will
+add **vite-plugin-pwa/Workbox and IndexedDB** when it needs durable offline
 support. IndexedDB will store pending scouting operations; TanStack Query's
 cache alone is not durable offline storage.
 
@@ -116,10 +115,9 @@ cp backend/.env.example backend/.env
 docker compose up --build
 ```
 
-Open <http://localhost:5173/>. The landing page reports `API Django connectée`
-when React has reached `GET /api/health/` through TanStack Query and Vite's
-development proxy. The Django admin remains available at
-<http://localhost:8000/admin/>.
+Open <http://localhost:5173/> for the landing, sign-up and log-in pages. Vite
+proxies `/api` to Django, so the browser keeps one origin for session and CSRF
+cookies. The Django admin remains available at <http://localhost:8000/admin/>.
 
 This Compose stack is for development and proves the frontend/backend
 integration. The final deployment will build static frontend assets and put
@@ -161,9 +159,10 @@ intentionally adding or updating a dependency.
 ### Frontend
 
 With the frontend development server running, open <http://localhost:5173/>.
-The current landing page proves that React, routing, the French catalogue and
-Tailwind are wired together. With Django running on port 8000, it also displays
-the API connection status obtained from `GET /api/health/`.
+From the landing page, create an account, keep the returned identifier, then
+sign in with that identifier or the display name. Refresh the page to verify
+the session persists, and use the header to sign out. Leaving the email blank
+at sign-up shows the generated `.invalid` identifier on the success screen.
 
 To verify the production build locally:
 
@@ -172,8 +171,9 @@ npm --prefix frontend run build
 npm --prefix frontend run preview
 ```
 
-Open the URL printed by Vite, normally <http://localhost:4173/>. The production
-preview should display the same landing page as the development server.
+Open the URL printed by Vite, normally <http://localhost:4173/>, to inspect
+the built pages. Account actions need the development server's `/api` proxy or
+the final deployment's reverse proxy.
 
 ### Backend
 
@@ -218,7 +218,7 @@ meant for the club's own instance. To start over, delete
 
 ## Accounts and sessions
 
-No page yet — that is issue #40.
+The frontend uses these four routes from `/`, `/signup` and `/login`:
 
 | route | answers |
 | --- | --- |
@@ -239,9 +239,9 @@ draw, not what the account holds.
 ### Avatars
 
 The server trusts neither a file's extension nor the type the browser
-announces: it takes JPEG, PNG or WebP up to 10 MB and about 89 million
-pixels (Pillow's own decompression-bomb threshold), as Pillow reads them, and
-refuses anything else with `avatar_too_large`, `avatar_too_many_pixels`,
+announces: it takes JPEG, PNG, WebP or an iPhone's HEIC up to 10 MB and about
+89 million pixels (Pillow's own decompression-bomb threshold), as Pillow reads
+them, and refuses anything else with `avatar_too_large`, `avatar_too_many_pixels`,
 `avatar_not_an_image` or `avatar_format_refused`. What it stores is never the
 file sent but a WebP re-encoded from it — upright, at most 512 pixels a side,
 under a random name, and without the photo's metadata, which on a phone
@@ -326,6 +326,43 @@ progress, participations — stay attributed after they leave (`club/models.py`,
 `User`), and a literal delete would either orphan them or be refused outright
 by the `PROTECT` relationships that hold them. `is_active=False` is the same
 state AssoConnect verification already uses for someone who has left.
+### Data export and deletion
+
+| route | answers |
+| --- | --- |
+| `POST /api/auth/me/export/` | `202` — a JSON copy of the account, plus the avatar, by e-mail |
+| `DELETE /api/auth/me/` | `204` — `password` confirms it; anonymizes the account, confirmed by e-mail |
+
+Neither goes to the login address: it identifies an account without being
+assumed to deliver, and the youngest members have none that does. Both go to
+`contact_email` instead — the member's own for an adult, their legal
+guardian's for a minor — and both are refused with `no_contact_email` when
+that column is empty, before anything changes. `DELETE` also takes the
+account's own `password` in its body and refuses a missing or wrong one with
+`wrong_password`, nothing changed — a session left open on a shared club
+computer must not delete the account in one click.
+
+`DELETE` anonymizes rather than deletes the row (`club/gdpr.py`,
+`anonymize`): `Entry.author` and `EntryParticipant.user` are `PROTECT`, so
+what a member wrote stays in the team's notebook, attributed — what goes is
+the identity (name, address, birth date, AssoConnect id, avatar, password).
+The consent log stays, since it still decides whether past content may be
+published. The whole thing is one transaction, the confirmation e-mail last,
+so a failed send leaves the account exactly as it was rather than deleted
+with nobody told. The sole club admin is refused with
+`last_admin_cannot_leave` — the club has no password-reset-by-email
+fallback, so another admin is the only recovery path for everyone else, and
+there has to be one left. That check is re-read inside the same
+transaction, so two admins leaving at the same instant still serialize
+correctly — `config/settings.py` takes the database's write lock the moment
+the transaction opens, not through row locking (SQLite ignores
+`select_for_update()` outright).
+
+A club admin anonymizes a member who has left through the Django admin's own
+"Anonymiser les membres sélectionnés" action on the user list — a
+confirmation page first, the same shape as Django's own "Delete selected".
+It calls the same `anonymize`, with the same guards and confirmation e-mail,
+but no password: a staff sign-in already confirms who is acting.
 
 ## Work items and the day
 
@@ -335,14 +372,17 @@ anyone else gets a `403` with the code `not_a_member`.
 
 | route | does |
 | --- | --- |
-| `GET /api/team-seasons/{id}/work-items/` | the team's work items, each with its current step, last progress and handover |
+| `GET /api/team-seasons/{id}/work-items/` | the team's work items, each with its current step, last progress and handover; progress dates include their 4 a.m.–4 a.m. workday |
 | `POST /api/team-seasons/{id}/work-items/` | open one — or list it for September with `"suggested": true` |
 | `GET /api/work-items/{id}/` | one work item and its thread, newest first |
 | `PATCH /api/work-items/{id}/` | close it, `done` or `dropped`; working on it again reopens it |
 | `POST /api/work-items/{id}/tick/` | sign up to today's progress, created by the first to tick |
 | `PATCH /api/entries/{id}/` | write a progress — sentence, step, handover — for its participants and mentors |
+| `POST /api/entries/{id}/attachments/` | attach a file to any of the team's entries, as `multipart/form-data` fields `file` and `people_recognisable`, the latter always answered: left out, it is `required`, never read as no |
+| `GET /api/attachments/{id}/` | the file, to the team and mentors |
+| `DELETE /api/attachments/{id}/` | remove it — whoever attached it, or a mentor; anyone else gets `delete_not_uploader` |
 | `POST /api/team-seasons/{id}/notes/` | a note for the team, or addressed to one of its work items |
-| `GET /api/team-seasons/{id}/days/{YYYY-MM-DD}/` | the day's entries, who was there, and the roster they count against |
+| `GET /api/team-seasons/{id}/days/{YYYY-MM-DD}/` | the day's entries, number of work items advanced, who was there, and the roster they count against; `today` resolves the current 4 a.m.–4 a.m. workday on the server |
 | `GET /api/team-seasons/{id}/gaps/?since=&until=` | the workshop-slot days on which nothing moved forward |
 | `GET /api/team-seasons/{id}/export/?format=markdown` | the season's notebook as a `.zip`, one Markdown file per category; `category` (`robot`, `outreach`, `team-life`) and `work_item` narrow it |
 
@@ -357,9 +397,49 @@ robot), outreach (off the robot), team life (no work item) — each work item
 as a chapter, oldest first, every entry with its date, step and participants.
 A work item nobody worked on has nothing to give and is left out.
 
+Attached files travel in the archive, not as links: under `fichiers/`, each
+named by its id and its original name, and every entry lists its own as
+relative links. The archive is written to a temporary file and streamed, so
+a season of videos never has to fit in memory. At its root, `A-LIRE.md`
+says the notebook is an internal working document, lists the refusals of
+image rights in force among the team's members — "aucun" most of the time —
+and the files to check before any publication: those with people on them,
+in a team where a refusal is in force today. The Django admin filters the
+attachments on the same rule, under "Refus dans l'équipe": a list to read
+before publishing, not one to empty. A mentor corrects a wrong answer on
+recognisable people there, but never clears it because the member who
+refuses is not on the photo: someone else on it may refuse later.
+
 The members a route lists — a progress's participants, who was there on a
 day — each come as `{"display_name", "avatar"}`, so the interface can put a
 face next to a name without asking again.
+
+### Attachments
+
+Every entry comes with its `attachments`, each as `{"id", "name",
+"content_type", "url", "people_recognisable", "uploaded_by"}`. The server
+reads what a file contains, never its name or the type the browser announces,
+and takes a closed list — every file is served back from the application's
+own address, where an HTML or SVG page would run with the session of whoever
+opened it:
+
+| kind | formats | up to | kept |
+| --- | --- | --- | --- |
+| photo | JPEG, PNG, WebP | 20 MB | same size and format, upright, without its metadata |
+| iPhone photo | HEIC | 20 MB | the same, as a JPEG named after it — only Safari shows HEIC |
+| video | MP4 (Android), MOV (iPhone), WebM | 200 MB | as sent |
+| document | PDF | 20 MB | as sent |
+| CAD | STEP, STL | 50 MB | as sent, downloaded rather than shown |
+
+Anything else is refused with `attachment_type_refused`, a file over its limit
+with `attachment_too_large`, a photo decoding to too many pixels with
+`attachment_too_many_pixels`. HEIC is read through `pillow-heif`, registered
+when the application starts; `libheif` applies the rotation an iPhone stores
+in the file itself, so the photo comes out upright.
+
+Files live under `backend/media/`, beside the database, and a backup takes
+both: the database only records where each file is. A removed attachment, or
+the entry it belongs to, leaves the disk once the deletion is committed.
 
 ## Checking
 
@@ -398,10 +478,14 @@ access without `@pytest.mark.django_db` (see `backend/conftest.py`).
 
 ### Frontend
 
-Vitest runs the unit tests, next to the code they test (`health.test.ts`
-beside `health.ts`); `npm --prefix frontend test` runs them alone. There are no
-component tests yet: React Testing Library comes with the first screen that
-carries logic.
+```sh
+npm --prefix frontend test
+```
+
+Vitest runs the tests next to the code they exercise. The health client has
+unit coverage; React Testing Library covers account creation without an email,
+field and login refusals, and opening and closing a session with the rotated
+CSRF cookie.
 
 ## Contributing
 
@@ -454,7 +538,7 @@ requests — stays English.
   the reading of a day in `workdays.py`, the notebook export in `export.py`.
 - `backend/club/api/` — sign-up and session, teams and memberships, work
   items, progress and the day, over Django REST framework.
-- `backend/config/views.py` — the minimal health endpoint used by the frontend.
+- `backend/config/views.py` — the minimal health endpoint.
 - `frontend/src/app/` — shared router and TanStack Query configuration.
 - `frontend/src/api/` — typed clients for Django endpoints.
 - `frontend/src/pages/` — route-level React screens.
@@ -462,5 +546,7 @@ requests — stays English.
 - `frontend/src/styles.css` — Tailwind entry point and global styles.
 - `compose.yml` — the complete development stack in one command.
 
-The frontend currently contains a minimal landing page connected to Django's
-health endpoint. The three product screens are the next frontend slices.
+The frontend contains the public landing, sign-up and log-in screens. Once
+signed in, the home screen lists the selected team's robot and off-robot work
+items, with pending handovers highlighted. A mentor can switch between the
+team seasons exposed by their identity.

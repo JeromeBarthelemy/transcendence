@@ -1,14 +1,17 @@
 from django.urls import path
 
 from .views import (
+    AttachmentView,
     AvatarView,
     DayView,
+    EntryAttachmentsView,
     EntryDetailView,
     ExportView,
     GapsView,
     LoginView,
     LogoutView,
     MemberAvatarView,
+    MemberDataExportView,
     MembershipCreateView,
     MembershipDetailView,
     MeView,
@@ -33,6 +36,7 @@ urlpatterns = [
     path("auth/logout/", LogoutView.as_view(), name="logout"),
     path("auth/me/", MeView.as_view(), name="me"),
     path("auth/me/avatar/", AvatarView.as_view(), name="avatar"),
+    path("auth/me/export/", MemberDataExportView.as_view(), name="member-export"),
     path("users/<int:pk>/avatar/", MemberAvatarView.as_view(), name="member-avatar"),
     path("users/", UserListView.as_view(), name="user-list"),
     path("users/<int:pk>/", UserDetailView.as_view(), name="user-detail"),
@@ -52,6 +56,12 @@ urlpatterns = [
     path("work-items/<int:pk>/", WorkItemDetailView.as_view(), name="work-item-detail"),
     path("work-items/<int:pk>/tick/", TickView.as_view(), name="work-item-tick"),
     path("entries/<int:pk>/", EntryDetailView.as_view(), name="entry-detail"),
+    path(
+        "entries/<int:pk>/attachments/",
+        EntryAttachmentsView.as_view(),
+        name="entry-attachments",
+    ),
+    path("attachments/<int:pk>/", AttachmentView.as_view(), name="attachment"),
     path(
         "team-seasons/<int:team_season_id>/notes/",
         NoteCreateView.as_view(),

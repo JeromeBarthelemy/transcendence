@@ -1,5 +1,6 @@
 Django==5.2.*          # LTS
 python-dotenv==1.*     # lecture du .env
 Pillow==12.*           # exigé par les ImageField (avatars, photos)
+pillow-heif==1.*       # lecture des photos HEIC des iPhone
 openpyxl==3.1.*        # lecture de l'export AssoConnect (.xlsx)
 djangorestframework==3.18.*  # l'API : sérialiseurs, vues, throttling

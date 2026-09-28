@@ -50,6 +50,12 @@ Les notes, avancées et passations que vous écrivez, avec leur date, leur auteu
 
 *Pourquoi :* c'est l'objet même de l'outil, garder la trace du travail de l'équipe d'une séance à l'autre et d'une saison à l'autre.
 
+**Les fichiers déposés**
+
+Les photos, vidéos, plans et fichiers de CAO ajoutés à une trace. Une photo est **débarrassée de ses métadonnées**, dont la position où elle a été prise, et une photo d'iPhone (HEIC) est convertie en JPEG ; une **vidéo est gardée telle quelle** et peut donc contenir cette position si le téléphone l'a enregistrée. Ils ne sont visibles que de l'équipe et des mentors ; celui qui a déposé un fichier, ou un mentor, peut le retirer.
+
+*Pourquoi :* une photo du prototype ou la vidéo d'un essai est souvent la trace la plus utile d'une séance, et le portfolio a besoin du fichier lui-même.
+
 **Votre photo (facultative)**
 
 Si vous ajoutez une photo de profil, elle est redimensionnée et **débarrassée de ses métadonnées**, dont la position où elle a été prise. Elle n'est visible que des membres connectés. Vous pouvez la supprimer à tout moment.

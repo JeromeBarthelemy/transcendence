@@ -1,22 +1,35 @@
 """The club's HTTP surface. One instance serves one club, so there is no
 tenant to resolve: every route below is about the person calling it."""
 
+import tempfile
+
 from django.contrib.auth import login, logout
 from django.db import transaction
 from django.db.models import ProtectedError
-from django.http import FileResponse, Http404, HttpResponse
+from django.http import FileResponse, Http404
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_protect, ensure_csrf_cookie
 from rest_framework import status
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import AllowAny
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from club.attachments import DOWNLOAD_ONLY
 from club.export import gather, to_markdown_zip
-from club.models import Entry, Membership, Team, User, WorkItem
+from club.gdpr import request_deletion, send_export
+from club.models import (
+    Attachment,
+    Entry,
+    Membership,
+    Team,
+    User,
+    WorkItem,
+    remove_after_commit,
+)
 from club.progress import edit_progress, join, record_progress
 from club.workdays import attendance, day_entries, gaps, progress_of_the_day, workday
 
@@ -30,10 +43,12 @@ from .permissions import (
 )
 from .serializers import (
     AddMembershipSerializer,
+    AttachmentSerializer,
     AvatarSerializer,
     CloseWorkItemSerializer,
     CreateTeamSerializer,
     DaySerializer,
+    DeleteAccountSerializer,
     ExportSerializer,
     LoginSerializer,
     NoteSerializer,
@@ -44,7 +59,6 @@ from .serializers import (
     TickSerializer,
     UserRoleSerializer,
     WriteProgressSerializer,
-    remove_after_commit,
 )
 
 
@@ -116,6 +130,30 @@ class MeView(APIView):
         # instead of an AttributeError deeper down.
         assert isinstance(request.user, User)
         return Response(_identity(request.user))
+
+    def delete(self, request: Request) -> Response:
+        """The right to erasure, for one's own account only — an admin
+        manages everyone else's through the Django admin's own action.
+        `password` confirms it: a session left open on a shared computer
+        must not delete the account in one click."""
+        user = request.user
+        assert isinstance(user, User)
+        serializer = DeleteAccountSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        request_deletion(user, password=serializer.validated_data["password"])
+        logout(request)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class MemberDataExportView(APIView):
+    """The right of access (docs/modules.md §10): a copy of one's own data,
+    by e-mail — never shown on screen, since the confirmation is the point."""
+
+    def post(self, request: Request) -> Response:
+        user = request.user
+        assert isinstance(user, User)
+        send_export(user)
+        return Response(status=status.HTTP_202_ACCEPTED)
 
 
 def _identity(user: User) -> dict[str, object]:
@@ -355,11 +393,13 @@ def _work_item(item: WorkItem) -> dict[str, object]:
             "author": handover.author.display_name,
             "step": handover.step,
             "occurred_at": handover.occurred_at,
+            "day": workday(handover.occurred_at),
         }
         if handover
         else None,
         "last_progress": {
             "occurred_at": latest.occurred_at,
+            "day": workday(latest.occurred_at),
             "participants": [_member(user) for user in latest.participants.all()],
         }
         if latest
@@ -393,6 +433,18 @@ def _entry(entry: Entry) -> dict[str, object]:
         "occurred_at": entry.occurred_at,
         "author": entry.author.display_name,
         "participants": [_member(user) for user in entry.participants.all()],
+        "attachments": [_attachment(file) for file in entry.attachments.all()],
+    }
+
+
+def _attachment(attachment: Attachment) -> dict[str, object]:
+    return {
+        "id": attachment.id,
+        "name": attachment.name,
+        "content_type": attachment.content_type,
+        "url": f"/api/attachments/{attachment.id}/",
+        "people_recognisable": attachment.people_recognisable,
+        "uploaded_by": attachment.uploaded_by.display_name,
     }
 
 
@@ -450,6 +502,57 @@ class TickView(APIView):
         )
 
 
+class EntryAttachmentsView(APIView):
+    """Anyone on the team adds to any of its entries: an outing's photos come
+    from everyone who was there, not from whoever wrote it up."""
+
+    def post(self, request: Request, pk: int) -> Response:
+        user = request.user
+        assert isinstance(user, User)
+        entry = get_object_or_404(Entry, pk=pk)
+        team_season_acted_on(user, entry.team_season_id)
+        serializer = AttachmentSerializer(
+            data=request.data, context={"entry": entry, "user": user}
+        )
+        serializer.is_valid(raise_exception=True)
+        return Response(_attachment(serializer.save()), status=status.HTTP_201_CREATED)
+
+
+class AttachmentView(APIView):
+    """Served through a view rather than from a media URL, so that only the
+    team and its mentors ever reach a file."""
+
+    def get(self, request: Request, pk: int) -> FileResponse:
+        attachment = self._acted_on(request, pk)
+        return FileResponse(
+            attachment.file.open("rb"),
+            content_type=attachment.content_type,
+            as_attachment=attachment.content_type == DOWNLOAD_ONLY,
+            filename=attachment.name,
+        )
+
+    def delete(self, request: Request, pk: int) -> Response:
+        attachment = self._acted_on(request, pk)
+        user = request.user
+        assert isinstance(user, User)
+        is_mentor = user.club_role == User.ClubRole.MENTOR
+        if not is_mentor and attachment.uploaded_by_id != user.pk:
+            raise PermissionDenied(
+                "Seuls la personne qui l'a déposé et les mentors retirent un fichier.",
+                code="delete_not_uploader",
+            )
+        attachment.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    def _acted_on(self, request: Request, pk: int) -> Attachment:
+        assert isinstance(request.user, User)
+        attachment = get_object_or_404(
+            Attachment.objects.select_related("entry"), pk=pk
+        )
+        team_season_acted_on(request.user, attachment.entry.team_season_id)
+        return attachment
+
+
 class EntryDetailView(APIView):
     def patch(self, request: Request, pk: int) -> Response:
         user = request.user
@@ -486,18 +589,28 @@ class DayView(APIView):
         user = request.user
         assert isinstance(user, User)
         team_season = team_season_acted_on(user, team_season_id)
-        serializer = DaySerializer(data={"day": day})
-        serializer.is_valid(raise_exception=True)
-        the_day = serializer.validated_data["day"]
+        if day == "today":
+            the_day = workday(timezone.now())
+        else:
+            serializer = DaySerializer(data={"day": day})
+            serializer.is_valid(raise_exception=True)
+            the_day = serializer.validated_data["day"]
+        entries = list(day_entries(team_season, the_day))
         # The roster the attendance is counted against: students, as mentors
         # are never counted present.
         roster = team_season.memberships.filter(user__club_role=User.ClubRole.STUDENT)
         return Response(
             {
                 "day": the_day,
-                "entries": [
-                    _entry(entry) for entry in day_entries(team_season, the_day)
-                ],
+                "entries": [_entry(entry) for entry in entries],
+                "advanced_work_items": len(
+                    {
+                        entry.work_item_id
+                        for entry in entries
+                        if entry.type == Entry.Type.PROGRESS
+                        and entry.work_item_id is not None
+                    }
+                ),
                 "present": [_member(user) for user in attendance(team_season, the_day)],
                 "roster": roster.count(),
             }
@@ -516,7 +629,7 @@ class GapsView(APIView):
 
 
 class ExportView(APIView):
-    def get(self, request: Request, team_season_id: int) -> HttpResponse:
+    def get(self, request: Request, team_season_id: int) -> FileResponse:
         user = request.user
         assert isinstance(user, User)
         team_season = team_season_acted_on(user, team_season_id)
@@ -527,8 +640,11 @@ class ExportView(APIView):
         query = serializer.validated_data
         notebook = gather(team_season, query.get("category"), query.get("work_item"))
         name = f"cahier-{team_season.team.number}-{team_season.season.start_year}.zip"
-        return HttpResponse(
-            to_markdown_zip(notebook),
-            content_type="application/zip",
-            headers={"Content-Disposition": f'attachment; filename="{name}"'},
+        # No `with`: the response closes it once sent, and the system then
+        # removes it.
+        archive = tempfile.TemporaryFile()  # noqa: SIM115
+        to_markdown_zip(notebook, archive)
+        archive.seek(0)
+        return FileResponse(
+            archive, as_attachment=True, filename=name, content_type="application/zip"
         )
