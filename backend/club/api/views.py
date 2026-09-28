@@ -133,9 +133,10 @@ class MeView(APIView):
 
     def delete(self, request: Request) -> Response:
         """The right to erasure, for one's own account only — an admin
-        manages everyone else's through the Django admin's own action.
-        `password` confirms it: a session left open on a shared computer
-        must not delete the account in one click."""
+        manages everyone else's through `UserDetailView.delete` or the
+        Django admin's own action. `password` confirms it: a session left
+        open on a shared computer must not delete the account in one
+        click."""
         user = request.user
         assert isinstance(user, User)
         serializer = DeleteAccountSerializer(data=request.data)
@@ -270,20 +271,24 @@ class UserDetailView(APIView):
         user = get_object_or_404(User, pk=pk)
         not_self(request, user)
         not_staff_target(request, user)
-        serializer = UserRoleSerializer(user, data=request.data)
+        serializer = UserRoleSerializer(user, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         return Response(_user(serializer.save()))
 
     def delete(self, request: Request, pk: int) -> Response:
         # A member never disappears — their traces stay attributed
-        # (club/models.py, `User`) — so "delete" here is deactivation, the
-        # same is_active a departure already means everywhere else in the
-        # club's data.
+        # (club/models.py, `User`) — so "delete" here is the same
+        # anonymization the Django admin's own action and a member's own
+        # request both call (club/gdpr.py, `anonymize`), never a
+        # suspension: that one is temporary and stays on `PATCH
+        # {"is_active": …}`. `not_the_last_admin` is `request_deletion`'s
+        # own guard, checked inside its transaction; `not_self` and
+        # `not_staff_target` are this surface's own, since neither
+        # self-service deletion nor a staff sign-in needs them.
         user = get_object_or_404(User, pk=pk)
         not_self(request, user)
         not_staff_target(request, user)
-        user.is_active = False
-        user.save(update_fields=["is_active"])
+        request_deletion(user, password=None)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 

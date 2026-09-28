@@ -3,20 +3,26 @@ deactivate — the surface docs/modules.md §4 asks for on top of the model
 it already settles.
 """
 
+from urllib.parse import urlencode
+
 from club.models import User
 
 
-def admin(email="admin@club.fr", display_name="Admin"):
+def admin(email="admin@club.fr", display_name="Admin", **extra):
     # An administrator is a mentor who also administrates (club/models.py,
     # `User`) — the fixture keeps that true, now that `UserRoleSerializer`
     # enforces it too.
     return User.objects.create_user(
-        email, display_name, club_role=User.ClubRole.MENTOR, is_club_admin=True
+        email,
+        display_name,
+        club_role=User.ClubRole.MENTOR,
+        is_club_admin=True,
+        **extra,
     )
 
 
-def student(email="eleve@club.fr", display_name="Élève"):
-    return User.objects.create_user(email, display_name)
+def student(email="eleve@club.fr", display_name="Élève", **extra):
+    return User.objects.create_user(email, display_name, **extra)
 
 
 def mentor(email="mentor@club.fr", display_name="Mentor"):
@@ -259,10 +265,30 @@ def test_a_club_admin_reactivates_a_suspended_member(client):
     assert lina.is_active is True
 
 
+def test_a_form_encoded_patch_does_not_reset_the_fields_it_does_not_touch(client):
+    # Without partial=True, DRF reads an absent boolean as False once the
+    # body is form-encoded rather than JSON — found reviewing #88:
+    # PATCH club_role=mentor this way left an admin demoted and suspended,
+    # although neither field was in the body.
+    client.force_login(admin())
+    boss = admin("boss@club.fr", "Boss")
+
+    response = client.patch(
+        f"/api/users/{boss.id}/",
+        urlencode({"club_role": "mentor"}),
+        content_type="application/x-www-form-urlencoded",
+    )
+
+    assert response.status_code == 200
+    boss.refresh_from_db()
+    assert boss.is_club_admin is True
+    assert boss.is_active is True
+
+
 # --- staff accounts ---
 
 
-def test_a_non_staff_admin_cannot_deactivate_a_staff_account(client):
+def test_a_non_staff_admin_cannot_delete_a_staff_account(client):
     client.force_login(admin())
     root = superuser()
 
@@ -308,10 +334,10 @@ def test_a_staff_admin_can_edit_another_staff_account(client):
 # --- superuser accounts ---
 
 
-def test_a_staff_non_superuser_admin_cannot_deactivate_a_superuser(client):
+def test_a_staff_non_superuser_admin_cannot_delete_a_superuser(client):
     # is_staff clears cannot_target_staff on its own — found by @Nitwee
     # reviewing #88: a club admin with Django admin access but no superuser
-    # status could still deactivate or demote a superuser account.
+    # status could still delete or demote a superuser account.
     client.force_login(staff_admin())
     root = superuser()
 
@@ -354,32 +380,66 @@ def test_a_superuser_can_edit_another_superuser(client):
     assert root.is_club_admin is False
 
 
-# --- deactivating ---
+# --- deleting (anonymizing) ---
 
 
-def test_a_club_admin_deactivates_a_member(client):
+def test_a_club_admin_deletes_a_member_by_anonymizing_them(client, mailoutbox):
+    # DELETE here is the same anonymize() a member's own request and the
+    # Django admin's action call — not a suspension (#88): the row stays,
+    # but the identity is gone and it can no longer sign in.
     client.force_login(admin())
-    lina = student("lina@club.fr", "Lina")
+    lina = student("lina@club.fr", "Lina", contact_email="parent.lina@club.fr")
 
     response = client.delete(f"/api/users/{lina.id}/")
 
     assert response.status_code == 204
     lina.refresh_from_db()
     assert lina.is_active is False
+    assert lina.display_name != "Lina"
+    assert lina.email != "lina@club.fr"
+    assert lina.has_usable_password() is False
+    assert len(mailoutbox) == 1
 
 
-def test_a_deactivated_member_still_exists_and_keeps_their_traces(client):
-    # The point of deactivating rather than deleting: the row, and whatever
-    # cites it, survives.
+def test_deleting_an_admin_clears_their_admin_flag_too(client):
+    # Found reviewing #88: an anonymized admin reactivated by mistake would
+    # otherwise still count as a live admin, although nobody can sign in.
+    client.force_login(admin("boss@club.fr", "Boss"))
+    other = admin("other@club.fr", "Other", contact_email="other@club.fr")
+
+    response = client.delete(f"/api/users/{other.id}/")
+
+    assert response.status_code == 204
+    other.refresh_from_db()
+    assert other.is_club_admin is False
+
+
+def test_an_anonymized_member_still_exists_and_keeps_their_traces(client):
+    # The point of anonymizing rather than deleting the row: it, and
+    # whatever cites it, survives.
     client.force_login(admin())
-    lina = student("lina@club.fr", "Lina")
+    lina = student("lina@club.fr", "Lina", contact_email="parent.lina@club.fr")
 
     client.delete(f"/api/users/{lina.id}/")
 
     assert User.objects.filter(id=lina.id).exists()
 
 
-def test_a_club_admin_cannot_deactivate_their_own_account(client):
+def test_deleting_a_member_without_a_contact_address_is_refused(client):
+    # anonymize()'s own confirmation e-mail needs somewhere to go — the
+    # same guard a member's own deletion request already gets.
+    client.force_login(admin())
+    lina = student("lina@club.fr", "Lina", contact_email="")
+
+    response = client.delete(f"/api/users/{lina.id}/")
+
+    assert response.status_code == 400
+    assert response.json()["detail"]["code"] == "no_contact_email"
+    lina.refresh_from_db()
+    assert lina.is_active is True
+
+
+def test_a_club_admin_cannot_delete_their_own_account(client):
     boss = admin()
     client.force_login(boss)
 
@@ -391,7 +451,7 @@ def test_a_club_admin_cannot_deactivate_their_own_account(client):
     assert boss.is_active is True
 
 
-def test_a_student_cannot_deactivate_a_member(client):
+def test_a_student_cannot_delete_a_member(client):
     client.force_login(student())
     lina = student("lina@club.fr", "Lina")
 

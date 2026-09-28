@@ -303,7 +303,7 @@ where, and this is its surface. No page yet.
 | `GET /api/users/` | `200` with every account, active or not |
 | `GET /api/users/{id}/` | `200` with one account |
 | `PATCH /api/users/{id}/` | `200` — any of `club_role`, `is_club_admin`, `is_active` |
-| `DELETE /api/users/{id}/` | `204` — deactivates, never deletes |
+| `DELETE /api/users/{id}/` | `204` — anonymizes, the same as leaving |
 
 Every route needs `is_club_admin`; anyone else gets a `403`. An admin cannot
 target their own account through this surface — the refusal carries
@@ -324,11 +324,21 @@ touch, inside the same transaction as the write: two admins editing the same
 account's role and flag at once are ordered by the database's own write lock
 rather than by whichever read either request happened to see first.
 
-`DELETE` deactivates rather than removes the row. A member's traces —
-progress, participations — stay attributed after they leave (`club/models.py`,
-`User`), and a literal delete would either orphan them or be refused outright
-by the `PROTECT` relationships that hold them. `is_active=False` is the same
-state AssoConnect verification already uses for someone who has left.
+`DELETE` calls the same `anonymize` (`club/gdpr.py`) as a member's own
+request and the Django admin's anonymize action — not `is_active=False`,
+which is a suspension: temporary, reversible by `PATCH
+{"is_active": true}`, and erases nothing (`docs/lexique.md`; the terms of
+service). Deletion is final: the name, address, birth date and AssoConnect
+id are erased, the password made unusable, and — an admin anonymized this
+way is not exempt — `is_club_admin` cleared, since a password nobody can
+use makes the flag meaningless but still able to mislead
+`not_the_last_admin`. What a member wrote stays in the team's notebook,
+attributed (`club/models.py`, `User`) — a literal row delete would either
+orphan it or be refused outright by the `PROTECT` relationships that hold
+it. The confirmation e-mail goes out the same way it does for a
+self-service deletion; `not_the_last_admin` is `request_deletion`'s own
+guard, so deleting the club's only administrator is refused the same way
+here as anywhere else.
 
 ### Data export and deletion
 
