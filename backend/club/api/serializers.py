@@ -415,7 +415,8 @@ class AvatarSerializer(serializers.Serializer[User]):
     phone photo includes where it was taken."""
 
     MAX_BYTES = 10 * 1024 * 1024
-    FORMATS = {"JPEG", "PNG", "WEBP"}
+    # HEIF is how iPhones take their photos.
+    FORMATS = {"JPEG", "PNG", "WEBP", "HEIF"}
     SIDE = 512
 
     avatar = serializers.FileField()
@@ -441,7 +442,8 @@ class AvatarSerializer(serializers.Serializer[User]):
             ) from None
         if image.format not in self.FORMATS:
             raise serializers.ValidationError(
-                "Formats acceptés : JPEG, PNG ou WebP.", code="avatar_format_refused"
+                "Formats acceptés : JPEG, PNG, WebP ou HEIC.",
+                code="avatar_format_refused",
             )
         upright = ImageOps.exif_transpose(image).convert("RGBA")
         upright.thumbnail((self.SIDE, self.SIDE))

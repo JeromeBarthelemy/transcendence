@@ -52,7 +52,7 @@ Les notes, avancées et passations que vous écrivez, avec leur date, leur auteu
 
 **Les fichiers déposés**
 
-Les photos, vidéos, plans et fichiers de CAO ajoutés à une trace. Une photo est **débarrassée de ses métadonnées**, dont la position où elle a été prise ; une **vidéo est gardée telle quelle** et peut donc contenir cette position si le téléphone l'a enregistrée. Ils ne sont visibles que de l'équipe et des mentors ; celui qui a déposé un fichier, ou un mentor, peut le retirer.
+Les photos, vidéos, plans et fichiers de CAO ajoutés à une trace. Une photo est **débarrassée de ses métadonnées**, dont la position où elle a été prise, et une photo d'iPhone (HEIC) est convertie en JPEG ; une **vidéo est gardée telle quelle** et peut donc contenir cette position si le téléphone l'a enregistrée. Ils ne sont visibles que de l'équipe et des mentors ; celui qui a déposé un fichier, ou un mentor, peut le retirer.
 
 *Pourquoi :* une photo du prototype ou la vidéo d'un essai est souvent la trace la plus utile d'une séance, et le portfolio a besoin du fichier lui-même.
 
