@@ -20,12 +20,25 @@ from rest_framework.views import APIView
 
 from club.attachments import DOWNLOAD_ONLY
 from club.export import gather, to_markdown_zip
-from club.models import Attachment, Entry, Membership, Team, User, WorkItem
+from club.gdpr import request_deletion, send_export
+from club.models import (
+    Attachment,
+    Entry,
+    Membership,
+    Team,
+    User,
+    WorkItem,
+    remove_after_commit,
+)
 from club.progress import edit_progress, join, record_progress
 from club.workdays import attendance, day_entries, gaps, progress_of_the_day, workday
 
 from .errors import Conflict
-from .permissions import IsClubAdmin, team_season_acted_on, team_seasons_open_to
+from .permissions import (
+    IsClubAdmin,
+    team_season_acted_on,
+    team_seasons_open_to,
+)
 from .serializers import (
     AddMembershipSerializer,
     AttachmentSerializer,
@@ -33,6 +46,7 @@ from .serializers import (
     CloseWorkItemSerializer,
     CreateTeamSerializer,
     DaySerializer,
+    DeleteAccountSerializer,
     ExportSerializer,
     LoginSerializer,
     NoteSerializer,
@@ -42,7 +56,6 @@ from .serializers import (
     SignUpSerializer,
     TickSerializer,
     WriteProgressSerializer,
-    remove_after_commit,
 )
 
 
@@ -114,6 +127,30 @@ class MeView(APIView):
         # instead of an AttributeError deeper down.
         assert isinstance(request.user, User)
         return Response(_identity(request.user))
+
+    def delete(self, request: Request) -> Response:
+        """The right to erasure, for one's own account only — an admin
+        manages everyone else's through the Django admin's own action.
+        `password` confirms it: a session left open on a shared computer
+        must not delete the account in one click."""
+        user = request.user
+        assert isinstance(user, User)
+        serializer = DeleteAccountSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        request_deletion(user, password=serializer.validated_data["password"])
+        logout(request)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class MemberDataExportView(APIView):
+    """The right of access (docs/modules.md §10): a copy of one's own data,
+    by e-mail — never shown on screen, since the confirmation is the point."""
+
+    def post(self, request: Request) -> Response:
+        user = request.user
+        assert isinstance(user, User)
+        send_export(user)
+        return Response(status=status.HTTP_202_ACCEPTED)
 
 
 def _identity(user: User) -> dict[str, object]:

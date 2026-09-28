@@ -36,6 +36,7 @@ from club.models import (
     WorkItem,
     fold_title,
     no_at_sign,
+    remove_after_commit,
 )
 from club.signup import reserved_email
 
@@ -188,6 +189,20 @@ class LoginSerializer(serializers.Serializer[dict[str, Any]]):
             )
         attrs["user"] = user
         return attrs
+
+
+class DeleteAccountSerializer(serializers.Serializer[None]):
+    """Just enough to read `password` out of `request.data` typed — the
+    check against the account itself lives in `club/gdpr.py`'s
+    `request_deletion`, the same place the rest of what deletion refuses
+    for (no contact address, the last admin) already lives. Not required:
+    a missing password is refused the same `wrong_password` way a wrong
+    one is, rather than DRF's own, differently-shaped "this field is
+    required"."""
+
+    password = serializers.CharField(
+        required=False, default="", write_only=True, style={"input_type": "password"}
+    )
 
 
 class CreateTeamSerializer(serializers.Serializer[Team]):
@@ -458,11 +473,3 @@ class AvatarSerializer(serializers.Serializer[User]):
         instance.save(update_fields=["avatar"])
         remove_after_commit(instance, previous)
         return instance
-
-
-def remove_after_commit(user: User, name: str | None) -> None:
-    """Only once the account no longer points at it: removed any earlier, a
-    failed save would leave the account with a photo that is gone."""
-    if name:
-        storage = user.avatar.storage
-        transaction.on_commit(lambda: storage.delete(name))

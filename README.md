@@ -291,6 +291,44 @@ enforces CSRF only once it has *found* a session, so the two routes that run
 without one — the routes that hand a session out — are precisely the ones it
 would not protect.
 
+### Data export and deletion
+
+| route | answers |
+| --- | --- |
+| `POST /api/auth/me/export/` | `202` — a JSON copy of the account, plus the avatar, by e-mail |
+| `DELETE /api/auth/me/` | `204` — `password` confirms it; anonymizes the account, confirmed by e-mail |
+
+Neither goes to the login address: it identifies an account without being
+assumed to deliver, and the youngest members have none that does. Both go to
+`contact_email` instead — the member's own for an adult, their legal
+guardian's for a minor — and both are refused with `no_contact_email` when
+that column is empty, before anything changes. `DELETE` also takes the
+account's own `password` in its body and refuses a missing or wrong one with
+`wrong_password`, nothing changed — a session left open on a shared club
+computer must not delete the account in one click.
+
+`DELETE` anonymizes rather than deletes the row (`club/gdpr.py`,
+`anonymize`): `Entry.author` and `EntryParticipant.user` are `PROTECT`, so
+what a member wrote stays in the team's notebook, attributed — what goes is
+the identity (name, address, birth date, AssoConnect id, avatar, password).
+The consent log stays, since it still decides whether past content may be
+published. The whole thing is one transaction, the confirmation e-mail last,
+so a failed send leaves the account exactly as it was rather than deleted
+with nobody told. The sole club admin is refused with
+`last_admin_cannot_leave` — the club has no password-reset-by-email
+fallback, so another admin is the only recovery path for everyone else, and
+there has to be one left. That check is re-read inside the same
+transaction, so two admins leaving at the same instant still serialize
+correctly — `config/settings.py` takes the database's write lock the moment
+the transaction opens, not through row locking (SQLite ignores
+`select_for_update()` outright).
+
+A club admin anonymizes a member who has left through the Django admin's own
+"Anonymiser les membres sélectionnés" action on the user list — a
+confirmation page first, the same shape as Django's own "Delete selected".
+It calls the same `anonymize`, with the same guards and confirmation e-mail,
+but no password: a staff sign-in already confirms who is acting.
+
 ## Work items and the day
 
 What the three screens read and write. Every route needs a session; a student
