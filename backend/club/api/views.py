@@ -25,7 +25,9 @@ from club.models import (
     Attachment,
     Entry,
     Membership,
+    Season,
     Team,
+    TeamSeason,
     User,
     WorkItem,
     remove_after_commit,
@@ -65,6 +67,7 @@ from .serializers import (
     SignUpSerializer,
     TickSerializer,
     UserRoleSerializer,
+    UserSearchSerializer,
     WriteProgressSerializer,
 )
 
@@ -241,18 +244,40 @@ def _user(user: User) -> dict[str, object]:
         "club_role": user.club_role,
         "is_club_admin": user.is_club_admin,
         "is_active": user.is_active,
+        "avatar": _avatar_url(user),
     }
 
 
 class UserListView(APIView):
     """Every account, active or not: an admin managing roles has to see who
     left as well as who is here, or a name would just vanish from the list
-    with no explanation."""
+    with no explanation.
+
+    With `search`, it is the team screen's typeahead instead: active accounts
+    only, whose display name contains what was typed — matched on the folded
+    column, the same one uniqueness uses, so « élo » finds Élodie. With
+    `team_season` as well, those already on that team are left out before the
+    cap, or a page of them could hide the matches still to add."""
 
     permission_classes = [IsClubAdmin]
+    SEARCH_LIMIT = 10
 
     def get(self, request: Request) -> Response:
-        return Response([_user(user) for user in User.objects.order_by("display_name")])
+        query = UserSearchSerializer(data=request.query_params)
+        query.is_valid(raise_exception=True)
+        if "search" not in query.validated_data:
+            users = User.objects.order_by("display_name")
+            return Response([_user(user) for user in users])
+        search = query.validated_data["search"].casefold()
+        if not search:
+            return Response([])
+        matches = User.objects.filter(
+            is_active=True, display_name_folded__contains=search
+        )
+        team_season = query.validated_data.get("team_season")
+        if team_season is not None:
+            matches = matches.exclude(memberships__team_season=team_season)
+        return Response([_user(user) for user in matches[: self.SEARCH_LIMIT]])
 
 
 class UserDetailView(APIView):
@@ -303,11 +328,51 @@ def _team(team: Team) -> dict[str, object]:
     return {"id": team.id, "number": team.number, "name": team.name}
 
 
-class TeamCreateView(APIView):
-    """No `GET` here yet — nothing drives it in #50, and it belongs to
-    whichever screen first needs a team list (#51)."""
+def _managed_team(team_season: TeamSeason) -> dict[str, object]:
+    """A team as the management screen shows it: its roster this season, each
+    member with the membership that removes them."""
+    memberships = sorted(
+        team_season.memberships.all(),
+        key=lambda membership: membership.user.display_name_folded,
+    )
+    return {
+        **_team(team_season.team),
+        "team_season": team_season.id,
+        "members": [
+            {
+                "membership": membership.id,
+                "user": membership.user_id,
+                **_member(membership.user),
+            }
+            for membership in memberships
+        ],
+    }
 
+
+class TeamListView(APIView):
     permission_classes = [IsClubAdmin]
+
+    def get(self, request: Request) -> Response:
+        """The current season's teams — the newest one, which is the one a
+        roster is drawn up for. An earlier season's roster is history, left
+        to the Django admin rather than offered for editing here."""
+        season = Season.objects.first()
+        if season is None:
+            return Response({"season": None, "teams": []})
+        team_seasons = (
+            season.team_seasons.select_related("team")
+            .prefetch_related("memberships__user")
+            .order_by("team__number")
+        )
+        return Response(
+            {
+                "season": {
+                    "start_year": season.start_year,
+                    "game_name": season.game_name,
+                },
+                "teams": [_managed_team(team_season) for team_season in team_seasons],
+            }
+        )
 
     def post(self, request: Request) -> Response:
         serializer = CreateTeamSerializer(data=request.data)

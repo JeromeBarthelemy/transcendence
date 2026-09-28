@@ -300,7 +300,7 @@ where, and this is its surface. No page yet.
 
 | route | answers |
 | --- | --- |
-| `GET /api/users/` | `200` with every account, active or not |
+| `GET /api/users/` | `200` with every account, active or not — or, with `search`, the team screen's typeahead (below) |
 | `GET /api/users/{id}/` | `200` with one account |
 | `PATCH /api/users/{id}/` | `200` — any of `club_role`, `is_club_admin`, `is_active` |
 | `DELETE /api/users/{id}/` | `204` — anonymizes, the same as leaving |
@@ -377,6 +377,22 @@ A club admin anonymizes a member who has left through the Django admin's own
 confirmation page first, the same shape as Django's own "Delete selected".
 It calls the same `anonymize`, with the same guards and confirmation e-mail,
 but no password: a staff sign-in already confirms who is acting.
+
+## Teams and memberships
+
+The team management screen, `/teams`, is the club admin's: every route below
+answers `403` to anyone without `is_club_admin`, and the header only offers
+the screen to them.
+
+| route | does |
+| --- | --- |
+| `GET /api/teams/` | the newest season and its teams, each with its `team_season` and its members as `{"membership", "user", "display_name", "avatar"}` |
+| `POST /api/teams/` | create a team — `number`, `name`, and the `season`'s start year — and open it for that season |
+| `PATCH /api/teams/{id}/` | rename it; the number is FIRST's and never changes |
+| `DELETE /api/teams/{id}/` | delete it — refused with `team_has_members` while anyone is on it, `team_has_history` once it has more than a season or any work |
+| `GET /api/users/?search=&team_season=` | the member list as the screen's typeahead: up to ten active accounts whose display name contains the text, regardless of case, less those already on `team_season` |
+| `POST /api/memberships/` | put `user` on `team_season`; twice is `membership_exists` |
+| `DELETE /api/memberships/{id}/` | take them off it |
 
 ## Work items and the day
 
@@ -568,4 +584,6 @@ requests — stays English.
 The frontend contains the public landing, sign-up and log-in screens. Once
 signed in, the home screen lists the selected team's robot and off-robot work
 items, with pending handovers highlighted. A mentor can switch between the
-team seasons exposed by their identity.
+team seasons exposed by their identity. A club admin also reaches the team
+management screen: create, rename and delete the season's teams, and add
+members by typing their name or remove them.

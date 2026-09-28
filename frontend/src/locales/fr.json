@@ -5,7 +5,8 @@
     "footer": "Fieldnotes · un espace privé pour le club"
   },
   "nav": {
-    "main": "Navigation principale"
+    "main": "Navigation principale",
+    "teams": "Équipes"
   },
   "home": {
     "eyebrow": "La mémoire du club",
@@ -69,6 +70,47 @@
       "tuning": "Optimisation",
       "repair": "Réparation"
     }
+  },
+  "teams": {
+    "eyebrow": "Administration du club",
+    "title": "Gestion des équipes",
+    "loading": "Chargement des équipes…",
+    "noSeason": "Aucune saison n'existe encore. Créez-la depuis l'administration Django avant d'y ouvrir des équipes.",
+    "noTeams": "Aucune équipe n'est ouverte pour cette saison.",
+    "createTitle": "Nouvelle équipe",
+    "number": "Numéro FIRST",
+    "name": "Nom",
+    "create": "Créer l'équipe",
+    "creating": "Création…",
+    "teamLabel": "{{number}} · {{name}}",
+    "rename": "Renommer",
+    "renameLabel": "Nouveau nom de l'équipe {{number}}",
+    "save": "Enregistrer",
+    "saving": "Enregistrement…",
+    "cancel": "Annuler",
+    "delete": "Supprimer",
+    "deleteBlockedHint": "Retirez tous ses membres pour pouvoir supprimer cette équipe.",
+    "deleteConfirm": "Supprimer définitivement l'équipe {{team}} ?",
+    "confirmDelete": "Supprimer l'équipe",
+    "deleting": "Suppression…",
+    "memberCount_one": "{{count}} membre",
+    "memberCount_other": "{{count}} membres",
+    "noMembers": "Aucun membre pour l'instant.",
+    "removeMember": "Retirer",
+    "removeMemberLabel": "Retirer {{name}} de l'équipe {{team}}",
+    "removing": "Retrait…",
+    "addMember": "Ajouter un membre",
+    "searchPlaceholder": "Rechercher par nom d'affichage…",
+    "searchResults": "Membres trouvés",
+    "searching": "Recherche…",
+    "noUserFound": "Aucun membre trouvé.",
+    "addingMember": "Ajout du membre…",
+    "roles": {
+      "student": "élève",
+      "mentor": "mentor"
+    },
+    "forbiddenTitle": "Accès réservé",
+    "forbiddenDescription": "La gestion des équipes est réservée aux administrateurs du club."
   },
   "auth": {
     "login": "Se connecter",
@@ -139,6 +181,14 @@
     "max_length": "Cette valeur est trop longue.",
     "permission_denied": "Vous n'avez pas l'autorisation nécessaire.",
     "not_authenticated": "Vous devez vous connecter pour continuer.",
+    "team_number_taken": "Ce numéro d'équipe est déjà utilisé.",
+    "season_not_found": "Cette saison n'existe pas.",
+    "team_has_history": "Cette équipe a un historique de plusieurs saisons : elle ne peut pas être supprimée.",
+    "team_has_members": "Cette équipe a encore des membres affectés : retirez-les avant de la supprimer.",
+    "membership_exists": "Ce membre est déjà affecté à cette équipe.",
+    "does_not_exist": "Ce membre n'existe pas.",
+    "not_found": "Cet élément n'existe plus. Rechargez la page.",
+    "min_value": "Cette valeur est trop petite.",
     "network": "Impossible de joindre le serveur. Réessayez dans un instant.",
     "unknown": "Une erreur inattendue est survenue."
   }
