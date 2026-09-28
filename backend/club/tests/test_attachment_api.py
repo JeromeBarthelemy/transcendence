@@ -63,8 +63,8 @@ def pdf():
 
 
 def iso_media(brand, name):
-    """The start of an MP4, a MOV or a HEIC photo: all three are ISO media
-    files, told apart by the brand after `ftyp`."""
+    """The start of an MP4 or a MOV: both are ISO media files, told apart by
+    the brand after `ftyp`, like a HEIC photo."""
     box = struct.pack(">I", 24) + b"ftyp" + brand + b"\x00\x00\x00\x00" + brand
     return SimpleUploadedFile(name, box + b"\x00" * 64)
 
@@ -90,9 +90,10 @@ def stl_binary():
     )
 
 
-def attach(client, entry, file, **fields):
+def attach(client, entry, file, people_recognisable="false", **fields):
     return client.post(
-        f"/api/entries/{entry.id}/attachments/", {"file": file, **fields}
+        f"/api/entries/{entry.id}/attachments/",
+        {"file": file, "people_recognisable": people_recognisable, **fields},
     )
 
 
@@ -140,10 +141,22 @@ def test_an_attachment_records_whether_people_are_recognisable_on_it(client):
     client.force_login(entry.author)
 
     flagged = attach(client, entry, photo(), people_recognisable="true").json()
-    unflagged = attach(client, entry, photo()).json()
+    unflagged = attach(client, entry, photo(), people_recognisable="false").json()
 
     assert flagged["people_recognisable"] is True
     assert unflagged["people_recognisable"] is False
+
+
+def test_whoever_attaches_a_file_must_say_whether_people_are_recognisable(client):
+    rouages = team_season()
+    entry = note(rouages, member_of(rouages))
+    client.force_login(entry.author)
+
+    response = client.post(f"/api/entries/{entry.id}/attachments/", {"file": photo()})
+
+    assert response.status_code == 400
+    assert response.json()["people_recognisable"][0]["code"] == "required"
+    assert not entry.attachments.exists()
 
 
 # --- where attachments show ---
@@ -297,6 +310,38 @@ def test_a_photo_taken_sideways_is_stored_upright(client):
     assert Image.open(BytesIO(content(response))).size == (48, 64)
 
 
+def heic(size=(64, 48), exif=None):
+    """A real iPhone-format photo, written by pillow-heif."""
+    buffer = BytesIO()
+    Image.new("RGB", size, "teal").save(
+        buffer, "HEIF", **({"exif": exif} if exif else {})
+    )
+    return SimpleUploadedFile("IMG_0042.HEIC", buffer.getvalue())
+
+
+def test_an_iphone_photo_in_heic_is_kept_as_a_jpeg_of_the_same_size(client):
+    rouages = team_season()
+    entry = note(rouages, member_of(rouages))
+    client.force_login(entry.author)
+
+    attached = attach(client, entry, heic(size=(4032, 3024))).json()
+    response = download(client, attached)
+
+    image = Image.open(BytesIO(content(response)))
+    assert attached["name"] == "IMG_0042.jpg"
+    assert response["Content-Type"] == "image/jpeg"
+    assert (image.format, image.size) == ("JPEG", (4032, 3024))
+
+
+def test_an_iphone_photo_in_heic_loses_its_metadata(client):
+    exif = Image.Exif()
+    exif[CAMERA_MAKE] = "iPhone de Lina"
+
+    response = upload_and_fetch(client, heic(exif=exif))
+
+    assert not Image.open(BytesIO(content(response))).getexif()
+
+
 @pytest.mark.parametrize(
     ("file", "content_type"),
     [
@@ -372,12 +417,6 @@ def test_a_file_matching_no_accepted_type_is_refused_whatever_its_name(client, f
 
 def test_a_gif_is_refused_though_it_is_an_image(client):
     assert refused(client, photo("GIF")) == "attachment_type_refused"
-
-
-def test_a_heic_photo_is_refused_with_its_own_message(client):
-    assert refused(client, iso_media(b"heic", "IMG_0042.HEIC")) == (
-        "attachment_heic_refused"
-    )
 
 
 def test_a_pdf_over_twenty_megabytes_is_refused(client):

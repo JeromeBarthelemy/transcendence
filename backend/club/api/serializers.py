@@ -19,6 +19,7 @@ from django.utils import timezone
 from PIL import ImageOps
 from rest_framework import serializers
 from rest_framework.exceptions import ErrorDetail
+from rest_framework.fields import empty
 from rest_framework.settings import api_settings
 
 from club import attachments, images
@@ -395,9 +396,17 @@ class ExportSerializer(serializers.Serializer[None]):
         return value
 
 
+class AnswerField(serializers.BooleanField):
+    """A yes or no that must be given: a form leaves an unticked box out, so
+    DRF reads a missing boolean as False, and a forgotten answer would pass
+    for "no"."""
+
+    default_empty_html = empty
+
+
 class AttachmentSerializer(serializers.Serializer[Attachment]):
     file = serializers.FileField()
-    people_recognisable = serializers.BooleanField(default=False)
+    people_recognisable = AnswerField()
 
     def validate_file(self, value: UploadedFile) -> attachments.Checked:
         return attachments.check(value)
@@ -421,7 +430,8 @@ class AvatarSerializer(serializers.Serializer[User]):
     phone photo includes where it was taken."""
 
     MAX_BYTES = 10 * 1024 * 1024
-    FORMATS = {"JPEG", "PNG", "WEBP"}
+    # HEIF is how iPhones take their photos.
+    FORMATS = {"JPEG", "PNG", "WEBP", "HEIF"}
     SIDE = 512
 
     avatar = serializers.FileField()
@@ -447,7 +457,8 @@ class AvatarSerializer(serializers.Serializer[User]):
             ) from None
         if image.format not in self.FORMATS:
             raise serializers.ValidationError(
-                "Formats acceptés : JPEG, PNG ou WebP.", code="avatar_format_refused"
+                "Formats acceptés : JPEG, PNG, WebP ou HEIC.",
+                code="avatar_format_refused",
             )
         upright = ImageOps.exif_transpose(image).convert("RGBA")
         upright.thumbnail((self.SIDE, self.SIDE))

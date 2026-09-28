@@ -15,6 +15,7 @@ from rest_framework.exceptions import PermissionDenied
 
 from .gdpr import request_deletion
 from .models import (
+    Attachment,
     Consent,
     Membership,
     Season,
@@ -139,3 +140,36 @@ class UserAdmin(BaseUserAdmin):
 
 
 admin.site.register([Season, Team, TeamSeason, Membership, Consent])
+
+
+class ToCheckFilter(admin.SimpleListFilter):
+    """The one place the club sees what to look at before a publication;
+    there is no screen for it in the application."""
+
+    title = "droit à l'image"
+    parameter_name = "refus"
+
+    def lookups(
+        self, request: HttpRequest, model_admin: admin.ModelAdmin
+    ) -> list[tuple[str, str]]:
+        return [("oui", "Refus dans l'équipe")]
+
+    def queryset(
+        self, request: HttpRequest, queryset: QuerySet[Attachment]
+    ) -> QuerySet[Attachment]:
+        if self.value() != "oui":
+            return queryset
+        return queryset.filter(pk__in=Attachment.objects.to_check().values("pk"))
+
+
+@admin.register(Attachment)
+class AttachmentAdmin(admin.ModelAdmin):
+    """A file only comes in through the API, which checks it; here the club
+    can only correct a wrong answer on recognisable people, or delete."""
+
+    list_display = ["name", "entry", "uploaded_by", "people_recognisable"]
+    list_filter = [ToCheckFilter, "people_recognisable"]
+    readonly_fields = ["entry", "uploaded_by", "file", "name", "content_type"]
+
+    def has_add_permission(self, request: HttpRequest) -> bool:
+        return False
