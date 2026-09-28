@@ -52,6 +52,7 @@
     "handover": "À reprendre",
     "handoverMeta": "{{author}} · {{date}}",
     "exportNotebook": "Exporter le cahier",
+    "downloadNotebook": "Télécharger le cahier",
     "exportCategory": "Partie du cahier",
     "exportWholeSeason": "Toute la saison",
     "exportCategories": {

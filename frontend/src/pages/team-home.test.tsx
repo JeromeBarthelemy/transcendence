@@ -377,14 +377,24 @@ function teamWithoutWorkItems(path: string): Response {
   throw new Error(`Unexpected request: ${path}`);
 }
 
-it("offers the team's whole season as a notebook export", async () => {
+async function openNotebookExport() {
+  const summary = await screen.findByText("Exporter le cahier");
+  const panel = summary.closest("details");
+  expect(panel?.open).toBe(false);
+  await userEvent.click(summary);
+  expect(panel?.open).toBe(true);
+}
+
+it("folds the notebook export away until asked, then offers the whole season", async () => {
   vi.stubGlobal(
     "fetch",
     vi.fn(async (path: string) => teamWithoutWorkItems(path)),
   );
   renderHome();
 
-  const link = await screen.findByRole("link", { name: "Exporter le cahier" });
+  await openNotebookExport();
+
+  const link = screen.getByRole("link", { name: "Télécharger le cahier" });
   expect(link.getAttribute("href")).toBe(
     "/api/team-seasons/7/export/?format=markdown",
   );
@@ -398,14 +408,15 @@ it("narrows the notebook export to the chosen category", async () => {
   );
   renderHome();
 
+  await openNotebookExport();
   await userEvent.selectOptions(
-    await screen.findByRole("combobox", { name: "Partie du cahier" }),
+    screen.getByRole("combobox", { name: "Partie du cahier" }),
     "Vie de l'équipe",
   );
 
   expect(
     screen
-      .getByRole("link", { name: "Exporter le cahier" })
+      .getByRole("link", { name: "Télécharger le cahier" })
       .getAttribute("href"),
   ).toBe("/api/team-seasons/7/export/?format=markdown&category=team-life");
 });

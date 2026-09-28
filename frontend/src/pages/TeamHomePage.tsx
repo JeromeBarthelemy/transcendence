@@ -379,31 +379,37 @@ function NotebookExport({ teamSeasonId }: { teamSeasonId: number }) {
     query.set("category", category);
   }
 
+  // Folded away: a season is exported once or twice, at its end.
   return (
-    <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-end">
-      <label className="text-sm font-semibold text-[#041894]">
-        {t("teamHome.exportCategory")}
-        <select
-          className="mt-2 block w-full rounded-xl border border-[#004fc5]/20 bg-white px-3 py-2 font-normal sm:w-auto"
-          value={category}
-          onChange={(event) => setCategory(event.target.value)}
-        >
-          <option value="">{t("teamHome.exportWholeSeason")}</option>
-          {EXPORT_CATEGORIES.map((key) => (
-            <option key={key} value={key}>
-              {t(`teamHome.exportCategories.${key}`)}
-            </option>
-          ))}
-        </select>
-      </label>
-      <a
-        className="rounded-xl bg-[#004fc5] px-4 py-2 text-center text-sm font-semibold text-white"
-        href={`/api/team-seasons/${teamSeasonId}/export/?${query}`}
-        download
-      >
+    <details className="mt-8 text-sm text-[#506784]">
+      <summary className="cursor-pointer font-semibold text-[#004fc5]">
         {t("teamHome.exportNotebook")}
-      </a>
-    </div>
+      </summary>
+      <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-end">
+        <label className="font-semibold text-[#041894]">
+          {t("teamHome.exportCategory")}
+          <select
+            className="mt-2 block w-full rounded-xl border border-[#004fc5]/20 bg-white px-3 py-2 font-normal sm:w-auto"
+            value={category}
+            onChange={(event) => setCategory(event.target.value)}
+          >
+            <option value="">{t("teamHome.exportWholeSeason")}</option>
+            {EXPORT_CATEGORIES.map((key) => (
+              <option key={key} value={key}>
+                {t(`teamHome.exportCategories.${key}`)}
+              </option>
+            ))}
+          </select>
+        </label>
+        <a
+          className="rounded-xl bg-[#004fc5] px-4 py-2 text-center font-semibold text-white"
+          href={`/api/team-seasons/${teamSeasonId}/export/?${query}`}
+          download
+        >
+          {t("teamHome.downloadNotebook")}
+        </a>
+      </div>
+    </details>
   );
 }
 
@@ -503,8 +509,6 @@ export function TeamHomePage({ identity }: { identity: Identity }) {
         )}
       </div>
 
-      <NotebookExport teamSeasonId={selectedTeamSeason.id} />
-
       {workItems.isPending ? (
         <p role="status" className="mt-10 text-sm text-[#506784]">
           {t("teamHome.loading")}
@@ -556,6 +560,8 @@ export function TeamHomePage({ identity }: { identity: Identity }) {
         teamSeasonId={selectedTeamSeason.id}
         day={day}
       />
+
+      <NotebookExport teamSeasonId={selectedTeamSeason.id} />
     </main>
   );
 }
