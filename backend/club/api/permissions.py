@@ -62,10 +62,22 @@ def not_staff_target(request: Request, target: User) -> None:
     """A club admin's reach stops at Django staff: staff is what resets a
     forgotten password from the Django admin (README, "Sessions"). A staff
     account demoted or deactivated by a club admin without staff access
-    would leave the club with no recovery path but `manage.py`."""
+    would leave the club with no recovery path but `manage.py`.
+
+    Superuser is a second, stricter boundary layered on top of it rather
+    than folded into the same check: `is_staff` alone opens the Django
+    admin, but says nothing about `is_superuser` — a staff club admin who
+    is not a superuser could otherwise still demote or deactivate one,
+    found reviewing #88."""
     if target.is_staff and not request.user.is_staff:
         raise PermissionDenied(
             "Ce compte a accès à l'admin Django ; seul un accès équivalent "
             "peut le modifier.",
             code="cannot_target_staff",
+        )
+    if target.is_superuser and not request.user.is_superuser:
+        raise PermissionDenied(
+            "Ce compte a un accès superutilisateur ; seul un accès "
+            "équivalent peut le modifier.",
+            code="cannot_target_superuser",
         )

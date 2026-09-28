@@ -27,6 +27,18 @@ def superuser(email="root@club.fr", display_name="Root"):
     return User.objects.create_superuser(email, display_name)
 
 
+def staff_admin(email="staff@club.fr", display_name="Staff"):
+    # is_staff without is_superuser: Django admin access, nothing more —
+    # create_superuser always sets both, so this needs its own fixture.
+    return User.objects.create_user(
+        email,
+        display_name,
+        club_role=User.ClubRole.MENTOR,
+        is_club_admin=True,
+        is_staff=True,
+    )
+
+
 # --- listing ---
 
 
@@ -279,6 +291,55 @@ def test_a_non_staff_admin_cannot_demote_a_staff_account(client):
 
 
 def test_a_staff_admin_can_edit_another_staff_account(client):
+    client.force_login(superuser("caller@club.fr", "Caller"))
+    root = superuser("root@club.fr", "Root")
+
+    response = client.patch(
+        f"/api/users/{root.id}/",
+        {"is_club_admin": False},
+        content_type="application/json",
+    )
+
+    assert response.status_code == 200
+    root.refresh_from_db()
+    assert root.is_club_admin is False
+
+
+# --- superuser accounts ---
+
+
+def test_a_staff_non_superuser_admin_cannot_deactivate_a_superuser(client):
+    # is_staff clears cannot_target_staff on its own — found by @Nitwee
+    # reviewing #88: a club admin with Django admin access but no superuser
+    # status could still deactivate or demote a superuser account.
+    client.force_login(staff_admin())
+    root = superuser()
+
+    response = client.delete(f"/api/users/{root.id}/")
+
+    assert response.status_code == 403
+    assert response.json()["detail"]["code"] == "cannot_target_superuser"
+    root.refresh_from_db()
+    assert root.is_active is True
+
+
+def test_a_staff_non_superuser_admin_cannot_demote_a_superuser(client):
+    client.force_login(staff_admin())
+    root = superuser()
+
+    response = client.patch(
+        f"/api/users/{root.id}/",
+        {"is_club_admin": False},
+        content_type="application/json",
+    )
+
+    assert response.status_code == 403
+    assert response.json()["detail"]["code"] == "cannot_target_superuser"
+    root.refresh_from_db()
+    assert root.is_club_admin is True
+
+
+def test_a_superuser_can_edit_another_superuser(client):
     client.force_login(superuser("caller@club.fr", "Caller"))
     root = superuser("root@club.fr", "Root")
 
