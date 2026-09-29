@@ -202,8 +202,8 @@ python backend/manage.py createsuperuser   # afterwards, for the Django admin
 ```
 
 It creates the current season (BioBuzz) with its Wednesday and Friday
-workshop slots, four fictional teams of three students, a mentor (Claire) and
-a club admin (Paul), and four weeks of work: work items at their steps, one
+workshop slots, four fictional teams of three students, a mentor (Claire)
+assigned to two of them and a club admin (Paul) who sees all four, and four weeks of work: work items at their steps, one
 back in prototyping after its test zero, one done, one only suggested,
 progress with handovers, notes, and slot days on which nothing moved. Dates
 are relative to the day it runs, so the recent days are always filled. One
@@ -232,8 +232,8 @@ The frontend uses these four routes from `/`, `/signup` and `/login`:
 
 The identity is deliberately small — `display_name`, `club_role`,
 `is_club_admin`, `avatar`, the photo's address or `null`, and `team_seasons`,
-the team seasons the account may open (its own teams for a student, every team
-for a mentor), newest season first. A session tells the interface what to
+the team seasons the account may open (the teams a student or a mentor is
+assigned to, every team for a club admin), newest season first. A session tells the interface what to
 draw, not what the account holds.
 
 ### Avatars
@@ -296,7 +296,10 @@ would not protect.
 
 The admin CRUD `docs/modules.md` §4 asks for, on top of the model it already
 settles: `User.club_role` and `Membership` are enough to derive who may act
-where, and this is its surface. No page yet.
+where, and this is its surface. The screen is `/users`, offered to club admins
+only: the members, filtered by name or address (case and accents ignored),
+status and role; each one's page changes their role, admin flag and
+suspension, or deletes the account after a confirmation.
 
 | route | answers |
 | --- | --- |
@@ -332,7 +335,11 @@ service). Deletion is final: the name, address, birth date and AssoConnect
 id are erased, the password made unusable, and — an admin anonymized this
 way is not exempt — `is_club_admin` cleared, since a password nobody can
 use makes the flag meaningless but still able to mislead
-`not_the_last_admin`. What a member wrote stays in the team's notebook,
+`not_the_last_admin`. An account anonymized this way — or any other — is
+final: the list flags it `is_anonymized`, read off its reserved name, and
+`PATCH` and `DELETE` refuse it with `account_anonymized` (`409`), since
+reactivating it or making it an admin would only add a phantom that
+`not_the_last_admin` would count. What a member wrote stays in the team's notebook,
 attributed (`club/models.py`, `User`) — a literal row delete would either
 orphan it or be refused outright by the `PROTECT` relationships that hold
 it. The confirmation e-mail goes out the same way it does for a
@@ -397,8 +404,10 @@ the screen to them.
 ## Work items and the day
 
 What the three screens read and write. Every route needs a session; a student
-acts on the team seasons they are a member of, a mentor on all four, and
-anyone else gets a `403` with the code `not_a_member`.
+or a mentor acts on the team seasons they are assigned to, a club admin on
+all of them, and anyone else gets a `403` with the code `not_a_member`. A
+mentor's reach is their assignments, as `docs/modules.md` §4 puts it: role ×
+scope — the team screen assigns a mentor the same way as a student.
 
 | route | does |
 | --- | --- |
@@ -692,7 +701,9 @@ requests — stays English.
 
 The frontend contains the public landing, sign-up and log-in screens. Once
 signed in, the home screen lists the selected team's robot and off-robot work
-items, with pending handovers highlighted. A mentor can switch between the
-team seasons exposed by their identity. A club admin also reaches the team
-management screen: create, rename and delete the season's teams, and add
-members by typing their name or remove them.
+items, with pending handovers highlighted. A mentor switches between the
+teams they are assigned to, a club admin between all of them. A club admin
+also reaches the team management screen — create, rename and delete the
+season's teams, and add members by typing their name or remove them — and
+the members screen, to change a member's role, admin flag or suspension, or
+delete their account.

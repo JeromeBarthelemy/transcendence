@@ -9,7 +9,7 @@ from django.contrib.auth import authenticate
 from django.core.management import CommandError, call_command
 from django.utils import timezone
 
-from club.models import Entry, Team, TeamSeason, User, WorkItem
+from club.models import Entry, Membership, Team, TeamSeason, User, WorkItem
 from club.workdays import attendance, gaps, workday
 
 PASSWORD = "rouage-demo-2026"
@@ -24,7 +24,8 @@ def test_the_demo_club_has_four_teams_with_their_students():
 
     assert Team.objects.count() == 4
     for team_season in TeamSeason.objects.all():
-        assert team_season.memberships.count() == 3
+        students = team_season.memberships.filter(user__club_role=User.ClubRole.STUDENT)
+        assert students.count() == 3
 
 
 def test_the_demo_accounts_sign_in_with_the_demo_password():
@@ -87,3 +88,11 @@ def test_seeding_refuses_a_database_that_already_holds_accounts():
 
     assert User.objects.count() == 1
     assert not Team.objects.exists()
+
+
+def test_the_demo_mentor_is_assigned_to_some_teams_not_all():
+    seed()
+    claire = User.objects.get(display_name="Claire")
+
+    assert Membership.objects.filter(user=claire).count() == 2
+    assert TeamSeason.objects.count() == 4

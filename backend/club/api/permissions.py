@@ -10,6 +10,8 @@ from rest_framework.views import APIView
 
 from club.models import Membership, TeamSeason, User
 
+from .errors import Conflict
+
 
 class IsClubAdmin(BasePermission):
     """Creating, renaming or deleting a team is an administrative act. Self-
@@ -26,12 +28,19 @@ class IsClubAdmin(BasePermission):
         )
 
 
+def sees_every_team(user: User) -> bool:
+    """The club admin's scope, and no one else's: a mentor is mentor of the
+    teams they are assigned to (`docs/modules.md` §4, role × scope), the
+    admin of every team."""
+    return user.is_club_admin
+
+
 def team_season_acted_on(user: User, team_season_id: int) -> TeamSeason:
-    """The team season a request works on, if the caller may: a member acts
-    on their own team, a mentor on any of the four."""
+    """The team season a request works on, if the caller may: a student or a
+    mentor acts on the teams they are assigned to, a club admin on all."""
     team_season = get_object_or_404(TeamSeason, pk=team_season_id)
     is_member = Membership.objects.filter(user=user, team_season=team_season)
-    if user.club_role != User.ClubRole.MENTOR and not is_member.exists():
+    if not sees_every_team(user) and not is_member.exists():
         raise PermissionDenied(
             "Vous n'êtes pas membre de cette équipe.", code="not_a_member"
         )
@@ -42,7 +51,7 @@ def team_seasons_open_to(user: User) -> QuerySet[TeamSeason]:
     """The same rule as `team_season_acted_on`, as a list: what the front end
     may offer to open."""
     team_seasons = TeamSeason.objects.select_related("team", "season")
-    if user.club_role == User.ClubRole.MENTOR:
+    if sees_every_team(user):
         return team_seasons.all()
     return team_seasons.filter(memberships__user=user)
 
@@ -80,6 +89,18 @@ def not_staff_target(request: Request, target: User) -> None:
             "Ce compte a un accès superutilisateur ; seul un accès "
             "équivalent peut le modifier.",
             code="cannot_target_superuser",
+        )
+
+
+def not_anonymized(target: User) -> None:
+    """An anonymized account is gone for good (`club/gdpr.py`, `anonymize`):
+    its password is unusable, so reactivating it or making it an admin
+    would only add a phantom — one that `not_the_last_admin` would count,
+    letting the club's real last admin leave."""
+    if target.is_anonymized:
+        raise Conflict(
+            "Ce compte a été supprimé : il ne peut plus être modifié.",
+            code="account_anonymized",
         )
 
 

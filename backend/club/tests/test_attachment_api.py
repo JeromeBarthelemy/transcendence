@@ -34,10 +34,13 @@ def member_of(team_season, name="lina"):
     return user
 
 
-def mentor(name="paul"):
-    return User.objects.create_user(
-        f"{name}@example.org", name, club_role=User.ClubRole.MENTOR
+def mentor(name="paul", of=None, **extra):
+    user = User.objects.create_user(
+        f"{name}@example.org", name, club_role=User.ClubRole.MENTOR, **extra
     )
+    if of is not None:
+        Membership.objects.create(user=user, team_season=of)
+    return user
 
 
 def note(team_season, author, work_item=None):
@@ -116,10 +119,26 @@ def test_a_member_attaches_a_file_to_an_entry_a_teammate_wrote(client):
     assert response.json()["uploaded_by"] == "tom"
 
 
-def test_a_mentor_attaches_a_file_to_any_team(client):
+def test_a_mentor_attaches_a_file_to_a_team_they_mentor(client):
     rouages = team_season()
     entry = note(rouages, member_of(rouages))
-    client.force_login(mentor())
+    client.force_login(mentor(of=rouages))
+
+    assert attach(client, entry, pdf()).status_code == 201
+
+
+def test_a_mentor_cannot_attach_a_file_to_a_team_they_do_not_mentor(client):
+    rouages = team_season()
+    entry = note(rouages, member_of(rouages))
+    client.force_login(mentor(of=team_season(222)))
+
+    assert attach(client, entry, pdf()).status_code == 403
+
+
+def test_a_club_admin_attaches_a_file_to_any_team(client):
+    rouages = team_season()
+    entry = note(rouages, member_of(rouages))
+    client.force_login(mentor(is_club_admin=True))
 
     assert attach(client, entry, pdf()).status_code == 201
 
@@ -232,7 +251,7 @@ def test_a_mentor_deletes_a_file_a_student_attached(client):
     entry = note(rouages, member_of(rouages))
     client.force_login(entry.author)
     attached = attach(client, entry, pdf()).json()
-    client.force_login(mentor())
+    client.force_login(mentor(of=rouages))
 
     assert client.delete(attached["url"]).status_code == 204
     assert download(client, attached).status_code == 404

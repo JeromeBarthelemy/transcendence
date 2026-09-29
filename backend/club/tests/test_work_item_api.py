@@ -70,9 +70,29 @@ def test_an_unknown_team_season_is_not_found(client):
     assert client.get("/api/team-seasons/999/work-items/").status_code == 404
 
 
-def test_a_mentor_steps_in_on_a_team_that_is_not_theirs(client):
+def test_a_mentor_is_refused_a_team_they_are_not_assigned_to(client):
     rouages = team_season(12345)
     client.force_login(mentor())
+
+    response = client.get(url(rouages))
+
+    assert response.status_code == 403
+    assert response.json()["detail"]["code"] == "not_a_member"
+
+
+def test_a_mentor_opens_a_team_they_are_assigned_to(client):
+    rouages = team_season(12345)
+    client.force_login(member_of(rouages, "paul", User.ClubRole.MENTOR))
+
+    assert client.get(url(rouages)).status_code == 200
+
+
+def test_a_club_admin_steps_in_on_any_team(client):
+    rouages = team_season(12345)
+    admin = mentor()
+    admin.is_club_admin = True
+    admin.save(update_fields=["is_club_admin"])
+    client.force_login(admin)
 
     assert client.get(url(rouages)).status_code == 200
 
@@ -381,7 +401,7 @@ def test_ticking_twice_signs_up_once(client):
 def test_a_mentor_who_ticks_is_signed_up(client):
     rouages = team_season()
     intake = robot_work_item(rouages)
-    client.force_login(mentor())
+    client.force_login(member_of(rouages, "paul", User.ClubRole.MENTOR))
 
     assert names(tick(client, intake).json()["participants"]) == ["paul"]
 
