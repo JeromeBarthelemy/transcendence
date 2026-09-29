@@ -15,13 +15,25 @@ the other ("robots" and "ROBOT" hash to different buckets, not the same
 word), and a question asked in French about a manual FIRST publishes only
 in English, where a real answer shares no token with its source at all.
 Both are gaps of *meaning*, and no amount of retuning a word-hash closes
-them. `sentence-transformers`' `intfloat/multilingual-e5-base` does: a
-278M-parameter, CPU-only, locally-cached model trained across 100+
-languages including French and English, built specifically for retrieval
-(its own card asks for the "query: "/"passage: " prefixes used below). It
-runs once per ingestion and once per question, entirely offline after its
-one-time download — nothing about the club's "tout tourne en local"
-posture changes, only what `embed()` does inside.
+them. `intfloat/multilingual-e5-base` does: a 278M-parameter, CPU-only,
+locally-cached model trained across 100+ languages including French and
+English, built specifically for retrieval (its own card asks for the
+"query: "/"passage: " prefixes used below). It runs once per ingestion
+and once per question, entirely offline after its one-time download —
+nothing about the club's "tout tourne en local" posture changes, only
+what `embed()` does inside.
+
+Run through `fastembed` (ONNX Runtime) rather than `sentence-transformers`
+(PyTorch): measured on the same 100 questions against the real manual,
+identical answers to the third decimal place — the runtime changed, not
+the arithmetic — for roughly a third the latency per question (measured:
+~21ms against ~72ms) and without PyTorch's own ~550MB of installed
+weight (fastembed's own runtime, ONNX Runtime, is tens of MB). The one
+place it is not a clean win: ingesting the full manual took about twice
+as long (measured: ~72s against ~37s for the same 397 passages) — ONNX
+Runtime's CPU provider favours short sequences over throughput on long
+ones, the opposite of what `ask()` needs but exactly what a rare,
+one-off ingestion does not.
 
 Sized up from the smaller `e5-small` after calibration showed the real
 gap: 0.82 was the first threshold blocking every off-topic control on
@@ -35,15 +47,50 @@ commit that landed this for why it wasn't worth its extra weight.
 
 import re
 import struct
+from pathlib import Path
 from typing import Any
 
 import numpy as np
+from django.conf import settings
 from django.db import transaction
-from sentence_transformers import SentenceTransformer
+from fastembed import TextEmbedding
+from fastembed.common.model_description import ModelSource, PoolingType
 
 from .models import Chunk, Document, QueryCitation, RuleQuery, Season, User
 
-MODEL_NAME = "intfloat/multilingual-e5-base"
+# fastembed does not carry multilingual-e5-base in its own catalogue (only
+# the larger e5-large) — this registers the same model as a custom one,
+# pointing at a third-party ONNX export rather than intfloat's own repo,
+# which only publishes PyTorch weights.
+#
+# fp32, not the same export's int8-quantized file: quantized scored the
+# same 90 real / 10 off-topic questions measurably worse (at MIN_SCORE
+# unchanged, 74/90 real questions answered and only 8/10 off-topic
+# blocked, against 89/90 and 10/10 below) — a real accuracy cost, not a
+# rounding difference. fp32 ONNX, run through fastembed rather than
+# sentence-transformers, scored these same 100 questions identically to
+# the third decimal place: the runtime changed, not the arithmetic. Kept
+# here as the one still worth shipping — 3x faster than
+# sentence-transformers per question in the same measurement, and without
+# torch's ~550MB (fastembed's own runtime, onnxruntime, is tens of MB) —
+# for exactly the same answers.
+MODEL_NAME = "nixiesearch/multilingual-e5-base-onnx"
+# Registration is a class-level side effect, not a per-instance one — a
+# second call for the same name raises, which a module reimported more
+# than once in the same process (an autoreloader, a test collector) would
+# otherwise hit.
+if MODEL_NAME not in {m["model"] for m in TextEmbedding.list_supported_models()}:
+    TextEmbedding.add_custom_model(
+        model=MODEL_NAME,
+        pooling=PoolingType.MEAN,
+        normalization=True,
+        sources=ModelSource(hf=MODEL_NAME),
+        dim=768,
+        model_file="model.onnx",
+    )
+# fastembed defaults to a temp directory, gone on the next reboot — not
+# "downloaded once", the whole point of caching it at all.
+FASTEMBED_CACHE_DIR = str(Path(settings.BASE_DIR) / ".cache" / "fastembed")
 DIMENSIONS = 768
 # How many passages a question keeps.
 TOP_K = 5
@@ -77,17 +124,17 @@ NO_ANSWER = (
     "question. Consultez le Q&A officiel de FIRST pour une réponse engageante."
 )
 
-_model: SentenceTransformer | None = None
+_model: TextEmbedding | None = None
 
 
-def _get_model() -> SentenceTransformer:
+def _get_model() -> TextEmbedding:
     """Loaded once per process, not per call: construction reads the model
     off disk (or downloads it once, the only time this module needs a
     network), which every question and every ingested passage would
     otherwise pay for again."""
     global _model
     if _model is None:
-        _model = SentenceTransformer(MODEL_NAME)
+        _model = TextEmbedding(model_name=MODEL_NAME, cache_dir=FASTEMBED_CACHE_DIR)
     return _model
 
 
@@ -97,10 +144,7 @@ def embed(text: str, *, is_query: bool = False) -> bytes:
     design: a question and the passage that answers it are encoded
     differently (its own model card asks for these exact prefixes), so the
     same call cannot serve both without saying which one this text is."""
-    model = _get_model()
-    prefix = "query" if is_query else "passage"
-    vector = model.encode(f"{prefix}: {text}", normalize_embeddings=True)
-    return struct.pack(f"{DIMENSIONS}f", *vector.astype(np.float32))
+    return _embed_many([text], is_query=is_query)[0]
 
 
 def _embed_many(texts: list[str], *, is_query: bool) -> list[bytes]:
@@ -109,9 +153,7 @@ def _embed_many(texts: list[str], *, is_query: bool) -> list[bytes]:
     take seconds instead of minutes on a CPU."""
     model = _get_model()
     prefix = "query" if is_query else "passage"
-    vectors = model.encode(
-        [f"{prefix}: {text}" for text in texts], normalize_embeddings=True
-    )
+    vectors = model.embed([f"{prefix}: {text}" for text in texts])
     return [
         struct.pack(f"{DIMENSIONS}f", *vector.astype(np.float32)) for vector in vectors
     ]
