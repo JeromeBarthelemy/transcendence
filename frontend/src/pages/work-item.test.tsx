@@ -245,6 +245,58 @@ it("saves what was done and the handoff for next time", async () => {
   });
 });
 
+it("adds a note to the work item and refreshes its history", async () => {
+  setDocumentCookie("csrftoken=test; path=/");
+  let item = workItem();
+  const createdNote = {
+    id: 41,
+    work_item: { id: 10, title: "Intake" },
+    type: "note",
+    body: "Le câble du capteur frotte contre le guide.",
+    step: null,
+    handover: "",
+    occurred_at: "2026-09-29T14:30:00+02:00",
+    author: "Marie",
+    participants: [],
+    attachments: [],
+  };
+  const fetchMock = vi.fn(
+    async (path: string, options?: RequestInit): Promise<Response> => {
+      if (path === "/api/auth/me/") {
+        return json(identity());
+      }
+      if (path === "/api/work-items/10/" && !options?.method) {
+        return json(item);
+      }
+      if (path === "/api/team-seasons/7/notes/" && options?.method === "POST") {
+        item = workItem({ thread: [createdNote, ...item.thread] });
+        return json(createdNote, 201);
+      }
+      throw new Error(`Unexpected request: ${path}`);
+    },
+  );
+  vi.stubGlobal("fetch", fetchMock);
+  renderWorkItem();
+
+  const note = await screen.findByLabelText("Remarque sur ce chantier");
+  await userEvent.type(note, "  Le câble du capteur frotte contre le guide.  ");
+  await userEvent.click(
+    screen.getByRole("button", { name: "Enregistrer la remarque" }),
+  );
+
+  expect(await screen.findByText("Remarque enregistrée.")).toBeTruthy();
+  expect(
+    await screen.findByText("Le câble du capteur frotte contre le guide."),
+  ).toBeTruthy();
+  const noteRequest = fetchMock.mock.calls.find(
+    ([path]) => path === "/api/team-seasons/7/notes/",
+  );
+  expect(JSON.parse(String(noteRequest?.[1]?.body))).toEqual({
+    body: "Le câble du capteur frotte contre le guide.",
+    work_item: 10,
+  });
+});
+
 it("uploads a file with its image-right answer", async () => {
   setDocumentCookie("csrftoken=test; path=/");
 

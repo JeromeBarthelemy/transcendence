@@ -5,6 +5,7 @@ import { Link, Navigate, useParams } from "react-router-dom";
 
 import type { Identity } from "../api/auth";
 import {
+  createWorkItemNote,
   getWorkItem,
   tickWorkItem,
   updateProgress,
@@ -428,6 +429,86 @@ function HistoryEntry({ entry }: { entry: WorkItemEntry }) {
   );
 }
 
+function WorkItemNoteForm({ item }: { item: WorkItemDetail }) {
+  const { t } = useTranslation();
+  const queryClient = useQueryClient();
+  const [body, setBody] = useState("");
+  const [saved, setSaved] = useState(false);
+  const note = useMutation({
+    mutationFn: (noteBody: string) =>
+      createWorkItemNote(item.team_season, item.id, noteBody),
+    onSuccess: async () => {
+      setBody("");
+      setSaved(true);
+      await queryClient.invalidateQueries({
+        queryKey: ["work-items", item.id],
+      });
+    },
+  });
+
+  function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const noteBody = body.trim();
+    if (noteBody) {
+      setSaved(false);
+      note.mutate(noteBody);
+    }
+  }
+
+  return (
+    <section
+      aria-labelledby="work-item-note-title"
+      className="rounded-3xl border border-[#004fc5]/12 bg-white p-5 shadow-sm sm:p-7"
+    >
+      <h2
+        id="work-item-note-title"
+        className="brand-title text-2xl text-[#041894]"
+      >
+        {t("workItem.addNote")}
+      </h2>
+      <p className="mt-2 text-sm leading-6 text-[#506784]">
+        {t("workItem.noteHint")}
+      </p>
+      <form className="mt-4" onSubmit={submit}>
+        <label
+          htmlFor={`work-item-note-${item.id}`}
+          className="text-sm font-semibold text-[#041894]"
+        >
+          {t("workItem.noteLabel")}
+        </label>
+        <textarea
+          id={`work-item-note-${item.id}`}
+          className="mt-2 min-h-24 w-full rounded-xl border border-[#004fc5]/20 px-3 py-2 text-[#13294b]"
+          value={body}
+          placeholder={t("workItem.notePlaceholder")}
+          onChange={(event) => {
+            setBody(event.target.value);
+            setSaved(false);
+          }}
+        />
+        {note.isError && <RequestError error={note.error} />}
+        {saved && (
+          <p
+            role="status"
+            className="mt-3 text-sm font-semibold text-[#167448]"
+          >
+            {t("workItem.noteSaved")}
+          </p>
+        )}
+        <div className="mt-4 flex justify-end">
+          <button
+            type="submit"
+            className="rounded-xl border border-[#004fc5]/25 px-4 py-2 text-sm font-semibold text-[#041894] disabled:opacity-50"
+            disabled={note.isPending || !body.trim()}
+          >
+            {note.isPending ? t("workItem.noteSaving") : t("workItem.saveNote")}
+          </button>
+        </div>
+      </form>
+    </section>
+  );
+}
+
 function WorkItemScreen({
   item,
   identity,
@@ -494,7 +575,10 @@ function WorkItemScreen({
       )}
 
       <div className="mt-8 grid items-start gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.9fr)]">
-        <TodayPanel item={item} identity={identity} />
+        <div className="space-y-6">
+          <TodayPanel item={item} identity={identity} />
+          <WorkItemNoteForm item={item} />
+        </div>
 
         <section aria-labelledby="history-title">
           <p className="text-xs font-bold tracking-[0.14em] text-[#0078dd] uppercase">

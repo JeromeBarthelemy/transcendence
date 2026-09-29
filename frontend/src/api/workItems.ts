@@ -139,6 +139,18 @@ export async function updateProgress(
   return parseEntry(body);
 }
 
+export async function createWorkItemNote(
+  teamSeasonId: number,
+  workItemId: number,
+  noteBody: string,
+): Promise<WorkItemEntry> {
+  const { body } = await post(`/api/team-seasons/${teamSeasonId}/notes/`, {
+    body: noteBody,
+    work_item: workItemId,
+  });
+  return parseEntry(body);
+}
+
 export async function uploadAttachment(
   entryId: number,
   file: File,
