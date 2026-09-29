@@ -4,6 +4,7 @@ tenant to resolve: every route below is about the person calling it."""
 import tempfile
 
 from django.contrib.auth import login, logout
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
 from django.db.models import ProtectedError
 from django.http import FileResponse, Http404
@@ -33,6 +34,7 @@ from club.models import (
     remove_after_commit,
 )
 from club.progress import edit_progress, join, record_progress
+from club.rag import ask, serialize
 from club.workdays import (
     attendance,
     day_entries,
@@ -52,6 +54,7 @@ from .permissions import (
 )
 from .serializers import (
     AddMembershipSerializer,
+    AskSerializer,
     AttachmentSerializer,
     AvatarSerializer,
     CloseWorkItemSerializer,
@@ -734,3 +737,21 @@ class ExportView(APIView):
         return FileResponse(
             archive, as_attachment=True, filename=name, content_type="application/zip"
         )
+
+
+class RuleQuestionView(APIView):
+    """Ask the rulebook RAG a question, against the current season's
+    ingested documents."""
+
+    def post(self, request: Request) -> Response:
+        user = request.user
+        assert isinstance(user, User)
+        serializer = AskSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        season = Season.objects.first()
+        if season is None:
+            raise DjangoValidationError(
+                "Aucune saison n'est ouverte.", code="no_season"
+            )
+        query = ask(serializer.validated_data["question"], season, user)
+        return Response(serialize(query), status=status.HTTP_201_CREATED)

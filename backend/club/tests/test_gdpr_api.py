@@ -8,6 +8,7 @@ from django.core.files.base import ContentFile
 from club.models import (
     Consent,
     Membership,
+    RuleQuery,
     Season,
     Team,
     TeamSeason,
@@ -142,6 +143,22 @@ def test_the_export_carries_assoconnect_id_and_pending_verification(client, mail
     assert "AC-42" in content
     assert "Dupont" in content
     assert "2010-05-01" in content
+
+
+def test_the_export_carries_rulebook_questions(client, mailoutbox):
+    lina = student(contact_email="parent.lina@club.fr")
+    RuleQuery.objects.create(
+        asker=lina,
+        question="Quelle hauteur maximale en autonome ?",
+        answer="",
+    )
+    client.force_login(lina)
+
+    client.post("/api/auth/me/export/")
+
+    (mail,) = mailoutbox
+    (_, content, _) = mail.attachments[0]
+    assert "Quelle hauteur maximale en autonome" in content
 
 
 def test_the_export_leaves_out_the_teams_notebook(client, mailoutbox):

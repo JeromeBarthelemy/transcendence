@@ -688,3 +688,123 @@ class Consent(models.Model):
 
     def __str__(self) -> str:
         return f"{self.user} — droit à l'image {self.get_decision_display()}"
+
+
+class Document(models.Model):
+    """A source the rulebook RAG has ingested: the game manual, the official
+    Q&A, or a forum thread. Never something the club wrote itself — a house
+    fiche would go stale with no visible expiry date, and be cited with the
+    same confidence as a binding rule (docs/fieldnotes.html, "Le RAG
+    règlement")."""
+
+    class Source(models.TextChoices):
+        GAME_MANUAL = "game_manual", "manuel de jeu"
+        OFFICIAL_QA = "official_qa", "Q&A officiel"
+        FORUM = "forum", "forum"
+
+    class Authority(models.TextChoices):
+        """What the source is worth, read off `source` at ingestion — never
+        typed by hand, so a forum post can never be filed as binding by a
+        slip of a flag."""
+
+        BINDING = "binding", "contraignant"
+        RULING = "ruling", "ruling officiel"
+        COMMUNITY = "community", "opinion"
+
+    season = models.ForeignKey(
+        Season, on_delete=models.PROTECT, related_name="documents"
+    )
+    source = models.CharField("source", max_length=15, choices=Source.choices)
+    authority = models.CharField("autorité", max_length=10, choices=Authority.choices)
+    title = models.CharField("titre", max_length=200)
+    url = models.URLField(blank=True)
+    fetched_at = models.DateTimeField("récupéré le", default=timezone.now)
+
+    class Meta:
+        ordering = ["-fetched_at"]
+        verbose_name = "document"
+
+    def __str__(self) -> str:
+        return self.title
+
+
+class Chunk(models.Model):
+    """One passage of a `Document`, short enough to cite and to compare: the
+    unit both retrieval and a citation point at."""
+
+    document = models.ForeignKey(
+        Document, on_delete=models.CASCADE, related_name="chunks"
+    )
+    ordinal = models.PositiveIntegerField("position")
+    # What a citation names: a rule ID ("G420") or a numbered section
+    # ("10.6.4") for the prose around them — blank only for front matter
+    # ingested before either is recognised. Not unique: a rule too long for
+    # one passage keeps its own reference across all of them.
+    reference = models.CharField("référence", max_length=20, blank=True, default="")
+    text = models.TextField("texte")
+    # A fixed-size vector, packed: a manual is a few thousand chunks, and a
+    # brute-force dot product over them takes milliseconds — no vector
+    # database earns its keep at this size (docs/fieldnotes.html).
+    embedding = models.BinaryField(editable=False)
+
+    class Meta:
+        ordering = ["document", "ordinal"]
+        verbose_name = "passage"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["document", "ordinal"], name="unique_ordinal_per_document"
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.document} #{self.ordinal}"
+
+
+class RuleQuery(models.Model):
+    """A question asked of the rulebook, and what came back. `answer` is
+    empty when the citations speak for themselves, and holds the refusal
+    sentence when none of them may be trusted to."""
+
+    # PROTECT, not CASCADE: an anonymized member's questions stay, pointing
+    # to "Ancien membre" like the rest of what they left behind
+    # (club/gdpr.py, `anonymize`).
+    asker = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="rule_queries"
+    )
+    question = models.TextField("question")
+    answer = models.TextField("réponse", blank=True)
+    created_at = models.DateTimeField("posée le", default=timezone.now)
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
+        verbose_name = "question de règlement"
+        verbose_name_plural = "questions de règlement"
+
+    def __str__(self) -> str:
+        return self.question
+
+
+class QueryCitation(models.Model):
+    """The passage a query's answer rests on, ranked: what the reader is
+    handed to check the answer against, in the order it was trusted."""
+
+    query = models.ForeignKey(
+        RuleQuery, on_delete=models.CASCADE, related_name="citations"
+    )
+    # PROTECT: a citation must never point at a passage that no longer
+    # exists to be checked against.
+    chunk = models.ForeignKey(Chunk, on_delete=models.PROTECT)
+    rank = models.PositiveSmallIntegerField("rang")
+
+    class Meta:
+        ordering = ["query", "rank"]
+        verbose_name = "citation de réponse"
+        verbose_name_plural = "citations de réponse"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["query", "rank"], name="unique_rank_per_query"
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.query} — #{self.rank}"

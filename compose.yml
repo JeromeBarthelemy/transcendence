@@ -6,6 +6,10 @@ services:
       DJANGO_ALLOWED_HOSTS: localhost,127.0.0.1,backend
     volumes:
       - ./backend:/app
+      # The RAG règlement's embedding model (~300MB, backend/club/rag.py):
+      # without this, every `docker compose up` after a `down` re-downloads
+      # it, since a container's own filesystem does not survive one.
+      - huggingface_cache:/root/.cache/huggingface
     command: >-
       sh -c "python manage.py migrate &&
       python manage.py runserver 0.0.0.0:8000"
@@ -36,3 +40,4 @@ services:
 
 volumes:
   frontend_node_modules:
+  huggingface_cache:

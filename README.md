@@ -476,6 +476,79 @@ Files live under `backend/media/`, beside the database, and a backup takes
 both: the database only records where each file is. A removed attachment, or
 the entry it belongs to, leaves the disk once the deletion is committed.
 
+## Rulebook questions
+
+A member asks the current season's game manual a question and gets back the
+passages that answer it, ranked first by how much they may be trusted, then
+by how well they answer it — not a generated answer, so nothing is ever
+invented past what the source says.
+
+| route | does |
+| --- | --- |
+| `POST /api/rules/ask/` | a question, answered with up to five cited passages from this season's ingested documents |
+
+"Current season" here means `Season.objects.first()` — the whole route has
+no `team_season_id` to read it from, unlike everything else in this API, so
+whichever season sorts first (`Season.Meta.ordering`, newest first) is the
+one asked. A season with nothing ingested yet is refused by name ("Le manuel
+de la saison 2026-2027 n'est pas encore chargé"), distinct from an ingested
+manual simply not answering a question.
+
+Ingesting a document is a management command, not a route — there is no
+screen for uploading a manual, only for asking it questions:
+
+```sh
+python manage.py ingest_document manual.pdf --season 2026 \
+  --source game_manual --title "Manuel BioBuzz V1"
+```
+
+`--source` is one of `game_manual`, `official_qa` or `forum`, and decides the
+document's authority (respectively `binding`, `ruling`, `community`) — never
+asked for on its own, so a forum thread can't be filed as binding by a typo.
+Citations are ordered by authority first, score second: the manual is
+explicit that it takes precedence over the Q&A, so a `binding` passage is
+always quoted ahead of a `ruling` or `community` one that merely scored
+higher. A question is answered plainly when a `binding` or `ruling` passage
+backs it; otherwise the response carries a refusal instead of a guess,
+pointing to FIRST's own Q&A. Only the latest ingested document per
+`(season, source)` is searched — FIRST republishes the manual with every
+Team Update, and citing an amended rule alongside its own superseded
+predecessor would leave a student unsure which to trust.
+
+Each passage is one rule or one numbered section, not a sliding window over
+the text: the manual is built on these (`G420 *Do not tip or entangle.`,
+`10.6.4 Violation Details`), and a fixed-size window cut across them would
+leave a citation unable to say which rule it was quoting. A citation carries
+its own `reference` (`G420`, `10.6.4`, or empty for front matter) alongside
+its text.
+
+The first `ingest_document` or `POST /api/rules/ask/` on a fresh install
+downloads the embedding model once (a few hundred MB, cached under
+`$HF_HOME`, `~/.cache/huggingface` if unset, and under a named Docker volume
+in `compose.yml` so a `down` and `up` does not re-download it) — the only
+network access this module ever makes; every call after that is local.
+
+There is no vector database behind this: a manual is a few thousand
+passages, and ranking them against a question is a NumPy dot product,
+cheap enough to redo on every question (measured on the real manual: under
+100ms per question, past the model's one-time load). There *is* a real
+embedding model — `sentence-transformers`' `intfloat/multilingual-e5-base`,
+278M parameters, CPU-only, downloaded once and cached locally, nothing sent
+anywhere at question time. An earlier version hashed a bag-of-words and
+ranked it with Okapi BM25, which worked only when a question quoted the
+manual's own English vocabulary — a member asking in French, the club's own
+language, about a manual FIRST never publishes in French, shared no token
+with the passage that answered them. A real embedding closes that gap:
+"Est-ce que le robot peut toucher un autre robot pendant l'autonome ?"
+retrieves the manual's English contact rules directly, nothing in common
+between the two but what they mean. Calibrated on the real manual, chunked
+by rule rather than by word window (397 passages), against 90 real
+questions spanning every section and 10 off-topic controls: every off-topic
+question fell below the threshold that still answered 89 of the 90 real
+ones. A bigger corpus of nonsense phrasings would likely still find
+something that slips through; closing that gap for good would need a
+classifier trained on real off-topic traffic, which does not exist yet.
+
 ## Checking
 
 ```sh

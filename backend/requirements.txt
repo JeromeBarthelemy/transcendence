@@ -4,3 +4,8 @@ Pillow==12.*           # exigé par les ImageField (avatars, photos)
 pillow-heif==1.*       # lecture des photos HEIC des iPhone
 openpyxl==3.1.*        # lecture de l'export AssoConnect (.xlsx)
 djangorestframework==3.18.*  # l'API : sérialiseurs, vues, throttling
+pypdf==6.*              # lecture du manuel de jeu pour le RAG règlement
+sentence-transformers==6.* # embeddings du RAG règlement (intfloat/multilingual-e5-base)
+numpy==2.*              # rag.py compare les embeddings directement (produit matriciel)
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch==2.*              # backend CPU de sentence-transformers, sans CUDA
