@@ -274,6 +274,9 @@ function TodayPanel({
     },
   });
   const progress = item.current_progress;
+  const selectedStepWasStarted = item.thread.some(
+    (entry) => entry.type === "progress" && entry.step === selectedStep,
+  );
   const canEdit =
     progress &&
     (item.current_user_participates || identity.club_role === "mentor");
@@ -322,7 +325,11 @@ function TodayPanel({
             }
             onClick={() => tick.mutate(selectedStep)}
           >
-            {progress ? t("workItem.changeStep") : t("workItem.startStep")}
+            {progress
+              ? t("workItem.changeStep")
+              : selectedStepWasStarted
+                ? t("workItem.continueStep")
+                : t("workItem.startStep")}
           </button>
         </div>
       )}
@@ -356,7 +363,9 @@ function TodayPanel({
             disabled={tick.isPending}
             onClick={() => tick.mutate(undefined)}
           >
-            {t("workItem.startToday")}
+            {item.last_progress
+              ? t("workItem.continueToday")
+              : t("workItem.startToday")}
           </button>
         )
       )}

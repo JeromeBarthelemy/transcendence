@@ -171,6 +171,67 @@ it("asks a non-participant to join before editing the progress", async () => {
   expect(screen.getByRole("button", { name: "Je participe" })).toBeTruthy();
 });
 
+it.each([
+  { onRobot: true, action: "Continuer cette étape" },
+  { onRobot: false, action: "Reprendre aujourd'hui" },
+])(
+  "offers to continue an existing chantier with '$action'",
+  async (scenario) => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (path: string) => {
+        if (path === "/api/auth/me/") {
+          return json(identity());
+        }
+        if (path === "/api/work-items/10/") {
+          return json(
+            workItem({
+              on_robot: scenario.onRobot,
+              current_progress: null,
+              current_user_participates: false,
+            }),
+          );
+        }
+        throw new Error(`Unexpected request: ${path}`);
+      }),
+    );
+    renderWorkItem();
+
+    expect(
+      await screen.findByRole("button", { name: scenario.action }),
+    ).toBeTruthy();
+  },
+);
+
+it("offers to start a step with no progress history", async () => {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (path: string) => {
+      if (path === "/api/auth/me/") {
+        return json(identity());
+      }
+      if (path === "/api/work-items/10/") {
+        return json(
+          workItem({
+            current_progress: null,
+            current_user_participates: false,
+          }),
+        );
+      }
+      throw new Error(`Unexpected request: ${path}`);
+    }),
+  );
+  renderWorkItem();
+
+  expect(
+    await screen.findByRole("button", { name: "Continuer cette étape" }),
+  ).toBeTruthy();
+  await userEvent.selectOptions(screen.getByLabelText("Étape"), "integration");
+  expect(
+    screen.getByRole("button", { name: "Commencer cette étape" }),
+  ).toBeTruthy();
+});
+
 it("joins an existing progress without changing its step", async () => {
   setDocumentCookie("csrftoken=test; path=/");
   const existingProgress = progress({
