@@ -11,6 +11,7 @@ import { Link } from "react-router-dom";
 import type { Identity, TeamSeasonSummary } from "../api/auth";
 import { createTeamNote, getWorkday, type Workday } from "../api/workdays";
 import { getWorkItems, type WorkItem } from "../api/workItems";
+import { formatWorkdayDate, nameFormatter } from "../app/formatters";
 import { RequestError } from "../components/ApiErrors";
 
 type StatusFilter = "active" | "all" | WorkItem["status"];
@@ -32,24 +33,10 @@ const weekdayFormatter = new Intl.DateTimeFormat("fr-FR", {
 const relativeFormatter = new Intl.RelativeTimeFormat("fr-FR", {
   numeric: "auto",
 });
-const nameFormatter = new Intl.ListFormat("fr-FR", {
-  style: "long",
-  type: "conjunction",
-});
-
-const workdayDateFormatter = new Intl.DateTimeFormat("fr-FR", {
-  weekday: "long",
-  day: "numeric",
-  month: "long",
-  timeZone: "UTC",
-});
 const noteTimeFormatter = new Intl.DateTimeFormat("fr-FR", {
   hour: "2-digit",
   minute: "2-digit",
 });
-function formatWorkdayDate(day: string) {
-  return workdayDateFormatter.format(new Date(`${day}T12:00:00Z`));
-}
 
 function formatActivityDate(day: string, currentWorkday?: string) {
   const date = new Date(`${day}T12:00:00Z`);
@@ -205,7 +192,7 @@ function WorkItemSection({
   );
 }
 
-function DayFooter({
+function TodaySummary({
   teamSeasonId,
   day,
 }: {
@@ -563,7 +550,7 @@ export function TeamHomePage({ identity }: { identity: Identity }) {
         </div>
       )}
 
-      <DayFooter
+      <TodaySummary
         key={selectedTeamSeason.id}
         teamSeasonId={selectedTeamSeason.id}
         day={day}

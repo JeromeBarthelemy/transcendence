@@ -74,16 +74,7 @@ const entrySchema = z.object({
   attachments: z.array(attachmentSchema),
 });
 
-const workItemDetailSchema = z.object({
-  id: z.number(),
-  team_season: z.number(),
-  title: z.string(),
-  on_robot: z.boolean(),
-  status: z.enum(["suggested", "open", "done", "dropped"]),
-  opened_at: z.nullable(z.string()),
-  current_step: z.nullable(workItemStepSchema),
-  handover: handoverSchema,
-  last_progress: lastProgressSchema,
+const workItemDetailSchema = z.extend(workItemSchema, {
   current_progress: z.nullable(entrySchema),
   current_user_participates: z.boolean(),
   thread: z.array(entrySchema),
@@ -165,7 +156,6 @@ export async function uploadAttachment(
   return new Promise((resolve, reject) => {
     const request = new XMLHttpRequest();
     request.open("POST", `/api/entries/${entryId}/attachments/`);
-    request.withCredentials = true;
     request.setRequestHeader("Accept", "application/json");
     request.setRequestHeader("X-CSRFToken", token);
     request.upload.onprogress = (event) => {

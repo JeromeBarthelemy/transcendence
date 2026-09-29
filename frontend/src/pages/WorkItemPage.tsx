@@ -15,6 +15,7 @@ import {
   type WorkItemStep,
   workItemSteps,
 } from "../api/workItems";
+import { nameFormatter } from "../app/formatters";
 import { useCurrentUser } from "../app/useCurrentUser";
 import { RequestError } from "../components/ApiErrors";
 
@@ -25,11 +26,6 @@ const dateTimeFormatter = new Intl.DateTimeFormat("fr-FR", {
   dateStyle: "long",
   timeStyle: "short",
 });
-const nameFormatter = new Intl.ListFormat("fr-FR", {
-  style: "long",
-  type: "conjunction",
-});
-
 function teamLabel(identity: Identity, teamSeasonId: number) {
   const teamSeason = identity.team_seasons.find(
     (candidate) => candidate.id === teamSeasonId,
@@ -39,9 +35,27 @@ function teamLabel(identity: Identity, teamSeasonId: number) {
     : null;
 }
 
-function AttachmentUploader({ entryId }: { entryId: number }) {
-  const { t } = useTranslation();
+function useInvalidateWorkItem(item: WorkItemDetail) {
   const queryClient = useQueryClient();
+  return async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["work-items", item.id] }),
+      queryClient.invalidateQueries({
+        queryKey: ["team-seasons", item.team_season],
+      }),
+    ]);
+  };
+}
+
+function AttachmentUploader({
+  item,
+  entryId,
+}: {
+  item: WorkItemDetail;
+  entryId: number;
+}) {
+  const { t } = useTranslation();
+  const invalidateWorkItem = useInvalidateWorkItem(item);
   const fileInput = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
   const [peopleAnswer, setPeopleAnswer] = useState<"" | "yes" | "no">("");
@@ -64,7 +78,7 @@ function AttachmentUploader({ entryId }: { entryId: number }) {
       if (fileInput.current) {
         fileInput.current.value = "";
       }
-      await queryClient.invalidateQueries({ queryKey: ["work-items"] });
+      await invalidateWorkItem();
     },
   });
 
@@ -153,9 +167,15 @@ function AttachmentUploader({ entryId }: { entryId: number }) {
   );
 }
 
-function ProgressEditor({ entry }: { entry: WorkItemEntry }) {
+function ProgressEditor({
+  item,
+  entry,
+}: {
+  item: WorkItemDetail;
+  entry: WorkItemEntry;
+}) {
   const { t } = useTranslation();
-  const queryClient = useQueryClient();
+  const invalidateWorkItem = useInvalidateWorkItem(item);
   const [body, setBody] = useState(entry.body);
   const [handover, setHandover] = useState(entry.handover);
   const [saved, setSaved] = useState(false);
@@ -163,7 +183,7 @@ function ProgressEditor({ entry }: { entry: WorkItemEntry }) {
     mutationFn: () => updateProgress(entry.id, { body, handover }),
     onSuccess: async () => {
       setSaved(true);
-      await queryClient.invalidateQueries({ queryKey: ["work-items"] });
+      await invalidateWorkItem();
     },
   });
 
@@ -230,7 +250,7 @@ function ProgressEditor({ entry }: { entry: WorkItemEntry }) {
         </div>
       </form>
 
-      <AttachmentUploader entryId={entry.id} />
+      <AttachmentUploader item={item} entryId={entry.id} />
     </div>
   );
 }
@@ -243,14 +263,14 @@ function TodayPanel({
   identity: Identity;
 }) {
   const { t } = useTranslation();
-  const queryClient = useQueryClient();
+  const invalidateWorkItem = useInvalidateWorkItem(item);
   const [selectedStep, setSelectedStep] = useState<WorkItemStep>(
     item.current_progress?.step ?? item.current_step ?? workItemSteps[0],
   );
   const tick = useMutation({
     mutationFn: (step?: WorkItemStep) => tickWorkItem(item.id, step),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["work-items"] });
+      await invalidateWorkItem();
     },
   });
   const progress = item.current_progress;
@@ -342,7 +362,9 @@ function TodayPanel({
       )}
 
       {tick.isError && <RequestError error={tick.error} />}
-      {canEdit && <ProgressEditor key={progress.id} entry={progress} />}
+      {canEdit && (
+        <ProgressEditor key={progress.id} item={item} entry={progress} />
+      )}
       {progress && !canEdit && (
         <p className="mt-6 rounded-xl bg-[#fff7dc] p-4 text-sm text-[#634c12]">
           {t("workItem.joinToWrite")}
@@ -431,7 +453,7 @@ function HistoryEntry({ entry }: { entry: WorkItemEntry }) {
 
 function WorkItemNoteForm({ item }: { item: WorkItemDetail }) {
   const { t } = useTranslation();
-  const queryClient = useQueryClient();
+  const invalidateWorkItem = useInvalidateWorkItem(item);
   const [body, setBody] = useState("");
   const [saved, setSaved] = useState(false);
   const note = useMutation({
@@ -440,9 +462,7 @@ function WorkItemNoteForm({ item }: { item: WorkItemDetail }) {
     onSuccess: async () => {
       setBody("");
       setSaved(true);
-      await queryClient.invalidateQueries({
-        queryKey: ["work-items", item.id],
-      });
+      await invalidateWorkItem();
     },
   });
 

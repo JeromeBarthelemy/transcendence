@@ -104,6 +104,7 @@ function renderWorkItem() {
       <RouterProvider router={router} />
     </QueryClientProvider>,
   );
+  return queryClient;
 }
 
 afterEach(() => {
@@ -137,7 +138,89 @@ it("shows the current progress, handover, participants and full history", async 
   ).toBe("/api/attachments/5/");
 });
 
-it("starts today's progress at the chosen step and joins it", async () => {
+it("asks a non-participant to join before editing the progress", async () => {
+  const currentProgress = progress({
+    participants: [{ display_name: "Lina", avatar: null }],
+  });
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (path: string) => {
+      if (path === "/api/auth/me/") {
+        return json(identity());
+      }
+      if (path === "/api/work-items/10/") {
+        return json(
+          workItem({
+            current_progress: currentProgress,
+            current_user_participates: false,
+            thread: [currentProgress],
+          }),
+        );
+      }
+      throw new Error(`Unexpected request: ${path}`);
+    }),
+  );
+  renderWorkItem();
+
+  expect(
+    await screen.findByText(
+      "Rejoignez cette avancée pour pouvoir la compléter.",
+    ),
+  ).toBeTruthy();
+  expect(screen.queryByLabelText("Fait aujourd'hui")).toBeNull();
+  expect(screen.getByRole("button", { name: "Je participe" })).toBeTruthy();
+});
+
+it("joins an existing progress without changing its step", async () => {
+  setDocumentCookie("csrftoken=test; path=/");
+  const existingProgress = progress({
+    participants: [{ display_name: "Lina", avatar: null }],
+  });
+  let item = workItem({
+    current_progress: existingProgress,
+    current_user_participates: false,
+    thread: [existingProgress],
+  });
+  const joinedProgress = progress({
+    participants: [
+      { display_name: "Lina", avatar: null },
+      { display_name: "Marie", avatar: null },
+    ],
+  });
+  const fetchMock = vi.fn(
+    async (path: string, options?: RequestInit): Promise<Response> => {
+      if (path === "/api/auth/me/") {
+        return json(identity());
+      }
+      if (path === "/api/work-items/10/" && !options?.method) {
+        return json(item);
+      }
+      if (path === "/api/work-items/10/tick/" && options?.method === "POST") {
+        item = workItem({
+          current_progress: joinedProgress,
+          current_user_participates: true,
+          thread: [joinedProgress],
+        });
+        return json(joinedProgress);
+      }
+      throw new Error(`Unexpected request: ${path}`);
+    },
+  );
+  vi.stubGlobal("fetch", fetchMock);
+  renderWorkItem();
+
+  await userEvent.click(
+    await screen.findByRole("button", { name: "Je participe" }),
+  );
+
+  expect(await screen.findByLabelText("Fait aujourd'hui")).toBeTruthy();
+  const tickRequest = fetchMock.mock.calls.find(
+    ([path]) => path === "/api/work-items/10/tick/",
+  );
+  expect(JSON.parse(String(tickRequest?.[1]?.body))).toEqual({});
+});
+
+it("starts today's progress at the chosen step", async () => {
   setDocumentCookie("csrftoken=test; path=/");
   let item = workItem({
     current_step: null,
@@ -220,7 +303,19 @@ it("saves what was done and the handoff for next time", async () => {
     },
   );
   vi.stubGlobal("fetch", fetchMock);
-  renderWorkItem();
+  const queryClient = renderWorkItem();
+  const homeWorkItemsKey = ["team-seasons", 7, "work-items"] as const;
+  const todayKey = ["team-seasons", 7, "days", "today"] as const;
+  const daySummaryKey = [
+    "team-seasons",
+    7,
+    "days",
+    "2026-09-28",
+    "summary",
+  ] as const;
+  queryClient.setQueryData(homeWorkItemsKey, { cached: true });
+  queryClient.setQueryData(todayKey, { cached: true });
+  queryClient.setQueryData(daySummaryKey, { cached: true });
 
   const body = await screen.findByLabelText("Fait aujourd'hui");
   const handover = screen.getByLabelText("À faire la prochaine fois");
@@ -233,6 +328,13 @@ it("saves what was done and the handoff for next time", async () => {
   );
 
   expect(await screen.findByText("Avancée enregistrée.")).toBeTruthy();
+  await waitFor(() => {
+    expect(queryClient.getQueryState(homeWorkItemsKey)?.isInvalidated).toBe(
+      true,
+    );
+    expect(queryClient.getQueryState(todayKey)?.isInvalidated).toBe(true);
+    expect(queryClient.getQueryState(daySummaryKey)?.isInvalidated).toBe(true);
+  });
   const saveRequest = fetchMock.mock.calls.find(
     ([path]) => path === "/api/entries/31/",
   );
@@ -315,7 +417,6 @@ it("uploads a file with its image-right answer", async () => {
       people_recognisable: false,
       uploaded_by: "Marie",
     });
-    withCredentials = false;
     upload = {
       onprogress: null as ((event: ProgressEvent) => void) | null,
     };
