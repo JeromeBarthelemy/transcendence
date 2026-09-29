@@ -135,20 +135,24 @@ L'affectation à une équipe **ne porte aucun rôle** : `Membership` est un lien
 Être capitaine d'une équipe n'est pas un pouvoir sur l'application, et mélanger les
 deux ferait dépendre les permissions de la saison en cours.
 
-Il y a bien deux niveaux, mais ce n'est pas le rôle qui les porte : c'est le couple
-**rôle × portée**. `club_role` dit ce qu'on est, `Membership` dit où — un mentor
-affecté à une équipe *est* mentor de cette équipe-là, sans qu'aucune colonne le
-répète. L'élève voit la sienne, le mentor celles où il est affecté, l'administrateur
-toutes : trois vues distinctes, ce que l'exigence demande. Une colonne ne
-deviendrait nécessaire que le jour où quelqu'un porterait un rôle *différent* selon
-l'équipe — un élève mentor ici, un mentor simple membre là. Ce cas n'existe pas au
-club, et `Membership` est un modèle explicite précisément pour que la colonne puisse
-arriver ce jour-là sans convertir la table de jointure.
+La portée suit le rôle. L'élève voit l'équipe à laquelle il est affecté. Le mentor
+voit **toutes** les équipes : il doit pouvoir intervenir dans n'importe laquelle —
+remplacer un mentor absent, assister à une réunion de décision — sans qu'un
+administrateur l'y affecte d'abord. L'administrateur les voit toutes aussi, avec
+les écrans d'administration en plus. Trois vues distinctes, ce que l'exigence
+demande. Un mentor peut être affecté à une équipe pour figurer parmi ses membres,
+mais l'affectation n'étend ni ne restreint ce qu'il ouvre.
+
+Une colonne de rôle sur `Membership` ne deviendrait nécessaire que le jour où
+quelqu'un porterait un rôle *différent* selon l'équipe — un élève mentor ici, un
+mentor simple membre là. Ce cas n'existe pas au club, et `Membership` est un modèle
+explicite précisément pour que la colonne puisse arriver ce jour-là sans convertir
+la table de jointure.
 
 **Démo (3 min)** — se connecter en élève : une seule équipe, pas de sélecteur.
-Se connecter en mentor : le sélecteur d'équipe apparaît. Se connecter en
-administrateur du club : l'écran d'admin en plus. Basculer un rôle, montrer
-l'action qui disparaît côté élève.
+Se connecter en mentor : le sélecteur d'équipe apparaît, avec toutes les équipes.
+Se connecter en administrateur du club : l'écran d'admin en plus. Basculer un
+rôle, montrer l'action qui disparaît côté élève.
 
 ---
 

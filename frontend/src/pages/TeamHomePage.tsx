@@ -204,14 +204,15 @@ function TodaySummary({
   const [isNoteOpen, setIsNoteOpen] = useState(false);
   const [noteBody, setNoteBody] = useState("");
   const [noteSaved, setNoteSaved] = useState(false);
-  const dayQueryKey = ["team-seasons", teamSeasonId, "days", "today"] as const;
+  // Every day of the team, so a summary already opened shows the note too.
+  const daysQueryKey = ["team-seasons", teamSeasonId, "days"] as const;
   const note = useMutation({
     mutationFn: (body: string) => createTeamNote(teamSeasonId, body),
     onSuccess: async () => {
       setNoteBody("");
       setIsNoteOpen(false);
       setNoteSaved(true);
-      await queryClient.invalidateQueries({ queryKey: dayQueryKey });
+      await queryClient.invalidateQueries({ queryKey: daysQueryKey });
     },
   });
   const dayNotes =
@@ -268,6 +269,24 @@ function TodaySummary({
                 count: day.data.present.length,
                 roster: day.data.roster,
               })}
+            </p>
+          )}
+          {day.data && (
+            <p className="mt-2 flex flex-wrap gap-4 text-sm font-semibold">
+              {day.data.previous && (
+                <Link
+                  to={`/team-seasons/${teamSeasonId}/days/${day.data.previous}`}
+                  className="text-[#0078dd] hover:underline"
+                >
+                  {t("teamHome.previousDayLink")}
+                </Link>
+              )}
+              <Link
+                to={`/team-seasons/${teamSeasonId}/days/${day.data.day}`}
+                className="text-[#0078dd] hover:underline"
+              >
+                {t("teamHome.daySummaryLink")}
+              </Link>
             </p>
           )}
         </div>
@@ -504,6 +523,12 @@ export function TeamHomePage({ identity }: { identity: Identity }) {
         )}
       </div>
 
+      <TodaySummary
+        key={selectedTeamSeason.id}
+        teamSeasonId={selectedTeamSeason.id}
+        day={day}
+      />
+
       {workItems.isPending ? (
         <p role="status" className="mt-10 text-sm text-[#506784]">
           {t("teamHome.loading")}
@@ -549,12 +574,6 @@ export function TeamHomePage({ identity }: { identity: Identity }) {
           </div>
         </div>
       )}
-
-      <TodaySummary
-        key={selectedTeamSeason.id}
-        teamSeasonId={selectedTeamSeason.id}
-        day={day}
-      />
 
       <NotebookExport teamSeasonId={selectedTeamSeason.id} />
     </main>
