@@ -868,9 +868,10 @@ hors séquence   réparation</pre></div>
   <p>Corpus borné, utilisateurs réels, questions constantes pendant le build, et réponses <b>vérifiables</b> — chaque réponse pointe une règle qu'on peut aller lire. Se tromper a des conséquences concrètes : un robot non conforme est recalé à l'inspection.</p>
   <p>Le domaine offre gratuitement une propriété que la plupart des corpus n'ont pas : <b>une hiérarchie d'autorité</b>.</p>
   <div class="codewrap"><pre>Game Manual          <b>&rarr; contraignant</b>
-Q&amp;A officiel         <b>&rarr; ruling officiel</b>, prévaut sur l'interprétation
-Forums (CD, Reddit)  <i>&rarr; opinion, sans valeur réglementaire</i></pre></div>
-  <p>Un système qui mélange les trois est <em>activement dangereux</em> : « quelqu'un sur Chief Delphi pense qu'on a le droit » n'est pas une règle. Le rang d'autorité vit donc dans le modèle, pas dans le prompt. Chaque citation l'affiche, et le système <b>refuse de répondre affirmativement</b> quand seules des sources communautaires correspondent — il renvoie alors vers le Q&amp;A officiel.</p>
+Q&amp;A officiel         <b>&rarr; ruling officiel</b>, précise le manuel sans le modifier
+Forums (CD, Reddit)  <i>&rarr; opinion, sans valeur réglementaire : hors corpus</i></pre></div>
+  <p>Un système qui mélange ces sources est <em>activement dangereux</em> : « quelqu'un sur Chief Delphi pense qu'on a le droit » n'est pas une règle. Le rang d'autorité vit donc dans le modèle, pas dans le prompt. Chaque citation l'affiche, le manuel passe avant le Q&amp;A (§1.7.4 : « the Competition Manual takes precedence »), et le système <b>refuse de répondre affirmativement</b> quand aucun passage officiel ne correspond — il le dit, et renvoie vers le Q&amp;A officiel.</p>
+  <p>Les Team Updates ne forment pas une source à part : FIRST republie le manuel à chacune, chaque jeudi, et c'est la nouvelle version qui remplace l'ancienne. Une réponse du Q&amp;A qui change une règle arrive dans le manuel par ce même chemin. Les forums, eux, sont restés dehors après examen : le forum FTC de FIRST n'a pas de catégorie règlement, et les fils FTC de Chief Delphi parlent surtout de construction et de stratégie.</p>
   <p>C'est là l'argument technique du module. Pas « on a fait du RAG », mais « on a fait un RAG qui connaît la valeur de ses sources ».</p>
 
   <h3>Face à un outil officiel</h3>
@@ -881,7 +882,7 @@ Forums (CD, Reddit)  <i>&rarr; opinion, sans valeur réglementaire</i></pre></di
     <li><b>La zone grise.</b> FIRST ne citera jamais Chief Delphi. Or beaucoup de vraies questions vivent là où le manuel est muet et où seule la communauté a un avis. Vous pouvez représenter ce vide explicitement, en le nommant plutôt qu'en l'ignorant — même sans forums au corpus, répondre <em>le manuel ne dit rien là-dessus</em> est déjà un service qu'un outil officiel ne rend pas.</li>
   </ul>
   <p>Une tentation à écarter, et c'est la note qui se l'applique à elle-même : verser dans le corpus des <b>fiches écrites par l'équipe</b> — dimensions du robot, configurations, décisions d'inspection. L'idée est séduisante et le schéma pourrait l'accueillir. Elle est mauvaise. Personne ne tiendra ces fiches à jour, la première page de ce document explique pourquoi, et une fiche périmée dans un corpus est pire qu'une fiche absente : elle est citée comme une source, avec l'aplomb des autres, alors qu'elle décrit un robot qui n'existe plus. Le corpus s'en tient donc à ce qui est publié et daté par d'autres.</p>
-  <div class="note"><p><b>À préparer pour l'évaluation, mais pas celle-là.</b> Personne ne vous parlera de l'assistant de FIRST. La question qui viendra est plus banale et plus dure : <em>en quoi est-ce autre chose qu'un appel à un modèle ?</em> La réponse est le rang d'autorité — le corpus est hiérarchisé, chaque citation affiche d'où elle vient, et le système refuse d'affirmer quand seules des sources communautaires répondent. C'est cela qu'il faut savoir montrer en trois minutes, pas une comparaison avec un outil que le correcteur n'a jamais vu.</p></div>
+  <div class="note"><p><b>À préparer pour l'évaluation, mais pas celle-là.</b> Personne ne vous parlera de l'assistant de FIRST. La question qui viendra est plus banale et plus dure : <em>en quoi est-ce autre chose qu'un appel à un modèle ?</em> La réponse est le rang d'autorité — le corpus est hiérarchisé, chaque citation affiche d'où elle vient, et le système refuse d'affirmer quand aucune source officielle ne répond. C'est cela qu'il faut savoir montrer en trois minutes, pas une comparaison avec un outil que le correcteur n'a jamais vu.</p></div>
   <div class="ceiling"><b>plafond assumé :</b> une instance locale reste soumise à l'exigence HTTPS du sujet, donc à un certificat auto-signé ou une autorité locale — et donc à un avertissement de navigateur à accepter une fois par appareil. C'est le prix du niveau 3, il se paie en début de saison et pas en gymnase.</div>
 
   <div class="ceiling"><b>plafond assumé :</b> pas de base vectorielle. Un manuel de jeu fait quelques milliers de chunks — un produit scalaire en force brute prend quelques millisecondes. <code>pgvector</code>, <code>sqlite-vec</code> ou un tableau NumPy. Ajouter Qdrant au compose coûte un service à maintenir pour un gain nul à cette échelle.</div>
@@ -1079,7 +1080,8 @@ Forums (CD, Reddit)  <i>&rarr; opinion, sans valeur réglementaire</i></pre></di
                 <i>source ∈ {game_manual, official_qa}</i>
                 <i>rien d'écrit par l'équipe : une fiche périmée ment avec autorité</i>
                 <i>authority ∈ {binding, ruling}</i>
-<b>Chunk</b>           id, document_id, ordinal, text, embedding
+<b>Chunk</b>           id, document_id, ordinal, reference, text, embedding
+                <i>reference : la règle (G420) ou la section (10.6.4)</i>
 <b>RuleQuery</b>       id, asker_id, question, answer, created_at
 <b>QueryCitation</b>   query_id, chunk_id, rank</pre></div>
 </section>
@@ -1173,7 +1175,7 @@ Forums (CD, Reddit)  <i>&rarr; opinion, sans valeur réglementaire</i></pre></di
     <li><b>Pas de vitrine publique.</b> Rien n'est mis en ligne : ce qui doit sortir est sélectionné, filtré par consentement, et exporté.</li>
     <li><b>Pas de transcodage vidéo.</b> Upload, stockage, balise <code>video</code>, une limite de taille.</li>
     <li><b>Pas de scoring officiel FTC.</b> Vos propres métriques, assumées.</li>
-    <li><b>Pas de scraping de forums au départ.</b> Manuel et Q&amp;A officiels d'abord : sources publiques, structurées, fiables. Les forums ajoutent des CGU discutables, du bruit et de la maintenance pour la source la moins fiable des trois.</li>
+    <li><b>Pas de forums.</b> Manuel et Q&amp;A officiels seulement : sources structurées, fiables, datées. Les forums ajoutent des CGU discutables, du bruit et de la maintenance pour la source la moins fiable, et ceux de FTC ne débattent presque pas du règlement.</li>
     <li><b>Pas de synchronisation AssoConnect.</b> Un import de l'export, en début de saison et après chaque nouvelle adhésion, pas une intégration temps réel. L'API existe mais s'obtient au cas par cas : s'y adosser rendrait le socle indémontrable.</li>
     <li><b>Pas de coffre-fort de pièces justificatives.</b> Les autorisations parentales signées restent dans AssoConnect. <code>Consent</code> en porte l'état, pas le PDF.</li>
     <li><b>Pas de fiches maison dans le corpus du RAG.</b> Seulement des sources publiées et datées par d'autres. Ce que le club écrit lui-même n'aurait aucune date de péremption visible.</li>
