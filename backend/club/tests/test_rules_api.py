@@ -66,30 +66,25 @@ def test_a_citation_carries_its_rule_reference(client):
     assert citation["reference"] == "G420"
 
 
-def test_a_question_only_a_forum_answers_carries_the_refusal(client):
+def test_an_unrelated_question_carries_the_refusal(client):
     this_season = season()
     ingest_document(
         season=this_season,
-        source=Document.Source.FORUM,
-        title="Chief Delphi",
+        source=Document.Source.GAME_MANUAL,
+        title="Manuel BioBuzz",
         text=RULE,
     )
     client.force_login(student())
 
     response = client.post(
         "/api/rules/ask/",
-        {
-            "question": (
-                "Quelle est la hauteur maximale du robot en pouces "
-                "pendant la phase autonome ?"
-            )
-        },
+        {"question": "Combien de membres dans le comité des sponsors ?"},
         content_type="application/json",
     )
 
     body = response.json()
     assert body["answer"] != ""
-    assert body["citations"][0]["authority"] == "community"
+    assert body["citations"] == []
 
 
 def test_a_blank_question_is_refused(client):

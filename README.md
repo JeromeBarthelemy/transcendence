@@ -502,37 +502,48 @@ python manage.py ingest_document manual.pdf --season 2026 \
   --source game_manual --title "Manuel BioBuzz V1"
 ```
 
-`--source` is one of `game_manual`, `official_qa` or `forum`, and decides the
-document's authority (respectively `binding`, `ruling`, `community`) — never
-asked for on its own, so a forum thread can't be filed as binding by a typo.
-Citations are ordered by authority first, score second: the manual is
-explicit that it takes precedence over the Q&A, so a `binding` passage is
-always quoted ahead of a `ruling` or `community` one that merely scored
-higher. A question is answered plainly when a `binding` or `ruling` passage
-backs it; otherwise the response carries a refusal instead of a guess,
+`--source` is one of `game_manual` or `official_qa`, and decides the
+document's authority (respectively `binding`, `ruling`) — never asked for on
+its own, so a typo can't file the Q&A as binding. Citations are ordered by
+authority first, score second: the manual is explicit that it takes
+precedence over the Q&A, so a `binding` passage is always quoted ahead of a
+`ruling` one that merely scored higher, and every match above the threshold
+is considered for this ordering before being cut to the five kept — cutting
+by score first could otherwise drop a `binding` passage that a handful of
+`ruling` ones outscored. A question is answered plainly when anything clears
+the threshold; otherwise the response carries a refusal instead of a guess,
 pointing to FIRST's own Q&A. Only the latest ingested document per
 `(season, source)` is searched — FIRST republishes the manual with every
 Team Update, and citing an amended rule alongside its own superseded
 predecessor would leave a student unsure which to trust.
 
-Each passage is one rule or one numbered section, not a sliding window over
-the text: the manual is built on these (`G420 *Do not tip or entangle.`,
-`10.6.4 Violation Details`), and a fixed-size window cut across them would
-leave a citation unable to say which rule it was quoting. A citation carries
-its own `reference` (`G420`, `10.6.4`, or empty for front matter) alongside
-its text.
+Each passage is one rule, one numbered section, or one Q&A entry, not a
+sliding window over the text: both sources are built on their own numbering
+(`G420 *Do not tip or entangle.`, `10.6.4 Violation Details`, `Q44 Blue
+robot over their gate...`), and a fixed-size window cut across them would
+leave a citation unable to say which one it was quoting — a Q&A answer also
+references rules mid-sentence ("this would violate G410"), so it is chunked
+by its own `Q<n>` numbering rather than the manual's rule chunker, which
+would otherwise read every such reference as a new rule starting. A citation
+carries its own `reference` (`G420`, `10.6.4`, `Q44`, or empty for front
+matter) alongside its text.
 
 The first `ingest_document` or `POST /api/rules/ask/` on a fresh install
-downloads the embedding model once (a few hundred MB, cached under
-`$HF_HOME`, `~/.cache/huggingface` if unset, and under a named Docker volume
-in `compose.yml` so a `down` and `up` does not re-download it) — the only
+downloads the embedding model once (1.1GB, cached under
+`backend/.cache/fastembed`, inside the existing `backend/` bind mount in
+`compose.yml` so a `down` and `up` does not re-download it) — the only
 network access this module ever makes; every call after that is local.
 
 There is no vector database behind this: a manual is a few thousand
-passages, and ranking them against a question is a NumPy dot product,
-cheap enough to redo on every question (measured on the real manual: under
-100ms per question, past the model's one-time load). There *is* a real
-embedding model — `sentence-transformers`' `intfloat/multilingual-e5-base`,
+passages, and ranking them against a question is a NumPy dot product, cheap
+enough to redo on every question (measured on the real manual: ~10-20ms per
+question, past the model's one-time load, ~1.5s). There *is* a real
+embedding model — `intfloat/multilingual-e5-base` run through `fastembed`
+(ONNX Runtime, not `sentence-transformers`/PyTorch — measured identical to
+the third decimal place on the same 100 questions, for about a third the
+per-question latency and without torch's own ~550MB of installed weight;
+the one trade-off is ingestion, roughly twice as slow, since ONNX's CPU
+provider favours short sequences over the long batches ingestion needs),
 278M parameters, CPU-only, downloaded once and cached locally, nothing sent
 anywhere at question time. An earlier version hashed a bag-of-words and
 ranked it with Okapi BM25, which worked only when a question quoted the
@@ -545,9 +556,13 @@ between the two but what they mean. Calibrated on the real manual, chunked
 by rule rather than by word window (397 passages), against 90 real
 questions spanning every section and 10 off-topic controls: every off-topic
 question fell below the threshold that still answered 89 of the 90 real
-ones. A bigger corpus of nonsense phrasings would likely still find
-something that slips through; closing that gap for good would need a
-classifier trained on real off-topic traffic, which does not exist yet.
+ones. The margin is thin, not a comfortable gap — the weakest real question
+(0.805) and the strongest off-topic one (0.806) sit a thousandth apart, so
+read 89/90 as what held on this one question set, not a guarantee a
+different set of off-topic phrasings would preserve. A bigger corpus of
+nonsense phrasings would likely still find something that slips through;
+closing that gap for good would need a classifier trained on real off-topic
+traffic, which does not exist yet.
 
 ## Checking
 

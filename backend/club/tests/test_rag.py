@@ -1,7 +1,7 @@
 import pytest
 
 from club.models import Document, Season, User
-from club.rag import ask, chunk_rules, embed, ingest_document
+from club.rag import ask, chunk_qa, chunk_rules, embed, ingest_document
 
 RULE = (
     "Le robot ne doit jamais dépasser dix-huit pouces de hauteur pendant "
@@ -37,6 +37,24 @@ G102.C.
 11.2 Conduct
 G201 *Be a good person. All teams must be civil toward everyone and respectful of team and event
 equipment while at a FIRST Tech Challenge event.
+"""
+
+
+# Modeled on FIRST's own Q&A numbering convention, not a scraped verbatim
+# entry — this season's Q&A isn't published yet, and the archived page for
+# a past one didn't render outside a browser while this was written.
+REAL_QA_EXCERPT = """
+Q44 Blue robot over their gate to score in the opponent's zone?
+During the endgame, is a robot allowed to reach over its own alliance's
+gate to place a game piece in the opponent's scoring zone?
+Ruling: No. This would be a violation of G410, which prohibits a robot
+from extending over a neutral or opponent zone's boundary at any point
+during the MATCH.
+Q45 Two robots touching during autonomous?
+May two alliance partners' robots make contact with each other during
+the autonomous period?
+Ruling: Yes, incidental contact between alliance partners is not by
+itself a violation.
 """
 
 
@@ -155,6 +173,44 @@ def test_a_rule_longer_than_the_word_budget_is_resplit_under_the_same_reference(
     assert "word399" in joined
 
 
+# --- chunking (Q&A) ---
+
+
+def test_a_qa_entry_becomes_its_own_chunk_named_by_its_number():
+    references = [reference for reference, _ in chunk_qa(REAL_QA_EXCERPT)]
+
+    assert "Q44" in references
+    assert "Q45" in references
+
+
+def test_a_qa_entrys_text_does_not_leak_into_the_next_ones_chunk():
+    passages = dict(chunk_qa(REAL_QA_EXCERPT))
+
+    assert "Blue robot over their gate" in passages["Q44"]
+    assert "Two robots touching" not in passages["Q44"]
+    assert "Two robots touching" in passages["Q45"]
+
+
+def test_a_bare_qa_cross_reference_does_not_start_a_new_chunk():
+    # "in Q44." mid-sentence must stay part of whatever entry mentions it,
+    # not be read as Q44 opening again — same convention chunk_rules
+    # applies to a bare rule cross-reference.
+    text = "Q50 A later question referencing an earlier ruling in Q44."
+
+    references = [reference for reference, _ in chunk_qa(text)]
+
+    assert references == ["Q50"]
+
+
+def test_a_rule_reference_inside_a_qa_answer_does_not_split_the_entry():
+    # chunk_rules would read a line like "G410, which prohibits..." as
+    # G410 opening a new chunk; chunk_qa has no such rule and keeps the
+    # whole entry, references and all, together.
+    passages = dict(chunk_qa(REAL_QA_EXCERPT))
+
+    assert "G410" in passages["Q44"]
+
+
 # --- ingestion ---
 
 
@@ -165,14 +221,18 @@ def test_ingesting_a_document_creates_its_chunks():
     assert set(doc.chunks.values_list("reference", flat=True)) >= {"G101", "G102"}
 
 
+def test_ingesting_a_qa_document_chunks_by_entry_not_by_rule():
+    doc = document(season(), source=Document.Source.OFFICIAL_QA, text=REAL_QA_EXCERPT)
+
+    assert set(doc.chunks.values_list("reference", flat=True)) == {"Q44", "Q45"}
+
+
 def test_authority_is_read_off_source_not_asked_for():
     manual = document(season(), source=Document.Source.GAME_MANUAL)
     qa = document(season(2027, "Rebound"), source=Document.Source.OFFICIAL_QA)
-    forum = document(season(2028, "Centerstage"), source=Document.Source.FORUM)
 
     assert manual.authority == Document.Authority.BINDING
     assert qa.authority == Document.Authority.RULING
-    assert forum.authority == Document.Authority.COMMUNITY
 
 
 # --- asking ---
@@ -211,51 +271,18 @@ def test_a_question_asked_with_none_of_the_passage_own_words_is_still_answered()
     assert query.citations.exists()
 
 
-def test_a_question_matching_only_a_forum_post_is_refused():
-    this_season = season()
-    document(this_season, source=Document.Source.FORUM, text=RULE)
-    lina = asker()
-
-    query = ask(
-        "Quelle est la hauteur maximale du robot en pouces pendant la phase autonome ?",
-        this_season,
-        lina,
-    )
-
-    assert query.answer != ""
-    (citation,) = query.citations.all()
-    assert citation.chunk.document.authority == Document.Authority.COMMUNITY
-
-
-def test_a_manual_match_outweighs_a_forum_match_present_too():
-    # The refusal is about whether *any* trusted source backs the answer,
-    # not about which single passage ranks first.
-    this_season = season()
-    document(this_season, source=Document.Source.GAME_MANUAL, text=RULE, title="Manuel")
-    document(this_season, source=Document.Source.FORUM, text=RULE, title="Forum copie")
-    lina = asker()
-
-    query = ask(
-        "Quelle est la hauteur maximale du robot en pouces pendant la phase autonome ?",
-        this_season,
-        lina,
-    )
-
-    assert query.answer == ""
-
-
 def test_citations_are_ranked_by_authority_before_score():
-    # A forum copy of the same rule, phrased closer to the question, would
+    # A Q&A copy of the same rule, phrased closer to the question, would
     # out-score the manual's own wording on similarity alone — authority
     # must still put the manual first (the manual itself says so, §1.7.4).
     this_season = season()
     document(this_season, source=Document.Source.GAME_MANUAL, text=RULE, title="Manuel")
     document(
         this_season,
-        source=Document.Source.FORUM,
+        source=Document.Source.OFFICIAL_QA,
         text="Quelle est la hauteur maximale du robot en pouces pendant l'autonome ?"
         " " + RULE,
-        title="Forum copie",
+        title="Q&A",
     )
     lina = asker()
 
@@ -267,6 +294,33 @@ def test_citations_are_ranked_by_authority_before_score():
 
     citations = list(query.citations.order_by("rank"))
     assert citations[0].chunk.document.authority == Document.Authority.BINDING
+
+
+def test_top_k_cut_happens_after_the_authority_sort_not_before():
+    # Five Q&A passages that quote the question itself outscore the
+    # manual's own wording of the rule on similarity alone — cutting to
+    # TOP_K by score before authority gets a say would drop the manual
+    # (BINDING) out of the top five entirely. It must survive the cut.
+    this_season = season()
+    document(this_season, source=Document.Source.GAME_MANUAL, text=RULE, title="Manuel")
+    question = (
+        "Quelle est la hauteur maximale du robot en pouces pendant la phase autonome ?"
+    )
+    for n in range(5):
+        document(
+            this_season,
+            source=Document.Source.OFFICIAL_QA,
+            text=f"{question} (variante {n}) {RULE}",
+            title=f"Q&A {n}",
+        )
+    lina = asker()
+
+    query = ask(question, this_season, lina)
+
+    authorities = {
+        citation.chunk.document.authority for citation in query.citations.all()
+    }
+    assert Document.Authority.BINDING in authorities
 
 
 def test_an_unrelated_question_finds_nothing_and_is_refused():

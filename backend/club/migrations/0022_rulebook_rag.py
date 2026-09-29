@@ -30,7 +30,6 @@ class Migration(migrations.Migration):
                         choices=[
                             ("game_manual", "manuel de jeu"),
                             ("official_qa", "Q&A officiel"),
-                            ("forum", "forum"),
                         ],
                         max_length=15,
                         verbose_name="source",
@@ -42,7 +41,6 @@ class Migration(migrations.Migration):
                         choices=[
                             ("binding", "contraignant"),
                             ("ruling", "ruling officiel"),
-                            ("community", "opinion"),
                         ],
                         max_length=10,
                         verbose_name="autorité",

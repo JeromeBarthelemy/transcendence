@@ -1,4 +1,4 @@
-"""Feed the rulebook RAG a game manual, official Q&A or forum export."""
+"""Feed the rulebook RAG a game manual or official Q&A export."""
 
 from pathlib import Path
 from typing import Any
@@ -11,7 +11,7 @@ from club.rag import ingest_document
 
 
 class Command(BaseCommand):
-    help = "Ingère un document (manuel, Q&A, forum) dans le RAG règlement."
+    help = "Ingère un document (manuel ou Q&A) dans le RAG règlement."
 
     def add_arguments(self, parser: CommandParser) -> None:
         parser.add_argument("path", type=Path, help="Le fichier .pdf ou .txt à lire.")

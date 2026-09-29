@@ -47,6 +47,7 @@ commit that landed this for why it wasn't worth its extra weight.
 
 import re
 import struct
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -94,31 +95,28 @@ FASTEMBED_CACHE_DIR = str(Path(settings.BASE_DIR) / ".cache" / "fastembed")
 DIMENSIONS = 768
 # How many passages a question keeps.
 TOP_K = 5
-# How weak a match may be and still count as one. Cosine similarity
-# between two unit vectors (both `embed()` outputs are normalised) is
-# bounded in [-1, 1] with a natural centre at 0, unlike BM25's raw score,
-# which had no scale of its own to draw a line on (see git history,
-# `MIN_SCORE = 9.0`).
-#
-# Recalibrated against the real BioBuzz manual chunked by rule rather than
-# by word window (397 passages), on the same 90 real questions spanning
-# every section plus 10 off-topic controls: real questions scored
-# 0.805-0.911, the 10 off-topic controls 0.753-0.806 — a far tighter
-# separation than the word-window chunking ever gave, with only a hair's
-# width of overlap at the very top of the off-topic range. 0.81 is the
+# How weak a match may be and still count as one — cosine similarity
+# between two unit vectors, bounded in [-1, 1]. Calibrated against the
+# real BioBuzz manual (397 passages, chunked by rule) on 90 real questions
+# spanning every section plus 10 off-topic controls: real questions
+# scored 0.805-0.911, the 10 off-topic controls 0.753-0.806. 0.81 is the
 # first threshold, scanning up from 0.70, where all 10 off-topic controls
-# fall below it; it costs exactly one real question out of 90.
+# fall below it, at the cost of one real question out of 90.
+#
+# The ranges are close, not comfortably separated: the weakest real
+# question (0.805) and the strongest off-topic one (0.806) sit a
+# thousandth apart. Read 89/90 as what held on this one question set, not
+# as a robust guarantee — a different set of off-topic phrasings would
+# likely move this line.
 MIN_SCORE = 0.81
 
 AUTHORITY_OF: dict[str, str] = {
     Document.Source.GAME_MANUAL: Document.Authority.BINDING,
     Document.Source.OFFICIAL_QA: Document.Authority.RULING,
-    Document.Source.FORUM: Document.Authority.COMMUNITY,
 }
-AUTHORITATIVE = {Document.Authority.BINDING, Document.Authority.RULING}
 
-# Read by whoever asks, when no binding or ruling passage backs an answer:
-# the system's own refusal, not a guess dressed up as one.
+# Read by whoever asks, when nothing clears MIN_SCORE: the system's own
+# refusal, not a guess dressed up as one.
 NO_ANSWER = (
     "Le manuel et le Q&A officiel ne disent rien d'assez sûr sur cette "
     "question. Consultez le Q&A officiel de FIRST pour une réponse engageante."
@@ -186,11 +184,30 @@ _RULE_REFERENCE = re.compile(r"^([IEAGRTLC]\d{3})\s+\*?[A-Z]")
 # A numbered section heading for the prose around the rules ("10.6.4
 # Violation Details", "9.7 FLOWER") — one to four levels deep.
 _SECTION_REFERENCE = re.compile(r"^(\d{1,2}(?:\.\d{1,2}){0,3})\s+[A-Z]")
+# A Q&A entry, opening a line the same way a rule does ("Q44 Blue robot
+# over their gate...", never "...as settled in Q44." mid-sentence, which
+# has no space before its punctuation) — FIRST's own public Q&A summary
+# (ftc-docs.firstinspires.org/.../ftcqa.html, no login needed; only asking
+# a *new* question requires a team account) numbers every entry this way.
+_QA_REFERENCE = re.compile(r"^(Q\d{1,4})\s+\*?[A-Z]")
 # e5-base reads at most 512 tokens; a word runs close enough to a token in
 # this manual's plain English that a rule this long — a handful, mostly in
 # Motors & Actuators and Power Distribution — is re-split by word count
 # rather than measured token by token.
 MAX_WORDS_PER_PASSAGE = 350
+
+
+def _finalize_chunks(open_chunks: list[tuple[str, list[str]]]) -> list[tuple[str, str]]:
+    """Shared by chunk_rules and chunk_qa: a chunk longer than the word
+    budget is re-split under the same reference rather than truncated."""
+    passages: list[tuple[str, str]] = []
+    for reference, lines in open_chunks:
+        words = " ".join(lines).split()
+        for start in range(0, len(words), MAX_WORDS_PER_PASSAGE):
+            passages.append(
+                (reference, " ".join(words[start : start + MAX_WORDS_PER_PASSAGE]))
+            )
+    return passages
 
 
 def chunk_rules(text: str) -> list[tuple[str, str]]:
@@ -221,66 +238,103 @@ def chunk_rules(text: str) -> list[tuple[str, str]]:
         else:
             open_chunks.append(("", [line]))
 
-    passages: list[tuple[str, str]] = []
-    for reference, lines in open_chunks:
-        words = " ".join(lines).split()
-        for start in range(0, len(words), MAX_WORDS_PER_PASSAGE):
-            passages.append(
-                (reference, " ".join(words[start : start + MAX_WORDS_PER_PASSAGE]))
-            )
-    return passages
+    return _finalize_chunks(open_chunks)
 
 
-@transaction.atomic
+def chunk_qa(text: str) -> list[tuple[str, str]]:
+    """One passage per Q&A entry, not run through `chunk_rules`: an answer
+    references a rule mid-sentence ("this would violate G410"), the same
+    shape `chunk_rules` reads as a *new* rule opening — reusing it here
+    would slice a single entry apart at every rule it happens to mention.
+    Runs on the Q&A summary's own numbering instead.
+
+    Returns `(reference, passage)` pairs exactly like `chunk_rules`, so a
+    citation is shown the same way regardless of source — "Q44" alongside
+    "G420" — rather than adding a field only one source's citations would
+    ever use."""
+    open_chunks: list[tuple[str, list[str]]] = []
+    for raw_line in text.splitlines():
+        line = raw_line.strip()
+        if not line or _RUNNING_HEADER.match(line) or _TOC_LEADER.search(line):
+            continue
+        match = _QA_REFERENCE.match(line)
+        if match:
+            open_chunks.append((match.group(1), [line]))
+        elif open_chunks:
+            open_chunks[-1][1].append(line)
+        else:
+            open_chunks.append(("", [line]))
+
+    return _finalize_chunks(open_chunks)
+
+
+# Dispatched on ingestion: a Q&A document and a manual are structured
+# differently enough (§ above) that neither chunker reads the other's
+# source correctly.
+_CHUNKER_OF: dict[str, Callable[[str], list[tuple[str, str]]]] = {
+    Document.Source.GAME_MANUAL: chunk_rules,
+    Document.Source.OFFICIAL_QA: chunk_qa,
+}
+
+
 def ingest_document(
     *, season: Season, source: str, title: str, text: str, url: str = ""
 ) -> Document:
-    """All or nothing: a document without its passages would never be
-    found, and passages without their document would cite nothing.
+    """All or nothing where it counts: a document without its passages
+    would never be found, and passages without their document would cite
+    nothing — but chunking and embedding 397 passages takes tens of
+    seconds, and `transaction_mode: "IMMEDIATE"` (config/settings.py)
+    means an open transaction holds SQLite's write lock for as long as it
+    stays open. Only the two writes below are wrapped in one; running this
+    command during a workshop must not hold up everyone else's saves for
+    the length of an ingestion.
 
-    `authority` is read off `source`, never asked for on its own — a forum
-    thread can otherwise be filed as binding by nothing more than a typo."""
-    document = Document.objects.create(
-        season=season,
-        source=source,
-        authority=AUTHORITY_OF[source],
-        title=title,
-        url=url,
-    )
-    passages = chunk_rules(text)
+    `authority` is read off `source`, never asked for on its own — a
+    typo could otherwise file the Q&A as binding. Chunked by `_CHUNKER_OF`,
+    not always `chunk_rules`: a manual and a Q&A summary are structured too
+    differently for one chunker to read both correctly (see `chunk_qa`)."""
+    passages = _CHUNKER_OF[source](text)
     embeddings = _embed_many([passage for _, passage in passages], is_query=False)
-    Chunk.objects.bulk_create(
-        Chunk(
-            document=document,
-            ordinal=ordinal,
-            reference=reference,
-            text=passage,
-            embedding=embedding,
+    with transaction.atomic():
+        document = Document.objects.create(
+            season=season,
+            source=source,
+            authority=AUTHORITY_OF[source],
+            title=title,
+            url=url,
         )
-        for ordinal, ((reference, passage), embedding) in enumerate(
-            zip(passages, embeddings), start=1
+        Chunk.objects.bulk_create(
+            Chunk(
+                document=document,
+                ordinal=ordinal,
+                reference=reference,
+                text=passage,
+                embedding=embedding,
+            )
+            for ordinal, ((reference, passage), embedding) in enumerate(
+                zip(passages, embeddings), start=1
+            )
         )
-    )
     return document
 
 
 # Where a citation is quoted from, before how well it scored: the manual
 # is explicit that it takes precedence over the Q&A (§1.7.4), so a binding
-# passage is always quoted ahead of a ruling or community one that merely
-# scored higher, and score only breaks ties within the same authority.
+# passage is always quoted ahead of a ruling one that merely scored
+# higher, and score only breaks ties within the same authority.
 _AUTHORITY_RANK: dict[str, int] = {
     Document.Authority.BINDING: 0,
     Document.Authority.RULING: 1,
-    Document.Authority.COMMUNITY: 2,
 }
 
 
-@transaction.atomic
 def ask(question: str, season: Season, asker: User) -> RuleQuery:
     """The passages closest to the question, for this season only — the
     game changes every year, and a rule from last season's manual is not a
     rule. `answer` stays empty when the citations speak for themselves, and
-    only ever says something when none of them may be trusted to.
+    only ever says something when none of them cleared `MIN_SCORE` — with
+    only the manual and the Q&A left as sources, a citation existing at all
+    already means it came from one of the two.
 
     Only the latest `Document` per (season, source) is searched: FIRST
     republishes the manual with every Team Update (§1.7.3), and citing an
@@ -288,9 +342,18 @@ def ask(question: str, season: Season, asker: User) -> RuleQuery:
     student unsure which to trust — until proper versioning settles that,
     the old one is simply not searched.
 
-    Atomic end to end: a failure between creating the query and its
-    citations must never leave an "answered" query with nothing behind
-    it."""
+    Read and embedded before the transaction opens, not inside it: with
+    `transaction_mode: "IMMEDIATE"` (config/settings.py), an open
+    transaction holds SQLite's write lock for its whole duration, and
+    embedding the question — plus, on the first call, loading the model —
+    would hold that lock for every other save in the app to wait behind.
+    Only the two writes below need one.
+
+    Every match above `MIN_SCORE` is kept and sorted by (authority, score)
+    before being cut to `TOP_K` — never the reverse: cutting to the
+    top-`TOP_K` by score first could drop a binding passage that scored
+    lower than five Q&A ones, which is exactly what the manual's own
+    precedence over the Q&A (§1.7.4) rules out."""
     documents = Document.objects.filter(season=season).order_by("-fetched_at", "-id")
     latest_by_source: dict[str, Document] = {}
     for document in documents:
@@ -316,24 +379,23 @@ def ask(question: str, season: Season, asker: User) -> RuleQuery:
         matrix = np.stack([_unpack(chunk.embedding) for chunk in chunks])
         query_vector = _unpack(embed(question, is_query=True))
         scores = matrix @ query_vector
-        order = np.argsort(-scores)[:TOP_K]
         matches = sorted(
             (
-                (float(scores[index]), chunks[index])
-                for index in order
-                if scores[index] >= MIN_SCORE
+                (float(score), chunk)
+                for score, chunk in zip(scores, chunks)
+                if score >= MIN_SCORE
             ),
             key=lambda pair: (_AUTHORITY_RANK[pair[1].document.authority], -pair[0]),
-        )
-    trusted = any(chunk.document.authority in AUTHORITATIVE for _, chunk in matches)
+        )[:TOP_K]
 
-    query = RuleQuery.objects.create(
-        asker=asker, question=question, answer="" if trusted else NO_ANSWER
-    )
-    QueryCitation.objects.bulk_create(
-        QueryCitation(query=query, chunk=chunk, rank=rank)
-        for rank, (_, chunk) in enumerate(matches, start=1)
-    )
+    with transaction.atomic():
+        query = RuleQuery.objects.create(
+            asker=asker, question=question, answer="" if matches else NO_ANSWER
+        )
+        QueryCitation.objects.bulk_create(
+            QueryCitation(query=query, chunk=chunk, rank=rank)
+            for rank, (_, chunk) in enumerate(matches, start=1)
+        )
     return query
 
 

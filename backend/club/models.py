@@ -691,25 +691,25 @@ class Consent(models.Model):
 
 
 class Document(models.Model):
-    """A source the rulebook RAG has ingested: the game manual, the official
-    Q&A, or a forum thread. Never something the club wrote itself — a house
-    fiche would go stale with no visible expiry date, and be cited with the
-    same confidence as a binding rule (docs/fieldnotes.html, "Le RAG
-    règlement")."""
+    """A source the rulebook RAG has ingested: the game manual or the
+    official Q&A. Never something the club wrote itself — a house fiche
+    would go stale with no visible expiry date, and be cited with the same
+    confidence as a binding rule (docs/fieldnotes.html, "Le RAG règlement").
+    A forum was considered and dropped: the FTC Community forum has no
+    rules category, and Chief Delphi's FTC threads are mostly build logs
+    and strategy — nothing would ever fill it."""
 
     class Source(models.TextChoices):
         GAME_MANUAL = "game_manual", "manuel de jeu"
         OFFICIAL_QA = "official_qa", "Q&A officiel"
-        FORUM = "forum", "forum"
 
     class Authority(models.TextChoices):
         """What the source is worth, read off `source` at ingestion — never
-        typed by hand, so a forum post can never be filed as binding by a
-        slip of a flag."""
+        typed by hand. The manual takes precedence over the Q&A (§1.7.4):
+        `ask` sorts citations by this before score."""
 
         BINDING = "binding", "contraignant"
         RULING = "ruling", "ruling officiel"
-        COMMUNITY = "community", "opinion"
 
     season = models.ForeignKey(
         Season, on_delete=models.PROTECT, related_name="documents"
