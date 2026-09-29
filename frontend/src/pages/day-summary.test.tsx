@@ -71,19 +71,17 @@ function day(fields: object = {}) {
   };
 }
 
-function renderSummary(workday: object) {
-  vi.stubGlobal(
-    "fetch",
-    vi.fn(async (path: string) => {
-      if (path === "/api/auth/me/") {
-        return json(identity);
-      }
-      if (path === "/api/team-seasons/7/days/2026-09-30/") {
-        return json(workday);
-      }
-      throw new Error(`Unexpected request: ${path}`);
-    }),
-  );
+function renderSummary(workday: object, me: Response = json(identity)) {
+  const fetchMock = vi.fn(async (path: string) => {
+    if (path === "/api/auth/me/") {
+      return me;
+    }
+    if (path === "/api/team-seasons/7/days/2026-09-30/") {
+      return json(workday);
+    }
+    throw new Error(`Unexpected request: ${path}`);
+  });
+  vi.stubGlobal("fetch", fetchMock);
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
@@ -95,6 +93,7 @@ function renderSummary(workday: object) {
       <RouterProvider router={router} />
     </QueryClientProvider>,
   );
+  return fetchMock;
 }
 
 afterEach(() => {
@@ -180,6 +179,37 @@ it("lists decisions and notes apart from the progress", async () => {
     .getByText("foret de 4 cassé")
     .closest("li") as HTMLElement;
   expect(within(note).getByText("Remarque")).toBeTruthy();
+});
+
+it("names the work item a note was left on", async () => {
+  renderSummary(
+    day({
+      entries: [
+        entry({
+          type: "note",
+          work_item: { id: 10, title: "Intake" },
+          body: "le câble du capteur frotte",
+        }),
+      ],
+    }),
+  );
+
+  const note = (await screen.findByText(/le câble du capteur frotte/)).closest(
+    "li",
+  ) as HTMLElement;
+  expect(within(note).getByText("Intake")).toBeTruthy();
+});
+
+it("sends a visitor who is not signed in to the login page", async () => {
+  const fetchMock = renderSummary(
+    day(),
+    json({ detail: { code: "not_authenticated" } }, 403),
+  );
+
+  expect(await screen.findByLabelText("Mot de passe")).toBeTruthy();
+  expect(
+    fetchMock.mock.calls.some(([path]) => String(path).includes("/days/")),
+  ).toBe(false);
 });
 
 it("counts who was present out of the team roster", async () => {

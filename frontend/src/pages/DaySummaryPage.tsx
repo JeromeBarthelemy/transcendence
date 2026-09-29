@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
-import { Link, useParams } from "react-router-dom";
+import { Link, Navigate, useParams } from "react-router-dom";
 
 import { getDaySummary, type SummaryEntry } from "../api/workdays";
 import type { WorkItem } from "../api/workItems";
@@ -95,11 +95,31 @@ export function DaySummaryPage() {
   const summary = useQuery({
     queryKey: ["team-seasons", teamSeasonId, "days", day, "summary"],
     queryFn: () => getDaySummary(teamSeasonId, day),
+    enabled: Boolean(currentUser.data),
   });
   const teamSeason = currentUser.data?.team_seasons.find(
     (item) => item.id === teamSeasonId,
   );
 
+  if (currentUser.isPending) {
+    return (
+      <main className="mx-auto w-full max-w-4xl flex-1 px-5 py-14 sm:px-8">
+        <p role="status" className="text-sm text-[#506784]">
+          {t("auth.checkingSession")}
+        </p>
+      </main>
+    );
+  }
+  if (currentUser.isError) {
+    return (
+      <main className="mx-auto w-full max-w-4xl flex-1 px-5 py-14 sm:px-8">
+        <RequestError error={currentUser.error} />
+      </main>
+    );
+  }
+  if (!currentUser.data) {
+    return <Navigate to="/login" replace />;
+  }
   if (summary.isPending) {
     return (
       <main className="mx-auto w-full max-w-4xl flex-1 px-5 py-14 sm:px-8">
@@ -177,6 +197,12 @@ export function DaySummaryPage() {
                         ? t("daySummary.decision")
                         : t("daySummary.note")}
                     </span>
+                    {entry.work_item && (
+                      <>
+                        <strong>{entry.work_item.title}</strong>
+                        {" · "}
+                      </>
+                    )}
                     {entry.body}
                   </li>
                 ))}
