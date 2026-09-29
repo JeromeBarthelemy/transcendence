@@ -96,6 +96,14 @@ function renderSummary(workday: object, me: Response = json(identity)) {
   return fetchMock;
 }
 
+function listItemWith(text: string | RegExp): HTMLElement {
+  const item = screen.getByText(text).closest("li");
+  if (!item) {
+    throw new Error(`No list item holds "${text}"`);
+  }
+  return item;
+}
+
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
@@ -171,13 +179,9 @@ it("lists decisions and notes apart from the progress", async () => {
   );
 
   expect(await screen.findAllByRole("article")).toHaveLength(1);
-  const decision = screen
-    .getByText("passer l'intake aux galets")
-    .closest("li") as HTMLElement;
+  const decision = listItemWith("passer l'intake aux galets");
   expect(within(decision).getByText("Décision")).toBeTruthy();
-  const note = screen
-    .getByText("foret de 4 cassé")
-    .closest("li") as HTMLElement;
+  const note = listItemWith("foret de 4 cassé");
   expect(within(note).getByText("Remarque")).toBeTruthy();
 });
 
@@ -194,9 +198,8 @@ it("names the work item a note was left on", async () => {
     }),
   );
 
-  const note = (await screen.findByText(/le câble du capteur frotte/)).closest(
-    "li",
-  ) as HTMLElement;
+  await screen.findByText(/le câble du capteur frotte/);
+  const note = listItemWith(/le câble du capteur frotte/);
   expect(within(note).getByText("Intake")).toBeTruthy();
 });
 
@@ -229,7 +232,8 @@ it("leafs to the previous and next workdays, and hides a missing one", async () 
     name: /samedi 26 septembre/,
   });
   expect(previous.getAttribute("href")).toBe("/team-seasons/7/days/2026-09-26");
-  expect(screen.queryByRole("link", { name: /octobre/ })).toBeNull();
+  const days = within(screen.getByRole("main")).getByRole("navigation");
+  expect(within(days).getAllByRole("link")).toEqual([previous]);
 });
 
 it("says so when nothing was written that day", async () => {
