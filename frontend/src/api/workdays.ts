@@ -31,7 +31,21 @@ const noteSchema = z.object({
   author: z.string(),
 });
 
+// The summary reads more of each entry than the team home does.
+const summaryEntrySchema = z.extend(entrySchema, {
+  work_item: z.nullable(z.object({ id: z.number(), title: z.string() })),
+  step: z.nullable(z.string()),
+  handover: z.string(),
+  participants: z.array(memberSchema),
+  attachments: z.array(z.object({ content_type: z.string() })),
+});
+const daySummarySchema = z.extend(workdaySchema, {
+  entries: z.array(summaryEntrySchema),
+});
+
 export type Workday = z.infer<typeof workdaySchema>;
+export type DaySummary = z.infer<typeof daySummarySchema>;
+export type SummaryEntry = z.infer<typeof summaryEntrySchema>;
 
 export async function getWorkday(
   teamSeasonId: number,
@@ -41,6 +55,18 @@ export async function getWorkday(
   const result = workdaySchema.safeParse(body);
   if (!result.success) {
     throw new Error("The workday response is invalid");
+  }
+  return result.data;
+}
+
+export async function getDaySummary(
+  teamSeasonId: number,
+  day: string,
+): Promise<DaySummary> {
+  const { body } = await get(`/api/team-seasons/${teamSeasonId}/days/${day}/`);
+  const result = daySummarySchema.safeParse(body);
+  if (!result.success) {
+    throw new Error("The day summary response is invalid");
   }
   return result.data;
 }

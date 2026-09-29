@@ -6,6 +6,7 @@ import {
 } from "@tanstack/react-query";
 import { type FormEvent, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { Link } from "react-router-dom";
 
 import type { Identity, TeamSeasonSummary } from "../api/auth";
 import { createTeamNote, getWorkday, type Workday } from "../api/workdays";
@@ -31,7 +32,7 @@ const weekdayFormatter = new Intl.DateTimeFormat("fr-FR", {
 const relativeFormatter = new Intl.RelativeTimeFormat("fr-FR", {
   numeric: "auto",
 });
-const nameFormatter = new Intl.ListFormat("fr-FR", {
+export const nameFormatter = new Intl.ListFormat("fr-FR", {
   style: "long",
   type: "conjunction",
 });
@@ -46,7 +47,7 @@ const noteTimeFormatter = new Intl.DateTimeFormat("fr-FR", {
   hour: "2-digit",
   minute: "2-digit",
 });
-function formatWorkdayDate(day: string) {
+export function formatWorkdayDate(day: string) {
   return workdayDateFormatter.format(new Date(`${day}T12:00:00Z`));
 }
 
@@ -211,14 +212,15 @@ function DayFooter({
   const [isNoteOpen, setIsNoteOpen] = useState(false);
   const [noteBody, setNoteBody] = useState("");
   const [noteSaved, setNoteSaved] = useState(false);
-  const dayQueryKey = ["team-seasons", teamSeasonId, "days", "today"] as const;
+  // Every day of the team, so a summary already opened shows the note too.
+  const daysQueryKey = ["team-seasons", teamSeasonId, "days"] as const;
   const note = useMutation({
     mutationFn: (body: string) => createTeamNote(teamSeasonId, body),
     onSuccess: async () => {
       setNoteBody("");
       setIsNoteOpen(false);
       setNoteSaved(true);
-      await queryClient.invalidateQueries({ queryKey: dayQueryKey });
+      await queryClient.invalidateQueries({ queryKey: daysQueryKey });
     },
   });
   const dayNotes =
@@ -273,6 +275,24 @@ function DayFooter({
                 count: day.data.present.length,
                 roster: day.data.roster,
               })}
+            </p>
+          )}
+          {day.data && (
+            <p className="mt-2 flex flex-wrap gap-4 text-sm font-semibold">
+              {day.data.previous && (
+                <Link
+                  to={`/team-seasons/${teamSeasonId}/days/${day.data.previous}`}
+                  className="text-[#0078dd] hover:underline"
+                >
+                  {t("teamHome.previousDayLink")}
+                </Link>
+              )}
+              <Link
+                to={`/team-seasons/${teamSeasonId}/days/${day.data.day}`}
+                className="text-[#0078dd] hover:underline"
+              >
+                {t("teamHome.daySummaryLink")}
+              </Link>
             </p>
           )}
         </div>
@@ -509,6 +529,12 @@ export function TeamHomePage({ identity }: { identity: Identity }) {
         )}
       </div>
 
+      <DayFooter
+        key={selectedTeamSeason.id}
+        teamSeasonId={selectedTeamSeason.id}
+        day={day}
+      />
+
       {workItems.isPending ? (
         <p role="status" className="mt-10 text-sm text-[#506784]">
           {t("teamHome.loading")}
@@ -554,12 +580,6 @@ export function TeamHomePage({ identity }: { identity: Identity }) {
           </div>
         </div>
       )}
-
-      <DayFooter
-        key={selectedTeamSeason.id}
-        teamSeasonId={selectedTeamSeason.id}
-        day={day}
-      />
 
       <NotebookExport teamSeasonId={selectedTeamSeason.id} />
     </main>

@@ -420,3 +420,105 @@ it("narrows the notebook export to the chosen category", async () => {
       .getAttribute("href"),
   ).toBe("/api/team-seasons/7/export/?format=markdown&category=team-life");
 });
+
+it("links the team home to today's summary and the previous one", async () => {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (path: string) =>
+      path.startsWith("/api/team-seasons/7/days/")
+        ? json({
+            day: testWorkdayDay,
+            previous: "2026-09-26",
+            next: null,
+            entries: [],
+            present: [],
+            roster: 12,
+            advanced_work_items: 0,
+          })
+        : teamWithoutWorkItems(path),
+    ),
+  );
+  renderHome();
+
+  expect(
+    (
+      await screen.findByRole("link", { name: "Résumé de la journée" })
+    ).getAttribute("href"),
+  ).toBe(`/team-seasons/7/days/${testWorkdayDay}`);
+  expect(
+    screen
+      .getByRole("link", { name: "Séance précédente" })
+      .getAttribute("href"),
+  ).toBe("/team-seasons/7/days/2026-09-26");
+});
+
+it("shows a note written today on a summary of today opened before", async () => {
+  setDocumentCookie("csrftoken=test; path=/");
+  let dayEntries: object[] = [];
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (path: string, options?: RequestInit) => {
+      if (path.startsWith("/api/team-seasons/7/days/")) {
+        return json({
+          day: testWorkdayDay,
+          previous: null,
+          next: null,
+          entries: dayEntries,
+          present: [],
+          roster: 12,
+          advanced_work_items: 0,
+        });
+      }
+      if (path === "/api/team-seasons/7/notes/" && options?.method === "POST") {
+        const note = {
+          id: 42,
+          work_item: null,
+          type: "note",
+          body: "Foret de 4 cassé.",
+          step: null,
+          handover: "",
+          occurred_at: new Date().toISOString(),
+          author: "Marie",
+          participants: [],
+          attachments: [],
+        };
+        dayEntries = [note];
+        return json(note, 201);
+      }
+      return teamWithoutWorkItems(path);
+    }),
+  );
+  // As in the app: a query stays fresh for a while, so a stale summary
+  // would be served from the cache rather than asked for again.
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false, staleTime: 30_000 } },
+  });
+  const router = createMemoryRouter(routes, {
+    initialEntries: [`/team-seasons/7/days/${testWorkdayDay}`],
+  });
+  render(
+    <QueryClientProvider client={queryClient}>
+      <RouterProvider router={router} />
+    </QueryClientProvider>,
+  );
+  expect(
+    await screen.findByText("Rien n'a été écrit ce jour-là."),
+  ).toBeTruthy();
+
+  await router.navigate("/");
+  await userEvent.click(
+    await screen.findByRole("button", { name: "+ remarque" }),
+  );
+  await userEvent.type(
+    screen.getByLabelText("Remarque pour l'équipe"),
+    "Foret de 4 cassé.",
+  );
+  await userEvent.click(screen.getByRole("button", { name: "Enregistrer" }));
+  expect(await screen.findByText("Remarque enregistrée.")).toBeTruthy();
+
+  await userEvent.click(
+    screen.getByRole("link", { name: "Résumé de la journée" }),
+  );
+  expect(await screen.findByText("Foret de 4 cassé.")).toBeTruthy();
+  expect(screen.getByText("Remarque")).toBeTruthy();
+});

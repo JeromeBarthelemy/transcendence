@@ -31,6 +31,8 @@
     "presentCount_one": "{{count}} présent sur {{roster}}",
     "presentCount_other": "{{count}} présents sur {{roster}}",
     "addNote": "+ remarque",
+    "daySummaryLink": "Résumé de la journée",
+    "previousDayLink": "Séance précédente",
     "noteLabel": "Remarque pour l'équipe",
     "notePlaceholder": "Ex. : foret de 4 cassé, il n'en reste qu'un…",
     "cancelNote": "Annuler",
@@ -162,6 +164,21 @@
     "successTitle": "Bienvenue sur Fieldnotes.",
     "successDescription": "Connectez-vous avec votre nom d'affichage « {{name}} » et votre mot de passe.",
     "emailLoginHelp": "Vous pouvez aussi utiliser votre adresse {{email}}."
+  },
+  "daySummary": {
+    "loading": "Chargement de la journée…",
+    "produced": "Ce que la journée a produit",
+    "empty": "Rien n'a été écrit ce jour-là.",
+    "decision": "Décision",
+    "note": "Remarque",
+    "photos_one": "{{count}} photo",
+    "photos_other": "{{count}} photos",
+    "videos_one": "{{count}} vidéo",
+    "videos_other": "{{count}} vidéos",
+    "files_one": "{{count}} fichier",
+    "files_other": "{{count}} fichiers",
+    "present": "Présents · {{count}} sur {{roster}}",
+    "presentFrom": "déduits des chantiers"
   },
   "validation": {
     "required": "Ce champ est obligatoire.",
