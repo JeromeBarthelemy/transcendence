@@ -4,6 +4,7 @@ from .views import (
     AttachmentView,
     AvatarView,
     DayView,
+    DecisionCreateView,
     EntryAttachmentsView,
     EntryDetailView,
     ExportView,
@@ -66,6 +67,11 @@ urlpatterns = [
         "team-seasons/<int:team_season_id>/notes/",
         NoteCreateView.as_view(),
         name="note-create",
+    ),
+    path(
+        "team-seasons/<int:team_season_id>/decisions/",
+        DecisionCreateView.as_view(),
+        name="decision-create",
     ),
     path(
         "team-seasons/<int:team_season_id>/days/<str:day>/",

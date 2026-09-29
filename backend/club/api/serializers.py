@@ -384,6 +384,42 @@ class NoteSerializer(serializers.Serializer[Entry]):
         )
 
 
+class DecisionSerializer(NoteSerializer):
+    """The one trace where someone else ticks who was there: a meeting is
+    seen by all, so the author's word is enough, and it counts no one
+    present."""
+
+    attendees = serializers.PrimaryKeyRelatedField(
+        queryset=User.objects.all(), many=True, required=False
+    )
+
+    def validate_attendees(self, value: list[User]) -> list[User]:
+        members = Membership.objects.filter(team_season=self.context["team_season"])
+        for user in value:
+            if (
+                user.club_role != User.ClubRole.MENTOR
+                and not members.filter(user=user).exists()
+            ):
+                raise serializers.ValidationError(
+                    f"{user.display_name} n'est ni de l'équipe ni mentor.",
+                    code="attendee_not_in_team",
+                )
+        return value
+
+    def create(self, validated_data: dict[str, Any]) -> Entry:
+        attendees = validated_data.pop("attendees", [])
+        author = self.context["author"]
+        with transaction.atomic():
+            entry = Entry.objects.create(
+                team_season=self.context["team_season"],
+                author=author,
+                type=Entry.Type.DECISION,
+                **validated_data,
+            )
+            entry.participants.set({author, *attendees})
+        return entry
+
+
 class DaySerializer(serializers.Serializer[None]):
     day = serializers.DateField()
 

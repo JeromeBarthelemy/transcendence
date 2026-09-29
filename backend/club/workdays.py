@@ -52,12 +52,17 @@ def neighbours(team_season: TeamSeason, day: date) -> tuple[date | None, date | 
 
 
 def attendance(team_season: TeamSeason, day: date) -> QuerySet[User]:
-    """The students signed up to one of the team's progress entries that day.
-    Mentors supervise and are not the roster; being there without moving
-    anything forward is not counted either."""
-    progress = day_entries(team_season, day).filter(type=Entry.Type.PROGRESS)
-    return User.objects.filter(
-        club_role=User.ClubRole.STUDENT, participations__in=progress
+    """The students signed up to one of the team's progress entries that day,
+    or who wrote one of its decisions. Mentors supervise and are not the
+    roster; being there without moving anything forward is not counted either,
+    nor being ticked at a meeting by someone else."""
+    entries = day_entries(team_season, day)
+    progress = entries.filter(type=Entry.Type.PROGRESS)
+    decisions = entries.filter(type=Entry.Type.DECISION)
+    students = User.objects.filter(club_role=User.ClubRole.STUDENT)
+    return (
+        students.filter(participations__in=progress)
+        | students.filter(entries__in=decisions)
     ).distinct()
 
 

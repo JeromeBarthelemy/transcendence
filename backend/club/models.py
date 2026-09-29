@@ -545,7 +545,9 @@ class Entry(models.Model):
 
 class EntryParticipant(models.Model):
     """Who moved a work item forward that day, each signed up by themselves:
-    the day's attendance is read here, and stored nowhere else."""
+    the day's attendance is read here, and stored nowhere else. On a decision,
+    who was at the meeting, ticked by its author, and counted present for
+    nothing."""
 
     entry = models.ForeignKey(Entry, on_delete=models.CASCADE)
     # PROTECT until the GDPR module decides what a deleted member's traces become.
