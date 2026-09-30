@@ -4,10 +4,9 @@ import { useTranslation } from "react-i18next";
 import { Link, Navigate, useParams } from "react-router-dom";
 
 import { getDaySummary, type SummaryEntry } from "../api/workdays";
-import type { WorkItem } from "../api/workItems";
+import { formatWorkdayDate, nameFormatter } from "../app/formatters";
 import { useCurrentUser } from "../app/useCurrentUser";
 import { RequestError } from "../components/ApiErrors";
-import { formatWorkdayDate, nameFormatter } from "./TeamHomePage";
 
 function attachmentCounts(entry: SummaryEntry, t: TFunction) {
   const types = entry.attachments.map((file) => file.content_type);
@@ -37,10 +36,7 @@ function Progress({ entry }: { entry: SummaryEntry }) {
         )}
         {entry.step && (
           <span className="rounded-full bg-[#eaf5ff] px-3 py-1 text-xs font-semibold text-[#0078dd]">
-            {/* The API only sends a work item's own steps. */}
-            {t(
-              `teamHome.steps.${entry.step as NonNullable<WorkItem["current_step"]>}`,
-            )}
+            {t(`teamHome.steps.${entry.step}`)}
           </span>
         )}
         <span className="text-sm text-[#506784]">

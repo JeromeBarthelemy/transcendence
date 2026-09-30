@@ -460,6 +460,7 @@ def _work_item(item: WorkItem) -> dict[str, object]:
     handover = item.last_handover
     return {
         "id": item.id,
+        "team_season": item.team_season_id,
         "title": item.title,
         "on_robot": item.on_robot,
         "status": item.status,
@@ -539,9 +540,26 @@ class WorkItemDetailView(APIView):
     def get(self, request: Request, pk: int) -> Response:
         assert isinstance(request.user, User)
         item = _work_item_acted_on(request.user, pk)
-        thread = item.entries.select_related("author").order_by("-occurred_at", "-id")
+        thread = (
+            item.entries.select_related("author", "work_item")
+            .prefetch_related("participants", "attachments__uploaded_by")
+            .order_by("-occurred_at", "-id")
+        )
+        current_progress = progress_of_the_day(item, workday(timezone.now()))
         return Response(
-            {**_work_item(item), "thread": [_entry(entry) for entry in thread]}
+            {
+                **_work_item(item),
+                "current_progress": _entry(current_progress)
+                if current_progress
+                else None,
+                "current_user_participates": bool(
+                    current_progress
+                    and current_progress.participants.filter(
+                        pk=request.user.pk
+                    ).exists()
+                ),
+                "thread": [_entry(entry) for entry in thread],
+            }
         )
 
     def patch(self, request: Request, pk: int) -> Response:

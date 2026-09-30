@@ -49,6 +49,14 @@ function identity(teamSeasons: object[]) {
   };
 }
 
+function workItem(item: object, teamSeasonId = 7) {
+  return {
+    team_season: teamSeasonId,
+    opened_at: new Date().toISOString(),
+    ...item,
+  };
+}
+
 const testWorkday = new Date();
 testWorkday.setHours(12, 0, 0, 0);
 const testWorkdayDay = testWorkday.toISOString().slice(0, 10);
@@ -62,7 +70,7 @@ function workday(
 ): Response {
   return json({
     day: testWorkdayDay,
-    entries,
+    entries: entries.map((entry) => ({ work_item: null, ...entry })),
     present,
     roster,
     advanced_work_items: advancedWorkItems,
@@ -86,7 +94,7 @@ it("splits a team's work items and highlights its handover", async () => {
     }
     if (path === "/api/team-seasons/7/work-items/") {
       return json([
-        {
+        workItem({
           id: 10,
           title: "Intake",
           on_robot: true,
@@ -107,8 +115,8 @@ it("splits a team's work items and highlights its handover", async () => {
               { display_name: "Tom", avatar: null },
             ],
           },
-        },
-        {
+        }),
+        workItem({
           id: 11,
           title: "Dossier de sponsoring",
           on_robot: false,
@@ -120,7 +128,7 @@ it("splits a team's work items and highlights its handover", async () => {
             day: twoWeeksAgoDay,
             participants: [{ display_name: "Marie", avatar: null }],
           },
-        },
+        }),
       ]);
     }
     if (path.startsWith("/api/team-seasons/7/days/")) {
@@ -140,6 +148,9 @@ it("splits a team's work items and highlights its handover", async () => {
   expect(screen.getByRole("heading", { name: "Hors robot" })).toBeTruthy();
   expect(screen.getAllByText("1 chantier")).toHaveLength(2);
   expect(screen.getByText("Intake")).toBeTruthy();
+  expect(
+    screen.getByRole("link", { name: /Intake/ }).getAttribute("href"),
+  ).toBe("/work-items/10");
   expect(screen.getByText("Dossier de sponsoring")).toBeTruthy();
   expect(screen.getAllByText("Ouvert", { selector: "span" })).toHaveLength(2);
   expect(screen.getByText("À reprendre")).toBeTruthy();
@@ -187,19 +198,22 @@ it("loads another team's work items when the selection changes", async () => {
     }
     if (path === "/api/team-seasons/8/work-items/") {
       return json([
-        {
-          id: 20,
-          title: "Châssis",
-          on_robot: true,
-          status: "open",
-          current_step: "building",
-          handover: null,
-          last_progress: {
-            occurred_at: new Date().toISOString(),
-            day: testWorkdayDay,
-            participants: [{ display_name: "Marie", avatar: null }],
+        workItem(
+          {
+            id: 20,
+            title: "Châssis",
+            on_robot: true,
+            status: "open",
+            current_step: "building",
+            handover: null,
+            last_progress: {
+              occurred_at: new Date().toISOString(),
+              day: testWorkdayDay,
+              participants: [{ display_name: "Marie", avatar: null }],
+            },
           },
-        },
+          8,
+        ),
       ]);
     }
     if (path.includes("/days/")) {
@@ -226,7 +240,7 @@ it("shows every work item and filters them by status", async () => {
   const items = Array.from({ length: 8 }, (_, index) => {
     const occurredAt = new Date();
     occurredAt.setDate(occurredAt.getDate() - index);
-    return {
+    return workItem({
       id: index + 1,
       title: `Chantier ${index + 1}`,
       on_robot: index % 2 === 0,
@@ -241,7 +255,7 @@ it("shows every work item and filters them by status", async () => {
               day: occurredAt.toISOString().slice(0, 10),
               participants: [{ display_name: "Marie", avatar: null }],
             },
-    };
+    });
   });
   const fetchMock = vi.fn(async (path: string) => {
     if (path === "/api/auth/me/") {
@@ -288,6 +302,14 @@ it("summarizes today and saves a team note", async () => {
       occurred_at: occurredAt,
       author: "Lina",
     },
+    {
+      id: 43,
+      work_item: { id: 10, title: "Intake" },
+      type: "note",
+      body: "Cette remarque appartient au chantier.",
+      occurred_at: occurredAt,
+      author: "Lina",
+    },
   ];
 
   const fetchMock = vi.fn(
@@ -297,7 +319,7 @@ it("summarizes today and saves a team note", async () => {
       }
       if (path === "/api/team-seasons/7/work-items/") {
         return json([
-          {
+          workItem({
             id: 10,
             title: "Intake",
             on_robot: true,
@@ -309,7 +331,7 @@ it("summarizes today and saves a team note", async () => {
               day: testWorkdayDay,
               participants: [{ display_name: "Marie", avatar: null }],
             },
-          },
+          }),
         ]);
       }
       if (path.startsWith("/api/team-seasons/7/days/")) {
@@ -324,6 +346,7 @@ it("summarizes today and saves a team note", async () => {
       if (path === "/api/team-seasons/7/notes/" && options?.method === "POST") {
         const savedNote = {
           id: 42,
+          work_item: null,
           type: "note",
           body: "Foret de 4 cassé.",
           occurred_at: occurredAt,
@@ -345,6 +368,9 @@ it("summarizes today and saves a team note", async () => {
   });
   expect(summary?.textContent).toContain("1 présent sur 10");
   expect(screen.getByText("Pensez à ranger les batteries.")).toBeTruthy();
+  expect(
+    screen.queryByText("Cette remarque appartient au chantier."),
+  ).toBeNull();
 
   await userEvent.click(screen.getByRole("button", { name: "+ remarque" }));
   await userEvent.type(

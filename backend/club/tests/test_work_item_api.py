@@ -97,6 +97,7 @@ def test_a_member_lists_the_work_items_of_their_team(client):
     [item] = client.get(url(rouages)).json()
 
     assert item["title"] == "intake"
+    assert item["team_season"] == rouages.id
     assert item["on_robot"] is True
     assert item["status"] == "open"
     assert item["current_step"] == "prototyping"
@@ -223,6 +224,9 @@ def test_a_work_item_comes_with_its_thread_newest_first(client):
     item = client.get(detail(intake)).json()
 
     assert item["title"] == "intake"
+    assert item["team_season"] == rouages.id
+    assert item["current_progress"]["body"] == "Rouleaux imprimés."
+    assert item["current_user_participates"] is True
     assert [entry["type"] for entry in item["thread"]] == [
         "note",
         "progress",
@@ -234,6 +238,20 @@ def test_a_work_item_comes_with_its_thread_newest_first(client):
     assert newest_progress["author"] == "lina"
     assert names(newest_progress["participants"]) == ["lina"]
     assert newest_progress["handover"] == "Tester à 12 V."
+
+
+def test_a_work_item_says_when_the_reader_has_not_joined_todays_progress(client):
+    rouages = team_season()
+    lina = member_of(rouages, "lina")
+    tom = member_of(rouages, "tom")
+    intake = WorkItem.objects.create(team_season=rouages, title="intake")
+    progress = record_progress(intake, lina, "Maquette carton.")
+    client.force_login(tom)
+
+    item = client.get(detail(intake)).json()
+
+    assert item["current_progress"]["id"] == progress.id
+    assert item["current_user_participates"] is False
 
 
 def test_a_work_item_of_another_team_is_refused(client):

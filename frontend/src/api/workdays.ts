@@ -1,5 +1,6 @@
 import { z } from "zod/mini";
 import { get, post } from "./client";
+import { workItemSteps } from "./workItems";
 
 const memberSchema = z.object({
   display_name: z.string(),
@@ -7,6 +8,12 @@ const memberSchema = z.object({
 });
 const entrySchema = z.object({
   id: z.number(),
+  work_item: z.nullable(
+    z.object({
+      id: z.number(),
+      title: z.string(),
+    }),
+  ),
   type: z.string(),
   body: z.string(),
   occurred_at: z.string(),
@@ -25,6 +32,12 @@ const workdaySchema = z.object({
 
 const noteSchema = z.object({
   id: z.number(),
+  work_item: z.nullable(
+    z.object({
+      id: z.number(),
+      title: z.string(),
+    }),
+  ),
   type: z.literal("note"),
   body: z.string(),
   occurred_at: z.string(),
@@ -33,8 +46,7 @@ const noteSchema = z.object({
 
 // The summary reads more of each entry than the team home does.
 const summaryEntrySchema = z.extend(entrySchema, {
-  work_item: z.nullable(z.object({ id: z.number(), title: z.string() })),
-  step: z.nullable(z.string()),
+  step: z.nullable(z.enum(workItemSteps)),
   handover: z.string(),
   participants: z.array(memberSchema),
   attachments: z.array(z.object({ content_type: z.string() })),
