@@ -7,3 +7,4 @@ djangorestframework==3.18.*  # l'API : sérialiseurs, vues, throttling
 pypdf==6.*              # lecture d'un document du RAG règlement fourni en PDF
 fastembed==0.8.*        # embeddings du RAG règlement (e5-base, ONNX fp32)
 numpy==2.*              # rag.py compare les embeddings directement (produit matriciel)
+daphne==4.*             # serveur ASGI en production — le serveur de référence de Channels

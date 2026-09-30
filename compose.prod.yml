@@ -1,0 +1,58 @@
+# The final deployment: HTTPS terminated by Caddy (deploy/Caddyfile) in
+# front of Django (Daphne, ASGI) and the built frontend it bakes in — no
+# dev server, no bind mount, no hot reload. See README, "Getting started".
+services:
+  backend:
+    build: ./backend
+    env_file: ./backend/.env
+    environment:
+      DJANGO_ALLOWED_HOSTS: localhost,127.0.0.1,backend
+      # Named volume, not BASE_DIR/db.sqlite3: this container has no bind
+      # mount to keep that file outside the image, unlike dev's.
+      DJANGO_DB_PATH: /app/data/db.sqlite3
+    volumes:
+      - sqlite_data:/app/data
+      - media_files:/app/media
+      - fastembed_cache:/app/.cache
+      - static_files:/app/staticfiles
+    command: >-
+      sh -c "python manage.py migrate &&
+      python manage.py collectstatic --noinput &&
+      daphne -b 0.0.0.0 -p 8000 config.asgi:application"
+    expose:
+      - "8000"
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health/')"
+      interval: 3s
+      timeout: 2s
+      retries: 10
+
+  proxy:
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile
+    volumes:
+      # Read-only: Caddy only ever serves these, collectstatic is the one
+      # writer.
+      - static_files:/srv/static:ro
+      # Persists Caddy's local CA and the certificate it signs — without
+      # this, a `down` and `up` would mint a new one and every browser in
+      # the room would need to accept the warning again.
+      - caddy_data:/data
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      backend:
+        condition: service_healthy
+
+volumes:
+  sqlite_data:
+  media_files:
+  fastembed_cache:
+  static_files:
+  caddy_data:

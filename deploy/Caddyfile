@@ -1,0 +1,49 @@
+# The one HTTPS reverse proxy in front of Django and the built frontend
+# (README, "Getting started"). `tls internal` is Caddy's own local
+# certificate authority: it signs a certificate for `localhost` itself, no
+# mkcert or openssl step to run first — the browser still shows a one-time
+# warning per device to accept it, which is the deliberate ceiling
+# docs/fieldnotes.html already names for a club-room instance.
+{
+	local_certs
+	admin off
+}
+
+https://localhost {
+	encode gzip
+
+	# Both the API and the Django admin (including its own static assets,
+	# served below under /static/) live on the backend.
+	handle /api/* {
+		reverse_proxy backend:8000
+	}
+
+	handle /admin* {
+		reverse_proxy backend:8000
+	}
+
+	# collectstatic's output (Django admin's CSS/JS) — DEBUG=false means
+	# Django itself no longer serves these, so the proxy must. handle_path,
+	# not handle: it strips the /static prefix before file_server looks
+	# the file up, since the volume's own root is already "admin/...", not
+	# "static/admin/...".
+	handle_path /static/* {
+		root * /srv/static
+		file_server
+	}
+
+	# The built React app. try_files falls back to index.html so React
+	# Router's client-side routes (e.g. a refresh on /me) resolve instead
+	# of 404ing at the proxy.
+	handle {
+		root * /srv/frontend
+		try_files {path} /index.html
+		file_server
+	}
+}
+
+# Plain HTTP only exists to redirect — SECURE_SSL_REDIRECT in Django settings
+# assumes the proxy already did this, not that it ever reaches Django itself.
+http://localhost {
+	redir https://{host}{uri} permanent
+}

@@ -120,8 +120,31 @@ proxies `/api` to Django, so the browser keeps one origin for session and CSRF
 cookies. The Django admin remains available at <http://localhost:8000/admin/>.
 
 This Compose stack is for development and proves the frontend/backend
-integration. The final deployment will build static frontend assets and put
-both them and Django behind the same HTTPS reverse proxy.
+integration — `runserver`, Vite's dev server, `DEBUG=true`, no certificate.
+
+### Production stack over HTTPS
+
+```sh
+cp backend/.env.example backend/.env
+# Fill in DJANGO_SECRET_KEY, and set DJANGO_DEBUG=false.
+docker compose -f compose.prod.yml up --build
+```
+
+Open <https://localhost/>. The browser warns once per device — the
+certificate is self-signed by Caddy's own local authority (`deploy/Caddyfile`,
+`tls internal`), which is the accepted ceiling for an instance that never
+leaves the club's room (`docs/fieldnotes.html`, "plafond assumé"). `http://`
+redirects to `https://`.
+
+Two containers, not three: `backend` runs the migrations, `collectstatic`,
+then Daphne (ASGI — ready for Channels, ahead of needing it) instead of
+`runserver`; `proxy` bakes the frontend's production build into a Caddy image
+(`deploy/Dockerfile`) that terminates TLS, serves `/static/` from what
+`collectstatic` wrote, and reverse-proxies `/api/` and `/admin/` to `backend`
+— same origin as the frontend, so no CORS, same as development. Named volumes
+keep the SQLite database, media and the RAG's embedding model cache across a
+`down` and `up`; `db.sqlite3` moves under one of them because this container,
+unlike the dev one, has no bind mount to keep it on the host instead.
 
 ### Backend without containers
 
@@ -186,9 +209,10 @@ with the email and password given to `createsuperuser`.
 - The site root returns 404: no product route exists there yet.
 - `GET /api/health/` returns `{"status": "ok"}` and accepts only GET requests.
 
-HTTPS, which the subject requires on every connection to the backend, will
-be handled by the final deployment's reverse proxy — not by Django's or
-Vite's development servers, nor by this development Compose stack.
+HTTPS, which the subject requires on every connection to the backend, is
+handled by the production stack's reverse proxy ("Production stack over
+HTTPS" above) — not by Django's or Vite's development servers, nor by this
+development Compose stack.
 
 ### Demo data
 
@@ -688,6 +712,8 @@ requests — stays English.
 - `frontend/src/locales/` — the French user-interface catalogue.
 - `frontend/src/styles.css` — Tailwind entry point and global styles.
 - `compose.yml` — the complete development stack in one command.
+- `compose.prod.yml`, `deploy/` — the HTTPS production stack: Caddy
+  (`deploy/Dockerfile`, `deploy/Caddyfile`) in front of Django on Daphne.
 
 The frontend contains the public landing, sign-up and log-in screens. Once
 signed in, the home screen lists the selected team's robot and off-robot work
