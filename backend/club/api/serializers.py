@@ -518,3 +518,7 @@ class UserRoleSerializer(serializers.Serializer[User]):
             setattr(instance, field, value)
         instance.save(update_fields=list(validated_data))
         return instance
+
+
+class AskSerializer(serializers.Serializer[None]):
+    question = serializers.CharField(max_length=500)

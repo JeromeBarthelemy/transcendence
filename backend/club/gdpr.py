@@ -38,11 +38,11 @@ def _contact_email(user: User) -> str:
 
 def export_data(user: User) -> dict[str, Any]:
     """The member's own identity and account-level decisions — exactly what
-    `anonymize` erases or already keeps — plus their memberships. Not the
-    club's notebook: entries and their attachments are the team's history,
-    kept and still attributed after a member leaves, and the notebook
-    export serves a different reader, the portfolio, for a request this is
-    not."""
+    `anonymize` erases or already keeps — plus their memberships and the
+    questions they asked the rulebook. Not the club's notebook: entries
+    and their attachments are the team's history, kept and still
+    attributed after a member leaves, and the notebook export serves a
+    different reader, the portfolio, for a request this is not."""
     verification = getattr(user, "verification_request", None)
     return {
         "display_name": user.display_name,
@@ -77,6 +77,14 @@ def export_data(user: User) -> dict[str, Any]:
                 "decided_at": consent.decided_at.isoformat(),
             }
             for consent in Consent.objects.filter(user=user)
+        ],
+        "rule_queries": [
+            {
+                "question": query.question,
+                "answer": query.answer,
+                "created_at": query.created_at.isoformat(),
+            }
+            for query in user.rule_queries.order_by("created_at")
         ],
     }
 
