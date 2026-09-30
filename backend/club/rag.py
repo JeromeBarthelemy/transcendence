@@ -7,47 +7,25 @@ them by a plain dot product is a NumPy call, not an infrastructure
 decision (docs/fieldnotes.html's own "plafond assumé" names exactly this:
 "pgvector, sqlite-vec ou un tableau NumPy").
 
-What *is* worth an infrastructure decision is the vector itself. A first
-version hashed a bag-of-words and ranked it with Okapi BM25 — cheap, and
-close enough when a question quotes the manual's own words. It could not
-close two real gaps: a plural the manual writes one way and a question
-the other ("robots" and "ROBOT" hash to different buckets, not the same
-word), and a question asked in French about a manual FIRST publishes only
-in English, where a real answer shares no token with its source at all.
-Both are gaps of *meaning*, and no amount of retuning a word-hash closes
-them. `intfloat/multilingual-e5-base` does: a 278M-parameter, CPU-only,
-locally-cached model trained across 100+ languages including French and
-English, built specifically for retrieval (its own card asks for the
-"query: "/"passage: " prefixes used below). It runs once per ingestion
-and once per question, entirely offline after its one-time download —
-nothing about the club's "tout tourne en local" posture changes, only
-what `embed()` does inside.
-
-Run through `fastembed` (ONNX Runtime) rather than `sentence-transformers`
-(PyTorch): measured on the same 100 questions against the real manual,
-identical answers to the third decimal place — the runtime changed, not
-the arithmetic — for roughly a third the latency per question (measured:
-~21ms against ~72ms) and without PyTorch's own ~550MB of installed
-weight (fastembed's own runtime, ONNX Runtime, is tens of MB). The one
-place it is not a clean win: ingesting the full manual took about twice
-as long (measured: ~72s against ~37s for the same 397 passages) — ONNX
-Runtime's CPU provider favours short sequences over throughput on long
-ones, the opposite of what `ask()` needs but exactly what a rare,
-one-off ingestion does not.
-
-Sized up from the smaller `e5-small` after calibration showed the real
-gap: 0.82 was the first threshold blocking every off-topic control on
-`e5-small`, at the cost of 10/90 real questions refused (11%). `e5-base`
-is not a differently-tuned threshold on the same curve — it is a better
-curve: it separates real questions from off-topic ones more cleanly,
-recalibrated below at 0.81 for 1/90 refused (1%) at the same 100%
-off-topic guarantee. Larger still (`e5-large`) was tried too; see the
-commit that landed this for why it wasn't worth its extra weight.
+What *is* worth an infrastructure decision is the vector itself:
+`intfloat/multilingual-e5-base`, run through `fastembed` (ONNX Runtime) —
+a 278M-parameter, CPU-only, locally-cached model trained across 100+
+languages including French and English, built specifically for retrieval
+(its own card asks for the "query: "/"passage: " prefixes used below). A
+word-hash cannot close two real gaps: a plural the manual writes one way
+and a question the other ("robots" and "ROBOT" hash to different buckets,
+not the same word), and a question asked in French about a manual FIRST
+publishes only in English, where a real answer shares no token with its
+source at all — both are gaps of *meaning*, which only a real embedding
+closes. It runs once per ingestion and once per question, entirely
+offline after its one-time download — nothing about the club's "tout
+tourne en local" posture changes, only what `embed()` does inside.
 """
 
 import re
 import struct
 from collections.abc import Callable
+from html.parser import HTMLParser
 from pathlib import Path
 from typing import Any
 
@@ -64,17 +42,18 @@ from .models import Chunk, Document, QueryCitation, RuleQuery, Season, User
 # pointing at a third-party ONNX export rather than intfloat's own repo,
 # which only publishes PyTorch weights.
 #
-# fp32, not the same export's int8-quantized file: quantized scored the
-# same 90 real / 10 off-topic questions measurably worse (at MIN_SCORE
-# unchanged, 74/90 real questions answered and only 8/10 off-topic
-# blocked, against 89/90 and 10/10 below) — a real accuracy cost, not a
-# rounding difference. fp32 ONNX, run through fastembed rather than
-# sentence-transformers, scored these same 100 questions identically to
-# the third decimal place: the runtime changed, not the arithmetic. Kept
-# here as the one still worth shipping — 3x faster than
-# sentence-transformers per question in the same measurement, and without
-# torch's ~550MB (fastembed's own runtime, onnxruntime, is tens of MB) —
-# for exactly the same answers.
+# fp32 (`model.onnx`), not the same export's int8-quantized file: measured
+# against the real manual and the same question set MIN_SCORE below is
+# calibrated on, quantized answers measurably fewer real questions and
+# blocks fewer off-topic ones — a real accuracy cost, not a rounding
+# difference.
+#
+# Unpinned: `ModelSource` below takes only a repo id, and fastembed does
+# not accept or forward a revision through to its own HuggingFace download
+# either, so a fresh install always resolves to whatever this repo is at
+# install time. If it changes or disappears, ingestion either fails
+# outright or silently answers from a different model than the one
+# MIN_SCORE was calibrated on.
 MODEL_NAME = "nixiesearch/multilingual-e5-base-onnx"
 # Registration is a class-level side effect, not a per-instance one — a
 # second call for the same name raises, which a module reimported more
@@ -97,17 +76,21 @@ DIMENSIONS = 768
 TOP_K = 5
 # How weak a match may be and still count as one — cosine similarity
 # between two unit vectors, bounded in [-1, 1]. Calibrated against the
-# real BioBuzz manual (397 passages, chunked by rule) on 90 real questions
-# spanning every section plus 10 off-topic controls: real questions
-# scored 0.805-0.911, the 10 off-topic controls 0.753-0.806. 0.81 is the
-# first threshold, scanning up from 0.70, where all 10 off-topic controls
-# fall below it, at the cost of one real question out of 90.
+# real BioBuzz manual, chunked by `chunk_manual` from FIRST's own HTML
+# export (364 passages, TU02) on 90 real questions spanning every section
+# plus 10 off-topic controls: real questions scored 0.808-0.919, the 10
+# off-topic controls 0.738-0.808. 0.81 is the first threshold, scanning up
+# from 0.70, where all 10 off-topic controls fall below it, at the cost of
+# one real question out of 90.
 #
-# The ranges are close, not comfortably separated: the weakest real
-# question (0.805) and the strongest off-topic one (0.806) sit a
-# thousandth apart. Read 89/90 as what held on this one question set, not
-# as a robust guarantee — a different set of off-topic phrasings would
-# likely move this line.
+# The ranges are not comfortably separated, they overlap at the boundary:
+# the weakest real question and the strongest off-topic one both score
+# 0.808 — tied to the thousandth. Read 89/90 as what held on this one
+# question set, not as a robust guarantee: a different off-topic phrasing
+# scoring 0.809 would slip through, and this same question set scored the
+# boundary at 0.805/0.806 against the PDF-chunked manual (see the commit
+# that replaced it) — re-chunking the source moves this line even when the
+# threshold value doesn't change.
 MIN_SCORE = 0.81
 
 AUTHORITY_OF: dict[str, str] = {
@@ -166,30 +149,37 @@ def _unpack(blob: bytes | memoryview) -> np.ndarray:
     return np.frombuffer(bytes(blob), dtype=np.float32)
 
 
-# A running header FIRST repeats on every page ("Section 11 Game Rules (G)
-# V1 99 of 173"), never a rule or a section of its own — dropped before
-# either pattern below gets a chance to misread it.
+# A running header FIRST repeats on every page of a PDF export ("Section 11
+# Game Rules (G) V1 99 of 173"), never part of a Q&A entry itself — dropped
+# before `_QA_REFERENCE` gets a chance to misread it.
 _RUNNING_HEADER = re.compile(r"^Section \d+ .+ V\d+ \d+ of \d+$")
-# The table of contents lists every section in the same "number, title"
-# shape a real heading has — what tells the two apart is the dot leader
-# pypdf keeps between a ToC title and its page number, never present in a
-# real heading in the body.
+# A table of contents lists entries in the same "number, title" shape a
+# real heading has — what tells them apart in a PDF export is the dot
+# leader pypdf keeps between a title and its page number.
 _TOC_LEADER = re.compile(r"\.{5,}")
-# A rule ID: the letter names its section (I, E, A, G, R, T, L, C — the
-# manual's own key, §1.7.1), always three digits, always followed by a
-# space and the headline's own capital ("G420 *Do not tip or entangle.").
-# A bare cross-reference to the same rule mid-sentence ("...violation of
-# G410.") has no space before its punctuation, so it never matches here.
-_RULE_REFERENCE = re.compile(r"^([IEAGRTLC]\d{3})\s+\*?[A-Z]")
-# A numbered section heading for the prose around the rules ("10.6.4
-# Violation Details", "9.7 FLOWER") — one to four levels deep.
-_SECTION_REFERENCE = re.compile(r"^(\d{1,2}(?:\.\d{1,2}){0,3})\s+[A-Z]")
 # A Q&A entry, opening a line the same way a rule does ("Q44 Blue robot
 # over their gate...", never "...as settled in Q44." mid-sentence, which
 # has no space before its punctuation) — FIRST's own public Q&A summary
 # (ftc-docs.firstinspires.org/.../ftcqa.html, no login needed; only asking
 # a *new* question requires a team account) numbers every entry this way.
 _QA_REFERENCE = re.compile(r"^(Q\d{1,4})\s+\*?[A-Z]")
+
+# The manual's own rule anchor, planted by Word's HTML export exactly once,
+# at the paragraph where the rule opens ("<a name=G101></a><b>G101 ...") —
+# a cross-reference to the same rule mid-sentence gets a different markup
+# instead (`<span class=CrossRefChar>G410</span>`, no anchor), and Word
+# bookmark names are unique, so this can never fire twice for one rule.
+_RULE_ANCHOR = re.compile(r"^[IEAGRTLC]\d{3}$")
+# A section heading's own number ("11.1 Personal Safety", "11 Game Rules
+# (G)") — unlike in a PDF, nothing here needs telling apart from a table of
+# contents: the export gives the ToC its own paragraph style, never a real
+# <h1>-<h3>, so anything reaching this pattern already is a real heading.
+_SECTION_NUMBER = re.compile(r"^(\d{1,2}(?:\.\d{1,2}){0,3})(?:\s|$)")
+# Word never opens a new passage anywhere but one of these four tags —
+# everything else (`div`, `span`, `table`, `b`...) is transparent, its text
+# still collected, just under whichever of these last opened.
+_HTML_BLOCK_TAGS = frozenset({"p", "h1", "h2", "h3", "tr", "li"})
+_HTML_SKIP_TAGS = frozenset({"style", "script", "head"})
 # e5-base reads at most 512 tokens; a word runs close enough to a token in
 # this manual's plain English that a rule this long — a handful, mostly in
 # Motors & Actuators and Power Distribution — is re-split by word count
@@ -210,45 +200,122 @@ def _finalize_chunks(open_chunks: list[tuple[str, list[str]]]) -> list[tuple[str
     return passages
 
 
-def chunk_rules(text: str) -> list[tuple[str, str]]:
-    """One passage per rule or numbered section, not a sliding word window:
-    the manual is built on these, every rule opens a line naming its own
-    ID, and a word window cut across them — a passage could carry the end
-    of one rule and the start of the next, and a citation couldn't say
-    which rule it was. Runs on the manual's own structure, recognising
-    only what FIRST's own numbering already promises.
+class _ManualParser(HTMLParser):
+    """Walks FIRST's own HTML export of the manual (a filtered Word
+    document, ftc-resources.firstinspires.org/ftc/game/cm-html/...) into
+    `(reference, text)` blocks in reading order. Nothing here guesses at a
+    reference from wrapped plain text the way the PDF version had to: a
+    rule's own anchor, or a heading's own tag, says outright where one
+    passage ends and the next begins (see `chunk_manual`)."""
+
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self.blocks: list[tuple[str | None, str]] = []
+        self._skip_depth = 0
+        self._heading_depth = 0
+        self._in_block = False
+        self._block_ref: str | None = None
+        self._buffer: list[str] = []
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        if tag in _HTML_SKIP_TAGS:
+            self._skip_depth += 1
+            return
+        if self._skip_depth:
+            return
+        if tag == "a":
+            name = dict(attrs).get("name") or ""
+            if _RULE_ANCHOR.fullmatch(name):
+                self._block_ref = name
+            return
+        if tag in _HTML_BLOCK_TAGS:
+            self._in_block = True
+            self._buffer = []
+        if tag in ("h1", "h2", "h3"):
+            self._heading_depth += 1
+
+    def handle_startendtag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        self.handle_starttag(tag, attrs)
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag in _HTML_SKIP_TAGS:
+            self._skip_depth = max(0, self._skip_depth - 1)
+            return
+        if self._skip_depth:
+            return
+        if tag in _HTML_BLOCK_TAGS:
+            self._flush()
+            self._in_block = False
+        if tag in ("h1", "h2", "h3"):
+            self._heading_depth = max(0, self._heading_depth - 1)
+
+    def handle_data(self, data: str) -> None:
+        if self._skip_depth or not self._in_block:
+            return
+        self._buffer.append(data)
+
+    def _flush(self) -> None:
+        text = re.sub(r"\s+", " ", "".join(self._buffer).replace("\xa0", " ")).strip()
+        self._buffer = []
+        if text:
+            if self._heading_depth:
+                match = _SECTION_NUMBER.match(text)
+                reference = match.group(1) if match else None
+            else:
+                reference = self._block_ref
+            self.blocks.append((reference, text))
+        self._block_ref = None
+
+    def close(self) -> None:
+        self._flush()
+        super().close()
+
+
+def chunk_manual(html_text: str) -> list[tuple[str, str]]:
+    """One passage per rule or numbered section, not a sliding word window
+    over extracted text: the manual is built on these, and a passage cut
+    across them couldn't say which one it was quoting.
+
+    Reads FIRST's own HTML export rather than the PDF pypdf used to read:
+    the PDF flattens the page into plain lines wherever it happens to wrap,
+    and anything shaped like "number, capital letter" at the start of one
+    of those lines was misread as a new section — a wrapped table row, a
+    cross-reference split across two lines, or a rule ID exported with a
+    stray space after its own asterisk all produced a wrong or missing
+    citation on the real manual, and each Team Update could reflow the page
+    differently. The HTML export needs none of this guessing: every rule
+    carries its own anchor, planted nowhere else in the document, and every
+    heading already is a real `<h1>`-`<h3>`, never confused with the table
+    of contents (its own, differently tagged, paragraphs) — see
+    `_ManualParser`.
 
     Returns `(reference, passage)` pairs; `reference` is "" for whatever
     precedes the first recognised rule or section — front matter, kept
     rather than guessed at or dropped."""
+    parser = _ManualParser()
+    parser.feed(html_text)
+    parser.close()
+
     open_chunks: list[tuple[str, list[str]]] = []
-    for raw_line in text.splitlines():
-        line = raw_line.strip()
-        if not line or _RUNNING_HEADER.match(line) or _TOC_LEADER.search(line):
-            continue
-        rule_match = _RULE_REFERENCE.match(line)
-        section_match = _SECTION_REFERENCE.match(line)
-        reference = rule_match.group(1) if rule_match else None
-        if reference is None and section_match:
-            reference = section_match.group(1)
+    for reference, text in parser.blocks:
         if reference is not None:
-            open_chunks.append((reference, [line]))
+            open_chunks.append((reference, [text]))
         elif open_chunks:
-            open_chunks[-1][1].append(line)
+            open_chunks[-1][1].append(text)
         else:
-            open_chunks.append(("", [line]))
+            open_chunks.append(("", [text]))
 
     return _finalize_chunks(open_chunks)
 
 
 def chunk_qa(text: str) -> list[tuple[str, str]]:
-    """One passage per Q&A entry, not run through `chunk_rules`: an answer
-    references a rule mid-sentence ("this would violate G410"), the same
-    shape `chunk_rules` reads as a *new* rule opening — reusing it here
+    """One passage per Q&A entry, not run through `chunk_manual`: an answer
+    references a rule mid-sentence ("this would violate G410"), a shape
+    `chunk_manual` would read as a *new* rule opening — reusing it here
     would slice a single entry apart at every rule it happens to mention.
     Runs on the Q&A summary's own numbering instead.
 
-    Returns `(reference, passage)` pairs exactly like `chunk_rules`, so a
+    Returns `(reference, passage)` pairs exactly like `chunk_manual`, so a
     citation is shown the same way regardless of source — "Q44" alongside
     "G420" — rather than adding a field only one source's citations would
     ever use."""
@@ -270,9 +337,11 @@ def chunk_qa(text: str) -> list[tuple[str, str]]:
 
 # Dispatched on ingestion: a Q&A document and a manual are structured
 # differently enough (§ above) that neither chunker reads the other's
-# source correctly.
+# source correctly. `chunk_manual` also only reads HTML, never a PDF (see
+# its own docstring) — `ingest_document.py` refuses a PDF for the manual
+# rather than let this dispatch feed it one silently.
 _CHUNKER_OF: dict[str, Callable[[str], list[tuple[str, str]]]] = {
-    Document.Source.GAME_MANUAL: chunk_rules,
+    Document.Source.GAME_MANUAL: chunk_manual,
     Document.Source.OFFICIAL_QA: chunk_qa,
 }
 
@@ -290,9 +359,9 @@ def ingest_document(
     the length of an ingestion.
 
     `authority` is read off `source`, never asked for on its own — a
-    typo could otherwise file the Q&A as binding. Chunked by `_CHUNKER_OF`,
-    not always `chunk_rules`: a manual and a Q&A summary are structured too
-    differently for one chunker to read both correctly (see `chunk_qa`)."""
+    typo could otherwise file the Q&A as binding. Chunked by `_CHUNKER_OF`:
+    a manual and a Q&A summary are structured too differently for one
+    chunker to read both correctly (see `chunk_manual`, `chunk_qa`)."""
     passages = _CHUNKER_OF[source](text)
     embeddings = _embed_many([passage for _, passage in passages], is_query=False)
     with transaction.atomic():

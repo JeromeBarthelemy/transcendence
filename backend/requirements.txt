@@ -4,6 +4,6 @@ Pillow==12.*           # exigé par les ImageField (avatars, photos)
 pillow-heif==1.*       # lecture des photos HEIC des iPhone
 openpyxl==3.1.*        # lecture de l'export AssoConnect (.xlsx)
 djangorestframework==3.18.*  # l'API : sérialiseurs, vues, throttling
-pypdf==6.*              # lecture du manuel de jeu pour le RAG règlement
-fastembed==0.8.*        # embeddings du RAG règlement (e5-base, ONNX quantifié)
+pypdf==6.*              # lecture d'un document du RAG règlement fourni en PDF
+fastembed==0.8.*        # embeddings du RAG règlement (e5-base, ONNX fp32)
 numpy==2.*              # rag.py compare les embeddings directement (produit matriciel)

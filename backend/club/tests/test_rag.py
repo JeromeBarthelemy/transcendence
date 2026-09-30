@@ -1,42 +1,47 @@
 import pytest
 
 from club.models import Document, Season, User
-from club.rag import ask, chunk_qa, chunk_rules, embed, ingest_document
+from club.rag import ask, chunk_manual, chunk_qa, embed, ingest_document
 
 RULE = (
     "Le robot ne doit jamais dépasser dix-huit pouces de hauteur pendant "
     "la phase autonome du match, sous peine de pénalité majeure."
 )
 UNRELATED = "Les inscriptions au tournoi régional ferment le premier mars."
+# `chunk_manual` reads HTML tags, not plain text — every fixture below that
+# stands in for the manual is wrapped, even a single sentence like RULE.
+RULE_HTML = f"<p>{RULE}</p>"
 
-# A real excerpt (pypdf's own extraction of BioBuzz page 99), running
-# headers, wrapped lines and all — chunk_rules is tested against what the
-# manual actually looks like, not an idealised version of it.
-REAL_EXCERPT = """
-Section 11 Game Rules (G) V1 99 of 173
-
-11 Game Rules  (G)
-11.1 Personal Safety
-G101 *Humans, stay off the FIELD during the MATCH. A team member may not enter the FIELD during a
-MATCH.
-Violation: VERBAL WARNING.
-The intent of this rule is that team members should stay outside of the FIELD
-perimeter during a MATCH and not impact a MATCH except as allowed in
-Section 11.4.6 Human. A team member stepping onto the FIELD or hanging a
-large portion of their body over the FIELD is a violation of this rule.
-G102 *Be careful when interacting with ARENA elements. A team member is prohibited from the following
-actions with regards to interaction with ARENA elements:
-A. climbing on,
-B. hanging from,
-and
-D. damaging.
-Violation: VERBAL WARNING.
-DRIVE TEAM members may brace the FIELD perimeter at any point during the
-MATCH. Moving the FIELD perimeter out of position is considered a violation of
-G102.C.
-11.2 Conduct
-G201 *Be a good person. All teams must be civil toward everyone and respectful of team and event
-equipment while at a FIRST Tech Challenge event.
+# A trimmed excerpt of FIRST's own HTML export of the real BioBuzz manual
+# (ftc-resources.firstinspires.org/ftc/game/cm-html/..., fetched while
+# building chunk_manual) — real tag names and nesting, shortened prose.
+# Covers what the PDF version got wrong: a table attached to the rule
+# before it (G102's wire table), a mid-sentence cross-reference with no
+# anchor of its own, and a rule ID exported with a stray space after its
+# asterisk (A204, the exact shape that made the PDF miss it).
+REAL_HTML_EXCERPT = """
+<html><body>
+<p class=MsoToc1><a href="#_Toc1"><span>11 Game Rules (G) .......... 99</span></a></p>
+<h1><a name="_Toc1"></a>11<span>&nbsp;&nbsp;&nbsp;</span>Game Rules (G)</h1>
+<h2><a name="_Toc2"></a>11.1<span>&nbsp;&nbsp;&nbsp;</span>Personal Safety</h2>
+<p class=RuleNumber-Game><a name="_Ref1"></a><a name=G101></a><b>G101<span>&nbsp;&nbsp;&nbsp;</span></b>
+<span class=Headline-Evergreen>*Humans, stay off the FIELD during the MATCH.</span> A team member may
+not enter the FIELD during a MATCH.</p>
+<p class=Violation>Violation: VERBAL WARNING.</p>
+<p>The intent of this rule is covered further in <span class=CrossRefChar>G101</span> above and does
+not repeat here.</p>
+<p class=RuleNumber-Game><a name=G102></a><b>G102<span>&nbsp;&nbsp;&nbsp;</span></b>
+<span class=Headline-Evergreen>*Be careful when interacting with ARENA elements.</span> Climbing on,
+hanging from, or damaging ARENA elements is prohibited.</p>
+<table><tr><td>Application</td><td>Minimum Wire Size</td></tr>
+<tr><td>12V Main Battery Power</td><td>18 AWG</td></tr></table>
+<h2><a name="_Toc3"></a>11.2<span>&nbsp;&nbsp;&nbsp;</span>Conduct</h2>
+<p class=RuleNumber-Game><a name=G201></a><b>G201<span>&nbsp;&nbsp;&nbsp;</span></b>
+<span class=Headline-Evergreen>*Be a good person.</span> All teams must be civil toward everyone.</p>
+<p class=RulesNumbering-awards><a name=A204></a><span class=normaltextrun><b>A204<span>&nbsp;&nbsp;&nbsp;
+</span></b></span><span class=Headline-Evergreen>*</span> Have the right resources available for your
+Initial Interview.</p>
+</body></html>
 """
 
 
@@ -66,7 +71,9 @@ def asker(email="lina@club.fr", display_name="Lina"):
     return User.objects.create_user(email, display_name)
 
 
-def document(the_season, source=Document.Source.GAME_MANUAL, text=RULE, title="Manuel"):
+def document(
+    the_season, source=Document.Source.GAME_MANUAL, text=RULE_HTML, title="Manuel"
+):
     return ingest_document(season=the_season, source=source, title=title, text=text)
 
 
@@ -99,7 +106,7 @@ def test_a_question_scores_higher_against_its_own_answer_than_off_topic():
 
 
 def test_a_rule_becomes_its_own_chunk_named_by_its_reference():
-    references = [reference for reference, _ in chunk_rules(REAL_EXCERPT)]
+    references = [reference for reference, _ in chunk_manual(REAL_HTML_EXCERPT)]
 
     assert "G101" in references
     assert "G102" in references
@@ -107,63 +114,81 @@ def test_a_rule_becomes_its_own_chunk_named_by_its_reference():
 
 
 def test_a_rules_text_does_not_leak_into_the_next_ones_chunk():
-    passages = dict(chunk_rules(REAL_EXCERPT))
+    passages = dict(chunk_manual(REAL_HTML_EXCERPT))
 
     assert "stay off the FIELD" in passages["G101"]
-    assert "climbing on" not in passages["G101"]
-    assert "climbing on" in passages["G102"]
+    assert "Climbing on" not in passages["G101"]
+    assert "Climbing on" in passages["G102"]
 
 
 def test_a_bare_cross_reference_does_not_start_a_new_chunk():
-    # "G102.C." closes a sentence inside G201's predecessor — a real rule
-    # header is always "ID <space> Title", never "ID.letter." with no
-    # space, so this must stay part of G102's own chunk.
-    passages = dict(chunk_rules(REAL_EXCERPT))
+    # A mid-sentence mention of G101 is marked with a different span
+    # (`CrossRefChar`) and carries no anchor of its own, unlike the real
+    # opening of a rule — it must stay part of whichever chunk was already
+    # open (G101's own), not start a second one.
+    passages = dict(chunk_manual(REAL_HTML_EXCERPT))
 
-    assert "G102.C" in passages["G102"]
+    assert "covered further" in passages["G101"]
+
+
+def test_a_table_stays_attached_to_the_rule_before_it():
+    # The exact shape that broke on the real manual: R609's wire-gauge
+    # table came out as its own fake sections ("18", "22", "28") under the
+    # PDF chunker. A table has no anchor or heading of its own, so it must
+    # merge into whichever rule was still open when it appears.
+    passages = dict(chunk_manual(REAL_HTML_EXCERPT))
+
+    assert "18 AWG" in passages["G102"]
+
+
+def test_a_rule_id_with_a_space_after_its_asterisk_is_still_found():
+    # The other real miss: the PDF rendered some rules with a space after
+    # their own asterisk ("A204 *​ Have the right..."), which the old
+    # line-start regex didn't allow, so their text was folded into the
+    # rule before them instead. The anchor doesn't care about the
+    # asterisk's spacing at all.
+    passages = dict(chunk_manual(REAL_HTML_EXCERPT))
+
+    assert "A204" in passages
+    assert "Initial Interview" in passages["A204"]
 
 
 def test_a_numbered_section_becomes_its_own_chunk():
-    passages = dict(chunk_rules(REAL_EXCERPT))
+    passages = dict(chunk_manual(REAL_HTML_EXCERPT))
 
     assert "Personal Safety" in passages["11.1"]
     assert "Conduct" in passages["11.2"]
 
 
-def test_running_page_headers_are_dropped():
-    assert not any("V1 99 of 173" in text for _, text in chunk_rules(REAL_EXCERPT))
-
-
 def test_table_of_contents_entries_are_not_mistaken_for_section_headings():
-    # A ToC line ("1.1 About FIRST® .......... 5") has the same "number,
-    # title" shape a real heading does; only the dot leader tells them
-    # apart, and it must not create a chunk of its own.
-    toc = (
-        "1.1 About FIRST® "
-        + "." * 80
-        + " 5\n1.2 FIRST Tech Challenge "
-        + ("." * 80)
-        + " 6\nG101 *A real rule starts the body."
-    )
+    # A ToC entry has the same "number, title" shape a real heading does;
+    # what tells them apart in the HTML export is the paragraph style
+    # (MsoToc1), never a real <h1>-<h3>. The ToC line here ("11 Game Rules
+    # (G) .......... 99") must fold into front matter, not open its own
+    # "11" chunk — only the real <h1> heading further down does that.
+    passages = dict(chunk_manual(REAL_HTML_EXCERPT))
 
-    references = [reference for reference, _ in chunk_rules(toc)]
-
-    assert "1.1" not in references
-    assert "1.2" not in references
-    assert "G101" in references
+    assert "Game Rules (G) .......... 99" in passages[""]
 
 
 def test_text_before_the_first_rule_or_section_is_kept_unreferenced():
-    reference, text = chunk_rules("Some front matter.\nG101 *A real rule.")[0]
+    passages = chunk_manual(
+        "<p>Some front matter.</p><p>More of it.</p><h1>1 Intro</h1>"
+    )
 
+    reference, text = passages[0]
     assert reference == ""
     assert "front matter" in text
 
 
 def test_a_rule_longer_than_the_word_budget_is_resplit_under_the_same_reference():
-    body = "G999 *A very long rule. " + " ".join(f"word{n}" for n in range(400))
+    html = (
+        "<p class=RuleNumber-Game><a name=G999></a><b>G999</b> *A very long rule. "
+        + " ".join(f"word{n}" for n in range(400))
+        + "</p>"
+    )
 
-    passages = [pair for pair in chunk_rules(body) if pair[0] == "G999"]
+    passages = [pair for pair in chunk_manual(html) if pair[0] == "G999"]
 
     assert len(passages) > 1
     assert all(reference == "G999" for reference, _ in passages)
@@ -203,7 +228,7 @@ def test_a_bare_qa_cross_reference_does_not_start_a_new_chunk():
 
 
 def test_a_rule_reference_inside_a_qa_answer_does_not_split_the_entry():
-    # chunk_rules would read a line like "G410, which prohibits..." as
+    # chunk_manual would read a line like "G410, which prohibits..." as
     # G410 opening a new chunk; chunk_qa has no such rule and keeps the
     # whole entry, references and all, together.
     passages = dict(chunk_qa(REAL_QA_EXCERPT))
@@ -215,7 +240,7 @@ def test_a_rule_reference_inside_a_qa_answer_does_not_split_the_entry():
 
 
 def test_ingesting_a_document_creates_its_chunks():
-    doc = document(season(), text=REAL_EXCERPT)
+    doc = document(season(), text=REAL_HTML_EXCERPT)
 
     assert doc.chunks.count() > 1
     assert set(doc.chunks.values_list("reference", flat=True)) >= {"G101", "G102"}
@@ -240,7 +265,7 @@ def test_authority_is_read_off_source_not_asked_for():
 
 def test_a_question_matching_the_manual_is_answered_and_cited():
     this_season = season()
-    document(this_season, source=Document.Source.GAME_MANUAL, text=RULE)
+    document(this_season, source=Document.Source.GAME_MANUAL, text=RULE_HTML)
     lina = asker()
 
     query = ask(
@@ -258,7 +283,7 @@ def test_a_question_asked_with_none_of_the_passage_own_words_is_still_answered()
     # The gap BM25 could never close (git history): a paraphrase sharing no
     # token with its source. A semantic embedding does not need one.
     this_season = season()
-    document(this_season, source=Document.Source.GAME_MANUAL, text=RULE)
+    document(this_season, source=Document.Source.GAME_MANUAL, text=RULE_HTML)
     lina = asker()
 
     query = ask(
@@ -276,7 +301,9 @@ def test_citations_are_ranked_by_authority_before_score():
     # out-score the manual's own wording on similarity alone — authority
     # must still put the manual first (the manual itself says so, §1.7.4).
     this_season = season()
-    document(this_season, source=Document.Source.GAME_MANUAL, text=RULE, title="Manuel")
+    document(
+        this_season, source=Document.Source.GAME_MANUAL, text=RULE_HTML, title="Manuel"
+    )
     document(
         this_season,
         source=Document.Source.OFFICIAL_QA,
@@ -302,7 +329,9 @@ def test_top_k_cut_happens_after_the_authority_sort_not_before():
     # TOP_K by score before authority gets a say would drop the manual
     # (BINDING) out of the top five entirely. It must survive the cut.
     this_season = season()
-    document(this_season, source=Document.Source.GAME_MANUAL, text=RULE, title="Manuel")
+    document(
+        this_season, source=Document.Source.GAME_MANUAL, text=RULE_HTML, title="Manuel"
+    )
     question = (
         "Quelle est la hauteur maximale du robot en pouces pendant la phase autonome ?"
     )
@@ -325,7 +354,7 @@ def test_top_k_cut_happens_after_the_authority_sort_not_before():
 
 def test_an_unrelated_question_finds_nothing_and_is_refused():
     this_season = season()
-    document(this_season, source=Document.Source.GAME_MANUAL, text=RULE)
+    document(this_season, source=Document.Source.GAME_MANUAL, text=RULE_HTML)
     lina = asker()
 
     query = ask("Combien de membres dans le comité des sponsors ?", this_season, lina)
@@ -337,7 +366,7 @@ def test_an_unrelated_question_finds_nothing_and_is_refused():
 def test_another_seasons_documents_are_not_searched():
     this_season = season(2026, "BioBuzz")
     other_season = season(2027, "Rebound")
-    document(other_season, source=Document.Source.GAME_MANUAL, text=RULE)
+    document(other_season, source=Document.Source.GAME_MANUAL, text=RULE_HTML)
     lina = asker()
 
     query = ask("Quelle hauteur maximale en autonome ?", this_season, lina)
@@ -364,13 +393,13 @@ def test_reingesting_a_source_supersedes_the_previous_version_of_it():
     document(
         this_season,
         source=Document.Source.GAME_MANUAL,
-        text="Le robot ne doit jamais dépasser douze pouces de hauteur en autonome.",
+        text="<p>Le robot ne doit jamais dépasser douze pouces de hauteur en autonome.</p>",
         title="Manuel V1",
     )
     document(
         this_season,
         source=Document.Source.GAME_MANUAL,
-        text=RULE,
+        text=RULE_HTML,
         title="Manuel V2 (Team Update 1)",
     )
     lina = asker()
@@ -389,7 +418,7 @@ def test_a_failed_citation_write_leaves_no_orphaned_answered_query(monkeypatch):
     import club.rag as rag_module
 
     this_season = season()
-    document(this_season, source=Document.Source.GAME_MANUAL, text=RULE)
+    document(this_season, source=Document.Source.GAME_MANUAL, text=RULE_HTML)
     lina = asker()
 
     def broken_bulk_create(*args, **kwargs):

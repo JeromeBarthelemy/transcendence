@@ -14,7 +14,9 @@ class Command(BaseCommand):
     help = "Ingère un document (manuel ou Q&A) dans le RAG règlement."
 
     def add_arguments(self, parser: CommandParser) -> None:
-        parser.add_argument("path", type=Path, help="Le fichier .pdf ou .txt à lire.")
+        parser.add_argument(
+            "path", type=Path, help="Le fichier .htm, .pdf ou .txt à lire."
+        )
         parser.add_argument(
             "--season", type=int, required=True, help="L'année de début de la saison."
         )
@@ -30,6 +32,19 @@ class Command(BaseCommand):
         path: Path = options["path"]
         if not path.exists():
             raise CommandError(f"Fichier introuvable : {path}")
+        source = options["source"]
+        if source == Document.Source.GAME_MANUAL and path.suffix.lower() not in (
+            ".htm",
+            ".html",
+        ):
+            # chunk_manual reads HTML tags, not extracted or plain text —
+            # fed a PDF or a .txt, it would find no rule or heading at all
+            # and silently ingest zero chunks instead of failing loudly.
+            raise CommandError(
+                "Le manuel se lit depuis l'export HTML de FIRST "
+                "(ftc-resources.firstinspires.org/ftc/game/cm-html/...), pas un PDF ni "
+                "un .txt : la structure des règles ne survit qu'à l'export HTML."
+            )
         try:
             season = Season.objects.get(start_year=options["season"])
         except Season.DoesNotExist:
@@ -52,6 +67,11 @@ class Command(BaseCommand):
 
 
 def _read_text(path: Path) -> str:
+    if path.suffix.lower() in (".htm", ".html"):
+        # FIRST's own export declares windows-1252 in its own <meta> tag —
+        # chunk_manual reads the markup directly, so this is the raw
+        # document, not text extracted from it.
+        return path.read_text(encoding="cp1252")
     if path.suffix.lower() == ".pdf":
         reader = PdfReader(str(path))
         return "\n".join(page.extract_text() or "" for page in reader.pages)

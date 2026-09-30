@@ -498,9 +498,18 @@ Ingesting a document is a management command, not a route — there is no
 screen for uploading a manual, only for asking it questions:
 
 ```sh
-python manage.py ingest_document manual.pdf --season 2026 \
-  --source game_manual --title "Manuel BioBuzz V1"
+python manage.py ingest_document "BIOBUZZ Competition Manual - TU02.htm" \
+  --season 2026 --source game_manual --title "Manuel BioBuzz TU02"
 ```
+
+The manual is read from FIRST's own HTML export
+(`ftc-resources.firstinspires.org/ftc/game/cm-html/...`), never the PDF: a
+PDF flattens the page into plain lines wherever it happens to wrap, and
+nothing there tells a wrapped table row or a mid-sentence cross-reference
+apart from a real rule or section opening. The HTML export needs no such
+guessing — every rule carries its own anchor, and every heading already is
+a real `<h1>`-`<h3>`. The command refuses a `.pdf` file for `game_manual`
+outright rather than silently ingest one undifferentiated passage.
 
 `--source` is one of `game_manual` or `official_qa`, and decides the
 document's authority (respectively `binding`, `ruling`) — never asked for on
@@ -553,16 +562,27 @@ with the passage that answered them. A real embedding closes that gap:
 "Est-ce que le robot peut toucher un autre robot pendant l'autonome ?"
 retrieves the manual's English contact rules directly, nothing in common
 between the two but what they mean. Calibrated on the real manual, chunked
-by rule rather than by word window (397 passages), against 90 real
+by rule rather than by word window (364 passages, TU02), against 90 real
 questions spanning every section and 10 off-topic controls: every off-topic
 question fell below the threshold that still answered 89 of the 90 real
 ones. The margin is thin, not a comfortable gap — the weakest real question
-(0.805) and the strongest off-topic one (0.806) sit a thousandth apart, so
-read 89/90 as what held on this one question set, not a guarantee a
-different set of off-topic phrasings would preserve. A bigger corpus of
-nonsense phrasings would likely still find something that slips through;
-closing that gap for good would need a classifier trained on real off-topic
-traffic, which does not exist yet.
+and the strongest off-topic one both score 0.808, tied to the thousandth —
+so read 89/90 as what held on this one question set, not a guarantee a
+different set of off-topic phrasings would preserve, and rerun the scan
+after any change to chunking: the same question set scored this boundary at
+0.805/0.806 against the previous, PDF-chunked manual, so re-chunking alone
+moved it even though the threshold value (0.81) did not change. A bigger
+corpus of nonsense phrasings would likely still find something that slips
+through; closing that gap for good would need a classifier trained on real
+off-topic traffic, which does not exist yet.
+
+The embedding model itself is not pinned to a revision: `nixiesearch/multilingual-e5-base-onnx`
+is a third-party ONNX export, and neither `fastembed`'s `ModelSource` nor the
+download call it makes underneath accepts a revision to pin — a fresh
+install always resolves to whatever that repository is at install time. If
+it changes or disappears, ingestion either fails outright or silently
+answers from a different model than the one `MIN_SCORE` above was
+calibrated on.
 
 ## Checking
 

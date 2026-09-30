@@ -2,6 +2,7 @@ from club.models import Document, Season, User
 from club.rag import ingest_document
 
 RULE = "Le robot ne doit jamais dépasser dix-huit pouces de hauteur en autonome."
+RULE_HTML = f"<p>{RULE}</p>"
 
 
 def season(start_year=2026, game_name="BioBuzz"):
@@ -18,7 +19,7 @@ def test_a_member_asks_a_question_and_is_cited(client):
         season=this_season,
         source=Document.Source.GAME_MANUAL,
         title="Manuel BioBuzz",
-        text=RULE,
+        text=RULE_HTML,
     )
     client.force_login(student())
 
@@ -47,7 +48,10 @@ def test_a_citation_carries_its_rule_reference(client):
         season=this_season,
         source=Document.Source.GAME_MANUAL,
         title="Manuel BioBuzz",
-        text="G420 *Do not tip or entangle. " + RULE,
+        text=(
+            "<p class=RuleNumber-Game><a name=G420></a><b>G420</b> "
+            "*Do not tip or entangle. " + RULE + "</p>"
+        ),
     )
     client.force_login(student())
 
@@ -72,7 +76,7 @@ def test_an_unrelated_question_carries_the_refusal(client):
         season=this_season,
         source=Document.Source.GAME_MANUAL,
         title="Manuel BioBuzz",
-        text=RULE,
+        text=RULE_HTML,
     )
     client.force_login(student())
 
