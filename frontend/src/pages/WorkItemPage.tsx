@@ -5,6 +5,7 @@ import { Link, Navigate, useParams } from "react-router-dom";
 
 import type { Identity } from "../api/auth";
 import {
+  closeWorkItem,
   createWorkItemNote,
   getWorkItem,
   tickWorkItem,
@@ -550,6 +551,13 @@ function WorkItemScreen({
     (entry) => entry.type === "progress",
   ).length;
   const team = teamLabel(identity, item.team_season);
+  const invalidateWorkItem = useInvalidateWorkItem(item);
+  const close = useMutation({
+    mutationFn: (status: "done" | "dropped") => closeWorkItem(item.id, status),
+    onSuccess: async () => {
+      await invalidateWorkItem();
+    },
+  });
 
   return (
     <main className="mx-auto w-full max-w-6xl flex-1 px-5 py-10 sm:px-8 sm:py-14">
@@ -579,10 +587,38 @@ function WorkItemScreen({
             {t("workItem.progressCount", { count: progressCount })}
           </p>
         </div>
-        <span className="self-start rounded-full bg-[#eaf5ff] px-3 py-1 text-sm font-semibold text-[#0078dd] sm:self-auto">
-          {t(`teamHome.statuses.${item.status}`)}
-        </span>
+        <div className="flex items-center gap-3 self-start sm:self-auto">
+          {item.status === "open" && (
+            <>
+              <button
+                type="button"
+                className="rounded-full border border-red-800/25 px-3 py-1 text-sm font-semibold text-red-800 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+                disabled={close.isPending}
+                onClick={() => close.mutate("dropped")}
+              >
+                {t("workItem.drop")}
+              </button>
+              {!item.on_robot && (
+                <button
+                  type="button"
+                  className="rounded-full border border-[#167448]/30 px-3 py-1 text-sm font-semibold text-[#167448] hover:bg-[#167448]/10 disabled:cursor-not-allowed disabled:opacity-50"
+                  disabled={close.isPending}
+                  onClick={() => close.mutate("done")}
+                >
+                  {t("workItem.finish")}
+                </button>
+              )}
+            </>
+          )}
+          <span className="rounded-full bg-[#eaf5ff] px-3 py-1 text-sm font-semibold text-[#0078dd]">
+            {close.isPending
+              ? t("workItem.closing")
+              : t(`teamHome.statuses.${item.status}`)}
+          </span>
+        </div>
       </header>
+
+      {close.isError && <RequestError error={close.error} />}
 
       {item.handover && (
         <section className="mt-8 border-l-4 border-[#d59600] bg-[#fff7dc] p-5 text-[#634c12]">
