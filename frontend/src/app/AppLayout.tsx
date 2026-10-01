@@ -6,6 +6,7 @@ import { logOut } from "../api/auth";
 import { ApiRequestError } from "../api/client";
 import logo from "../assets/logo.webp";
 import { RequestError } from "../components/ApiErrors";
+import { Avatar } from "../components/Avatar";
 import { currentUserQueryKey, useCurrentUser } from "./useCurrentUser";
 
 export function AppLayout() {
@@ -71,9 +72,18 @@ export function AppLayout() {
                     {t("nav.teams")}
                   </Link>
                 )}
-                <span className="hidden text-sm text-[#506784] sm:inline">
-                  {currentUser.data.display_name}
-                </span>
+                <Link
+                  to="/profile"
+                  aria-label={t("nav.profile", {
+                    name: currentUser.data.display_name,
+                  })}
+                  className="flex items-center gap-2 rounded-full py-1 pr-1 pl-1 text-sm text-[#506784] transition hover:bg-[#eaf5ff] hover:text-[#041894] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00c2d0] sm:pr-3"
+                >
+                  <Avatar person={currentUser.data} />
+                  <span className="hidden sm:inline">
+                    {currentUser.data.display_name}
+                  </span>
+                </Link>
                 <button
                   type="button"
                   className="rounded-full border border-[#004fc5]/25 px-4 py-2 text-sm font-semibold text-[#041894] transition hover:bg-[#eaf5ff] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00c2d0] disabled:opacity-60"

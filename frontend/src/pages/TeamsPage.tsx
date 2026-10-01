@@ -32,6 +32,7 @@ import {
   fieldIssues,
   RequestError,
 } from "../components/ApiErrors";
+import { Avatar } from "../components/Avatar";
 
 const teamsQueryKey = ["teams"] as const;
 const SEARCH_DELAY_MS = 250;
@@ -66,22 +67,6 @@ function useDebouncedValue<T>(value: T, delay: number): T {
     return () => clearTimeout(timeout);
   }, [value, delay]);
   return debounced;
-}
-
-function Avatar({ name, src }: { name: string; src: string | null }) {
-  if (src) {
-    return (
-      <img src={src} alt="" className="size-8 rounded-full object-cover" />
-    );
-  }
-  return (
-    <span
-      aria-hidden="true"
-      className="grid size-8 place-items-center rounded-full bg-[#eaf5ff] text-sm font-bold text-[#0078dd]"
-    >
-      {name.charAt(0).toUpperCase()}
-    </span>
-  );
 }
 
 function CreateTeamForm({ seasonYear }: { seasonYear: number }) {
@@ -293,7 +278,7 @@ function MemberSearch({ team }: { team: ManagedTeam }) {
               onMouseDown={(event) => event.preventDefault()}
               onClick={() => choose(user)}
             >
-              <Avatar name={user.display_name} src={user.avatar} />
+              <Avatar person={user} />
               <span className="flex-1">{user.display_name}</span>
               <span className="text-xs text-[#506784]">
                 {t(`teams.roles.${user.club_role}`)}
@@ -346,7 +331,7 @@ function MemberRow({
 
   return (
     <li className="flex flex-wrap items-center gap-3 py-2">
-      <Avatar name={member.display_name} src={member.avatar} />
+      <Avatar person={member} />
       <span className="flex-1 text-sm text-[#13294b]">
         {member.display_name}
       </span>

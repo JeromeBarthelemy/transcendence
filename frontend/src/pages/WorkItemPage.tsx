@@ -18,6 +18,7 @@ import {
 import { nameFormatter } from "../app/formatters";
 import { useCurrentUser } from "../app/useCurrentUser";
 import { RequestError } from "../components/ApiErrors";
+import { AvatarStack } from "../components/Avatar";
 
 const dateFormatter = new Intl.DateTimeFormat("fr-FR", {
   dateStyle: "long",
@@ -340,7 +341,8 @@ function TodayPanel({
             <p className="text-sm font-semibold text-[#041894]">
               {t("workItem.participants")}
             </p>
-            <p className="mt-1 text-sm text-[#506784]">
+            <p className="mt-1 flex items-center gap-2 text-sm text-[#506784]">
+              <AvatarStack people={progress.participants} />
               {participants || t("workItem.noParticipants")}
             </p>
           </div>
@@ -407,7 +409,8 @@ function HistoryEntry({ entry }: { entry: WorkItemEntry }) {
             </p>
           </div>
           {participantNames && (
-            <span className="rounded-full bg-[#eaf5ff] px-3 py-1 text-xs text-[#004fc5]">
+            <span className="flex items-center gap-2 rounded-full bg-[#eaf5ff] py-1 pr-3 pl-1 text-xs text-[#004fc5]">
+              <AvatarStack people={entry.participants} />
               {participantNames}
             </span>
           )}
