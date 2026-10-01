@@ -50,6 +50,12 @@ export const routes: RouteObject[] = [
         }),
       },
       {
+        path: "/fieldbot",
+        lazy: async () => ({
+          Component: (await import("../pages/FieldbotPage")).FieldbotPage,
+        }),
+      },
+      {
         path: "/login",
         lazy: async () => ({
           Component: (await import("../pages/LoginPage")).LoginPage,
