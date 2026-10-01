@@ -159,6 +159,21 @@ embedding model cache across a `down` and `up`; `db.sqlite3` moves under one
 of them because this container, unlike the dev one, has no bind mount to keep
 it on the host instead.
 
+#### Backups
+
+The database and media live in named volumes, not on the host, so copying
+`backend/db.sqlite3` the way a non-Docker install would no longer reaches
+them. Pull both out together:
+
+```sh
+mkdir -p "backup-$(date +%Y%m%d)"
+docker compose -f compose.prod.yml cp backend:/app/data/db.sqlite3 "backup-$(date +%Y%m%d)/db.sqlite3"
+docker compose -f compose.prod.yml cp backend:/app/media "backup-$(date +%Y%m%d)/media"
+```
+
+No scheduler runs this — the club runs it by hand, as often as the data is
+worth not losing.
+
 ### Backend without containers
 
 ```sh

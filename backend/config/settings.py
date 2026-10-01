@@ -99,13 +99,12 @@ WSGI_APPLICATION = "config.wsgi.application"
 # Database
 # ---------------------------------------------------------------------------
 
-# SQLite, settled: the database travels in a bag with the pit laptop and is
-# backed up by copying one file.
-#
-# DJANGO_DB_PATH only matters in production: the container built from
-# Dockerfile has no bind mount to keep BASE_DIR/db.sqlite3 outside the image
-# the way the dev Compose stack does, so compose.prod.yml points this at a
-# named volume instead — still one file, just one a `down` does not erase.
+# SQLite, settled: still one file, backed up by copying it — true without
+# Docker, where it sits directly at BASE_DIR/db.sqlite3. In production it
+# sits in a named volume instead (`docker compose cp`, not the filesystem;
+# see the README's "Backups"), because the container built from Dockerfile
+# has no bind mount to keep it outside the image the way the dev Compose
+# stack does.
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.sqlite3",
