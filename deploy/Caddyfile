@@ -1,15 +1,20 @@
 # The one HTTPS reverse proxy in front of Django and the built frontend
-# (README, "Getting started"). `tls internal` is Caddy's own local
-# certificate authority: it signs a certificate for `localhost` itself, no
-# mkcert or openssl step to run first — the browser still shows a one-time
-# warning per device to accept it, which is the deliberate ceiling
-# docs/fieldnotes.html already names for a club-room instance.
+# (README, "Getting started"). The certificate is a static one the
+# cert-init service generates once (compose.prod.yml) for FIELDNOTES_HOST
+# — not Caddy's own `tls internal`, whose auto-issued leaf certificates
+# rotate every 12h by default and would bring the browser's warning back
+# at every session instead of the one-time accept per device that
+# docs/fieldnotes.html names as the deliberate ceiling for a club-room
+# instance. FIELDNOTES_HOST is `localhost` on the machine serving the app
+# itself, or that machine's address on the club's Wi-Fi when phones need
+# to reach it — same address as DJANGO_ALLOWED_HOSTS and
+# DJANGO_CSRF_TRUSTED_ORIGINS in backend/.env.
 {
-	local_certs
 	admin off
 }
 
-https://localhost {
+https://{$FIELDNOTES_HOST:localhost} {
+	tls /certs/fieldnotes.crt /certs/fieldnotes.key
 	encode gzip
 
 	# Both the API and the Django admin (including its own static assets,
@@ -44,6 +49,6 @@ https://localhost {
 
 # Plain HTTP only exists to redirect — SECURE_SSL_REDIRECT in Django settings
 # assumes the proxy already did this, not that it ever reaches Django itself.
-http://localhost {
+http://{$FIELDNOTES_HOST:localhost} {
 	redir https://{host}{uri} permanent
 }

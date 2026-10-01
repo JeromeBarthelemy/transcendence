@@ -126,25 +126,38 @@ integration — `runserver`, Vite's dev server, `DEBUG=true`, no certificate.
 
 ```sh
 cp backend/.env.example backend/.env
-# Fill in DJANGO_SECRET_KEY, and set DJANGO_DEBUG=false.
+# Fill in DJANGO_SECRET_KEY, set DJANGO_DEBUG=false, and read FIELDNOTES_HOST
+# below if the club needs this from a phone, not just the machine itself.
 docker compose -f compose.prod.yml up --build
 ```
 
 Open <https://localhost/>. The browser warns once per device — the
-certificate is self-signed by Caddy's own local authority (`deploy/Caddyfile`,
-`tls internal`), which is the accepted ceiling for an instance that never
-leaves the club's room (`docs/fieldnotes.html`, "plafond assumé"). `http://`
-redirects to `https://`.
+certificate is a static, self-signed one `cert-init` generates the first time
+the stack starts (10 years, kept in the `tls_certs` volume so later restarts
+reuse it rather than minting a new one the browser has never seen) for
+`FIELDNOTES_HOST`, which defaults to `localhost`. `http://` redirects to
+`https://`.
 
-Two containers, not three: `backend` runs the migrations, `collectstatic`,
-then Daphne (ASGI — ready for Channels, ahead of needing it) instead of
-`runserver`; `proxy` bakes the frontend's production build into a Caddy image
-(`deploy/Dockerfile`) that terminates TLS, serves `/static/` from what
-`collectstatic` wrote, and reverse-proxies `/api/` and `/admin/` to `backend`
-— same origin as the frontend, so no CORS, same as development. Named volumes
-keep the SQLite database, media and the RAG's embedding model cache across a
-`down` and `up`; `db.sqlite3` moves under one of them because this container,
-unlike the dev one, has no bind mount to keep it on the host instead.
+**From a phone on the club's Wi-Fi**, not just the machine running the stack:
+set `FIELDNOTES_HOST` in `backend/.env` to that machine's address on the
+network (for example `192.168.0.119`, the address the in-room trial on 30
+September used), and add the same address to `DJANGO_ALLOWED_HOSTS` and as
+`https://<address>` to `DJANGO_CSRF_TRUSTED_ORIGINS` in the same file —
+`cert-init` signs the certificate for whichever address `FIELDNOTES_HOST`
+names. Changing it after the first run requires removing the `tls_certs`
+volume (`docker volume rm transcendence_tls_certs`) so a new certificate
+gets generated for the new address.
+
+Three containers: `cert-init` runs once and exits; `backend` runs the
+migrations, `collectstatic`, then Daphne (ASGI — ready for Channels, ahead of
+needing it) instead of `runserver`; `proxy` bakes the frontend's production
+build into a Caddy image (`deploy/Dockerfile`) that terminates TLS, serves
+`/static/` from what `collectstatic` wrote, and reverse-proxies `/api/` and
+`/admin/` to `backend` — same origin as the frontend, so no CORS, same as
+development. Named volumes keep the SQLite database, media and the RAG's
+embedding model cache across a `down` and `up`; `db.sqlite3` moves under one
+of them because this container, unlike the dev one, has no bind mount to keep
+it on the host instead.
 
 ### Backend without containers
 

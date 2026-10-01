@@ -230,11 +230,15 @@ if not DEBUG:
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
-    # compose.prod.yml's healthcheck calls this in plain HTTP, straight to
-    # Daphne — it never goes through the proxy, so it carries no
-    # X-Forwarded-Proto and would otherwise be redirected to an HTTPS URL
-    # on a port that only ever speaks plain HTTP.
-    SECURE_REDIRECT_EXEMPT = [r"^api/health/$"]
+
+# compose.prod.yml's healthcheck calls this in plain HTTP, straight to
+# Daphne — it never goes through the proxy, so it carries no
+# X-Forwarded-Proto and would otherwise be redirected to an HTTPS URL on a
+# port that only ever speaks plain HTTP. Harmless outside `if not DEBUG:`
+# above: it only ever does anything while SECURE_SSL_REDIRECT is also on.
+# Left unconditional so a test can exercise the real value instead of one
+# it injected itself.
+SECURE_REDIRECT_EXEMPT = [r"^api/health/$"]
 
 CSRF_TRUSTED_ORIGINS = env_list("DJANGO_CSRF_TRUSTED_ORIGINS")
 
