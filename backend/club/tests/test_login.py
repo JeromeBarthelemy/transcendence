@@ -108,6 +108,44 @@ def test_the_refusal_does_not_say_which_of_the_two_was_wrong(client):
     assert unknown["non_field_errors"][0]["code"] == "bad_credentials"
 
 
+# --- throttling ---
+
+
+def test_repeated_attempts_on_the_same_identifier_are_throttled(client):
+    User.objects.create_user("ada@club.fr", "Ada", password=PASSWORD)
+
+    for _ in range(5):
+        assert login(client, "Ada", "pas-le-bon").status_code == 400
+
+    response = login(client, "Ada", "pas-le-bon")
+
+    assert response.status_code == 429
+    assert response.json()["detail"]["code"] == "too_many_attempts"
+    # The correct password fares no better once the limit is spent: the
+    # throttle counts the attempt, not whether it succeeded.
+    assert login(client, "Ada").status_code == 429
+
+
+def test_a_mistyped_password_is_not_throttled(client):
+    User.objects.create_user("ada@club.fr", "Ada", password=PASSWORD)
+
+    assert login(client, "Ada", "pas-le-bon").status_code == 400
+    assert login(client, "Ada", "pas-le-bon-non-plus").status_code == 400
+
+    assert login(client, "Ada").status_code == 200
+
+
+def test_throttling_is_per_identifier_not_global(client):
+    User.objects.create_user("ada@club.fr", "Ada", password=PASSWORD)
+    User.objects.create_user("tom@club.fr", "Tom", password=PASSWORD)
+
+    for _ in range(6):
+        login(client, "Ada", "pas-le-bon")
+    assert login(client, "Ada").status_code == 429
+
+    assert login(client, "Tom").status_code == 200
+
+
 def test_the_session_route_hands_out_the_csrf_cookie(client):
     # The page calls this on boot to learn who it is talking to. It must come
     # back carrying the token even when nobody is signed in, or the login POST

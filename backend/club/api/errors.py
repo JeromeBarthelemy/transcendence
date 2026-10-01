@@ -9,12 +9,17 @@ The code is English and the message French, which is the repo's rule rather
 than an exception to it: a code is code — branched on, never read.
 """
 
+import math
 from typing import Any
 
 from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework.exceptions import APIException
 from rest_framework.response import Response
-from rest_framework.status import HTTP_400_BAD_REQUEST, HTTP_409_CONFLICT
+from rest_framework.status import (
+    HTTP_400_BAD_REQUEST,
+    HTTP_409_CONFLICT,
+    HTTP_429_TOO_MANY_REQUESTS,
+)
 from rest_framework.views import exception_handler as drf_exception_handler
 
 
@@ -38,6 +43,21 @@ class Refused(APIException):
 
     status_code = HTTP_400_BAD_REQUEST
     default_code = "invalid"
+
+
+class TooManyAttempts(APIException):
+    """DRF's own `Throttled` in French — the rest of the API never answers
+    in English, and this is still a refusal like any other, code and
+    sentence together."""
+
+    status_code = HTTP_429_TOO_MANY_REQUESTS
+    default_code = "too_many_attempts"
+
+    def __init__(self, wait: float | None = None) -> None:
+        detail = "Trop de tentatives."
+        if wait is not None:
+            detail += f" Réessayez dans {math.ceil(wait)} secondes."
+        super().__init__(detail, code=self.default_code)
 
 
 def _with_codes(value: Any) -> Any:
