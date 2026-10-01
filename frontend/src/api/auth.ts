@@ -112,13 +112,25 @@ export async function logOut(): Promise<void> {
 /** Mirrors the server's own checks (AvatarSerializer), so a file it would
  * refuse is turned down before a byte is sent. The server still checks what
  * the file really holds; the browser only reads its announced type. */
-export const AVATAR_TYPES = ["image/jpeg", "image/png", "image/webp"];
+export const AVATAR_TYPES = [
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  // HEIF is how iPhones take their photos.
+  "image/heic",
+  "image/heif",
+];
+// The extensions as well: where the system knows no type for .heic, a picker
+// filtering on types alone would hide the file.
+export const AVATAR_ACCEPT = [...AVATAR_TYPES, ".heic", ".heif"].join(",");
 export const AVATAR_MAX_BYTES = 10 * 1024 * 1024;
 
 export type AvatarRefusal = "avatarType" | "avatarSize";
 
 export function checkAvatar(file: File): AvatarRefusal | null {
-  if (!AVATAR_TYPES.includes(file.type)) {
+  // An empty type is what many browsers announce for a HEIC photo copied off
+  // an iPhone: no reason to refuse, so the server decides from the content.
+  if (file.type !== "" && !AVATAR_TYPES.includes(file.type)) {
     return "avatarType";
   }
   if (file.size > AVATAR_MAX_BYTES) {

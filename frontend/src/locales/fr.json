@@ -198,9 +198,11 @@
     "placeholderAlt": "Pas de photo : vos initiales s'affichent à la place",
     "preview": "Aperçu, pas encore envoyé",
     "previewAlt": "Aperçu de la nouvelle photo",
+    "noPreview": "Pas d'aperçu pour ce format dans ce navigateur : la photo sera convertie à l'envoi.",
+    "noPreviewAlt": "Aperçu indisponible",
     "choose": "Choisir une photo",
     "change": "Changer de photo",
-    "hint": "JPEG, PNG ou WebP, 10 Mo au plus. La photo s'affiche à côté de votre nom pour les membres du club.",
+    "hint": "JPEG, PNG, WebP ou HEIC, 10 Mo au plus. La photo s'affiche à côté de votre nom pour les membres du club.",
     "send": "Envoyer la photo",
     "sending": "Envoi…",
     "cancel": "Annuler",
@@ -211,7 +213,7 @@
     "remove": "Supprimer la photo",
     "removing": "Suppression…",
     "removed": "Votre photo a été supprimée.",
-    "avatarType": "Ce fichier n'a pas été envoyé : choisissez une photo JPEG, PNG ou WebP.",
+    "avatarType": "Ce fichier n'a pas été envoyé : choisissez une photo JPEG, PNG, WebP ou HEIC.",
     "avatarSize": "Ce fichier n'a pas été envoyé : la photo dépasse 10 Mo."
   },
   "login": {

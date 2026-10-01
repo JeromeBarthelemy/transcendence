@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { Navigate } from "react-router-dom";
 
 import {
-  AVATAR_TYPES,
+  AVATAR_ACCEPT,
   type AvatarRefusal,
   checkAvatar,
   deleteAvatar,
@@ -58,6 +58,9 @@ function PhotoForm({ identity }: { identity: Identity }) {
   const [progress, setProgress] = useState(0);
   const [done, setDone] = useState<"uploaded" | "removed" | null>(null);
   const preview = usePreview(file);
+  // Most browsers cannot draw a HEIC photo; the server converts it anyway.
+  const [unpreviewable, setUnpreviewable] = useState<string | null>(null);
+  const canPreview = preview !== null && unpreviewable !== preview;
 
   // The face shows in the header and beside the name in every list of
   // members; each of those lists must learn the new address, or its absence.
@@ -118,12 +121,21 @@ function PhotoForm({ identity }: { identity: Identity }) {
 
       <div className="mt-5 flex flex-col items-center gap-6 sm:flex-row sm:items-start">
         <figure className="flex flex-col items-center gap-2">
-          {preview ? (
+          {preview && canPreview ? (
             <img
               src={preview}
               alt={t("profile.previewAlt")}
               className="size-32 rounded-full bg-[#eaf5ff] object-cover ring-4 ring-[#00c2d0]/40"
+              onError={() => setUnpreviewable(preview)}
             />
+          ) : preview ? (
+            <span
+              role="img"
+              aria-label={t("profile.noPreviewAlt")}
+              className="grid size-32 place-items-center rounded-full bg-[#eaf5ff] text-2xl font-bold text-[#0078dd] ring-4 ring-[#00c2d0]/40"
+            >
+              {file && /\.([^.]+)$/.exec(file.name)?.[1].toUpperCase()}
+            </span>
           ) : (
             <Avatar
               person={identity}
@@ -135,9 +147,11 @@ function PhotoForm({ identity }: { identity: Identity }) {
               }
             />
           )}
-          <figcaption className="text-xs text-[#506784]">
+          <figcaption className="max-w-48 text-center text-xs text-[#506784]">
             {preview
-              ? t("profile.preview")
+              ? canPreview
+                ? t("profile.preview")
+                : t("profile.noPreview")
               : identity.avatar
                 ? t("profile.current")
                 : t("profile.noPhoto")}
@@ -192,7 +206,7 @@ function PhotoForm({ identity }: { identity: Identity }) {
                 <input
                   id={inputId}
                   type="file"
-                  accept={AVATAR_TYPES.join(",")}
+                  accept={AVATAR_ACCEPT}
                   className="peer sr-only"
                   aria-describedby={`${inputId}-hint`}
                   disabled={busy}

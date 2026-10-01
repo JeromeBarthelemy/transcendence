@@ -1,5 +1,11 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, render, screen, within } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { createMemoryRouter, RouterProvider } from "react-router-dom";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
@@ -153,7 +159,7 @@ it("refuses a file in a forbidden format or too heavy without sending it", async
 
   await user.upload(input, photo("scan.gif", "image/gif"));
   expect((await screen.findByRole("alert")).textContent).toBe(
-    "Ce fichier n'a pas été envoyé : choisissez une photo JPEG, PNG ou WebP.",
+    "Ce fichier n'a pas été envoyé : choisissez une photo JPEG, PNG, WebP ou HEIC.",
   );
 
   await user.upload(
@@ -216,6 +222,41 @@ it("previews the photo, shows the upload's progress and puts the new face everyw
     screen.getByRole("img", { name: "Votre photo de profil actuelle" }),
   ).toBeTruthy();
 });
+
+it.each([
+  ["image/heic", "image/heic"],
+  // What many browsers announce for a HEIC photo copied off an iPhone.
+  ["no type", ""],
+])(
+  "lets a HEIC photo through with %s and says it cannot be previewed",
+  async (_, type) => {
+    const user = userEvent.setup({ applyAccept: false });
+    stubApi((path) =>
+      path === "/api/auth/me/" ? json(identity(null)) : undefined,
+    );
+
+    renderAt("/profile");
+    const input = await screen.findByLabelText("Choisir une photo");
+    expect(input.getAttribute("accept")).toContain(".heic");
+    await user.upload(input, photo("IMG_0042.HEIC", type));
+
+    // The browser cannot draw it: the preview gives up rather than break.
+    fireEvent.error(
+      screen.getByRole("img", { name: "Aperçu de la nouvelle photo" }),
+    );
+    expect(
+      screen.getByRole("img", { name: "Aperçu indisponible" }).textContent,
+    ).toBe("HEIC");
+    expect(screen.queryByRole("alert")).toBeNull();
+
+    await user.click(screen.getByRole("button", { name: "Envoyer la photo" }));
+    const xhr = FakeXhr.last;
+    if (!xhr) throw new Error("No upload was sent");
+    expect(((xhr.body as FormData).get("avatar") as File).name).toBe(
+      "IMG_0042.HEIC",
+    );
+  },
+);
 
 it("shows the server's refusal by its code", async () => {
   const user = userEvent.setup();
