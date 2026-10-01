@@ -83,6 +83,17 @@
       "repair": "Réparation"
     }
   },
+  "openWorkItem": {
+    "action": "Ouvrir un chantier",
+    "title": "Ouvrir un chantier",
+    "name": "Nom",
+    "namePlaceholder": "Shooter, dossier de sponsoring, tournoi à domicile…",
+    "place": "Où se fait-il ?",
+    "robot": "Sur le robot",
+    "offRobot": "Hors robot",
+    "submit": "Ouvrir",
+    "opening": "Ouverture…"
+  },
   "workItem": {
     "back": "Retour aux chantiers",
     "loading": "Chargement du chantier…",
@@ -304,6 +315,7 @@
     "avatar_too_many_pixels": "Cette photo compte trop de pixels.",
     "avatar_not_an_image": "Ce fichier n'est pas une image.",
     "avatar_format_refused": "Formats acceptés : JPEG, PNG, WebP ou HEIC.",
+    "work_item_title_taken": "Ce chantier existe déjà dans l'équipe.",
     "network": "Impossible de joindre le serveur. Réessayez dans un instant.",
     "unknown": "Une erreur inattendue est survenue."
   }

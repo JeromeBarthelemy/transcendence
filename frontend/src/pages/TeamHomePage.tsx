@@ -14,6 +14,7 @@ import { getWorkItems, type WorkItem } from "../api/workItems";
 import { formatWorkdayDate, nameFormatter } from "../app/formatters";
 import { RequestError } from "../components/ApiErrors";
 import { AvatarStack } from "../components/Avatar";
+import { OpenWorkItemPanel } from "./OpenWorkItemPanel";
 
 type StatusFilter = "active" | "all" | WorkItem["status"];
 const WORK_ITEM_STATUSES: WorkItem["status"][] = [
@@ -539,7 +540,11 @@ export function TeamHomePage({ identity }: { identity: Identity }) {
         <RequestError error={workItems.error} />
       ) : (
         <div className="mt-10">
-          <div className="flex justify-end">
+          <OpenWorkItemPanel
+            key={selectedTeamSeason.id}
+            teamSeasonId={selectedTeamSeason.id}
+          />
+          <div className="mt-6 flex justify-end">
             <label className="text-sm font-semibold text-[#041894]">
               {t("teamHome.filterByStatus")}
               <select
