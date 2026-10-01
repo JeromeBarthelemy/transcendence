@@ -144,9 +144,15 @@ network (for example `192.168.0.119`, the address the in-room trial on 30
 September used), and add the same address to `DJANGO_ALLOWED_HOSTS` and as
 `https://<address>` to `DJANGO_CSRF_TRUSTED_ORIGINS` in the same file —
 `cert-init` signs the certificate for whichever address `FIELDNOTES_HOST`
-names. Changing it after the first run requires removing the `tls_certs`
-volume (`docker volume rm transcendence_tls_certs`) so a new certificate
-gets generated for the new address.
+names, and the Caddyfile's `default_sni` hands it out even to a browser that
+sends none, which is what every browser does for a bare IP (RFC 6066
+excludes IP literals from the SNI extension). Changing the address after the
+first run requires removing the `tls_certs` volume
+(`docker volume rm transcendence_tls_certs`) so a new certificate gets
+generated for the new one — `cert-init` runs from the backend's own image,
+already local by then, so this needs no connection even if the room has
+none, which is exactly when the club is most likely to be setting this for
+the first time on the day.
 
 Three containers: `cert-init` runs once and exits; `backend` runs the
 migrations, `collectstatic`, then Daphne (ASGI — ready for Channels, ahead of
@@ -163,12 +169,17 @@ it on the host instead.
 
 The database and media live in named volumes, not on the host, so copying
 `backend/db.sqlite3` the way a non-Docker install would no longer reaches
-them. Pull both out together:
+them. Stop `backend` first: the database runs in WAL mode (`settings.py`),
+so a recent commit can still sit in `db.sqlite3-wal` rather than
+`db.sqlite3` itself while a connection is open, and closing the last one
+checkpoints it back in. Pull both out together, then start `backend` again:
 
 ```sh
+docker compose -f compose.prod.yml stop backend
 mkdir -p "backup-$(date +%Y%m%d)"
 docker compose -f compose.prod.yml cp backend:/app/data/db.sqlite3 "backup-$(date +%Y%m%d)/db.sqlite3"
 docker compose -f compose.prod.yml cp backend:/app/media "backup-$(date +%Y%m%d)/media"
+docker compose -f compose.prod.yml start backend
 ```
 
 No scheduler runs this — the club runs it by hand, as often as the data is
