@@ -18,7 +18,9 @@ def workday(instant: datetime) -> date:
     return (timezone.localtime(instant) - DAY_TURNS_AT).date()
 
 
-def _bounds(day: date) -> tuple[datetime, datetime]:
+def workday_bounds(day: date) -> tuple[datetime, datetime]:
+    """The two instants bounding a workday, from 4 a.m. to 4 a.m."""
+
     # Built from local wall-clock times, not by adding 24 hours: the day the
     # clocks change is 23 or 25 hours long.
     def turn(of: date) -> datetime:
@@ -29,7 +31,7 @@ def _bounds(day: date) -> tuple[datetime, datetime]:
 
 def day_entries(team_season: TeamSeason, day: date) -> QuerySet[Entry]:
     """Everything the team wrote down for that day: the day's summary."""
-    start, end = _bounds(day)
+    start, end = workday_bounds(day)
     return Entry.objects.filter(
         team_season=team_season, occurred_at__gte=start, occurred_at__lt=end
     )
@@ -39,7 +41,7 @@ def neighbours(team_season: TeamSeason, day: date) -> tuple[date | None, date | 
     """The closest days before and after on which the team left a trace. An
     empty day is skipped: there is nothing in it to read, and the slots on
     which nothing moved are what `gaps` is for."""
-    start, end = _bounds(day)
+    start, end = workday_bounds(day)
     instants = Entry.objects.filter(team_season=team_season).values_list(
         "occurred_at", flat=True
     )
@@ -79,7 +81,7 @@ def gaps(team_season: TeamSeason, since: date, until: date) -> list[date]:
             first + timedelta(weeks=n) for n in range((end - first).days // 7 + 1)
         )
 
-    low, high = _bounds(since)[0], _bounds(last)[1]
+    low, high = workday_bounds(since)[0], workday_bounds(last)[1]
     worked = {
         workday(occurred_at)
         for occurred_at in Entry.objects.filter(
