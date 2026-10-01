@@ -344,6 +344,21 @@ class CloseWorkItemSerializer(serializers.Serializer[WorkItem]):
         choices=[WorkItem.Status.DONE, WorkItem.Status.DROPPED]
     )
 
+    def validate_status(self, value: str) -> str:
+        # A robot subsystem goes to tuning, then repair, and back again until
+        # the last competition — what ends it is the season, not a judgement
+        # that it's "finished". Off the robot, some work items do end (a
+        # tournament has taken place, a file has been sent), and `done` is
+        # right for those.
+        instance = self.instance
+        assert isinstance(instance, WorkItem)
+        if value == WorkItem.Status.DONE and instance.on_robot:
+            raise serializers.ValidationError(
+                "Un chantier sur le robot ne se termine pas, il s'abandonne.",
+                code="done_on_robot",
+            )
+        return value
+
     def update(self, instance: WorkItem, validated_data: dict[str, Any]) -> WorkItem:
         instance.status = validated_data["status"]
         instance.closed_at = timezone.now()

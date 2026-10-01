@@ -60,7 +60,7 @@ ROBOT = {
 }
 OFF_ROBOT = "Dossier de sponsoring"
 SUGGESTED = "Vision"
-DONE = "Châssis"
+DROPPED = "Châssis"
 
 SAID = {
     Step.BRAINSTORMING: "Trois idées au tableau, on garde la plus simple à construire.",
@@ -242,13 +242,24 @@ class Demo:
             if first is not None:
                 item.opened_at = first.occurred_at
                 item.save(update_fields=["opened_at"])
-        closed = items[DONE]
-        last = closed.entries.order_by("occurred_at").last()
-        closed.status = WorkItem.Status.DONE
-        closed.closed_at = (
+        # A robot subsystem only ever drops — a lead prototyped then
+        # abandoned is exactly what a judge wants to see. `done` is reserved
+        # for what's off the robot and genuinely over, like the sponsoring
+        # file below.
+        dropped = items[DROPPED]
+        last = dropped.entries.order_by("occurred_at").last()
+        dropped.status = WorkItem.Status.DROPPED
+        dropped.closed_at = (
             last.occurred_at if last else self.moment(self.today, time(12))
         )
-        closed.save(update_fields=["status", "closed_at"])
+        dropped.save(update_fields=["status", "closed_at"])
+
+        last = sponsoring.entries.order_by("occurred_at").last()
+        sponsoring.status = WorkItem.Status.DONE
+        sponsoring.closed_at = (
+            last.occurred_at if last else self.moment(self.today, time(12))
+        )
+        sponsoring.save(update_fields=["status", "closed_at"])
 
     def moment(self, day: date, at: time, minutes: int = 0) -> datetime:
         return timezone.make_aware(datetime.combine(day, at)) + timedelta(

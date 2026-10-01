@@ -279,6 +279,49 @@ def test_a_member_closes_a_work_item(client):
     assert intake.closed_at is not None
 
 
+def test_a_robot_work_item_cannot_be_finished(client):
+    rouages = team_season()
+    intake = WorkItem.objects.create(team_season=rouages, title="intake", on_robot=True)
+    client.force_login(member_of(rouages))
+
+    response = client.patch(
+        detail(intake), {"status": "done"}, content_type="application/json"
+    )
+
+    assert response.status_code == 400
+    assert response.json()["status"][0]["code"] == "done_on_robot"
+    intake.refresh_from_db()
+    assert intake.status == WorkItem.Status.OPEN
+
+
+def test_a_robot_work_item_can_be_dropped(client):
+    rouages = team_season()
+    intake = WorkItem.objects.create(team_season=rouages, title="intake", on_robot=True)
+    client.force_login(member_of(rouages))
+
+    response = client.patch(
+        detail(intake), {"status": "dropped"}, content_type="application/json"
+    )
+
+    assert response.status_code == 200
+    intake.refresh_from_db()
+    assert intake.status == WorkItem.Status.DROPPED
+
+
+def test_an_off_robot_work_item_can_be_finished(client):
+    rouages = team_season()
+    sponsoring = WorkItem.objects.create(team_season=rouages, title="sponsoring")
+    client.force_login(member_of(rouages))
+
+    response = client.patch(
+        detail(sponsoring), {"status": "done"}, content_type="application/json"
+    )
+
+    assert response.status_code == 200
+    sponsoring.refresh_from_db()
+    assert sponsoring.status == WorkItem.Status.DONE
+
+
 def test_a_work_item_is_not_reopened_by_hand(client):
     # Working on it again reopens it; there is no other way.
     rouages = team_season()
