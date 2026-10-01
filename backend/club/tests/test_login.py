@@ -108,40 +108,46 @@ def test_the_refusal_does_not_say_which_of_the_two_was_wrong(client):
     assert unknown["non_field_errors"][0]["code"] == "bad_credentials"
 
 
-# --- throttling ---
+# --- suspension after repeated failures ---
 
 
-def test_repeated_attempts_on_the_same_identifier_are_throttled(client):
-    User.objects.create_user("ada@club.fr", "Ada", password=PASSWORD)
+def test_five_wrong_passwords_running_suspend_the_account(client):
+    ada = User.objects.create_user("ada@club.fr", "Ada", password=PASSWORD)
 
-    for _ in range(5):
+    for _ in range(4):
         assert login(client, "Ada", "pas-le-bon").status_code == 400
+    ada.refresh_from_db()
+    assert ada.is_active
 
     response = login(client, "Ada", "pas-le-bon")
 
-    assert response.status_code == 429
-    assert response.json()["detail"]["code"] == "too_many_attempts"
-    # The correct password fares no better once the limit is spent: the
-    # throttle counts the attempt, not whether it succeeded.
-    assert login(client, "Ada").status_code == 429
+    assert response.status_code == 400
+    ada.refresh_from_db()
+    assert not ada.is_active
+    # Suspended refuses even the right password now, the same "bad
+    # credentials" way — a suspension is not announced any more than an
+    # unknown identifier is.
+    assert login(client, "Ada").json() == response.json()
 
 
-def test_a_mistyped_password_is_not_throttled(client):
-    User.objects.create_user("ada@club.fr", "Ada", password=PASSWORD)
+def test_a_mistyped_password_does_not_suspend_the_account(client):
+    ada = User.objects.create_user("ada@club.fr", "Ada", password=PASSWORD)
 
     assert login(client, "Ada", "pas-le-bon").status_code == 400
     assert login(client, "Ada", "pas-le-bon-non-plus").status_code == 400
 
     assert login(client, "Ada").status_code == 200
+    ada.refresh_from_db()
+    assert ada.is_active
+    assert ada.failed_login_attempts == 0
 
 
-def test_throttling_is_per_identifier_not_global(client):
+def test_suspension_is_per_identifier_not_global(client):
     User.objects.create_user("ada@club.fr", "Ada", password=PASSWORD)
     User.objects.create_user("tom@club.fr", "Tom", password=PASSWORD)
 
-    for _ in range(6):
+    for _ in range(5):
         login(client, "Ada", "pas-le-bon")
-    assert login(client, "Ada").status_code == 429
 
     assert login(client, "Tom").status_code == 200
 

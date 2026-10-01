@@ -15,6 +15,7 @@ from django.core.exceptions import ValidationError as DjangoValidationError
 from django.core.files.base import ContentFile
 from django.core.files.uploadedfile import UploadedFile
 from django.db import IntegrityError, transaction
+from django.db.models import Q
 from django.utils import timezone
 from PIL import ImageOps
 from rest_framework import serializers
@@ -185,11 +186,24 @@ class LoginSerializer(serializers.Serializer[dict[str, Any]]):
             password=attrs["password"],
         )
         if user is None:
+            # Same two identifiers authenticate() itself tries — found here
+            # again only because a failed attempt must be counted against the
+            # right row, which a plain None does not carry. A suspended
+            # account's own correct password also lands here (ModelBackend
+            # refuses an inactive user before checking it), and that is fine:
+            # register_failed_login() no-ops once already suspended.
+            username = attrs["username"].strip()
+            account = User.objects.filter(
+                Q(email=username.lower()) | Q(display_name_folded=username.casefold())
+            ).first()
+            if account is not None:
+                account.register_failed_login()
             # One message for both failures: naming the unknown identifier
             # would turn the login form into a roster of the club.
             raise serializers.ValidationError(
                 "Identifiant ou mot de passe incorrect.", code="bad_credentials"
             )
+        user.register_successful_login()
         attrs["user"] = user
         return attrs
 
@@ -514,9 +528,16 @@ class UserRoleSerializer(serializers.Serializer[User]):
         return attrs
 
     def update(self, instance: User, validated_data: dict[str, Any]) -> User:
+        update_fields = list(validated_data)
+        # Lifting a suspension this way is the fresh start it is meant to be:
+        # left alone, one more mistyped password would suspend the account
+        # again almost immediately.
+        if validated_data.get("is_active") and instance.failed_login_attempts:
+            validated_data["failed_login_attempts"] = 0
+            update_fields.append("failed_login_attempts")
         for field, value in validated_data.items():
             setattr(instance, field, value)
-        instance.save(update_fields=list(validated_data))
+        instance.save(update_fields=update_fields)
         return instance
 
 

@@ -2,7 +2,6 @@
 tenant to resolve: every route below is about the person calling it."""
 
 import tempfile
-from typing import NoReturn
 
 from django.contrib.auth import login, logout
 from django.core.exceptions import ValidationError as DjangoValidationError
@@ -45,7 +44,7 @@ from club.workdays import (
     workday,
 )
 
-from .errors import Conflict, TooManyAttempts
+from .errors import Conflict
 from .permissions import (
     IsClubAdmin,
     not_self,
@@ -74,7 +73,6 @@ from .serializers import (
     UserSearchSerializer,
     WriteProgressSerializer,
 )
-from .throttling import LoginThrottle
 
 
 @method_decorator(csrf_protect, name="dispatch")
@@ -109,11 +107,6 @@ class LoginView(APIView):
     set the trap."""
 
     permission_classes = [AllowAny]
-    throttle_classes = [LoginThrottle]
-
-    def throttled(self, request: Request, wait: float | None) -> NoReturn:
-        # DRF's own Throttled is English-only; the rest of the API never is.
-        raise TooManyAttempts(wait)
 
     def post(self, request: Request) -> Response:
         serializer = LoginSerializer(data=request.data, context={"request": request})

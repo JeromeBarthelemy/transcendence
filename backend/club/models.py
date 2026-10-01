@@ -110,6 +110,12 @@ class User(AbstractBaseUser, PermissionsMixin):
     stays, so what they wrote stays attributed, but nothing else about who
     they were does."""
 
+    # A wrong password this many times running suspends the account the same
+    # way an admin's own PATCH does (#60) — not a rate limit the next minute
+    # forgets, but a state an admin lifts on purpose, the way any other
+    # suspension already is.
+    SUSPEND_AFTER_FAILURES = 5
+
     class ClubRole(models.TextChoices):
         STUDENT = "student", "élève"
         MENTOR = "mentor", "mentor"
@@ -154,6 +160,9 @@ class User(AbstractBaseUser, PermissionsMixin):
     is_club_admin = models.BooleanField("administrateur du club", default=False)
 
     is_active = models.BooleanField("actif", default=True)
+    failed_login_attempts = models.PositiveSmallIntegerField(
+        "tentatives de connexion échouées", default=0
+    )
     is_staff = models.BooleanField("accès à l'admin", default=False)
     date_joined = models.DateTimeField("date d'inscription", default=timezone.now)
 
@@ -202,6 +211,25 @@ class User(AbstractBaseUser, PermissionsMixin):
         if update_fields is not None and "display_name" in update_fields:
             kwargs["update_fields"] = {*update_fields, "display_name_folded"}
         super().save(*args, **kwargs)
+
+    def register_failed_login(self) -> None:
+        """Counted only while the account is still active, so a suspension
+        already in force does not keep climbing past it for nothing."""
+        if not self.is_active:
+            return
+        self.failed_login_attempts += 1
+        update_fields = ["failed_login_attempts"]
+        if self.failed_login_attempts >= self.SUSPEND_AFTER_FAILURES:
+            self.is_active = False
+            update_fields.append("is_active")
+        self.save(update_fields=update_fields)
+
+    def register_successful_login(self) -> None:
+        """The right password proves it was them: whatever came before stops
+        counting against the account."""
+        if self.failed_login_attempts:
+            self.failed_login_attempts = 0
+            self.save(update_fields=["failed_login_attempts"])
 
     @property
     def is_mentor(self) -> bool:

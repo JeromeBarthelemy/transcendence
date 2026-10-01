@@ -152,13 +152,6 @@ REST_FRAMEWORK = {
     # answer 404 for any it does not know; the notebook export uses that
     # parameter for its own formats.
     "URL_FORMAT_OVERRIDE": None,
-    # club/api/throttling.py keys this per login identifier, not per address,
-    # so a shared room computer never throttles one member for another's
-    # mistake. The default cache below (in-process, since CACHES is unset) is
-    # enough for one process — a restart forgets the count, the same
-    # trade-off already made for the real-time channel layer until there is
-    # more than one worker to share state with.
-    "DEFAULT_THROTTLE_RATES": {"login": "5/min"},
 }
 
 # Django's defaults. They are what satisfies the subject's requirement that
