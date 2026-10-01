@@ -7,6 +7,7 @@ import { getDaySummary, type SummaryEntry } from "../api/workdays";
 import { formatWorkdayDate, nameFormatter } from "../app/formatters";
 import { useCurrentUser } from "../app/useCurrentUser";
 import { RequestError } from "../components/ApiErrors";
+import { Avatar, AvatarStack } from "../components/Avatar";
 
 function attachmentCounts(entry: SummaryEntry, t: TFunction) {
   const types = entry.attachments.map((file) => file.content_type);
@@ -39,7 +40,8 @@ function Progress({ entry }: { entry: SummaryEntry }) {
             {t(`teamHome.steps.${entry.step}`)}
           </span>
         )}
-        <span className="text-sm text-[#506784]">
+        <span className="flex items-center gap-2 text-sm text-[#506784]">
+          <AvatarStack people={entry.participants} />
           {nameFormatter.format(
             entry.participants.map((person) => person.display_name),
           )}
@@ -224,8 +226,9 @@ export function DaySummaryPage() {
           {present.map((person) => (
             <li
               key={person.display_name}
-              className="rounded-full border border-[#004fc5]/20 bg-[#eaf5ff] px-3 py-1 text-sm font-semibold text-[#041894]"
+              className="flex items-center gap-2 rounded-full border border-[#004fc5]/20 bg-[#eaf5ff] py-1 pr-3 pl-1 text-sm font-semibold text-[#041894]"
             >
+              <Avatar person={person} size="sm" />
               {person.display_name}
             </li>
           ))}

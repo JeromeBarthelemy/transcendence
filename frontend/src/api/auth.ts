@@ -1,4 +1,4 @@
-import { get, post } from "./client";
+import { del, get, post, upload } from "./client";
 
 export interface TeamSeasonSummary {
   id: number;
@@ -107,4 +107,44 @@ export async function logIn(input: LoginInput): Promise<Identity> {
 
 export async function logOut(): Promise<void> {
   await post("/api/auth/logout/");
+}
+
+/** Mirrors the server's own checks (AvatarSerializer), so a file it would
+ * refuse is turned down before a byte is sent. The server still checks what
+ * the file really holds; the browser only reads its announced type. */
+export const AVATAR_TYPES = ["image/jpeg", "image/png", "image/webp"];
+export const AVATAR_MAX_BYTES = 10 * 1024 * 1024;
+
+export type AvatarRefusal = "avatarType" | "avatarSize";
+
+export function checkAvatar(file: File): AvatarRefusal | null {
+  if (!AVATAR_TYPES.includes(file.type)) {
+    return "avatarType";
+  }
+  if (file.size > AVATAR_MAX_BYTES) {
+    return "avatarSize";
+  }
+  return null;
+}
+
+export async function uploadAvatar(
+  file: File,
+  onProgress: (sent: number) => void,
+): Promise<Identity> {
+  const form = new FormData();
+  form.append("avatar", file);
+  const { body } = await upload(
+    "PUT",
+    "/api/auth/me/avatar/",
+    form,
+    onProgress,
+  );
+  if (!isIdentity(body)) {
+    throw new Error("The avatar response is invalid");
+  }
+  return body;
+}
+
+export async function deleteAvatar(): Promise<void> {
+  await del("/api/auth/me/avatar/");
 }
