@@ -88,21 +88,17 @@ it("shows a student their own team, with no selector", async () => {
   expect(adminLinks()).not.toContain("Membres");
 });
 
-it("offers a mentor only the teams they are assigned to", async () => {
+it("offers a mentor a team selector", async () => {
   renderHomeAs({
     display_name: "Claire",
     club_role: "mentor",
     is_club_admin: false,
     avatar: null,
-    team_seasons: ALL_TEAMS.slice(0, 2),
+    team_seasons: ALL_TEAMS,
   });
 
   const selector = await screen.findByLabelText("Changer d'équipe");
-  expect(
-    within(selector)
-      .getAllByRole("option")
-      .map((option) => option.textContent),
-  ).toEqual(["1796 · Les Rouages", "6543 · Les Engrenages"]);
+  expect(within(selector).getAllByRole("option")).toHaveLength(4);
   expect(adminLinks()).not.toContain("Équipes");
   expect(adminLinks()).not.toContain("Membres");
 });

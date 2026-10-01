@@ -202,8 +202,8 @@ python backend/manage.py createsuperuser   # afterwards, for the Django admin
 ```
 
 It creates the current season (BioBuzz) with its Wednesday and Friday
-workshop slots, four fictional teams of three students, a mentor (Claire)
-assigned to two of them and a club admin (Paul) who sees all four, and four weeks of work: work items at their steps, one
+workshop slots, four fictional teams of three students, a mentor (Claire) and
+a club admin (Paul), and four weeks of work: work items at their steps, one
 back in prototyping after its test zero, one done, one only suggested,
 progress with handovers, notes, and slot days on which nothing moved. Dates
 are relative to the day it runs, so the recent days are always filled. One
@@ -232,8 +232,8 @@ The frontend uses these four routes from `/`, `/signup` and `/login`:
 
 The identity is deliberately small — `display_name`, `club_role`,
 `is_club_admin`, `avatar`, the photo's address or `null`, and `team_seasons`,
-the team seasons the account may open (the teams a student or a mentor is
-assigned to, every team for a club admin), newest season first. A session tells the interface what to
+the team seasons the account may open (its own teams for a student, every team
+for a mentor), newest season first. A session tells the interface what to
 draw, not what the account holds.
 
 ### Avatars
@@ -404,10 +404,8 @@ the screen to them.
 ## Work items and the day
 
 What the three screens read and write. Every route needs a session; a student
-or a mentor acts on the team seasons they are assigned to, a club admin on
-all of them, and anyone else gets a `403` with the code `not_a_member`. A
-mentor's reach is their assignments, as `docs/modules.md` §4 puts it: role ×
-scope — the team screen assigns a mentor the same way as a student.
+acts on the team seasons they are a member of, a mentor on all four, and
+anyone else gets a `403` with the code `not_a_member`.
 
 | route | does |
 | --- | --- |
@@ -701,9 +699,8 @@ requests — stays English.
 
 The frontend contains the public landing, sign-up and log-in screens. Once
 signed in, the home screen lists the selected team's robot and off-robot work
-items, with pending handovers highlighted. A mentor switches between the
-teams they are assigned to, a club admin between all of them. A club admin
-also reaches the team management screen — create, rename and delete the
-season's teams, and add members by typing their name or remove them — and
-the members screen, to change a member's role, admin flag or suspension, or
-delete their account.
+items, with pending handovers highlighted. A mentor can switch between the
+team seasons exposed by their identity. A club admin also reaches the team
+management screen — create, rename and delete the season's teams, and add
+members by typing their name or remove them — and the members screen, to
+change a member's role, admin flag or suspension, or delete their account.

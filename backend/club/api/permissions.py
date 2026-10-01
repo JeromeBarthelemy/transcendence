@@ -28,19 +28,12 @@ class IsClubAdmin(BasePermission):
         )
 
 
-def sees_every_team(user: User) -> bool:
-    """The club admin's scope, and no one else's: a mentor is mentor of the
-    teams they are assigned to (`docs/modules.md` §4, role × scope), the
-    admin of every team."""
-    return user.is_club_admin
-
-
 def team_season_acted_on(user: User, team_season_id: int) -> TeamSeason:
-    """The team season a request works on, if the caller may: a student or a
-    mentor acts on the teams they are assigned to, a club admin on all."""
+    """The team season a request works on, if the caller may: a member acts
+    on their own team, a mentor on any of the four."""
     team_season = get_object_or_404(TeamSeason, pk=team_season_id)
     is_member = Membership.objects.filter(user=user, team_season=team_season)
-    if not sees_every_team(user) and not is_member.exists():
+    if user.club_role != User.ClubRole.MENTOR and not is_member.exists():
         raise PermissionDenied(
             "Vous n'êtes pas membre de cette équipe.", code="not_a_member"
         )
@@ -51,7 +44,7 @@ def team_seasons_open_to(user: User) -> QuerySet[TeamSeason]:
     """The same rule as `team_season_acted_on`, as a list: what the front end
     may offer to open."""
     team_seasons = TeamSeason.objects.select_related("team", "season")
-    if sees_every_team(user):
+    if user.club_role == User.ClubRole.MENTOR:
         return team_seasons.all()
     return team_seasons.filter(memberships__user=user)
 

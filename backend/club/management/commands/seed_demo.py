@@ -47,7 +47,6 @@ TEAMS = [
     (27442, "Engrenage", ["Lucas", "Sarah", "Yanis"]),
 ]
 ADMIN, MENTOR = "Paul", "Claire"
-MENTORED_TEAMS = 2
 # The one refusal of image rights, and the one account AssoConnect has not
 # confirmed yet: both cases exist in a real club, so the demo has them.
 REFUSED, UNVERIFIED = "Jade", "Yanis"
@@ -123,9 +122,7 @@ class Demo:
                 valid_from=self.first,
             )
         self.mentor = self.person(MENTOR, 0, club_role=User.ClubRole.MENTOR)
-        self.admin = self.person(
-            ADMIN, 1, club_role=User.ClubRole.MENTOR, is_club_admin=True
-        )
+        self.person(ADMIN, 1, club_role=User.ClubRole.MENTOR, is_club_admin=True)
         number = 2
         for rank, (team_number, name, students) in enumerate(TEAMS):
             team = Team.objects.create(number=team_number, name=name)
@@ -135,11 +132,6 @@ class Demo:
                 members.append(self.person(student, number))
                 number += 1
                 Membership.objects.create(user=members[-1], team_season=team_season)
-            # The mentor is assigned to some teams, not all: logging in as
-            # her shows the team selector a mentor gets, narrower than the
-            # admin's (docs/modules.md §4).
-            if rank < MENTORED_TEAMS:
-                Membership.objects.create(user=self.mentor, team_season=team_season)
             self.season_of(team_season, members, rank)
 
     def person(self, name: str, number: int, **extra: Any) -> User:
@@ -238,7 +230,7 @@ class Demo:
             if active == 3:
                 note = Entry.objects.create(
                     team_season=team_season,
-                    author=self.mentor if rank < MENTORED_TEAMS else self.admin,
+                    author=self.mentor,
                     work_item=items["Intake"],
                     type=Entry.Type.NOTE,
                     body="Regardez comment les autres équipes guident la balle.",
