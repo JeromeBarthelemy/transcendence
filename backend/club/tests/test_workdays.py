@@ -128,7 +128,7 @@ def test_a_mentor_is_never_counted_present():
     assert list(attendance(rouages, WEDNESDAY)) == [lina]
 
 
-def test_only_progress_makes_someone_present():
+def test_writing_a_note_does_not_make_someone_present():
     rouages = team_season()
     lina = member("lina")
     Entry.objects.create(
