@@ -223,7 +223,7 @@ The frontend uses these four routes from `/`, `/signup` and `/login`:
 | route | answers |
 | --- | --- |
 | `POST /api/auth/signup/` | `201` with `email` and `display_name` |
-| `POST /api/auth/login/` | `200` with the identity below |
+| `POST /api/auth/login/` | `200` with the identity below; the same account is locked for 15 minutes after 5 wrong passwords running, told apart from a wrong password while it is |
 | `POST /api/auth/logout/` | `204` |
 | `GET /api/auth/me/` | `200` with the identity, or `403` |
 | `PUT /api/auth/me/avatar/` | `200` with the identity — one's own photo, as `multipart/form-data` field `avatar` |

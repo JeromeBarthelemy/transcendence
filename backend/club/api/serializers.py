@@ -15,6 +15,7 @@ from django.core.exceptions import ValidationError as DjangoValidationError
 from django.core.files.base import ContentFile
 from django.core.files.uploadedfile import UploadedFile
 from django.db import IntegrityError, transaction
+from django.db.models import Q
 from django.utils import timezone
 from PIL import ImageOps
 from rest_framework import serializers
@@ -170,6 +171,17 @@ class SignUpSerializer(serializers.Serializer[User]):
         return user
 
 
+def _account_locked_error() -> serializers.ValidationError:
+    # Told apart from a wrong password on purpose: a member locked out needs
+    # to know to stop guessing and wait, not be left thinking they keep
+    # mistyping it.
+    return serializers.ValidationError(
+        "Compte temporairement verrouillé après plusieurs tentatives "
+        "infructueuses. Réessayez dans quelques minutes.",
+        code="account_locked",
+    )
+
+
 class LoginSerializer(serializers.Serializer[dict[str, Any]]):
     """One field for both identifiers, because the account does not care
     which of the two reached it — `authenticate` tries the address, then the
@@ -179,17 +191,39 @@ class LoginSerializer(serializers.Serializer[dict[str, Any]]):
     password = serializers.CharField(write_only=True, style={"input_type": "password"})
 
     def validate(self, attrs: dict[str, Any]) -> dict[str, Any]:
+        # Same two identifiers authenticate() itself tries — resolved here
+        # too, ahead of it: a lock must refuse even the right password
+        # without hashing it, and a failed attempt must be counted against
+        # the right row, which a plain None from authenticate() would not
+        # carry. `is_active` first: an admin suspension is a separate, older
+        # state a stale lock must never get credit (or blame) for.
+        username = attrs["username"].strip()
+        account = User.objects.filter(
+            Q(email=username.lower()) | Q(display_name_folded=username.casefold())
+        ).first()
+        if account is not None and account.is_active and account.is_locked:
+            raise _account_locked_error()
+
         user = authenticate(
             self.context.get("request"),
             username=attrs["username"],
             password=attrs["password"],
         )
         if user is None:
+            # Only an active account's own wrong password counts: an
+            # already-suspended one reaches here too (ModelBackend refuses
+            # an inactive user before checking it), but that is a decision
+            # an admin already made, not a guess to start counting against.
+            if account is not None and account.is_active:
+                account.register_failed_login()
+                if account.is_locked:
+                    raise _account_locked_error()
             # One message for both failures: naming the unknown identifier
             # would turn the login form into a roster of the club.
             raise serializers.ValidationError(
                 "Identifiant ou mot de passe incorrect.", code="bad_credentials"
             )
+        user.register_successful_login()
         attrs["user"] = user
         return attrs
 
