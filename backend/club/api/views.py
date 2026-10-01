@@ -4,6 +4,7 @@ tenant to resolve: every route below is about the person calling it."""
 import tempfile
 
 from django.contrib.auth import login, logout
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
 from django.db.models import ProtectedError
 from django.http import FileResponse, Http404
@@ -33,6 +34,7 @@ from club.models import (
     remove_after_commit,
 )
 from club.progress import edit_progress, join, record_progress
+from club.rag import ask, serialize
 from club.workdays import (
     attendance,
     day_entries,
@@ -52,6 +54,7 @@ from .permissions import (
 )
 from .serializers import (
     AddMembershipSerializer,
+    AskSerializer,
     AttachmentSerializer,
     AvatarSerializer,
     CloseWorkItemSerializer,
@@ -461,6 +464,7 @@ def _work_item(item: WorkItem) -> dict[str, object]:
     handover = item.last_handover
     return {
         "id": item.id,
+        "team_season": item.team_season_id,
         "title": item.title,
         "on_robot": item.on_robot,
         "status": item.status,
@@ -540,9 +544,26 @@ class WorkItemDetailView(APIView):
     def get(self, request: Request, pk: int) -> Response:
         assert isinstance(request.user, User)
         item = _work_item_acted_on(request.user, pk)
-        thread = item.entries.select_related("author").order_by("-occurred_at", "-id")
+        thread = (
+            item.entries.select_related("author", "work_item")
+            .prefetch_related("participants", "attachments__uploaded_by")
+            .order_by("-occurred_at", "-id")
+        )
+        current_progress = progress_of_the_day(item, workday(timezone.now()))
         return Response(
-            {**_work_item(item), "thread": [_entry(entry) for entry in thread]}
+            {
+                **_work_item(item),
+                "current_progress": _entry(current_progress)
+                if current_progress
+                else None,
+                "current_user_participates": bool(
+                    current_progress
+                    and current_progress.participants.filter(
+                        pk=request.user.pk
+                    ).exists()
+                ),
+                "thread": [_entry(entry) for entry in thread],
+            }
         )
 
     def patch(self, request: Request, pk: int) -> Response:
@@ -747,3 +768,21 @@ class ExportView(APIView):
         return FileResponse(
             archive, as_attachment=True, filename=name, content_type="application/zip"
         )
+
+
+class RuleQuestionView(APIView):
+    """Ask the rulebook RAG a question, against the current season's
+    ingested documents."""
+
+    def post(self, request: Request) -> Response:
+        user = request.user
+        assert isinstance(user, User)
+        serializer = AskSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        season = Season.objects.first()
+        if season is None:
+            raise DjangoValidationError(
+                "Aucune saison n'est ouverte.", code="no_season"
+            )
+        query = ask(serializer.validated_data["question"], season, user)
+        return Response(serialize(query), status=status.HTTP_201_CREATED)

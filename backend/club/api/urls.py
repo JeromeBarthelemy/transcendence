@@ -17,6 +17,7 @@ from .views import (
     MembershipDetailView,
     MeView,
     NoteCreateView,
+    RuleQuestionView,
     SignUpView,
     TeamDetailView,
     TeamListView,
@@ -88,4 +89,5 @@ urlpatterns = [
         ExportView.as_view(),
         name="export",
     ),
+    path("rules/ask/", RuleQuestionView.as_view(), name="rule-ask"),
 ]

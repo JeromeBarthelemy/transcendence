@@ -476,6 +476,114 @@ Files live under `backend/media/`, beside the database, and a backup takes
 both: the database only records where each file is. A removed attachment, or
 the entry it belongs to, leaves the disk once the deletion is committed.
 
+## Rulebook questions
+
+A member asks the current season's game manual a question and gets back the
+passages that answer it, ranked first by how much they may be trusted, then
+by how well they answer it — not a generated answer, so nothing is ever
+invented past what the source says.
+
+| route | does |
+| --- | --- |
+| `POST /api/rules/ask/` | a question, answered with up to five cited passages from this season's ingested documents |
+
+"Current season" here means `Season.objects.first()` — the whole route has
+no `team_season_id` to read it from, unlike everything else in this API, so
+whichever season sorts first (`Season.Meta.ordering`, newest first) is the
+one asked. A season with nothing ingested yet is refused by name ("Le manuel
+de la saison 2026-2027 n'est pas encore chargé"), distinct from an ingested
+manual simply not answering a question.
+
+Ingesting a document is a management command, not a route — there is no
+screen for uploading a manual, only for asking it questions:
+
+```sh
+python manage.py ingest_document "BIOBUZZ Competition Manual - TU02.htm" \
+  --season 2026 --source game_manual --title "Manuel BioBuzz TU02"
+```
+
+The manual is read from FIRST's own HTML export
+(`ftc-resources.firstinspires.org/ftc/game/cm-html/...`), never the PDF: a
+PDF flattens the page into plain lines wherever it happens to wrap, and
+nothing there tells a wrapped table row or a mid-sentence cross-reference
+apart from a real rule or section opening. The HTML export needs no such
+guessing — every rule carries its own anchor, and every heading already is
+a real `<h1>`-`<h3>`. The command refuses a `.pdf` file for `game_manual`
+outright rather than silently ingest one undifferentiated passage.
+
+`--source` is one of `game_manual` or `official_qa`, and decides the
+document's authority (respectively `binding`, `ruling`) — never asked for on
+its own, so a typo can't file the Q&A as binding. Citations are ordered by
+authority first, score second: the manual is explicit that it takes
+precedence over the Q&A, so a `binding` passage is always quoted ahead of a
+`ruling` one that merely scored higher, and every match above the threshold
+is considered for this ordering before being cut to the five kept — cutting
+by score first could otherwise drop a `binding` passage that a handful of
+`ruling` ones outscored. A question is answered plainly when anything clears
+the threshold; otherwise the response carries a refusal instead of a guess,
+pointing to FIRST's own Q&A. Only the latest ingested document per
+`(season, source)` is searched — FIRST republishes the manual with every
+Team Update, and citing an amended rule alongside its own superseded
+predecessor would leave a student unsure which to trust.
+
+Each passage is one rule, one numbered section, or one Q&A entry, not a
+sliding window over the text: both sources are built on their own numbering
+(`G420 *Do not tip or entangle.`, `10.6.4 Violation Details`, `Q44 Blue
+robot over their gate...`), and a fixed-size window cut across them would
+leave a citation unable to say which one it was quoting — a Q&A answer also
+references rules mid-sentence ("this would violate G410"), so it is chunked
+by its own `Q<n>` numbering rather than the manual's rule chunker, which
+would otherwise read every such reference as a new rule starting. A citation
+carries its own `reference` (`G420`, `10.6.4`, `Q44`, or empty for front
+matter) alongside its text.
+
+The first `ingest_document` or `POST /api/rules/ask/` on a fresh install
+downloads the embedding model once (1.1GB, cached under
+`backend/.cache/fastembed`, inside the existing `backend/` bind mount in
+`compose.yml` so a `down` and `up` does not re-download it) — the only
+network access this module ever makes; every call after that is local.
+
+There is no vector database behind this: a manual is a few thousand
+passages, and ranking them against a question is a NumPy dot product, cheap
+enough to redo on every question (measured on the real manual: ~10-20ms per
+question, past the model's one-time load, ~1.5s). There *is* a real
+embedding model — `intfloat/multilingual-e5-base` run through `fastembed`
+(ONNX Runtime, not `sentence-transformers`/PyTorch — measured identical to
+the third decimal place on the same 100 questions, for about a third the
+per-question latency and without torch's own ~550MB of installed weight;
+the one trade-off is ingestion, roughly twice as slow, since ONNX's CPU
+provider favours short sequences over the long batches ingestion needs),
+278M parameters, CPU-only, downloaded once and cached locally, nothing sent
+anywhere at question time. An earlier version hashed a bag-of-words and
+ranked it with Okapi BM25, which worked only when a question quoted the
+manual's own English vocabulary — a member asking in French, the club's own
+language, about a manual FIRST never publishes in French, shared no token
+with the passage that answered them. A real embedding closes that gap:
+"Est-ce que le robot peut toucher un autre robot pendant l'autonome ?"
+retrieves the manual's English contact rules directly, nothing in common
+between the two but what they mean. Calibrated on the real manual, chunked
+by rule rather than by word window (364 passages, TU02), against 90 real
+questions spanning every section and 10 off-topic controls: every off-topic
+question fell below the threshold that still answered 89 of the 90 real
+ones. The margin is thin, not a comfortable gap — the weakest real question
+and the strongest off-topic one both score 0.808, tied to the thousandth —
+so read 89/90 as what held on this one question set, not a guarantee a
+different set of off-topic phrasings would preserve, and rerun the scan
+after any change to chunking: the same question set scored this boundary at
+0.805/0.806 against the previous, PDF-chunked manual, so re-chunking alone
+moved it even though the threshold value (0.81) did not change. A bigger
+corpus of nonsense phrasings would likely still find something that slips
+through; closing that gap for good would need a classifier trained on real
+off-topic traffic, which does not exist yet.
+
+The embedding model itself is not pinned to a revision: `nixiesearch/multilingual-e5-base-onnx`
+is a third-party ONNX export, and neither `fastembed`'s `ModelSource` nor the
+download call it makes underneath accepts a revision to pin — a fresh
+install always resolves to whatever that repository is at install time. If
+it changes or disappears, ingestion either fails outright or silently
+answers from a different model than the one `MIN_SCORE` above was
+calibrated on.
+
 ## Checking
 
 ```sh
