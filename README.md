@@ -223,7 +223,7 @@ The frontend uses these four routes from `/`, `/signup` and `/login`:
 | route | answers |
 | --- | --- |
 | `POST /api/auth/signup/` | `201` with `email` and `display_name` |
-| `POST /api/auth/login/` | `200` with the identity below; the same account is suspended after 5 wrong passwords running, told apart from a wrong password once it is |
+| `POST /api/auth/login/` | `200` with the identity below; the same account is locked for 15 minutes after 5 wrong passwords running, told apart from a wrong password while it is |
 | `POST /api/auth/logout/` | `204` |
 | `GET /api/auth/me/` | `200` with the identity, or `403` |
 | `PUT /api/auth/me/avatar/` | `200` with the identity — one's own photo, as `multipart/form-data` field `avatar` |
@@ -302,7 +302,7 @@ where, and this is its surface. No page yet.
 | --- | --- |
 | `GET /api/users/` | `200` with every account, active or not — or, with `search`, the team screen's typeahead (below) |
 | `GET /api/users/{id}/` | `200` with one account |
-| `PATCH /api/users/{id}/` | `200` — any of `club_role`, `is_club_admin`, `is_active`; lifting a suspension this way also clears its failed-login count |
+| `PATCH /api/users/{id}/` | `200` — any of `club_role`, `is_club_admin`, `is_active` |
 | `DELETE /api/users/{id}/` | `204` — anonymizes, the same as leaving |
 
 Every route needs `is_club_admin`; anyone else gets a `403`. An admin cannot

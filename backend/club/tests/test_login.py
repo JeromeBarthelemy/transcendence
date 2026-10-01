@@ -1,5 +1,8 @@
+from datetime import timedelta
+
 from django.contrib.auth import authenticate
 from django.test import Client
+from django.utils import timezone
 
 from club.models import User
 
@@ -108,10 +111,10 @@ def test_the_refusal_does_not_say_which_of_the_two_was_wrong(client):
     assert unknown["non_field_errors"][0]["code"] == "bad_credentials"
 
 
-# --- suspension after repeated failures ---
+# --- lockout after repeated failures ---
 
 
-def test_five_wrong_passwords_running_suspend_the_account(client):
+def test_five_wrong_passwords_running_lock_the_account(client):
     ada = User.objects.create_user("ada@club.fr", "Ada", password=PASSWORD)
 
     for _ in range(4):
@@ -119,20 +122,23 @@ def test_five_wrong_passwords_running_suspend_the_account(client):
         assert response.status_code == 400
         assert response.json()["non_field_errors"][0]["code"] == "bad_credentials"
     ada.refresh_from_db()
-    assert ada.is_active
+    assert not ada.is_locked
 
     response = login(client, "Ada", "pas-le-bon")
 
     assert response.status_code == 400
-    assert response.json()["non_field_errors"][0]["code"] == "account_suspended"
+    assert response.json()["non_field_errors"][0]["code"] == "account_locked"
     ada.refresh_from_db()
-    assert not ada.is_active
+    assert ada.is_locked
+    # Still a member in good standing — a lock is not a suspension, and
+    # nothing here needs an admin to lift it.
+    assert ada.is_active
 
 
-def test_a_suspended_account_is_told_apart_from_a_wrong_password(client):
-    # The locked-out member needs to know to stop guessing and find an
-    # admin — unlike an unknown identifier or a wrong password on an
-    # account that is not (yet) suspended, which stay indistinguishable.
+def test_a_locked_account_is_told_apart_from_a_wrong_password(client):
+    # The member locked out needs to know to stop guessing and wait —
+    # unlike an unknown identifier or a wrong password on an account that
+    # is not (yet) locked, which stay indistinguishable.
     User.objects.create_user("ada@club.fr", "Ada", password=PASSWORD)
     for _ in range(5):
         login(client, "Ada", "pas-le-bon")
@@ -140,10 +146,36 @@ def test_a_suspended_account_is_told_apart_from_a_wrong_password(client):
     response = login(client, "Ada")
 
     assert response.status_code == 400
-    assert response.json()["non_field_errors"][0]["code"] == "account_suspended"
+    assert response.json()["non_field_errors"][0]["code"] == "account_locked"
 
 
-def test_a_mistyped_password_does_not_suspend_the_account(client):
+def test_the_right_password_does_not_lift_the_lock_early(client):
+    # A lock refuses even the right password while it runs — otherwise
+    # whoever is guessing learns they found it the moment it stops working.
+    ada = User.objects.create_user("ada@club.fr", "Ada", password=PASSWORD)
+    for _ in range(5):
+        login(client, "Ada", "pas-le-bon")
+    ada.refresh_from_db()
+    assert ada.is_locked
+
+    response = login(client, "Ada")
+
+    assert response.status_code == 400
+    assert response.json()["non_field_errors"][0]["code"] == "account_locked"
+
+
+def test_the_lock_lifts_itself_once_it_expires(client):
+    ada = User.objects.create_user("ada@club.fr", "Ada", password=PASSWORD)
+    for _ in range(5):
+        login(client, "Ada", "pas-le-bon")
+    ada.refresh_from_db()
+    ada.locked_until = timezone.now() - timedelta(seconds=1)
+    ada.save(update_fields=["locked_until"])
+
+    assert login(client, "Ada").status_code == 200
+
+
+def test_a_mistyped_password_does_not_lock_the_account(client):
     ada = User.objects.create_user("ada@club.fr", "Ada", password=PASSWORD)
 
     assert login(client, "Ada", "pas-le-bon").status_code == 400
@@ -151,11 +183,11 @@ def test_a_mistyped_password_does_not_suspend_the_account(client):
 
     assert login(client, "Ada").status_code == 200
     ada.refresh_from_db()
-    assert ada.is_active
+    assert not ada.is_locked
     assert ada.failed_login_attempts == 0
 
 
-def test_suspension_is_per_identifier_not_global(client):
+def test_the_lock_is_per_identifier_not_global(client):
     User.objects.create_user("ada@club.fr", "Ada", password=PASSWORD)
     User.objects.create_user("tom@club.fr", "Tom", password=PASSWORD)
 
@@ -163,6 +195,53 @@ def test_suspension_is_per_identifier_not_global(client):
         login(client, "Ada", "pas-le-bon")
 
     assert login(client, "Tom").status_code == 200
+
+
+def test_a_suspended_members_wrong_password_does_not_lock_their_account(client):
+    # is_active is a separate, older state an admin alone controls — a lock
+    # must never form under it, or lifting the suspension later would also
+    # have to know to clear a lock it never meant to set (#60 review).
+    ada = User.objects.create_user("ada@club.fr", "Ada", password=PASSWORD)
+    ada.is_active = False
+    ada.save(update_fields=["is_active"])
+
+    for _ in range(5):
+        response = login(client, "Ada", "pas-le-bon")
+        assert response.json()["non_field_errors"][0]["code"] == "bad_credentials"
+
+    ada.refresh_from_db()
+    assert not ada.is_locked
+    assert ada.failed_login_attempts == 0
+
+
+def test_a_suspended_members_own_correct_password_is_still_just_refused(client):
+    # Reaches authenticate() the same way a wrong password does (ModelBackend
+    # refuses an inactive user before checking it) and must read the same —
+    # "suspended" would otherwise tell an admin-suspended account apart from
+    # every other refusal.
+    ada = User.objects.create_user("ada@club.fr", "Ada", password=PASSWORD)
+    ada.is_active = False
+    ada.save(update_fields=["is_active"])
+
+    response = login(client, "Ada")
+
+    assert response.status_code == 400
+    assert response.json()["non_field_errors"][0]["code"] == "bad_credentials"
+
+
+def test_concurrent_failures_are_not_lost(client):
+    # Two requests that each read the count before either writes must not
+    # collapse into a single increment — register_failed_login uses an
+    # atomic F() update rather than a plain `+= 1` for exactly this.
+    ada = User.objects.create_user("ada@club.fr", "Ada", password=PASSWORD)
+    first = User.objects.get(pk=ada.pk)
+    second = User.objects.get(pk=ada.pk)
+
+    first.register_failed_login()
+    second.register_failed_login()
+
+    ada.refresh_from_db()
+    assert ada.failed_login_attempts == 2
 
 
 def test_the_session_route_hands_out_the_csrf_cookie(client):

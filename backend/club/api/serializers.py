@@ -171,6 +171,17 @@ class SignUpSerializer(serializers.Serializer[User]):
         return user
 
 
+def _account_locked_error() -> serializers.ValidationError:
+    # Told apart from a wrong password on purpose: a member locked out needs
+    # to know to stop guessing and wait, not be left thinking they keep
+    # mistyping it.
+    return serializers.ValidationError(
+        "Compte temporairement verrouillé après plusieurs tentatives "
+        "infructueuses. Réessayez dans quelques minutes.",
+        code="account_locked",
+    )
+
+
 class LoginSerializer(serializers.Serializer[dict[str, Any]]):
     """One field for both identifiers, because the account does not care
     which of the two reached it — `authenticate` tries the address, then the
@@ -180,37 +191,33 @@ class LoginSerializer(serializers.Serializer[dict[str, Any]]):
     password = serializers.CharField(write_only=True, style={"input_type": "password"})
 
     def validate(self, attrs: dict[str, Any]) -> dict[str, Any]:
+        # Same two identifiers authenticate() itself tries — resolved here
+        # too, ahead of it: a lock must refuse even the right password
+        # without hashing it, and a failed attempt must be counted against
+        # the right row, which a plain None from authenticate() would not
+        # carry. `is_active` first: an admin suspension is a separate, older
+        # state a stale lock must never get credit (or blame) for.
+        username = attrs["username"].strip()
+        account = User.objects.filter(
+            Q(email=username.lower()) | Q(display_name_folded=username.casefold())
+        ).first()
+        if account is not None and account.is_active and account.is_locked:
+            raise _account_locked_error()
+
         user = authenticate(
             self.context.get("request"),
             username=attrs["username"],
             password=attrs["password"],
         )
         if user is None:
-            # Same two identifiers authenticate() itself tries — found here
-            # again only because a failed attempt must be counted against the
-            # right row, which a plain None does not carry. A suspended
-            # account's own correct password also lands here (ModelBackend
-            # refuses an inactive user before checking it) and is covered by
-            # the same check below: register_failed_login() no-ops once
-            # already suspended, so `is_active` still reads false either way.
-            username = attrs["username"].strip()
-            account = User.objects.filter(
-                Q(email=username.lower()) | Q(display_name_folded=username.casefold())
-            ).first()
-            if account is not None:
+            # Only an active account's own wrong password counts: an
+            # already-suspended one reaches here too (ModelBackend refuses
+            # an inactive user before checking it), but that is a decision
+            # an admin already made, not a guess to start counting against.
+            if account is not None and account.is_active:
                 account.register_failed_login()
-                if not account.is_active:
-                    # Told apart from a wrong password on purpose, once this
-                    # is a real, now-suspended account: the member locked out
-                    # needs to know to stop guessing and go find an admin,
-                    # not be left thinking they mistyped it forever.
-                    raise serializers.ValidationError(
-                        "Compte suspendu après plusieurs tentatives "
-                        "infructueuses. Contactez un administrateur pour le "
-                        "débloquer et réinitialiser votre mot de passe si "
-                        "besoin.",
-                        code="account_suspended",
-                    )
+                if account.is_locked:
+                    raise _account_locked_error()
             # One message for both failures: naming the unknown identifier
             # would turn the login form into a roster of the club.
             raise serializers.ValidationError(
@@ -541,16 +548,9 @@ class UserRoleSerializer(serializers.Serializer[User]):
         return attrs
 
     def update(self, instance: User, validated_data: dict[str, Any]) -> User:
-        update_fields = list(validated_data)
-        # Lifting a suspension this way is the fresh start it is meant to be:
-        # left alone, one more mistyped password would suspend the account
-        # again almost immediately.
-        if validated_data.get("is_active") and instance.failed_login_attempts:
-            validated_data["failed_login_attempts"] = 0
-            update_fields.append("failed_login_attempts")
         for field, value in validated_data.items():
             setattr(instance, field, value)
-        instance.save(update_fields=update_fields)
+        instance.save(update_fields=list(validated_data))
         return instance
 
 

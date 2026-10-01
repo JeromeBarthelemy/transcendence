@@ -265,25 +265,6 @@ def test_a_club_admin_reactivates_a_suspended_member(client):
     assert lina.is_active is True
 
 
-def test_reactivating_a_member_clears_their_failed_login_attempts(client):
-    # Left in place, the old count would suspend Lina again after a single
-    # mistyped password — reactivating is meant to be a fresh start (#60).
-    client.force_login(admin())
-    lina = student("lina@club.fr", "Lina")
-    lina.is_active = False
-    lina.failed_login_attempts = 5
-    lina.save(update_fields=["is_active", "failed_login_attempts"])
-
-    client.patch(
-        f"/api/users/{lina.id}/",
-        {"is_active": True},
-        content_type="application/json",
-    )
-
-    lina.refresh_from_db()
-    assert lina.failed_login_attempts == 0
-
-
 def test_a_form_encoded_patch_does_not_reset_the_fields_it_does_not_touch(client):
     # Without partial=True, DRF reads an absent boolean as False once the
     # body is form-encoded rather than JSON — found reviewing #88:
