@@ -115,19 +115,32 @@ def test_five_wrong_passwords_running_suspend_the_account(client):
     ada = User.objects.create_user("ada@club.fr", "Ada", password=PASSWORD)
 
     for _ in range(4):
-        assert login(client, "Ada", "pas-le-bon").status_code == 400
+        response = login(client, "Ada", "pas-le-bon")
+        assert response.status_code == 400
+        assert response.json()["non_field_errors"][0]["code"] == "bad_credentials"
     ada.refresh_from_db()
     assert ada.is_active
 
     response = login(client, "Ada", "pas-le-bon")
 
     assert response.status_code == 400
+    assert response.json()["non_field_errors"][0]["code"] == "account_suspended"
     ada.refresh_from_db()
     assert not ada.is_active
-    # Suspended refuses even the right password now, the same "bad
-    # credentials" way — a suspension is not announced any more than an
-    # unknown identifier is.
-    assert login(client, "Ada").json() == response.json()
+
+
+def test_a_suspended_account_is_told_apart_from_a_wrong_password(client):
+    # The locked-out member needs to know to stop guessing and find an
+    # admin — unlike an unknown identifier or a wrong password on an
+    # account that is not (yet) suspended, which stay indistinguishable.
+    User.objects.create_user("ada@club.fr", "Ada", password=PASSWORD)
+    for _ in range(5):
+        login(client, "Ada", "pas-le-bon")
+
+    response = login(client, "Ada")
+
+    assert response.status_code == 400
+    assert response.json()["non_field_errors"][0]["code"] == "account_suspended"
 
 
 def test_a_mistyped_password_does_not_suspend_the_account(client):

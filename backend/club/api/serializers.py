@@ -190,14 +190,27 @@ class LoginSerializer(serializers.Serializer[dict[str, Any]]):
             # again only because a failed attempt must be counted against the
             # right row, which a plain None does not carry. A suspended
             # account's own correct password also lands here (ModelBackend
-            # refuses an inactive user before checking it), and that is fine:
-            # register_failed_login() no-ops once already suspended.
+            # refuses an inactive user before checking it) and is covered by
+            # the same check below: register_failed_login() no-ops once
+            # already suspended, so `is_active` still reads false either way.
             username = attrs["username"].strip()
             account = User.objects.filter(
                 Q(email=username.lower()) | Q(display_name_folded=username.casefold())
             ).first()
             if account is not None:
                 account.register_failed_login()
+                if not account.is_active:
+                    # Told apart from a wrong password on purpose, once this
+                    # is a real, now-suspended account: the member locked out
+                    # needs to know to stop guessing and go find an admin,
+                    # not be left thinking they mistyped it forever.
+                    raise serializers.ValidationError(
+                        "Compte suspendu après plusieurs tentatives "
+                        "infructueuses. Contactez un administrateur pour le "
+                        "débloquer et réinitialiser votre mot de passe si "
+                        "besoin.",
+                        code="account_suspended",
+                    )
             # One message for both failures: naming the unknown identifier
             # would turn the login form into a roster of the club.
             raise serializers.ValidationError(
