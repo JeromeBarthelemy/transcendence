@@ -7,7 +7,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("club", "0023_user_login_lockout"),
+        ("club", "0024_french_constraint_messages"),
     ]
 
     operations = [
