@@ -293,16 +293,16 @@
     "avatarSize": "Ce fichier n'a pas été envoyé : la photo dépasse 10 Mo."
   },
   "fieldbot": {
-    "title": "Pose une question sur le règlement du club",
-    "label": "Ta question sur le règlement",
-    "placeholder": "Par exemple : combien de temps dure la période autonome ?",
-    "hint": "Entrée pour envoyer, Maj + Entrée pour aller à la ligne.",
+    "title": "Des questions sur le règlement du club ?",
+    "label": "Votre question sur le règlement",
+    "placeholder": "How long is AUTO?",
+    "hint": "Posez votre question en anglais, avec les termes du manuel en majuscules (HIVE, AUTO…).",
     "send": "Envoyer la question",
     "counter": "{{count}} / {{max}}",
     "conversation": "Conversation avec Fieldbot",
     "botName": "Fieldbot",
     "thinking": "Fieldbot cherche dans le règlement…",
-    "citationsIntro": "Voici les passages qui répondent à ta question, le manuel de jeu d'abord, puis le Q&A officiel :",
+    "citationsIntro": "Voici les passages qui répondent à votre question :",
     "citations": "Passages cités",
     "sources": {
       "game_manual": "Manuel de jeu",

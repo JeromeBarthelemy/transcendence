@@ -27,7 +27,7 @@ const identity = {
   team_seasons: [],
 };
 
-const TITLE = "Pose une question sur le règlement du club";
+const TITLE = "Des questions sur le règlement du club ?";
 
 function stubApi(ask: (init?: RequestInit) => Response | Promise<Response>) {
   const fetchMock = vi.fn(async (path: string, init?: RequestInit) => {
@@ -79,7 +79,7 @@ it("opens from the header and sends the question with Enter", async () => {
   const heading = await screen.findByRole("heading", { name: TITLE });
   expect(heading.className).not.toContain("sr-only");
 
-  const box = screen.getByLabelText("Ta question sur le règlement");
+  const box = screen.getByLabelText("Votre question sur le règlement");
   await user.type(box, "Peut-on toucher{Shift>}{Enter}{/Shift}le robot ?");
   // Shift+Enter breaks the line rather than sending.
   expect(
@@ -160,7 +160,7 @@ it("shows the server's own sentence when nothing could be cited", async () => {
 
   renderAt("/fieldbot");
   await user.type(
-    await screen.findByLabelText("Ta question sur le règlement"),
+    await screen.findByLabelText("Votre question sur le règlement"),
     "Quelle heure ?",
   );
   await user.click(screen.getByRole("button", { name: "Envoyer la question" }));
@@ -181,7 +181,7 @@ it("shows a refusal by its code in Fieldbot's reply", async () => {
 
   renderAt("/fieldbot");
   await user.type(
-    await screen.findByLabelText("Ta question sur le règlement"),
+    await screen.findByLabelText("Votre question sur le règlement"),
     "Une question{Enter}",
   );
 
@@ -197,7 +197,7 @@ it("does not send a question made of blanks", async () => {
 
   renderAt("/fieldbot");
   await user.type(
-    await screen.findByLabelText("Ta question sur le règlement"),
+    await screen.findByLabelText("Votre question sur le règlement"),
     "   {Enter}",
   );
 
@@ -218,7 +218,7 @@ it("scrolls to the bottom of the page, under the question box, on each reply", a
 
   renderAt("/fieldbot");
   await user.type(
-    await screen.findByLabelText("Ta question sur le règlement"),
+    await screen.findByLabelText("Votre question sur le règlement"),
     "Quelle heure ?",
   );
   await user.click(screen.getByRole("button", { name: "Envoyer la question" }));

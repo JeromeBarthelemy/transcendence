@@ -195,7 +195,6 @@ function Conversation({ identity }: { identity: Identity }) {
     >
       <div className="flex flex-col items-center">
         <Sphere size="lg" thinking={ask.isPending} />
-        <span aria-hidden="true" className="fieldbot-shadow" />
       </div>
       {/* Hidden rather than removed once the conversation starts: the page
           keeps its heading for whoever navigates by them. */}
