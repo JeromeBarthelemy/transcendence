@@ -244,6 +244,12 @@ class User(AbstractBaseUser, PermissionsMixin):
             self.save(update_fields=["failed_login_attempts", "locked_until"])
 
     @property
+    def is_anonymized(self) -> bool:
+        """Read off the reserved name (`not_an_anonymized_name`): no one else
+        can carry it."""
+        return fold_title(self.display_name).startswith(fold_title(ANONYMIZED_NAME))
+
+    @property
     def is_mentor(self) -> bool:
         return self.club_role == self.ClubRole.MENTOR
 

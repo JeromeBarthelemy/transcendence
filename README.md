@@ -122,6 +122,43 @@ cookies. The Django admin remains available at <http://localhost:8000/admin/>.
 This Compose stack is for development and proves the frontend/backend
 integration — `runserver`, Vite's dev server, `DEBUG=true`, no certificate.
 
+#### From a phone on the same Wi-Fi
+
+For a supervised trial in the club's room, before the HTTPS stack: a phone
+opens Vite on the laptop's address. The pages load as they are; logging in is
+a `POST`, which Django refuses from an origin it doesn't know.
+
+```sh
+hostname -I    # the laptop's address on the Wi-Fi: the first one
+```
+
+Add `http://<address>:5173` to `DJANGO_DEV_ORIGINS` in `backend/.env`,
+recreate the backend, then open `http://<address>:5173` on the phone:
+
+```sh
+docker compose up -d --force-recreate backend
+```
+
+- **`restart` is not enough**: Compose reads `env_file` only when it creates
+  the container.
+- **The Django admin isn't reachable from a phone**: it listens on port 8000,
+  outside Vite's proxy. Use it from the laptop.
+- **`permission denied` on the Docker socket right after installing
+  Docker**: Ubuntu keeps the session's old groups — reboot, logging out isn't
+  always enough.
+- **Nothing answers**: the laptop's firewall (`sudo ufw status`), or a Wi-Fi
+  that isolates its devices from each other, common on guest and school
+  networks — then share a phone's connection and use the laptop's address on
+  it.
+- **After `requirements.txt` or `package.json` changed**: `--build`, and for
+  the frontend also `docker volume rm transcendence_frontend_node_modules`,
+  which otherwise keeps the old dependencies over the new image's.
+
+Development mode shows Django's error pages to whoever triggers them, and
+every device on the network reaches ports 5173 and 8000: stop the stack
+(`docker compose stop`) once the trial is over. For the club's real use, the
+HTTPS stack below serves phones too.
+
 ### Production stack over HTTPS
 
 ```sh
@@ -359,7 +396,10 @@ would not protect.
 
 The admin CRUD `docs/modules.md` §4 asks for, on top of the model it already
 settles: `User.club_role` and `Membership` are enough to derive who may act
-where, and this is its surface. No page yet.
+where, and this is its surface. The screen is `/users`, offered to club admins
+only: the members, filtered by name or address (case and accents ignored),
+status and role; each one's page changes their role, admin flag and
+suspension, or deletes the account after a confirmation.
 
 | route | answers |
 | --- | --- |
@@ -395,7 +435,11 @@ service). Deletion is final: the name, address, birth date and AssoConnect
 id are erased, the password made unusable, and — an admin anonymized this
 way is not exempt — `is_club_admin` cleared, since a password nobody can
 use makes the flag meaningless but still able to mislead
-`not_the_last_admin`. What a member wrote stays in the team's notebook,
+`not_the_last_admin`. An account anonymized this way — or any other — is
+final: the list flags it `is_anonymized`, read off its reserved name, and
+`PATCH` and `DELETE` refuse it with `account_anonymized` (`409`), since
+reactivating it or making it an admin would only add a phantom that
+`not_the_last_admin` would count. What a member wrote stays in the team's notebook,
 attributed (`club/models.py`, `User`) — a literal row delete would either
 orphan it or be refused outright by the `PROTECT` relationships that hold
 it. The confirmation e-mail goes out the same way it does for a
@@ -763,6 +807,7 @@ from the usual ones the team doesn't have yet
 (`frontend/src/pages/suggestions.ts`) — picking one opens it on its side — or
 from any other name; a name the team already has points to that work item
 instead. A mentor can switch between the team seasons exposed by their
-identity. A club admin also reaches the team management screen: create,
+identity. A club admin also reaches the team management screen — create,
 rename and delete the season's teams, and add members by typing their name or
-remove them.
+remove them — and the members screen, to change a member's role, admin flag
+or suspension, or delete their account.
