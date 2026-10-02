@@ -360,6 +360,7 @@
     "season_not_found": "Cette saison n'existe pas.",
     "team_has_history": "Cette équipe a un historique de plusieurs saisons : elle ne peut pas être supprimée.",
     "team_has_members": "Cette équipe a encore des membres affectés : retirez-les avant de la supprimer.",
+    "team_has_work": "Cette équipe a déjà des chantiers ou des traces : elle fait partie de l'histoire du club et ne peut pas être supprimée.",
     "membership_exists": "Ce membre est déjà affecté à cette équipe.",
     "does_not_exist": "Ce membre n'existe pas.",
     "not_found": "Cet élément n'existe plus. Rechargez la page.",
