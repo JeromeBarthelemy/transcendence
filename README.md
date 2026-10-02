@@ -757,7 +757,11 @@ requests — stays English.
 
 The frontend contains the public landing, sign-up and log-in screens. Once
 signed in, the home screen lists the selected team's robot and off-robot work
-items, with pending handovers highlighted. A mentor can switch between the
-team seasons exposed by their identity. A club admin also reaches the team
-management screen: create, rename and delete the season's teams, and add
-members by typing their name or remove them.
+items, with pending handovers highlighted. Opening a new work item starts
+from the usual ones the team doesn't have yet
+(`frontend/src/pages/suggestions.ts`) — picking one opens it on its side — or
+from any other name; a name the team already has points to that work item
+instead. A mentor can switch between the team seasons exposed by their
+identity. A club admin also reaches the team management screen: create,
+rename and delete the season's teams, and add members by typing their name or
+remove them.

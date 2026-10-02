@@ -82,10 +82,15 @@
     }
   },
   "openWorkItem": {
-    "action": "Ouvrir un chantier",
-    "title": "Ouvrir un chantier",
+    "action": "Ouvrir un nouveau chantier",
+    "title": "Ouvrir un nouveau chantier",
+    "choice": "Chantier",
+    "choose": "Choisir…",
+    "other": "Autre chantier…",
     "name": "Nom",
-    "namePlaceholder": "Shooter, dossier de sponsoring, tournoi à domicile…",
+    "namePlaceholder": "Banc de test, démonstration au collège…",
+    "taken": "Ce chantier existe déjà dans l'équipe.",
+    "goTo": "Aller au chantier {{title}}",
     "place": "Où se fait-il ?",
     "robot": "Sur le robot",
     "offRobot": "Hors robot",

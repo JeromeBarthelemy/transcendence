@@ -534,8 +534,8 @@ export function TeamHomePage({ identity }: { identity: Identity }) {
           <OpenWorkItemPanel
             key={selectedTeamSeason.id}
             teamSeasonId={selectedTeamSeason.id}
-          />
-          <div className="mt-6 flex justify-end">
+            workItems={workItems.data}
+          >
             <label className="text-sm font-semibold text-[#041894]">
               {t("teamHome.filterByStatus")}
               <select
@@ -553,7 +553,7 @@ export function TeamHomePage({ identity }: { identity: Identity }) {
                 ))}
               </select>
             </label>
-          </div>
+          </OpenWorkItemPanel>
 
           <div className="mt-8 space-y-10">
             <WorkItemSection
