@@ -1,6 +1,6 @@
 import { z } from "zod/mini";
 
-import { csrfToken, get, patch, post, toApiError } from "./client";
+import { csrfToken, del, get, patch, post, toApiError } from "./client";
 
 export const workItemSteps = [
   "brainstorming",
@@ -147,6 +147,11 @@ export async function closeWorkItem(
     throw new Error("The work item response is invalid");
   }
   return result.data;
+}
+
+/** Only a work item with no trace: the server refuses any other. */
+export async function deleteWorkItem(id: number): Promise<void> {
+  await del(`/api/work-items/${id}/`);
 }
 
 export async function updateProgress(

@@ -352,6 +352,45 @@ def test_a_student_cannot_change_another_teams_work_item(client):
     assert intake.status == WorkItem.Status.OPEN
 
 
+# --- deleting a work item opened by mistake ---
+
+
+def test_a_work_item_with_no_trace_can_be_deleted(client):
+    rouages = team_season()
+    intake = WorkItem.objects.create(team_season=rouages, title="intake", on_robot=True)
+    client.force_login(member_of(rouages))
+
+    response = client.delete(detail(intake))
+
+    assert response.status_code == 204
+    assert not WorkItem.objects.filter(pk=intake.pk).exists()
+
+
+def test_a_work_item_with_a_trace_is_dropped_not_deleted(client):
+    # Even an empty progress says someone was there that day.
+    rouages = team_season()
+    lina = member_of(rouages)
+    intake = WorkItem.objects.create(team_season=rouages, title="intake", on_robot=True)
+    record_progress(intake, lina, "")
+    client.force_login(lina)
+
+    response = client.delete(detail(intake))
+
+    assert response.status_code == 409
+    assert response.json()["detail"]["code"] == "work_item_has_traces"
+    assert WorkItem.objects.filter(pk=intake.pk).exists()
+
+
+def test_a_student_cannot_delete_another_teams_work_item(client):
+    intake = WorkItem.objects.create(team_season=team_season(12345), title="intake")
+    client.force_login(member_of(team_season(67890)))
+
+    response = client.delete(detail(intake))
+
+    assert response.status_code == 403
+    assert WorkItem.objects.filter(pk=intake.pk).exists()
+
+
 # --- ticking a work item ---
 
 

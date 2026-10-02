@@ -573,6 +573,21 @@ class WorkItemDetailView(APIView):
         serializer.is_valid(raise_exception=True)
         return Response(_work_item(serializer.save()))
 
+    def delete(self, request: Request, pk: int) -> Response:
+        """Only a work item opened by mistake: one with any trace is dropped
+        instead, and `Entry.work_item` being PROTECT makes the database the
+        judge, even for a progress ticked in the same instant."""
+        assert isinstance(request.user, User)
+        item = _work_item_acted_on(request.user, pk)
+        try:
+            item.delete()
+        except ProtectedError:
+            raise Conflict(
+                "Ce chantier a déjà des traces : abandonnez-le plutôt.",
+                code="work_item_has_traces",
+            ) from None
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
 
 class TickView(APIView):
     """Ticking a work item is signing up to today's progress on it, which the

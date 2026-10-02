@@ -469,6 +469,7 @@ anyone else gets a `403` with the code `not_a_member`.
 | `POST /api/team-seasons/{id}/work-items/` | open one |
 | `GET /api/work-items/{id}/` | one work item and its thread, newest first |
 | `PATCH /api/work-items/{id}/` | close it, `done` or `dropped`; working on it again reopens it |
+| `DELETE /api/work-items/{id}/` | delete one opened by mistake: refused with `work_item_has_traces` (`409`) once it has any trace, even an empty progress — drop it instead |
 | `POST /api/work-items/{id}/tick/` | sign up to today's progress, created by the first to tick |
 | `PATCH /api/entries/{id}/` | write a progress — sentence, step, handover — for its participants and mentors |
 | `POST /api/entries/{id}/attachments/` | attach a file to any of the team's entries, as `multipart/form-data` fields `file` and `people_recognisable`, the latter always answered: left out, it is `required`, never read as no |

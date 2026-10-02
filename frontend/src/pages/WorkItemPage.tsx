@@ -1,12 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { type FormEvent, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Link, Navigate, useParams } from "react-router-dom";
+import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
 
 import type { Identity } from "../api/auth";
 import {
   closeWorkItem,
   createWorkItemNote,
+  deleteWorkItem,
   getWorkItem,
   tickWorkItem,
   updateProgress,
@@ -561,6 +562,18 @@ function WorkItemScreen({
       await invalidateWorkItem();
     },
   });
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
+  const remove = useMutation({
+    mutationFn: () => deleteWorkItem(item.id),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: ["team-seasons", item.team_season, "work-items"],
+      });
+      navigate("/");
+    },
+  });
 
   return (
     <main className="mx-auto w-full max-w-6xl flex-1 px-5 py-10 sm:px-8 sm:py-14">
@@ -589,6 +602,15 @@ function WorkItemScreen({
           </p>
         </div>
         <div className="flex items-center gap-3 self-start sm:self-auto">
+          {item.thread.length === 0 && (
+            <button
+              type="button"
+              className="rounded-full border border-red-800/25 px-3 py-1 text-sm font-semibold text-red-800 hover:bg-red-50"
+              onClick={() => setIsConfirmingDelete(true)}
+            >
+              {t("workItem.delete")}
+            </button>
+          )}
           {item.status === "open" && (
             <>
               <button
@@ -620,6 +642,30 @@ function WorkItemScreen({
       </header>
 
       {close.isError && <RequestError error={close.error} />}
+      {isConfirmingDelete && (
+        <div className="mt-6 rounded-2xl border border-red-800/20 bg-red-50 p-5">
+          <p className="text-sm text-red-900">{t("workItem.deleteConfirm")}</p>
+          <div className="mt-4 flex gap-3">
+            <button
+              type="button"
+              className="rounded-xl border border-[#004fc5]/20 bg-white px-4 py-2 text-sm font-semibold text-[#041894] disabled:opacity-50"
+              disabled={remove.isPending}
+              onClick={() => setIsConfirmingDelete(false)}
+            >
+              {t("workItem.cancel")}
+            </button>
+            <button
+              type="button"
+              className="rounded-xl bg-red-800 px-4 py-2 text-sm font-semibold text-white hover:bg-red-900 disabled:opacity-50"
+              disabled={remove.isPending}
+              onClick={() => remove.mutate()}
+            >
+              {t("workItem.confirmDelete")}
+            </button>
+          </div>
+          {remove.isError && <RequestError error={remove.error} />}
+        </div>
+      )}
 
       {item.handover && (
         <section className="mt-8 border-l-4 border-[#d59600] bg-[#fff7dc] p-5 text-[#634c12]">

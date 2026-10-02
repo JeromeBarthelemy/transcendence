@@ -103,6 +103,10 @@
     "invalid": "Ce chantier n'existe pas.",
     "openedOn": "Ouvert le {{date}}",
     "drop": "Abandonner",
+    "delete": "Supprimer ce chantier",
+    "deleteConfirm": "Le chantier disparaît, son nom pourra être rouvert.",
+    "cancel": "Annuler",
+    "confirmDelete": "Supprimer",
     "finish": "Terminer",
     "closing": "Mise à jour…",
     "progressCount_one": "{{count}} avancée",
@@ -321,6 +325,7 @@
     "avatar_not_an_image": "Ce fichier n'est pas une image.",
     "avatar_format_refused": "Formats acceptés : JPEG, PNG, WebP ou HEIC.",
     "work_item_title_taken": "Ce chantier existe déjà dans l'équipe.",
+    "work_item_has_traces": "Ce chantier a déjà des traces : abandonnez-le plutôt.",
     "network": "Impossible de joindre le serveur. Réessayez dans un instant.",
     "unknown": "Une erreur inattendue est survenue."
   }
