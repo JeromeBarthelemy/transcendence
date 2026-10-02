@@ -88,16 +88,6 @@ def test_a_progress_belongs_to_its_work_items_team():
     assert entry.team_season == intake.team_season
 
 
-def test_a_first_progress_opens_a_suggested_work_item():
-    intake = work_item(status=WorkItem.Status.SUGGESTED)
-
-    record_progress(intake, student(), "On s'y met.")
-
-    intake.refresh_from_db()
-    assert intake.status == WorkItem.Status.OPEN
-    assert intake.opened_at is not None
-
-
 @pytest.mark.parametrize("status", [WorkItem.Status.DONE, WorkItem.Status.DROPPED])
 def test_a_progress_reopens_a_closed_work_item(status):
     # A work item thought finished is reopened by working on it again.

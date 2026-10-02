@@ -637,3 +637,76 @@ it("uploads a file with its image-right answer", async () => {
     (FakeXMLHttpRequest.last?.sent?.get("file") as File | null)?.name,
   ).toBe("photo.png");
 });
+
+// --- deleting a work item opened by mistake ---
+
+function untouched() {
+  return workItem({
+    current_step: null,
+    handover: null,
+    last_progress: null,
+    current_progress: null,
+    current_user_participates: false,
+    thread: [],
+  });
+}
+
+it("deletes a work item opened by mistake, after a confirmation", async () => {
+  setDocumentCookie("csrftoken=test; path=/");
+  const fetchMock = vi.fn(
+    async (path: string, options?: RequestInit): Promise<Response> => {
+      if (path === "/api/auth/me/") {
+        return json(identity());
+      }
+      if (path === "/api/work-items/10/" && options?.method === "DELETE") {
+        return new Response(null, { status: 204 });
+      }
+      if (path === "/api/work-items/10/") {
+        return json(untouched());
+      }
+      return json([]);
+    },
+  );
+  vi.stubGlobal("fetch", fetchMock);
+  const router = createMemoryRouter(routes, {
+    initialEntries: ["/work-items/10"],
+  });
+  render(
+    <QueryClientProvider client={new QueryClient()}>
+      <RouterProvider router={router} />
+    </QueryClientProvider>,
+  );
+
+  await userEvent.click(
+    await screen.findByRole("button", { name: "Supprimer ce chantier" }),
+  );
+  expect(
+    screen.getByText("Le chantier disparaît, son nom pourra être rouvert."),
+  ).toBeTruthy();
+  await userEvent.click(screen.getByRole("button", { name: "Supprimer" }));
+
+  await waitFor(() => expect(router.state.location.pathname).toBe("/"));
+  expect(
+    fetchMock.mock.calls.some(
+      ([path, options]) =>
+        path === "/api/work-items/10/" && options?.method === "DELETE",
+    ),
+  ).toBe(true);
+});
+
+it("offers no deletion once the work item has a trace", async () => {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (path: string) =>
+      path === "/api/auth/me/" ? json(identity()) : json(workItem()),
+    ),
+  );
+  renderWorkItem();
+
+  expect(
+    await screen.findByRole("heading", { name: "Intake", level: 1 }),
+  ).toBeTruthy();
+  expect(
+    screen.queryByRole("button", { name: "Supprimer ce chantier" }),
+  ).toBeNull();
+});

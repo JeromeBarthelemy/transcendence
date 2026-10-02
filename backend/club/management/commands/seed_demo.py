@@ -59,7 +59,6 @@ ROBOT = {
     "Châssis": [Step.BUILDING, Step.INTEGRATION, Step.TUNING, Step.TUNING],
 }
 OFF_ROBOT = "Dossier de sponsoring"
-SUGGESTED = "Vision"
 DROPPED = "Châssis"
 
 SAID = {
@@ -167,24 +166,11 @@ class Demo:
     ) -> None:
         items = {
             title: WorkItem.objects.create(
-                team_season=team_season,
-                title=title,
-                on_robot=True,
-                status=WorkItem.Status.SUGGESTED,
+                team_season=team_season, title=title, on_robot=True
             )
             for title in ROBOT
         }
-        sponsoring = WorkItem.objects.create(
-            team_season=team_season,
-            title=OFF_ROBOT,
-            status=WorkItem.Status.SUGGESTED,
-        )
-        WorkItem.objects.create(
-            team_season=team_season,
-            title=SUGGESTED,
-            on_robot=True,
-            status=WorkItem.Status.SUGGESTED,
-        )
+        sponsoring = WorkItem.objects.create(team_season=team_season, title=OFF_ROBOT)
         titles = list(ROBOT)
         done = {title: 0 for title in ROBOT}
         active = 0

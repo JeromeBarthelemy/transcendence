@@ -64,3 +64,11 @@ def test_a_team_season_that_carries_work_items_cannot_be_deleted():
 
     with pytest.raises(ProtectedError):
         rouages.delete()
+
+
+def test_a_work_item_is_open_from_the_moment_it_is_created():
+    # Opening a work item is starting on it: nothing waits in between.
+    intake = WorkItem.objects.create(team_season=team_season(), title="intake")
+
+    assert intake.status == WorkItem.Status.OPEN
+    assert intake.opened_at is not None

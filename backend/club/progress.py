@@ -33,16 +33,12 @@ def record_progress(
     if work_item.on_robot:
         step = step or work_item.current_step or Entry.Step.BRAINSTORMING
 
-    # Working on a work item opens it, or reopens one thought finished. The
-    # status is tested by the database, not read then written, so two students
-    # opening it at the same moment cannot race.
-    same = WorkItem.objects.filter(pk=work_item.pk)
-    same.filter(status=WorkItem.Status.SUGGESTED).update(
-        status=WorkItem.Status.OPEN, opened_at=timezone.now()
-    )
-    same.filter(status__in=[WorkItem.Status.DONE, WorkItem.Status.DROPPED]).update(
-        status=WorkItem.Status.OPEN, closed_at=None
-    )
+    # Working on a work item thought finished reopens it. The status is tested
+    # by the database, not read then written, so two students reopening it at
+    # the same moment cannot race.
+    WorkItem.objects.filter(
+        pk=work_item.pk, status__in=[WorkItem.Status.DONE, WorkItem.Status.DROPPED]
+    ).update(status=WorkItem.Status.OPEN, closed_at=None)
 
     entry = Entry.objects.create(
         # Taken from the work item, so a progress cannot land in another team.

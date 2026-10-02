@@ -304,9 +304,9 @@ python backend/manage.py createsuperuser   # afterwards, for the Django admin
 It creates the current season (BioBuzz) with its Wednesday and Friday
 workshop slots, four fictional teams of three students, a mentor (Claire) and
 a club admin (Paul), and four weeks of work: work items at their steps, one
-back in prototyping after its test zero, one done, one only suggested,
-progress with handovers, notes, and slot days on which nothing moved. Dates
-are relative to the day it runs, so the recent days are always filled. One
+back in prototyping after its test zero, one done, progress with handovers,
+notes, and slot days on which nothing moved. Dates are relative to the day it
+runs, so the recent days are always filled. One
 student has refused image rights and one is not yet matched with AssoConnect,
 since a real club has both.
 
@@ -510,9 +510,10 @@ anyone else gets a `403` with the code `not_a_member`.
 | route | does |
 | --- | --- |
 | `GET /api/team-seasons/{id}/work-items/` | the team's work items, each with when it was opened, its current step, last progress and handover; progress dates include their 4 a.m.–4 a.m. workday |
-| `POST /api/team-seasons/{id}/work-items/` | open one — or list it for September with `"suggested": true` |
+| `POST /api/team-seasons/{id}/work-items/` | open one |
 | `GET /api/work-items/{id}/` | one work item and its thread, newest first |
 | `PATCH /api/work-items/{id}/` | close it, `done` or `dropped`; working on it again reopens it |
+| `DELETE /api/work-items/{id}/` | delete one opened by mistake: refused with `work_item_has_traces` (`409`) once it has any trace, even an empty progress — drop it instead |
 | `POST /api/work-items/{id}/tick/` | sign up to today's progress, created by the first to tick |
 | `PATCH /api/entries/{id}/` | write a progress — sentence, step, handover — for its participants and mentors |
 | `POST /api/entries/{id}/attachments/` | attach a file to any of the team's entries, as `multipart/form-data` fields `file` and `people_recognisable`, the latter always answered: left out, it is `required`, never read as no |
@@ -801,8 +802,12 @@ requests — stays English.
 
 The frontend contains the public landing, sign-up and log-in screens. Once
 signed in, the home screen lists the selected team's robot and off-robot work
-items, with pending handovers highlighted. A mentor can switch between the
-team seasons exposed by their identity. A club admin also reaches the team
-management screen — create, rename and delete the season's teams, and add
-members by typing their name or remove them — and the members screen, to
-change a member's role, admin flag or suspension, or delete their account.
+items, with pending handovers highlighted. Opening a new work item starts
+from the usual ones the team doesn't have yet
+(`frontend/src/pages/suggestions.ts`) — picking one opens it on its side — or
+from any other name; a name the team already has points to that work item
+instead. A mentor can switch between the team seasons exposed by their
+identity. A club admin also reaches the team management screen — create,
+rename and delete the season's teams, and add members by typing their name or
+remove them — and the members screen, to change a member's role, admin flag
+or suspension, or delete their account.

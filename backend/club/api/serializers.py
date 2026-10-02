@@ -336,12 +336,10 @@ class AddMembershipSerializer(serializers.Serializer[Membership]):
 
 
 class OpenWorkItemSerializer(serializers.Serializer[WorkItem]):
-    """Opening a work item is starting on it; a work item listed in September
-    is only suggested, and opened by its first progress."""
+    """Opening a work item is starting on it."""
 
     title = serializers.CharField(max_length=120)
     on_robot = serializers.BooleanField(default=False)
-    suggested = serializers.BooleanField(default=False, write_only=True)
 
     def validate_title(self, value: str) -> str:
         # Checked here so a duplicate is a coded 400; a race that reaches the
@@ -356,15 +354,10 @@ class OpenWorkItemSerializer(serializers.Serializer[WorkItem]):
         return value
 
     def create(self, validated_data: dict[str, Any]) -> WorkItem:
-        suggested = validated_data.pop("suggested")
-        status = WorkItem.Status.SUGGESTED if suggested else WorkItem.Status.OPEN
         try:
             with transaction.atomic():
                 return WorkItem.objects.create(
-                    team_season=self.context["team_season"],
-                    status=status,
-                    opened_at=None if suggested else timezone.now(),
-                    **validated_data,
+                    team_season=self.context["team_season"], **validated_data
                 )
         except IntegrityError:
             recheck({"title": lambda: self.validate_title(validated_data["title"])})
