@@ -120,8 +120,70 @@ proxies `/api` to Django, so the browser keeps one origin for session and CSRF
 cookies. The Django admin remains available at <http://localhost:8000/admin/>.
 
 This Compose stack is for development and proves the frontend/backend
-integration. The final deployment will build static frontend assets and put
-both them and Django behind the same HTTPS reverse proxy.
+integration — `runserver`, Vite's dev server, `DEBUG=true`, no certificate.
+
+### Production stack over HTTPS
+
+```sh
+cp backend/.env.example backend/.env
+# Fill in DJANGO_SECRET_KEY, set DJANGO_DEBUG=false, and read FIELDNOTES_HOST
+# below if the club needs this from a phone, not just the machine itself.
+docker compose -f compose.prod.yml up --build
+```
+
+Open <https://localhost/>. The browser warns once per device — the
+certificate is a static, self-signed one `cert-init` generates the first time
+the stack starts (10 years, kept in the `tls_certs` volume so later restarts
+reuse it rather than minting a new one the browser has never seen) for
+`FIELDNOTES_HOST`, which defaults to `localhost`. `http://` redirects to
+`https://`.
+
+**From a phone on the club's Wi-Fi**, not just the machine running the stack:
+set `FIELDNOTES_HOST` in `backend/.env` to that machine's address on the
+network (for example `192.168.0.119`, the address the in-room trial on 30
+September used), and add the same address to `DJANGO_ALLOWED_HOSTS` and as
+`https://<address>` to `DJANGO_CSRF_TRUSTED_ORIGINS` in the same file —
+`cert-init` signs the certificate for whichever address `FIELDNOTES_HOST`
+names, and the Caddyfile's `default_sni` hands it out even to a browser that
+sends none, which is what every browser does for a bare IP (RFC 6066
+excludes IP literals from the SNI extension). Changing the address after the
+first run requires removing the `tls_certs` volume
+(`docker volume rm transcendence_tls_certs`) so a new certificate gets
+generated for the new one — `cert-init` runs from the backend's own image,
+already local by then, so this needs no connection even if the room has
+none, which is exactly when the club is most likely to be setting this for
+the first time on the day.
+
+Three containers: `cert-init` runs once and exits; `backend` runs the
+migrations, `collectstatic`, then Daphne (ASGI — ready for Channels, ahead of
+needing it) instead of `runserver`; `proxy` bakes the frontend's production
+build into a Caddy image (`deploy/Dockerfile`) that terminates TLS, serves
+`/static/` from what `collectstatic` wrote, and reverse-proxies `/api/` and
+`/admin/` to `backend` — same origin as the frontend, so no CORS, same as
+development. Named volumes keep the SQLite database, media and the RAG's
+embedding model cache across a `down` and `up`; `db.sqlite3` moves under one
+of them because this container, unlike the dev one, has no bind mount to keep
+it on the host instead.
+
+#### Backups
+
+The database and media live in named volumes, not on the host, so copying
+`backend/db.sqlite3` the way a non-Docker install would no longer reaches
+them. Stop `backend` first: the database runs in WAL mode (`settings.py`),
+so a recent commit can still sit in `db.sqlite3-wal` rather than
+`db.sqlite3` itself while a connection is open, and closing the last one
+checkpoints it back in. Pull both out together, then start `backend` again:
+
+```sh
+docker compose -f compose.prod.yml stop backend
+mkdir -p "backup-$(date +%Y%m%d)"
+docker compose -f compose.prod.yml cp backend:/app/data/db.sqlite3 "backup-$(date +%Y%m%d)/db.sqlite3"
+docker compose -f compose.prod.yml cp backend:/app/media "backup-$(date +%Y%m%d)/media"
+docker compose -f compose.prod.yml start backend
+```
+
+No scheduler runs this — the club runs it by hand, as often as the data is
+worth not losing.
 
 ### Backend without containers
 
@@ -186,9 +248,10 @@ with the email and password given to `createsuperuser`.
 - The site root returns 404: no product route exists there yet.
 - `GET /api/health/` returns `{"status": "ok"}` and accepts only GET requests.
 
-HTTPS, which the subject requires on every connection to the backend, will
-be handled by the final deployment's reverse proxy — not by Django's or
-Vite's development servers, nor by this development Compose stack.
+HTTPS, which the subject requires on every connection to the backend, is
+handled by the production stack's reverse proxy ("Production stack over
+HTTPS" above) — not by Django's or Vite's development servers, nor by this
+development Compose stack.
 
 ### Demo data
 
@@ -689,6 +752,8 @@ requests — stays English.
 - `frontend/src/locales/` — the French user-interface catalogue.
 - `frontend/src/styles.css` — Tailwind entry point and global styles.
 - `compose.yml` — the complete development stack in one command.
+- `compose.prod.yml`, `deploy/` — the HTTPS production stack: Caddy
+  (`deploy/Dockerfile`, `deploy/Caddyfile`) in front of Django on Daphne.
 
 The frontend contains the public landing, sign-up and log-in screens. Once
 signed in, the home screen lists the selected team's robot and off-robot work
