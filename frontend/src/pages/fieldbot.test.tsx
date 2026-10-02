@@ -232,3 +232,45 @@ it("scrolls to the bottom of the page, under the question box, on each reply", a
     behavior: "smooth",
   });
 });
+
+it("takes one question at a time, keeping the next one until the answer is in", async () => {
+  const user = userEvent.setup();
+  let reply: (response: Response) => void = () => {};
+  const fetchMock = stubApi(
+    () =>
+      new Promise((resolve) => {
+        reply = resolve;
+      }),
+  );
+  const asked = () =>
+    fetchMock.mock.calls.filter(([path]) => path === "/api/rules/ask/");
+
+  renderAt("/fieldbot");
+  const box = await screen.findByLabelText("Votre question sur le règlement");
+  await user.type(box, "How long is AUTO?{Enter}");
+  expect(asked()).toHaveLength(1);
+
+  // The first answer is still pending: a second question can be written,
+  // but neither the button nor Enter sends it.
+  await user.type(box, "And TELEOP?");
+  const send = screen.getByRole("button", { name: "Envoyer la question" });
+  expect(send).toHaveProperty("disabled", true);
+  await user.keyboard("{Enter}");
+  expect(asked()).toHaveLength(1);
+  expect((box as HTMLTextAreaElement).value).toBe("And TELEOP?");
+
+  reply(
+    json(
+      { question: "How long is AUTO?", answer: "30 s.", citations: [] },
+      201,
+    ),
+  );
+  await screen.findByText("30 s.");
+
+  expect(send).toHaveProperty("disabled", false);
+  await user.keyboard("{Enter}");
+  expect(asked()).toHaveLength(2);
+  expect(JSON.parse(String(asked()[1][1]?.body))).toEqual({
+    question: "And TELEOP?",
+  });
+});
