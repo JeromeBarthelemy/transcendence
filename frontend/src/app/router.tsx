@@ -8,6 +8,12 @@ export const routes: RouteObject[] = [
     children: [
       { path: "/", element: <HomePage /> },
       {
+        path: "*",
+        lazy: async () => ({
+          Component: (await import("../pages/NotFoundPage")).NotFoundPage,
+        }),
+      },
+      {
         path: "/work-items/:workItemId",
         lazy: async () => ({
           Component: (await import("../pages/WorkItemPage")).WorkItemPage,
