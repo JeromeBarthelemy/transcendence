@@ -7,7 +7,7 @@
   "nav": {
     "main": "Navigation principale",
     "teams": "Équipes",
-    "users": "Membres"
+    "users": "Membres",
     "profile": "Mon profil ({{name}})"
   },
   "home": {
