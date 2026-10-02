@@ -168,11 +168,11 @@
   <text class="col" x="42" y="892">title_folded</text>
   <text class="col" x="42" y="911">on_robot</text>
   <text class="col" x="42" y="930">status</text>
-  <text class="col" x="42" y="949">opened_at</text>       <text class="ann" x="170" y="949">nullable</text>
+  <text class="col" x="42" y="949">opened_at</text>
   <text class="col" x="42" y="968">closed_at</text>       <text class="ann" x="170" y="968">nullable</text>
   <text class="ann" x="42" y="987">UNIQUE (team_season_id, title_folded)</text>
   <text class="cap" x="30" y="1019">le chantier ; au robot, titre = sous-système</text>
-  <text class="cap" x="30" y="1035">status : suggested · open · done · dropped</text>
+  <text class="cap" x="30" y="1035">status : open · done · dropped</text>
   <text class="cap" x="30" y="1051">l'étape courante se lit sur la dernière avancée</text>
 
   <!-- ============================= Entry ============================ -->

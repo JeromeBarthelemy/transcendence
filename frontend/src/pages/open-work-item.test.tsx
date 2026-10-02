@@ -32,7 +32,7 @@ function workItem(id: number, title: string, onRobot: boolean, status: string) {
     title,
     on_robot: onRobot,
     status,
-    opened_at: status === "suggested" ? null : new Date().toISOString(),
+    opened_at: new Date().toISOString(),
     current_step: null,
     handover: null,
     last_progress: null,

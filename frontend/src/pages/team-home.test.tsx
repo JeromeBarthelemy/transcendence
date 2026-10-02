@@ -1,5 +1,11 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import {
+  cleanup,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { createMemoryRouter, RouterProvider } from "react-router-dom";
 import { afterEach, expect, it, vi } from "vitest";
@@ -236,8 +242,8 @@ it("loads another team's work items when the selection changes", async () => {
 });
 
 it("shows every work item and filters them by status", async () => {
-  const statuses = ["suggested", "open", "done", "dropped"] as const;
-  const items = Array.from({ length: 8 }, (_, index) => {
+  const statuses = ["open", "done", "dropped"] as const;
+  const items = Array.from({ length: 6 }, (_, index) => {
     const occurredAt = new Date();
     occurredAt.setDate(occurredAt.getDate() - index);
     return workItem({
@@ -248,7 +254,7 @@ it("shows every work item and filters them by status", async () => {
       current_step: "building",
       handover: null,
       last_progress:
-        index === 0 || index === 7
+        index === 0 || index === 5
           ? null
           : {
               occurred_at: occurredAt.toISOString(),
@@ -273,22 +279,27 @@ it("shows every work item and filters them by status", async () => {
   renderHome();
 
   expect(await screen.findByText("Chantier 1")).toBeTruthy();
-  expect(screen.getByText("Chantier 2")).toBeTruthy();
-  expect(screen.queryByText("Chantier 3")).toBeNull();
-  expect(screen.queryByText("Chantier 8")).toBeNull();
+  expect(screen.getByText("Chantier 4")).toBeTruthy();
+  expect(screen.queryByText("Chantier 2")).toBeNull();
+  expect(screen.queryByText("Chantier 6")).toBeNull();
   expect(screen.getByText("Pas encore commencé.")).toBeTruthy();
 
   const statusFilter = screen.getByLabelText("Filtrer par statut");
-  expect((statusFilter as HTMLSelectElement).value).toBe("active");
+  expect((statusFilter as HTMLSelectElement).value).toBe("open");
+  expect(
+    within(statusFilter)
+      .getAllByRole("option")
+      .map((option) => (option as HTMLOptionElement).value),
+  ).toEqual(["all", "open", "done", "dropped"]);
   await userEvent.selectOptions(statusFilter, "all");
 
-  expect(screen.getByText("Chantier 8")).toBeTruthy();
+  expect(screen.getByText("Chantier 6")).toBeTruthy();
   await userEvent.selectOptions(statusFilter, "done");
 
-  expect(screen.getByText("Chantier 3")).toBeTruthy();
-  expect(screen.getByText("Chantier 7")).toBeTruthy();
+  expect(screen.getByText("Chantier 2")).toBeTruthy();
+  expect(screen.getByText("Chantier 5")).toBeTruthy();
   expect(screen.queryByText("Chantier 1")).toBeNull();
-  expect(screen.queryByText("Chantier 8")).toBeNull();
+  expect(screen.queryByText("Chantier 6")).toBeNull();
 });
 
 it("summarizes today and saves a team note", async () => {

@@ -448,8 +448,6 @@ class WorkItem(models.Model):
     the robot needs no separate subsystem list."""
 
     class Status(models.TextChoices):
-        # Listed in September, not started: the pre-season list is this table.
-        SUGGESTED = "suggested", "suggéré"
         OPEN = "open", "ouvert"
         DONE = "done", "terminé"
         DROPPED = "dropped", "abandonné"
@@ -467,7 +465,7 @@ class WorkItem(models.Model):
     status = models.CharField(
         "statut", max_length=10, choices=Status.choices, default=Status.OPEN
     )
-    opened_at = models.DateTimeField("ouvert le", null=True, blank=True)
+    opened_at = models.DateTimeField("ouvert le", default=timezone.now)
     closed_at = models.DateTimeField("fermé le", null=True, blank=True)
 
     class Meta:

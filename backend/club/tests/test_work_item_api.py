@@ -112,9 +112,7 @@ def test_a_member_lists_the_work_items_of_their_team(client):
 
 def test_a_work_item_nobody_worked_on_has_no_last_progress(client):
     rouages = team_season()
-    WorkItem.objects.create(
-        team_season=rouages, title="lanceur", status=WorkItem.Status.SUGGESTED
-    )
+    WorkItem.objects.create(team_season=rouages, title="lanceur")
     client.force_login(member_of(rouages))
 
     [item] = client.get(url(rouages)).json()
@@ -140,15 +138,17 @@ def test_a_member_opens_a_work_item(client):
     assert intake.opened_at is not None
 
 
-def test_a_work_item_listed_in_september_is_suggested_not_opened(client):
+def test_a_work_item_cannot_be_listed_without_being_opened(client):
+    # Suggestions live in the screen, not in the database: opening a work item
+    # is starting on it, whatever else the request carries.
     rouages = team_season()
     client.force_login(member_of(rouages))
 
     client.post(url(rouages), {"title": "lanceur", "on_robot": True, "suggested": True})
 
     lanceur = WorkItem.objects.get(team_season=rouages, title="lanceur")
-    assert lanceur.status == WorkItem.Status.SUGGESTED
-    assert lanceur.opened_at is None
+    assert lanceur.status == WorkItem.Status.OPEN
+    assert lanceur.opened_at is not None
 
 
 def test_a_taken_title_is_refused_with_a_code(client):
@@ -741,16 +741,11 @@ def test_a_work_item_says_when_it_was_opened(client):
     rouages = team_season()
     client.force_login(member_of(rouages))
     client.post(url(rouages), {"title": "intake", "on_robot": True})
-    client.post(url(rouages), {"title": "lanceur", "on_robot": True, "suggested": True})
 
-    listed = {item["title"]: item for item in client.get(url(rouages)).json()}
+    [listed] = client.get(url(rouages)).json()
 
     intake = WorkItem.objects.get(team_season=rouages, title="intake")
-    assert intake.opened_at is not None
-    assert listed["intake"]["opened_at"] == intake.opened_at.isoformat().replace(
-        "+00:00", "Z"
-    )
-    assert listed["lanceur"]["opened_at"] is None
+    assert listed["opened_at"] == intake.opened_at.isoformat().replace("+00:00", "Z")
 
 
 def test_a_day_points_to_the_last_and_next_days_the_team_left_a_trace(client):

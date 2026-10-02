@@ -602,7 +602,7 @@ hors séquence   réparation</pre></div>
   <h3>Ce qu'on remarque en travaillant</h3>
   <p>En réparant l'intake on voit que le câblage du bras est à refaire. C'est le genre d'observation qui se perd en dix minutes, et qu'aucune passation ne rattrape puisqu'elle ne concerne pas le chantier ouvert. Le bouton <b>remarque</b> répond déjà au besoin, à ceci près qu'il lui faut une portée de plus : cette équipe, ou <b>un autre chantier</b>. Adressée à un chantier, la remarque s'affiche à celui qui l'ouvrira la prochaine fois, à côté de ce qu'il y a à faire.</p>
   <p>Elle n'est pas une tâche pour autant, et il faut s'y tenir : ni assignée, ni datée, ni prioritaire. Elle existe jusqu'à ce que quelqu'un en fasse quelque chose ou la trouve caduque — le kanban a été écarté une fois, il n'a pas à revenir par la porte de service.</p>
-  <p>Reste le cas de septembre, où l'on ne remarque pas, on projette : le jeu est annoncé, l'équipe liste ce qu'il faudra construire. Ce sont des chantiers qui n'ont pas commencé, et <code>status</code> les accueille avec une valeur de plus — <em>suggéré</em>, avant <em>ouvert</em>. La liste de rentrée n'est donc pas un objet nouveau mais la même liste de chantiers, filtrée sur ceux que personne n'a encore ouverts ; ouvrir un chantier, c'est s'y mettre. Un projet qui n'a jamais été ouvert de toute la saison se voit, et raconte quelque chose lui aussi.</p>
+  <p>Reste le cas de septembre, où l'on ne remarque pas, on projette : le jeu est annoncé, l'équipe liste ce qu'il faudra construire. Une équipe doit alors trier une liste, pas la taper : l'accueil propose les chantiers qu'elle aura presque à coup sûr — châssis, intake, autonome… dossier de sponsoring, outreach —, moins ceux qu'elle a déjà. Une suggestion n'est pas un chantier en attente : un clic l'ouvre, et ouvrir un chantier, c'est s'y mettre. Rien n'est donc stocké pour ce qui n'a pas commencé, et <code>status</code> n'a pas de valeur pour le dire.</p>
 
   <h3>Le travail avance aussi hors séance</h3>
   <p>Un programmeur code chez lui le mardi soir, un mentor prépare un dossier le dimanche. Ce travail n'appartient à aucun créneau et n'a pas à en inventer un : une trace du mardi soir tombe dans la journée du mardi, qu'aucun créneau n'attendait, et reste une trace ordinaire, datée, qui entre dans le cahier comme les autres. Rien n'a à être saisi pour autant.</p>
@@ -992,9 +992,8 @@ Forums (CD, Reddit)  <i>&rarr; opinion, sans valeur réglementaire : hors corpus
                 <i>title unique dans l'équipe-saison, sans égard à la casse,</i>
                 <i>aux accents ni aux espaces : un sous-système, un chantier</i>
                 <i>l'avancement affiché → l'étape de la dernière avancée, jamais stocké</i>
-                <i>status ∈ {suggested, open, done, dropped}</i>
-                <i>suggested → projeté en septembre, pas encore commencé ;</i>
-                <i>            sa première avancée l'ouvre</i>
+                <i>status ∈ {open, done, dropped}</i>
+                <i>opened_at → le moment où on l'ouvre, jamais vide</i>
                 <i>ni assigné, ni échéance — le tableau n'est qu'une vue de ceci</i>
 <b>EntryParticipant</b> entry_id, user_id
                 <i>qui a fait avancer ce chantier ce jour-là</i>

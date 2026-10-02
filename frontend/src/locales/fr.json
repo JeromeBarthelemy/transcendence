@@ -47,7 +47,6 @@
     "workItemCount_one": "{{count}} chantier",
     "workItemCount_other": "{{count}} chantiers",
     "filterByStatus": "Filtrer par statut",
-    "activeStatuses": "Actifs",
     "allStatuses": "Tous les statuts",
     "noWorkItems": "Aucun chantier correspondant dans cette catégorie.",
     "notStarted": "Pas encore commencé.",
@@ -67,7 +66,6 @@
     "noTeamTitle": "Vous n'avez pas encore d'équipe.",
     "noTeamDescription": "Un mentor vous affectera à une équipe. Ses chantiers apparaîtront ensuite ici.",
     "statuses": {
-      "suggested": "Suggéré",
       "open": "Ouvert",
       "done": "Terminé",
       "dropped": "Abandonné"
@@ -99,7 +97,6 @@
     "loading": "Chargement du chantier…",
     "invalid": "Ce chantier n'existe pas.",
     "openedOn": "Ouvert le {{date}}",
-    "notOpened": "Chantier suggéré, pas encore ouvert",
     "drop": "Abandonner",
     "finish": "Terminer",
     "closing": "Mise à jour…",

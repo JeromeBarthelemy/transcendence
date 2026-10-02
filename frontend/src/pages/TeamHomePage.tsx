@@ -16,13 +16,8 @@ import { RequestError } from "../components/ApiErrors";
 import { AvatarStack } from "../components/Avatar";
 import { OpenWorkItemPanel } from "./OpenWorkItemPanel";
 
-type StatusFilter = "active" | "all" | WorkItem["status"];
-const WORK_ITEM_STATUSES: WorkItem["status"][] = [
-  "suggested",
-  "open",
-  "done",
-  "dropped",
-];
+type StatusFilter = "all" | WorkItem["status"];
+const WORK_ITEM_STATUSES: WorkItem["status"][] = ["open", "done", "dropped"];
 
 const dateFormatter = new Intl.DateTimeFormat("fr-FR", {
   dateStyle: "long",
@@ -437,7 +432,7 @@ function teamLabel(teamSeason: TeamSeasonSummary) {
 export function TeamHomePage({ identity }: { identity: Identity }) {
   const { t } = useTranslation();
   const [selectedId, setSelectedId] = useState<number | null>(null);
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>("active");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("open");
   const selectedTeamSeason =
     identity.team_seasons.find((item) => item.id === selectedId) ??
     identity.team_seasons[0];
@@ -476,11 +471,7 @@ export function TeamHomePage({ identity }: { identity: Identity }) {
   }
 
   const visibleItems = (workItems.data ?? []).filter(
-    (item) =>
-      statusFilter === "all" ||
-      (statusFilter === "active" &&
-        ["suggested", "open"].includes(item.status)) ||
-      item.status === statusFilter,
+    (item) => statusFilter === "all" || item.status === statusFilter,
   );
   const robotItems = visibleItems.filter((item) => item.on_robot);
   const offRobotItems = visibleItems.filter((item) => !item.on_robot);
@@ -554,7 +545,6 @@ export function TeamHomePage({ identity }: { identity: Identity }) {
                   setStatusFilter(event.target.value as StatusFilter)
                 }
               >
-                <option value="active">{t("teamHome.activeStatuses")}</option>
                 <option value="all">{t("teamHome.allStatuses")}</option>
                 {WORK_ITEM_STATUSES.map((status) => (
                   <option key={status} value={status}>

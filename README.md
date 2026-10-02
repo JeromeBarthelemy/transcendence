@@ -267,9 +267,9 @@ python backend/manage.py createsuperuser   # afterwards, for the Django admin
 It creates the current season (BioBuzz) with its Wednesday and Friday
 workshop slots, four fictional teams of three students, a mentor (Claire) and
 a club admin (Paul), and four weeks of work: work items at their steps, one
-back in prototyping after its test zero, one done, one only suggested,
-progress with handovers, notes, and slot days on which nothing moved. Dates
-are relative to the day it runs, so the recent days are always filled. One
+back in prototyping after its test zero, one done, progress with handovers,
+notes, and slot days on which nothing moved. Dates are relative to the day it
+runs, so the recent days are always filled. One
 student has refused image rights and one is not yet matched with AssoConnect,
 since a real club has both.
 
@@ -466,7 +466,7 @@ anyone else gets a `403` with the code `not_a_member`.
 | route | does |
 | --- | --- |
 | `GET /api/team-seasons/{id}/work-items/` | the team's work items, each with when it was opened, its current step, last progress and handover; progress dates include their 4 a.m.–4 a.m. workday |
-| `POST /api/team-seasons/{id}/work-items/` | open one — or list it for September with `"suggested": true` |
+| `POST /api/team-seasons/{id}/work-items/` | open one |
 | `GET /api/work-items/{id}/` | one work item and its thread, newest first |
 | `PATCH /api/work-items/{id}/` | close it, `done` or `dropped`; working on it again reopens it |
 | `POST /api/work-items/{id}/tick/` | sign up to today's progress, created by the first to tick |

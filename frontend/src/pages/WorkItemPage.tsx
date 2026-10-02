@@ -581,11 +581,9 @@ function WorkItemScreen({
             {item.title}
           </h1>
           <p className="mt-3 text-sm text-[#506784]">
-            {item.opened_at
-              ? t("workItem.openedOn", {
-                  date: dateFormatter.format(new Date(item.opened_at)),
-                })
-              : t("workItem.notOpened")}
+            {t("workItem.openedOn", {
+              date: dateFormatter.format(new Date(item.opened_at)),
+            })}
             <span aria-hidden="true"> · </span>
             {t("workItem.progressCount", { count: progressCount })}
           </p>
