@@ -122,6 +122,43 @@ cookies. The Django admin remains available at <http://localhost:8000/admin/>.
 This Compose stack is for development and proves the frontend/backend
 integration — `runserver`, Vite's dev server, `DEBUG=true`, no certificate.
 
+#### From a phone on the same Wi-Fi
+
+For a supervised trial in the club's room, before the HTTPS stack: a phone
+opens Vite on the laptop's address. The pages load as they are; logging in is
+a `POST`, which Django refuses from an origin it doesn't know.
+
+```sh
+hostname -I    # the laptop's address on the Wi-Fi: the first one
+```
+
+Add `http://<address>:5173` to `DJANGO_DEV_ORIGINS` in `backend/.env`,
+recreate the backend, then open `http://<address>:5173` on the phone:
+
+```sh
+docker compose up -d --force-recreate backend
+```
+
+- **`restart` is not enough**: Compose reads `env_file` only when it creates
+  the container.
+- **The Django admin isn't reachable from a phone**: it listens on port 8000,
+  outside Vite's proxy. Use it from the laptop.
+- **`permission denied` on the Docker socket right after installing
+  Docker**: Ubuntu keeps the session's old groups — reboot, logging out isn't
+  always enough.
+- **Nothing answers**: the laptop's firewall (`sudo ufw status`), or a Wi-Fi
+  that isolates its devices from each other, common on guest and school
+  networks — then share a phone's connection and use the laptop's address on
+  it.
+- **After `requirements.txt` or `package.json` changed**: `--build`, and for
+  the frontend also `docker volume rm transcendence_frontend_node_modules`,
+  which otherwise keeps the old dependencies over the new image's.
+
+Development mode shows Django's error pages to whoever triggers them, and
+every device on the network reaches ports 5173 and 8000: stop the stack
+(`docker compose stop`) once the trial is over. For the club's real use, the
+HTTPS stack below serves phones too.
+
 ### Production stack over HTTPS
 
 ```sh
