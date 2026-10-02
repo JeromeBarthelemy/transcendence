@@ -102,6 +102,21 @@ export async function getWorkItems(teamSeasonId: number): Promise<WorkItem[]> {
   return result.data;
 }
 
+export async function openWorkItem(
+  teamSeasonId: number,
+  input: { title: string; on_robot: boolean },
+): Promise<WorkItem> {
+  const { body } = await post(
+    `/api/team-seasons/${teamSeasonId}/work-items/`,
+    input,
+  );
+  const result = workItemSchema.safeParse(body);
+  if (!result.success) {
+    throw new Error("The work item response is invalid");
+  }
+  return result.data;
+}
+
 export async function getWorkItem(id: number): Promise<WorkItemDetail> {
   const { body } = await get(`/api/work-items/${id}/`);
   const result = workItemDetailSchema.safeParse(body);
