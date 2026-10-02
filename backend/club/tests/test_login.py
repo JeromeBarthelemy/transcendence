@@ -71,6 +71,13 @@ LOGOUT = "/api/auth/logout/"
 ME = "/api/auth/me/"
 
 
+def signed_in(client):
+    """Who the session belongs to — None for nobody."""
+    response = client.get(ME)
+    assert response.status_code == 200
+    return response.json()
+
+
 def login(client, username, password=PASSWORD):
     return client.post(
         LOGIN,
@@ -97,7 +104,7 @@ def test_a_wrong_password_opens_nothing(client):
     User.objects.create_user("ada@club.fr", "Ada", password=PASSWORD)
 
     assert login(client, "Ada", "pas-le-bon").status_code == 400
-    assert client.get(ME).status_code == 403
+    assert signed_in(client) is None
 
 
 def test_the_refusal_does_not_say_which_of_the_two_was_wrong(client):
@@ -250,8 +257,22 @@ def test_the_session_route_hands_out_the_csrf_cookie(client):
     # that follows would have none to send and be refused.
     response = client.get(ME)
 
-    assert response.status_code == 403
     assert "csrftoken" in response.cookies
+
+
+def test_nobody_signed_in_is_an_answer_not_an_error(client):
+    # Every page asks this on load; a 4xx would put a red line in the
+    # browser's console for every visitor, and the subject allows none.
+    response = client.get(ME)
+
+    assert response.status_code == 200
+    assert response.json() is None
+
+
+def test_a_visitor_still_cannot_delete_an_account(client):
+    response = client.delete(ME, {"password": "x"}, content_type="application/json")
+
+    assert response.status_code == 403
 
 
 def test_logging_out_closes_the_session(client):
@@ -259,7 +280,7 @@ def test_logging_out_closes_the_session(client):
     login(client, "Ada")
 
     assert client.post(LOGOUT).status_code == 204
-    assert client.get(ME).status_code == 403
+    assert signed_in(client) is None
 
 
 def test_signing_up_then_logging_in_with_the_built_address(client):

@@ -22,7 +22,7 @@ const marie = {
   password: "rouage-bleu-2026",
 };
 
-function json(body: object, status: number): Response {
+function json(body: unknown, status: number): Response {
   return new Response(JSON.stringify(body), {
     status,
     headers: { "Content-Type": "application/json" },
@@ -82,7 +82,7 @@ it("creates an account without email and recommends the display name", async () 
   const fetchMock = vi.fn(async (path: string, options?: RequestInit) => {
     if (path === "/api/auth/me/") {
       setDocumentCookie("csrftoken=first-token; path=/");
-      return json({ detail: issue("not_authenticated") }, 403);
+      return json(null, 200);
     }
     if (path === "/api/auth/signup/") {
       expect(options?.headers).toMatchObject({ "X-CSRFToken": "first-token" });
@@ -113,7 +113,7 @@ it("shows a real email as an alternative after sign-up", async () => {
   const fetchMock = vi.fn(async (path: string) => {
     if (path === "/api/auth/me/") {
       setDocumentCookie("csrftoken=first-token; path=/");
-      return json({ detail: issue("not_authenticated") }, 403);
+      return json(null, 200);
     }
     if (path === "/api/auth/signup/") {
       return json({ email: "marie@example.org", display_name: "Marie" }, 201);
@@ -141,7 +141,7 @@ it("shows a backend email refusal under the email field", async () => {
   const fetchMock = vi.fn(async (path: string) => {
     if (path === "/api/auth/me/") {
       setDocumentCookie("csrftoken=first-token; path=/");
-      return json({ detail: issue("not_authenticated") }, 403);
+      return json(null, 200);
     }
     if (path === "/api/auth/signup/") {
       return json({ email: [issue("email_taken")] }, 400);
@@ -172,7 +172,7 @@ it("explains in French that the names of former members are reserved", async () 
   const fetchMock = vi.fn(async (path: string) => {
     if (path === "/api/auth/me/") {
       setDocumentCookie("csrftoken=first-token; path=/");
-      return json({ detail: issue("not_authenticated") }, 403);
+      return json(null, 200);
     }
     if (path === "/api/auth/signup/") {
       return json({ display_name: [issue("display_name_reserved")] }, 400);
@@ -196,7 +196,7 @@ it("shows an unknown error when a refusal has no API body", async () => {
   const fetchMock = vi.fn(async (path: string) => {
     if (path === "/api/auth/me/") {
       setDocumentCookie("csrftoken=first-token; path=/");
-      return json({ detail: issue("not_authenticated") }, 403);
+      return json(null, 200);
     }
     if (path === "/api/auth/signup/") {
       return new Response("<h1>CSRF verification failed</h1>", {
@@ -221,7 +221,7 @@ it("stops mismatched passwords before sending an account request", async () => {
   const fetchMock = vi.fn(async (path: string) => {
     if (path === "/api/auth/me/") {
       setDocumentCookie("csrftoken=first-token; path=/");
-      return json({ detail: issue("not_authenticated") }, 403);
+      return json(null, 200);
     }
     throw new Error(`Unexpected request: ${path}`);
   });
@@ -244,7 +244,7 @@ it("shows one login error for bad credentials", async () => {
   const fetchMock = vi.fn(async (path: string) => {
     if (path === "/api/auth/me/") {
       setDocumentCookie("csrftoken=first-token; path=/");
-      return json({ detail: issue("not_authenticated") }, 403);
+      return json(null, 200);
     }
     if (path === "/api/auth/login/") {
       return json({ non_field_errors: [issue("bad_credentials")] }, 400);
@@ -271,7 +271,7 @@ it("opens and closes a session using the rotated CSRF cookie", async () => {
   const fetchMock = vi.fn(async (path: string, options?: RequestInit) => {
     if (path === "/api/auth/me/") {
       setDocumentCookie("csrftoken=first-token; path=/");
-      return json({ detail: issue("not_authenticated") }, 403);
+      return json(null, 200);
     }
     if (path === "/api/auth/login/") {
       expect(options?.headers).toMatchObject({ "X-CSRFToken": "first-token" });
