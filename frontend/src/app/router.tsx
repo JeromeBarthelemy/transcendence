@@ -32,6 +32,18 @@ export const routes: RouteObject[] = [
         }),
       },
       {
+        path: "/users",
+        lazy: async () => ({
+          Component: (await import("../pages/UsersPage")).UsersPage,
+        }),
+      },
+      {
+        path: "/users/:userId",
+        lazy: async () => ({
+          Component: (await import("../pages/UsersPage")).UserDetailPage,
+        }),
+      },
+      {
         path: "/profile",
         lazy: async () => ({
           Component: (await import("../pages/ProfilePage")).ProfilePage,

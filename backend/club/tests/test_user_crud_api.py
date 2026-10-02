@@ -5,6 +5,7 @@ it already settles.
 
 from urllib.parse import urlencode
 
+from club.gdpr import anonymize
 from club.models import User
 
 
@@ -460,3 +461,49 @@ def test_a_student_cannot_delete_a_member(client):
     assert response.status_code == 403
     lina.refresh_from_db()
     assert lina.is_active is True
+
+
+# --- an anonymized account ---
+
+
+def anonymized(email="parti@club.fr", display_name="Parti"):
+    gone = student(email, display_name)
+    anonymize(gone)
+    return gone
+
+
+def test_the_list_tells_an_anonymized_account_from_a_suspended_one(client):
+    client.force_login(admin())
+    gone = anonymized()
+    suspended = student("s@club.fr", "Suspendu", is_active=False)
+
+    listed = {user["id"]: user for user in client.get("/api/users/").json()}
+
+    assert listed[gone.id]["is_anonymized"] is True
+    assert listed[suspended.id]["is_anonymized"] is False
+
+
+def test_an_anonymized_account_cannot_be_made_an_active_admin_again(client):
+    client.force_login(admin())
+    gone = anonymized()
+
+    response = client.patch(
+        f"/api/users/{gone.id}/",
+        {"club_role": "mentor", "is_club_admin": True, "is_active": True},
+        content_type="application/json",
+    )
+
+    assert response.status_code == 409
+    assert response.json()["detail"]["code"] == "account_anonymized"
+    gone.refresh_from_db()
+    assert not gone.is_active and not gone.is_club_admin
+
+
+def test_an_anonymized_account_cannot_be_deleted_twice(client):
+    client.force_login(admin())
+    gone = anonymized()
+
+    response = client.delete(f"/api/users/{gone.id}/")
+
+    assert response.status_code == 409
+    assert response.json()["detail"]["code"] == "account_anonymized"

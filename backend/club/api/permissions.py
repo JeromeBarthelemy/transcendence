@@ -10,6 +10,8 @@ from rest_framework.views import APIView
 
 from club.models import Membership, TeamSeason, User
 
+from .errors import Conflict
+
 
 class IsClubAdmin(BasePermission):
     """Creating, renaming or deleting a team is an administrative act. Self-
@@ -80,6 +82,18 @@ def not_staff_target(request: Request, target: User) -> None:
             "Ce compte a un accès superutilisateur ; seul un accès "
             "équivalent peut le modifier.",
             code="cannot_target_superuser",
+        )
+
+
+def not_anonymized(target: User) -> None:
+    """An anonymized account is gone for good (`club/gdpr.py`, `anonymize`):
+    its password is unusable, so reactivating it or making it an admin
+    would only add a phantom — one that `not_the_last_admin` would count,
+    letting the club's real last admin leave."""
+    if target.is_anonymized:
+        raise Conflict(
+            "Ce compte a été supprimé : il ne peut plus être modifié.",
+            code="account_anonymized",
         )
 
 
