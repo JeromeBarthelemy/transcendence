@@ -7,14 +7,14 @@ from django.contrib.auth import login, logout
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
 from django.db.models import ProtectedError
-from django.http import FileResponse, Http404
+from django.http import FileResponse, Http404, JsonResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_protect, ensure_csrf_cookie
 from rest_framework import status
 from rest_framework.exceptions import PermissionDenied
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAuthenticatedOrReadOnly
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -133,17 +133,18 @@ class MeView(APIView):
     """What the front end needs to know before drawing anything — and, on the
     way, the CSRF token it will need to post anything.
 
-    The decorator sits on dispatch, not on get, so the cookie is set even when
-    the answer is 403: the page calls this before anyone is signed in, and that
-    call is precisely the one that has to arm the login form."""
+    Asking who is signed in is open to anyone, and "nobody" is an answer
+    (`null`), not a refusal: every page asks it on load, and a 403 would put
+    a red line in every visitor's browser console. The cookie is set on that
+    same call, which is precisely the one that has to arm the login form.
+    Deleting one's account still requires being signed in."""
 
-    def get(self, request: Request) -> Response:
-        # This route does not declare a permission, so it inherits the
-        # project's fail-closed default and DRF has already refused an
-        # anonymous caller. The assertion states that invariant rather than
-        # casting it away: if the default ever opens, this fails loudly here
-        # instead of an AttributeError deeper down.
-        assert isinstance(request.user, User)
+    permission_classes = [IsAuthenticatedOrReadOnly]
+
+    def get(self, request: Request) -> Response | JsonResponse:
+        if not isinstance(request.user, User):
+            # DRF sends an empty body for None; the page expects JSON `null`.
+            return JsonResponse(None, safe=False)
         return Response(_identity(request.user))
 
     def delete(self, request: Request) -> Response:
@@ -576,6 +577,21 @@ class WorkItemDetailView(APIView):
         serializer = CloseWorkItemSerializer(item, data=request.data)
         serializer.is_valid(raise_exception=True)
         return Response(_work_item(serializer.save()))
+
+    def delete(self, request: Request, pk: int) -> Response:
+        """Only a work item opened by mistake: one with any trace is dropped
+        instead, and `Entry.work_item` being PROTECT makes the database the
+        judge, even for a progress ticked in the same instant."""
+        assert isinstance(request.user, User)
+        item = _work_item_acted_on(request.user, pk)
+        try:
+            item.delete()
+        except ProtectedError:
+            raise Conflict(
+                "Ce chantier a déjà des traces : abandonnez-le plutôt.",
+                code="work_item_has_traces",
+            ) from None
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class TickView(APIView):
