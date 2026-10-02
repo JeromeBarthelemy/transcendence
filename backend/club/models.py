@@ -362,7 +362,10 @@ class TeamSeason(models.Model):
         verbose_name_plural = "équipes-saisons"
         constraints = [
             models.UniqueConstraint(
-                fields=["team", "season"], name="unique_team_per_season"
+                fields=["team", "season"],
+                name="unique_team_per_season",
+                violation_error_code="team_season_exists",
+                violation_error_message="Cette équipe participe déjà à cette saison.",
             ),
         ]
 
@@ -430,6 +433,10 @@ class WorkshopSlot(models.Model):
                 condition=models.Q(valid_until__isnull=True)
                 | models.Q(valid_until__gte=models.F("valid_from")),
                 name="slot_ends_after_it_starts",
+                violation_error_code="slot_ends_before_it_starts",
+                violation_error_message=(
+                    "La date de fin ne peut pas précéder la date de début."
+                ),
             ),
         ]
 
@@ -601,7 +608,10 @@ class EntryParticipant(models.Model):
         verbose_name = "participation"
         constraints = [
             models.UniqueConstraint(
-                fields=["entry", "user"], name="unique_participant_per_entry"
+                fields=["entry", "user"],
+                name="unique_participant_per_entry",
+                violation_error_code="already_participant",
+                violation_error_message="Ce membre participe déjà à cette avancée.",
             ),
         ]
 
@@ -798,7 +808,10 @@ class Chunk(models.Model):
         verbose_name = "passage"
         constraints = [
             models.UniqueConstraint(
-                fields=["document", "ordinal"], name="unique_ordinal_per_document"
+                fields=["document", "ordinal"],
+                name="unique_ordinal_per_document",
+                violation_error_code="duplicate_chunk_ordinal",
+                violation_error_message="Ce document a déjà un passage à cette position.",
             ),
         ]
 
@@ -848,7 +861,10 @@ class QueryCitation(models.Model):
         verbose_name_plural = "citations de réponse"
         constraints = [
             models.UniqueConstraint(
-                fields=["query", "rank"], name="unique_rank_per_query"
+                fields=["query", "rank"],
+                name="unique_rank_per_query",
+                violation_error_code="duplicate_citation_rank",
+                violation_error_message="Cette question a déjà une citation à ce rang.",
             ),
         ]
 
