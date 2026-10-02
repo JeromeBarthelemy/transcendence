@@ -8,7 +8,8 @@
     "main": "Navigation principale",
     "teams": "Équipes",
     "users": "Membres",
-    "profile": "Mon profil ({{name}})"
+    "profile": "Mon profil ({{name}})",
+    "fieldbot": "Fieldbot"
   },
   "home": {
     "eyebrow": "La mémoire du club",
@@ -297,6 +298,27 @@
     "avatarType": "Ce fichier n'a pas été envoyé : choisissez une photo JPEG, PNG, WebP ou HEIC.",
     "avatarSize": "Ce fichier n'a pas été envoyé : la photo dépasse 10 Mo."
   },
+  "fieldbot": {
+    "title": "Des questions sur le règlement du club ?",
+    "label": "Votre question sur le règlement",
+    "placeholder": "How long is AUTO?",
+    "hint": "Posez votre question en anglais, avec les termes du manuel en majuscules (HIVE, AUTO…).",
+    "send": "Envoyer la question",
+    "counter": "{{count}} / {{max}}",
+    "conversation": "Conversation avec Fieldbot",
+    "botName": "Fieldbot",
+    "thinking": "Fieldbot cherche dans le règlement…",
+    "citationsIntro": "Voici les passages qui répondent à votre question :",
+    "citations": "Passages cités",
+    "sources": {
+      "game_manual": "Manuel de jeu",
+      "official_qa": "Q&A officiel"
+    },
+    "authorities": {
+      "binding": "fait foi",
+      "ruling": "décision officielle"
+    }
+  },
   "login": {
     "eyebrow": "Accès membre",
     "title": "Content de vous revoir.",
@@ -394,6 +416,7 @@
     "avatar_not_an_image": "Ce fichier n'est pas une image.",
     "avatar_format_refused": "Formats acceptés : JPEG, PNG, WebP ou HEIC.",
     "work_item_title_taken": "Ce chantier existe déjà dans l'équipe.",
+    "no_season": "Aucune saison n'est ouverte.",
     "work_item_has_traces": "Ce chantier a déjà des traces : abandonnez-le plutôt.",
     "network": "Impossible de joindre le serveur. Réessayez dans un instant.",
     "unknown": "Une erreur inattendue est survenue."

@@ -64,6 +64,12 @@ export function AppLayout() {
               </span>
             ) : currentUser.data ? (
               <>
+                <Link
+                  to="/fieldbot"
+                  className="rounded-full px-3 py-2 text-sm font-semibold text-[#041894] transition hover:bg-[#eaf5ff] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00c2d0]"
+                >
+                  {t("nav.fieldbot")}
+                </Link>
                 {currentUser.data.is_club_admin && (
                   <>
                     <Link

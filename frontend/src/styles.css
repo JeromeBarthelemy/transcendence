@@ -136,3 +136,58 @@ input {
 .form-link:hover {
   color: #041894;
 }
+
+.fieldbot-sphere {
+  flex-shrink: 0;
+  width: 10em;
+  height: 10em;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle closest-side,
+    #041894 0%,
+    #004fc5 49%,
+    #009edf 92%
+  );
+  box-shadow: 0 0 2.6em 0.3em #0078dd38;
+}
+
+.fieldbot-sphere-lg {
+  font-size: 0.8rem;
+}
+
+.fieldbot-sphere-sm {
+  font-size: 0.24rem;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .fieldbot-sphere-thinking {
+    animation: fieldbot-pulse 1.4s ease-in-out infinite;
+  }
+}
+
+@keyframes fieldbot-pulse {
+  50% {
+    transform: scale(1.12);
+    filter: brightness(1.15);
+  }
+}
+
+/* The question box: a quiet border at rest, the palette's gradient once it
+   holds the focus. */
+.fieldbot-input {
+  border: 2px solid #bfd4ef;
+  background: #fff;
+  transition:
+    border-color 150ms ease,
+    box-shadow 150ms ease;
+}
+
+.fieldbot-input:focus-within {
+  border-color: transparent;
+  background:
+    linear-gradient(#fff, #fff) padding-box,
+    linear-gradient(120deg, #041894, #0078dd, #00c2d0, #00e4bc) border-box;
+  box-shadow:
+    0 0 0 4px #009edf24,
+    0 12px 32px -14px #004fc580;
+}
