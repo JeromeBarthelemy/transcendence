@@ -94,9 +94,9 @@ export async function get(
 }
 
 export async function csrfToken(): Promise<string> {
-  // /me/ sets the cookie even for an anonymous caller (whose response is 403).
+  // /me/ sets the cookie, even for a visitor.
   if (!csrfCookie()) {
-    await get("/api/auth/me/", [403]);
+    await get("/api/auth/me/");
   }
   const token = csrfCookie();
   if (!token) {
