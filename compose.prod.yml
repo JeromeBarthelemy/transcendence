@@ -14,6 +14,11 @@ services:
   # that from its own address, in its own room, with no connection out.
   cert-init:
     image: transcendence-backend
+    # No build: of its own, so Compose would otherwise try Docker Hub
+    # first on a machine where this image doesn't exist yet — the one
+    # `backend` builds right below is the only one this name should ever
+    # resolve to.
+    pull_policy: never
     depends_on:
       - backend
     env_file: ./backend/.env
