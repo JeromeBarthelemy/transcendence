@@ -138,3 +138,45 @@ export async function patch(path: string, body: object): Promise<ApiResponse> {
 export async function del(path: string): Promise<ApiResponse> {
   return send("DELETE", path);
 }
+
+/** Sends a multipart form through XMLHttpRequest rather than fetch, which
+ * reports nothing about the upload's progress. `onProgress` receives the
+ * share already sent, between 0 and 1. */
+export async function upload(
+  method: "POST" | "PUT",
+  path: string,
+  form: FormData,
+  onProgress: (sent: number) => void,
+): Promise<ApiResponse> {
+  const token = await csrfToken();
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open(method, path);
+    xhr.setRequestHeader("Accept", "application/json");
+    xhr.setRequestHeader("X-CSRFToken", token);
+    // No Content-Type: the browser writes it, with the multipart boundary.
+    xhr.upload.addEventListener("progress", (event) => {
+      if (event.lengthComputable) {
+        onProgress(event.loaded / event.total);
+      }
+    });
+    xhr.addEventListener("load", () => {
+      let body: unknown = null;
+      try {
+        body = xhr.responseText ? JSON.parse(xhr.responseText) : null;
+      } catch {
+        // Not JSON (a proxy's error page, say): the status still decides.
+      }
+      if (xhr.status >= 200 && xhr.status < 300) {
+        resolve({ status: xhr.status, body });
+      } else {
+        reject(toApiError(xhr.status, body));
+      }
+    });
+    // A TypeError, like fetch's, so it reads as "the server is unreachable".
+    xhr.addEventListener("error", () =>
+      reject(new TypeError("The upload could not reach the server")),
+    );
+    xhr.send(form);
+  });
+}

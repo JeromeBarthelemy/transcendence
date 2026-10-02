@@ -8,6 +8,7 @@
     "main": "Navigation principale",
     "teams": "Équipes",
     "users": "Membres"
+    "profile": "Mon profil ({{name}})"
   },
   "home": {
     "eyebrow": "La mémoire du club",
@@ -94,6 +95,9 @@
     "invalid": "Ce chantier n'existe pas.",
     "openedOn": "Ouvert le {{date}}",
     "notOpened": "Chantier suggéré, pas encore ouvert",
+    "drop": "Abandonner",
+    "finish": "Terminer",
+    "closing": "Mise à jour…",
     "progressCount_one": "{{count}} avancée",
     "progressCount_other": "{{count}} avancées",
     "handover": "À reprendre",
@@ -248,6 +252,34 @@
     "sideTitle": "Une place pour chaque membre du club.",
     "sideDescription": "Un compte personnel permet de retrouver et d'attribuer le travail de chacun."
   },
+  "profile": {
+    "eyebrow": "Mon profil",
+    "clubAdmin": "administrateur du club",
+    "photo": "Photo de profil",
+    "current": "Photo actuelle",
+    "currentAlt": "Votre photo de profil actuelle",
+    "noPhoto": "Pas encore de photo",
+    "placeholderAlt": "Pas de photo : vos initiales s'affichent à la place",
+    "preview": "Aperçu, pas encore envoyé",
+    "previewAlt": "Aperçu de la nouvelle photo",
+    "noPreview": "Pas d'aperçu pour ce format dans ce navigateur : la photo sera convertie à l'envoi.",
+    "noPreviewAlt": "Aperçu indisponible",
+    "choose": "Choisir une photo",
+    "change": "Changer de photo",
+    "hint": "JPEG, PNG, WebP ou HEIC, 10 Mo au plus. La photo s'affiche à côté de votre nom pour les membres du club.",
+    "send": "Envoyer la photo",
+    "sending": "Envoi…",
+    "cancel": "Annuler",
+    "progressLabel": "Progression de l'envoi",
+    "progress": "Envoi… {{percent}} %",
+    "processing": "Photo reçue, traitement en cours…",
+    "uploaded": "Votre nouvelle photo est enregistrée.",
+    "remove": "Supprimer la photo",
+    "removing": "Suppression…",
+    "removed": "Votre photo a été supprimée.",
+    "avatarType": "Ce fichier n'a pas été envoyé : choisissez une photo JPEG, PNG, WebP ou HEIC.",
+    "avatarSize": "Ce fichier n'a pas été envoyé : la photo dépasse 10 Mo."
+  },
   "login": {
     "eyebrow": "Accès membre",
     "title": "Content de vous revoir.",
@@ -340,6 +372,10 @@
     "last_admin_cannot_leave": "Vous êtes le seul administrateur du club : vous ne pouvez pas supprimer votre compte.",
     "no_contact_email": "Aucune adresse de contact n'est enregistrée pour ce compte : impossible d'envoyer la confirmation.",
     "account_anonymized": "Ce compte a été supprimé : il ne peut plus être modifié.",
+    "avatar_too_large": "Cette photo dépasse 10 Mo.",
+    "avatar_too_many_pixels": "Cette photo compte trop de pixels.",
+    "avatar_not_an_image": "Ce fichier n'est pas une image.",
+    "avatar_format_refused": "Formats acceptés : JPEG, PNG, WebP ou HEIC.",
     "network": "Impossible de joindre le serveur. Réessayez dans un instant.",
     "unknown": "Une erreur inattendue est survenue."
   }

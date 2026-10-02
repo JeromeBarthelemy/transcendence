@@ -44,7 +44,8 @@ def test_every_team_has_work_items_with_a_thread():
         assert items.filter(on_robot=True).exists()
         assert items.filter(on_robot=False).exists()
         assert items.filter(status=WorkItem.Status.SUGGESTED).exists()
-        assert items.filter(status=WorkItem.Status.DONE).exists()
+        assert items.filter(status=WorkItem.Status.DONE, on_robot=False).exists()
+        assert items.filter(status=WorkItem.Status.DROPPED, on_robot=True).exists()
         assert team_season.entries.filter(type=Entry.Type.PROGRESS).count() >= 5
         assert team_season.entries.exclude(handover="").exists()
 

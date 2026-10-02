@@ -13,6 +13,7 @@ import { createTeamNote, getWorkday, type Workday } from "../api/workdays";
 import { getWorkItems, type WorkItem } from "../api/workItems";
 import { formatWorkdayDate, nameFormatter } from "../app/formatters";
 import { RequestError } from "../components/ApiErrors";
+import { AvatarStack } from "../components/Avatar";
 
 type StatusFilter = "active" | "all" | WorkItem["status"];
 const WORK_ITEM_STATUSES: WorkItem["status"][] = [
@@ -97,7 +98,8 @@ function WorkItemCard({
         )}
 
         {item.last_progress ? (
-          <p className="mt-2 text-sm text-[#506784]">
+          <p className="mt-2 flex items-center gap-2 text-sm text-[#506784]">
+            <AvatarStack people={item.last_progress.participants} />
             {t("teamHome.lastProgress", {
               people: participants || t("teamHome.noParticipants"),
               date: formatActivityDate(item.last_progress.day, currentWorkday),
