@@ -460,6 +460,99 @@ it("adds a note to the work item and refreshes its history", async () => {
   });
 });
 
+it("drops a robot work item, but offers no way to finish it", async () => {
+  setDocumentCookie("csrftoken=test; path=/");
+  let item = workItem({ on_robot: true, status: "open" });
+  const fetchMock = vi.fn(
+    async (path: string, options?: RequestInit): Promise<Response> => {
+      if (path === "/api/auth/me/") {
+        return json(identity());
+      }
+      if (path === "/api/work-items/10/" && !options?.method) {
+        return json(item);
+      }
+      if (path === "/api/work-items/10/" && options?.method === "PATCH") {
+        item = workItem({ on_robot: true, status: "dropped" });
+        return json(item);
+      }
+      throw new Error(`Unexpected request: ${path}`);
+    },
+  );
+  vi.stubGlobal("fetch", fetchMock);
+  renderWorkItem();
+
+  expect(
+    await screen.findByRole("button", { name: "Abandonner" }),
+  ).toBeTruthy();
+  expect(screen.queryByRole("button", { name: "Terminer" })).toBeNull();
+
+  await userEvent.click(screen.getByRole("button", { name: "Abandonner" }));
+
+  expect(await screen.findByText("Abandonné")).toBeTruthy();
+  const closeRequest = fetchMock.mock.calls.find(
+    ([path, options]) =>
+      path === "/api/work-items/10/" && options?.method === "PATCH",
+  );
+  expect(JSON.parse(String(closeRequest?.[1]?.body))).toEqual({
+    status: "dropped",
+  });
+});
+
+it("finishes an off-robot work item", async () => {
+  setDocumentCookie("csrftoken=test; path=/");
+  let item = workItem({ on_robot: false, status: "open" });
+  const fetchMock = vi.fn(
+    async (path: string, options?: RequestInit): Promise<Response> => {
+      if (path === "/api/auth/me/") {
+        return json(identity());
+      }
+      if (path === "/api/work-items/10/" && !options?.method) {
+        return json(item);
+      }
+      if (path === "/api/work-items/10/" && options?.method === "PATCH") {
+        item = workItem({ on_robot: false, status: "done" });
+        return json(item);
+      }
+      throw new Error(`Unexpected request: ${path}`);
+    },
+  );
+  vi.stubGlobal("fetch", fetchMock);
+  renderWorkItem();
+
+  await userEvent.click(
+    await screen.findByRole("button", { name: "Terminer" }),
+  );
+
+  expect(await screen.findByText("Terminé")).toBeTruthy();
+  const closeRequest = fetchMock.mock.calls.find(
+    ([path, options]) =>
+      path === "/api/work-items/10/" && options?.method === "PATCH",
+  );
+  expect(JSON.parse(String(closeRequest?.[1]?.body))).toEqual({
+    status: "done",
+  });
+});
+
+it("offers no close action on a work item that is already closed", async () => {
+  const fetchMock = vi.fn(
+    async (path: string, options?: RequestInit): Promise<Response> => {
+      if (path === "/api/auth/me/") {
+        return json(identity());
+      }
+      if (path === "/api/work-items/10/" && !options?.method) {
+        return json(workItem({ status: "dropped" }));
+      }
+      throw new Error(`Unexpected request: ${path}`);
+    },
+  );
+  vi.stubGlobal("fetch", fetchMock);
+  renderWorkItem();
+
+  expect(await screen.findByText("Abandonné")).toBeTruthy();
+  expect(screen.queryByRole("button", { name: "Abandonner" })).toBeNull();
+  expect(screen.queryByRole("button", { name: "Terminer" })).toBeNull();
+});
+
 it("uploads a file with its image-right answer", async () => {
   setDocumentCookie("csrftoken=test; path=/");
 

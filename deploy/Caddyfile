@@ -1,0 +1,55 @@
+# The one HTTPS reverse proxy in front of Django and the built frontend
+# (README, "Getting started"). FIELDNOTES_HOST is `localhost` on the
+# machine serving the app itself, or that machine's address on the club's
+# Wi-Fi when phones need to reach it — same address as
+# DJANGO_ALLOWED_HOSTS and DJANGO_CSRF_TRUSTED_ORIGINS in backend/.env.
+# The certificate (cert-init, compose.prod.yml) stays the same one across
+# restarts, so the browser's warning is accepted once per device, not
+# once per session.
+{
+	admin off
+	# A browser sends no SNI at all for a bare IP (RFC 6066 excludes IP
+	# literals from it), so Caddy would otherwise have no certificate to
+	# pick for it — only a request naming `localhost` carries SNI here.
+	default_sni {$FIELDNOTES_HOST:localhost}
+}
+
+https://{$FIELDNOTES_HOST:localhost} {
+	tls /certs/fieldnotes.crt /certs/fieldnotes.key
+	encode gzip
+
+	# Both the API and the Django admin (including its own static assets,
+	# served below under /static/) live on the backend.
+	handle /api/* {
+		reverse_proxy backend:8000
+	}
+
+	handle /admin* {
+		reverse_proxy backend:8000
+	}
+
+	# collectstatic's output (Django admin's CSS/JS) — DEBUG=false means
+	# Django itself no longer serves these, so the proxy must. handle_path,
+	# not handle: it strips the /static prefix before file_server looks
+	# the file up, since the volume's own root is already "admin/...", not
+	# "static/admin/...".
+	handle_path /static/* {
+		root * /srv/static
+		file_server
+	}
+
+	# The built React app. try_files falls back to index.html so React
+	# Router's client-side routes (e.g. a refresh on /me) resolve instead
+	# of 404ing at the proxy.
+	handle {
+		root * /srv/frontend
+		try_files {path} /index.html
+		file_server
+	}
+}
+
+# Plain HTTP only exists to redirect — SECURE_SSL_REDIRECT in Django settings
+# assumes the proxy already did this, not that it ever reaches Django itself.
+http://{$FIELDNOTES_HOST:localhost} {
+	redir https://{host}{uri} permanent
+}

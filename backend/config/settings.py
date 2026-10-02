@@ -99,12 +99,16 @@ WSGI_APPLICATION = "config.wsgi.application"
 # Database
 # ---------------------------------------------------------------------------
 
-# SQLite, settled: the database travels in a bag with the pit laptop and is
-# backed up by copying one file.
+# SQLite, settled: still one file, backed up by copying it — true without
+# Docker, where it sits directly at BASE_DIR/db.sqlite3. In production it
+# sits in a named volume instead (`docker compose cp`, not the filesystem;
+# see the README's "Backups"), because the container built from Dockerfile
+# has no bind mount to keep it outside the image the way the dev Compose
+# stack does.
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
+        "NAME": Path(os.environ.get("DJANGO_DB_PATH", BASE_DIR / "db.sqlite3")),
         "OPTIONS": {
             # WAL lets readers work while a writer holds the database, which is
             # what a room full of students saving at once looks like.
@@ -225,6 +229,15 @@ if not DEBUG:
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+
+# compose.prod.yml's healthcheck calls this in plain HTTP, straight to
+# Daphne — it never goes through the proxy, so it carries no
+# X-Forwarded-Proto and would otherwise be redirected to an HTTPS URL on a
+# port that only ever speaks plain HTTP. Harmless outside `if not DEBUG:`
+# above: it only ever does anything while SECURE_SSL_REDIRECT is also on.
+# Left unconditional so a test can exercise the real value instead of one
+# it injected itself.
+SECURE_REDIRECT_EXEMPT = [r"^api/health/$"]
 
 CSRF_TRUSTED_ORIGINS = env_list("DJANGO_CSRF_TRUSTED_ORIGINS")
 

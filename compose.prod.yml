@@ -1,0 +1,99 @@
+# The final deployment: HTTPS terminated by Caddy (deploy/Caddyfile) in
+# front of Django (Daphne, ASGI) and the built frontend it bakes in — no
+# dev server, no bind mount, no hot reload. See README, "Getting started".
+services:
+  # A static, long-lived self-signed certificate for FIELDNOTES_HOST,
+  # generated once and kept in tls_certs — not regenerated on every `up`,
+  # so the browser's one-time warning stays one-time. Exits once it's
+  # written the files; proxy only starts after it succeeds.
+  #
+  # Runs from the backend's own image, already pulled and built by the
+  # time this starts, rather than a bare `alpine` needing `apk add
+  # openssl` from the network: changing FIELDNOTES_HOST later means
+  # removing tls_certs so this regenerates, and the club may be doing
+  # that from its own address, in its own room, with no connection out.
+  cert-init:
+    image: transcendence-backend
+    # No build: of its own, so Compose would otherwise try Docker Hub
+    # first on a machine where this image doesn't exist yet — the one
+    # `backend` builds right below is the only one this name should ever
+    # resolve to.
+    pull_policy: never
+    depends_on:
+      - backend
+    env_file: ./backend/.env
+    volumes:
+      - tls_certs:/certs
+    entrypoint: ["sh", "-c"]
+    command:
+      - |
+        set -e
+        if [ -f /certs/fieldnotes.crt ]; then
+          echo "fieldnotes.crt already present, keeping it."
+          exit 0
+        fi
+        host="$${FIELDNOTES_HOST:-localhost}"
+        case "$$host" in
+          [0-9]*.[0-9]*.[0-9]*.[0-9]*) host_san="IP:$$host" ;;
+          *) host_san="DNS:$$host" ;;
+        esac
+        openssl req -x509 -nodes -newkey rsa:2048 -days 3650 \
+          -keyout /certs/fieldnotes.key -out /certs/fieldnotes.crt \
+          -subj "/CN=$$host" \
+          -addext "subjectAltName=$$host_san,DNS:localhost,IP:127.0.0.1"
+        echo "fieldnotes.crt generated for $$host (10y, self-signed)."
+
+  backend:
+    build: ./backend
+    image: transcendence-backend
+    env_file: ./backend/.env
+    environment:
+      # Named volume, not BASE_DIR/db.sqlite3: this container has no bind
+      # mount to keep that file outside the image, unlike dev's.
+      DJANGO_DB_PATH: /app/data/db.sqlite3
+    volumes:
+      - sqlite_data:/app/data
+      - media_files:/app/media
+      - fastembed_cache:/app/.cache
+      - static_files:/app/staticfiles
+    command: >-
+      sh -c "python manage.py migrate &&
+      python manage.py collectstatic --noinput &&
+      daphne -b 0.0.0.0 -p 8000 config.asgi:application"
+    expose:
+      - "8000"
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health/')"
+      interval: 3s
+      timeout: 2s
+      retries: 10
+
+  proxy:
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile
+    env_file: ./backend/.env
+    volumes:
+      # Read-only: Caddy only ever serves these, collectstatic is the one
+      # writer.
+      - static_files:/srv/static:ro
+      - tls_certs:/certs:ro
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      cert-init:
+        condition: service_completed_successfully
+      backend:
+        condition: service_healthy
+
+volumes:
+  sqlite_data:
+  media_files:
+  fastembed_cache:
+  static_files:
+  tls_certs:

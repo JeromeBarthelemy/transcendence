@@ -137,6 +137,18 @@ export async function tickWorkItem(
   return parseEntry(body);
 }
 
+export async function closeWorkItem(
+  id: number,
+  status: "done" | "dropped",
+): Promise<WorkItem> {
+  const { body } = await patch(`/api/work-items/${id}/`, { status });
+  const result = workItemSchema.safeParse(body);
+  if (!result.success) {
+    throw new Error("The work item response is invalid");
+  }
+  return result.data;
+}
+
 export async function updateProgress(
   entryId: number,
   input: { body: string; handover: string },
