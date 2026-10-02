@@ -9,9 +9,13 @@ import "../i18n";
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
+  vi.restoreAllMocks();
 });
 
 it("shows a French page inside the site's layout for an unknown address", async () => {
+  // A lazy route opened first warns in the console unless the router has
+  // something to show while it loads; the subject allows no console warning.
+  const warn = vi.spyOn(console, "warn");
   vi.stubGlobal(
     "fetch",
     vi.fn(
@@ -48,4 +52,5 @@ it("shows a French page inside the site's layout for an unknown address", async 
       .getByRole("link", { name: "Retour à l'accueil" })
       .getAttribute("href"),
   ).toBe("/");
+  expect(warn).not.toHaveBeenCalled();
 });
