@@ -359,7 +359,10 @@ would not protect.
 
 The admin CRUD `docs/modules.md` §4 asks for, on top of the model it already
 settles: `User.club_role` and `Membership` are enough to derive who may act
-where, and this is its surface. No page yet.
+where, and this is its surface. The screen is `/users`, offered to club admins
+only: the members, filtered by name or address (case and accents ignored),
+status and role; each one's page changes their role, admin flag and
+suspension, or deletes the account after a confirmation.
 
 | route | answers |
 | --- | --- |
@@ -395,7 +398,11 @@ service). Deletion is final: the name, address, birth date and AssoConnect
 id are erased, the password made unusable, and — an admin anonymized this
 way is not exempt — `is_club_admin` cleared, since a password nobody can
 use makes the flag meaningless but still able to mislead
-`not_the_last_admin`. What a member wrote stays in the team's notebook,
+`not_the_last_admin`. An account anonymized this way — or any other — is
+final: the list flags it `is_anonymized`, read off its reserved name, and
+`PATCH` and `DELETE` refuse it with `account_anonymized` (`409`), since
+reactivating it or making it an admin would only add a phantom that
+`not_the_last_admin` would count. What a member wrote stays in the team's notebook,
 attributed (`club/models.py`, `User`) — a literal row delete would either
 orphan it or be refused outright by the `PROTECT` relationships that hold
 it. The confirmation e-mail goes out the same way it does for a
@@ -759,5 +766,6 @@ The frontend contains the public landing, sign-up and log-in screens. Once
 signed in, the home screen lists the selected team's robot and off-robot work
 items, with pending handovers highlighted. A mentor can switch between the
 team seasons exposed by their identity. A club admin also reaches the team
-management screen: create, rename and delete the season's teams, and add
-members by typing their name or remove them.
+management screen — create, rename and delete the season's teams, and add
+members by typing their name or remove them — and the members screen, to
+change a member's role, admin flag or suspension, or delete their account.

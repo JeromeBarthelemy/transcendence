@@ -7,6 +7,7 @@
   "nav": {
     "main": "Navigation principale",
     "teams": "Équipes",
+    "users": "Membres",
     "profile": "Mon profil ({{name}})"
   },
   "home": {
@@ -18,6 +19,11 @@
     "panelEyebrow": "Une saison · une histoire",
     "panelTitle": "Le travail du club, au même endroit.",
     "panelDescription": "Retrouvez les idées, les essais et les décisions qui font avancer chaque robot."
+  },
+  "admin": {
+    "eyebrow": "Administration du club",
+    "forbiddenTitle": "Accès réservé",
+    "forbiddenDescription": "Cet écran est réservé aux administrateurs du club."
   },
   "teamHome": {
     "welcome": "Bonjour, {{name}}.",
@@ -178,9 +184,64 @@
     "roles": {
       "student": "élève",
       "mentor": "mentor"
+    }
+  },
+  "users": {
+    "title": "Membres du club",
+    "loading": "Chargement des membres…",
+    "loadingOne": "Chargement du membre…",
+    "search": "Rechercher",
+    "searchPlaceholder": "Nom d'affichage ou adresse…",
+    "filterStatus": "Statut",
+    "filterRole": "Rôle",
+    "statusFilters": {
+      "present": "Actifs et suspendus",
+      "active": "Actifs",
+      "suspended": "Suspendus",
+      "anonymized": "Supprimés",
+      "all": "Tous"
     },
-    "forbiddenTitle": "Accès réservé",
-    "forbiddenDescription": "La gestion des équipes est réservée aux administrateurs du club."
+    "roleFilters": {
+      "all": "Tous les rôles",
+      "student": "Élèves",
+      "mentor": "Mentors",
+      "admin": "Administrateurs"
+    },
+    "count_one": "{{count}} membre",
+    "count_other": "{{count}} membres",
+    "noMatch": "Aucun membre ne correspond à ces critères.",
+    "you": "(vous)",
+    "roles": {
+      "student": "Élève",
+      "mentor": "Mentor"
+    },
+    "admin": "Administrateur",
+    "statuses": {
+      "active": "Actif",
+      "suspended": "Suspendu",
+      "anonymized": "Supprimé"
+    },
+    "backToList": "← Tous les membres",
+    "selfNotice": "C'est votre compte : un autre administrateur peut modifier vos droits, pas vous-même.",
+    "anonymizedNotice": "Ce compte a été supprimé : son identité a été effacée et il ne peut plus être modifié. Ce qu'il a écrit reste dans le cahier de son équipe.",
+    "rightsTitle": "Rôle et accès",
+    "role": "Rôle au club",
+    "isClubAdmin": "Administrateur du club",
+    "isClubAdminHint": "Un administrateur est un mentor qui gère aussi les équipes et les membres.",
+    "isActive": "Compte actif",
+    "isActiveHint": "Un compte suspendu ne peut plus se connecter. La suspension est réversible et n'efface rien.",
+    "save": "Enregistrer",
+    "saving": "Enregistrement…",
+    "saved": "Modifications enregistrées.",
+    "reset": "Annuler les modifications",
+    "deleteTitle": "Supprimer le compte",
+    "deleteExplanation": "La suppression efface l'identité du membre : nom, adresses, date de naissance, photo et mot de passe. Ce qu'il a écrit reste dans le cahier de son équipe, attribué à « Ancien membre ». Un e-mail de confirmation est envoyé à son adresse de contact. Cette action est définitive ; pour une absence temporaire, suspendez plutôt le compte.",
+    "delete": "Supprimer ce compte…",
+    "deleteConfirm": "Supprimer définitivement le compte de {{name}} ?",
+    "confirmDelete": "Supprimer définitivement",
+    "deleting": "Suppression…",
+    "cancel": "Annuler",
+    "deleted": "Le compte de {{name}} a été supprimé."
   },
   "auth": {
     "login": "Se connecter",
@@ -303,6 +364,14 @@
     "does_not_exist": "Ce membre n'existe pas.",
     "not_found": "Cet élément n'existe plus. Rechargez la page.",
     "min_value": "Cette valeur est trop petite.",
+    "not_a_member": "Vous n'êtes pas membre de cette équipe.",
+    "cannot_target_self": "Vous ne pouvez pas modifier votre propre compte ici.",
+    "cannot_target_staff": "Ce compte a accès à l'admin Django ; seul un accès équivalent peut le modifier.",
+    "cannot_target_superuser": "Ce compte a un accès superutilisateur ; seul un accès équivalent peut le modifier.",
+    "admin_must_be_mentor": "Un administrateur doit être mentor.",
+    "last_admin_cannot_leave": "Vous êtes le seul administrateur du club : vous ne pouvez pas supprimer votre compte.",
+    "no_contact_email": "Aucune adresse de contact n'est enregistrée pour ce compte : impossible d'envoyer la confirmation.",
+    "account_anonymized": "Ce compte a été supprimé : il ne peut plus être modifié.",
     "avatar_too_large": "Cette photo dépasse 10 Mo.",
     "avatar_too_many_pixels": "Cette photo compte trop de pixels.",
     "avatar_not_an_image": "Ce fichier n'est pas une image.",

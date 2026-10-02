@@ -47,6 +47,7 @@ from club.workdays import (
 from .errors import Conflict
 from .permissions import (
     IsClubAdmin,
+    not_anonymized,
     not_self,
     not_staff_target,
     team_season_acted_on,
@@ -248,6 +249,7 @@ def _user(user: User) -> dict[str, object]:
         "club_role": user.club_role,
         "is_club_admin": user.is_club_admin,
         "is_active": user.is_active,
+        "is_anonymized": user.is_anonymized,
         "avatar": _avatar_url(user),
     }
 
@@ -307,6 +309,7 @@ class UserDetailView(APIView):
         user = get_object_or_404(User, pk=pk)
         not_self(request, user)
         not_staff_target(request, user)
+        not_anonymized(user)
         serializer = UserRoleSerializer(user, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         return Response(_user(serializer.save()))
@@ -324,6 +327,7 @@ class UserDetailView(APIView):
         user = get_object_or_404(User, pk=pk)
         not_self(request, user)
         not_staff_target(request, user)
+        not_anonymized(user)
         request_deletion(user, password=None)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
