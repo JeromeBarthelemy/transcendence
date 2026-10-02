@@ -135,7 +135,15 @@ export function AppLayout() {
       <Outlet />
 
       <footer className="mt-auto border-t border-[#004fc5]/10 px-5 py-5 text-center text-xs text-[#5c6f88] sm:px-8">
-        {t("app.footer")}
+        <p>{t("app.footer")}</p>
+        <p className="mt-2 flex justify-center gap-4">
+          <Link to="/privacy" className="hover:text-[#041894] hover:underline">
+            {t("app.privacy")}
+          </Link>
+          <Link to="/terms" className="hover:text-[#041894] hover:underline">
+            {t("app.terms")}
+          </Link>
+        </p>
       </footer>
     </div>
   );

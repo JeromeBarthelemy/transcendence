@@ -802,7 +802,11 @@ requests — stays English.
 - `compose.prod.yml`, `deploy/` — the HTTPS production stack: Caddy
   (`deploy/Dockerfile`, `deploy/Caddyfile`) in front of Django on Daphne.
 
-The frontend contains the public landing, sign-up and log-in screens. Once
+The frontend contains the public landing, sign-up and log-in screens, and
+the privacy policy (`/privacy`) and terms of service (`/terms`), linked from
+the footer of every page, signed in or not. Their text lives in
+`frontend/src/pages/LegalPages.tsx`, written from what the application stores
+and does: a change to what it collects, shows or keeps changes them too. Once
 signed in, the home screen lists the selected team's robot and off-robot work
 items, with pending handovers highlighted. Opening a new work item starts
 from the usual ones the team doesn't have yet
