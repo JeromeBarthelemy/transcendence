@@ -53,10 +53,13 @@ function renderAt(path: string) {
 
 beforeEach(() => {
   setDocumentCookie("csrftoken=test-token; path=/");
+  // jsdom lays nothing out, and says so on every scroll.
+  vi.spyOn(window, "scrollTo").mockImplementation(() => {});
 });
 
 afterEach(() => {
   cleanup();
+  vi.restoreAllMocks();
   vi.unstubAllGlobals();
   setDocumentCookie("csrftoken=; Max-Age=0; path=/");
 });
@@ -205,4 +208,27 @@ it("does not send a question made of blanks", async () => {
   expect(
     fetchMock.mock.calls.some(([path]) => path === "/api/rules/ask/"),
   ).toBe(false);
+});
+
+it("scrolls to the bottom of the page, under the question box, on each reply", async () => {
+  const user = userEvent.setup();
+  stubApi(() =>
+    json({ question: "Quelle heure ?", answer: "Midi.", citations: [] }, 201),
+  );
+
+  renderAt("/fieldbot");
+  await user.type(
+    await screen.findByLabelText("Ta question sur le règlement"),
+    "Quelle heure ?",
+  );
+  await user.click(screen.getByRole("button", { name: "Envoyer la question" }));
+  await screen.findByText("Midi.");
+
+  // Once for the question, once for its reply — to the page's own end, so
+  // the sticky form lands in its place instead of over the answer.
+  expect(window.scrollTo).toHaveBeenCalledTimes(2);
+  expect(window.scrollTo).toHaveBeenLastCalledWith({
+    top: document.documentElement.scrollHeight,
+    behavior: "smooth",
+  });
 });

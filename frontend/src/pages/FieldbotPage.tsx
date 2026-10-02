@@ -130,7 +130,6 @@ function Conversation({ identity }: { identity: Identity }) {
   const [draft, setDraft] = useState("");
   const [exchanges, setExchanges] = useState<Exchange[]>([]);
   const nextId = useRef(1);
-  const endRef = useRef<HTMLDivElement>(null);
 
   const ask = useMutation({
     mutationFn: ({ question }: { id: number; question: string }) =>
@@ -146,10 +145,16 @@ function Conversation({ identity }: { identity: Identity }) {
   });
 
   const last = exchanges.at(-1);
-  // Each new question, and then its reply, scrolls into view.
+  // Each new question, and then its reply, scrolls into view — down to the
+  // bottom of the page, not to the end of the conversation: the sticky form
+  // would sit on top of the end of the answer, and the footer stay out of
+  // sight. At the bottom, the form is back in its own place under the log.
   useEffect(() => {
     if (last) {
-      endRef.current?.scrollIntoView?.({ behavior: "smooth", block: "end" });
+      window.scrollTo({
+        top: document.documentElement.scrollHeight,
+        behavior: "smooth",
+      });
     }
   }, [last]);
 
@@ -214,11 +219,11 @@ function Conversation({ identity }: { identity: Identity }) {
             <li key={exchange.id} className="space-y-6">
               <div className="flex flex-row-reverse items-start gap-3">
                 <Avatar person={identity} />
-                <div className="flex max-w-[85%] flex-col items-end">
+                <div className="flex max-w-[85%] min-w-0 flex-col items-end">
                   <span className="text-xs font-semibold text-[#506784]">
                     {identity.display_name}
                   </span>
-                  <p className="mt-1 rounded-2xl rounded-tr-sm bg-[#004fc5] px-4 py-2.5 leading-7 whitespace-pre-line text-white">
+                  <p className="mt-1 rounded-2xl rounded-tr-sm bg-[#004fc5] px-4 py-2.5 leading-7 whitespace-pre-line text-white [overflow-wrap:anywhere]">
                     {exchange.question}
                   </p>
                 </div>
@@ -241,7 +246,6 @@ function Conversation({ identity }: { identity: Identity }) {
           ))}
         </ol>
       )}
-      <div ref={endRef} />
 
       <form
         onSubmit={send}
@@ -258,12 +262,12 @@ function Conversation({ identity }: { identity: Identity }) {
             value={draft}
             placeholder={t("fieldbot.placeholder")}
             aria-describedby={started ? undefined : `${inputId}-hint`}
-            className="field-sizing-content max-h-40 min-h-10 flex-1 resize-none bg-transparent py-2 leading-6 text-[#13294b] outline-none placeholder:text-[#7f93ad]"
+            className="field-sizing-content max-h-40 min-h-10 min-w-0 flex-1 resize-none [overflow-wrap:anywhere] bg-transparent py-2 leading-6 text-[#13294b] outline-none placeholder:text-[#7f93ad]"
             onChange={(event) => setDraft(event.target.value)}
             onKeyDown={sendOnEnter}
           />
           {draft.length >= COUNTER_FROM && (
-            <span className="self-center text-xs text-[#5c6f88]">
+            <span className="shrink-0 self-center text-xs whitespace-nowrap text-[#5c6f88]">
               {t("fieldbot.counter", {
                 count: draft.length,
                 max: QUESTION_MAX_LENGTH,
