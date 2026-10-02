@@ -6,7 +6,7 @@ import { afterEach, expect, it, vi } from "vitest";
 import { routes } from "../app/router";
 import "../i18n";
 
-function json(body: object, status = 200): Response {
+function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,
     headers: { "Content-Type": "application/json" },
@@ -204,10 +204,7 @@ it("names the work item a note was left on", async () => {
 });
 
 it("sends a visitor who is not signed in to the login page", async () => {
-  const fetchMock = renderSummary(
-    day(),
-    json({ detail: { code: "not_authenticated" } }, 403),
-  );
+  const fetchMock = renderSummary(day(), json(null));
 
   expect(await screen.findByLabelText("Mot de passe")).toBeTruthy();
   expect(

@@ -78,15 +78,17 @@ function isSignUpResult(value: unknown): value is SignUpResult {
   );
 }
 
+/** `null` when nobody is signed in: an answer, not an error (README,
+ * "Sessions"). */
 export async function getCurrentUser(): Promise<Identity | null> {
-  const response = await get("/api/auth/me/", [403]);
-  if (response.status === 403) {
+  const { body } = await get("/api/auth/me/");
+  if (body === null) {
     return null;
   }
-  if (!isIdentity(response.body)) {
+  if (!isIdentity(body)) {
     throw new Error("The identity response is invalid");
   }
-  return response.body;
+  return body;
 }
 
 export async function signUp(input: SignUpInput): Promise<SignUpResult> {

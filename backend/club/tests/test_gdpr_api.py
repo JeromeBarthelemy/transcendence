@@ -315,7 +315,7 @@ def test_deleting_ones_account_signs_one_out(client, mailoutbox):
 
     delete(client)
 
-    assert client.get("/api/auth/me/").status_code == 403
+    assert client.get("/api/auth/me/").json() is None
 
 
 def test_a_wrong_password_refuses_deletion_and_nothing_changes(client, mailoutbox):

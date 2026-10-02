@@ -325,7 +325,7 @@ The frontend uses these four routes from `/`, `/signup` and `/login`:
 | `POST /api/auth/signup/` | `201` with `email` and `display_name` |
 | `POST /api/auth/login/` | `200` with the identity below; the same account is locked for 15 minutes after 5 wrong passwords running, told apart from a wrong password while it is |
 | `POST /api/auth/logout/` | `204` |
-| `GET /api/auth/me/` | `200` with the identity, or `403` |
+| `GET /api/auth/me/` | `200` with the identity, or `null` when nobody is signed in |
 | `PUT /api/auth/me/avatar/` | `200` with the identity — one's own photo, as `multipart/form-data` field `avatar` |
 | `DELETE /api/auth/me/avatar/` | `204` |
 | `GET /api/users/{id}/avatar/` | the photo, to signed-in members only; `404` if there is none |
@@ -383,9 +383,11 @@ the club admin, who sets a temporary one from the Django admin.
 
 The session is a cookie, not a token: same origin, one proxy, nothing stored
 where a script could read it. A page calls `GET /api/auth/me/` on boot — it
-answers `403` until someone signs in, and sets the `csrftoken` cookie that
-every later `POST` must echo in an `X-CSRFToken` header. The `403` sets the
-cookie too, which is what arms the login form.
+answers `null` until someone signs in, and sets the `csrftoken` cookie that
+every later `POST` must echo in an `X-CSRFToken` header. The `null` answer
+sets the cookie too, which is what arms the login form. "Nobody" is an
+answer, not a refusal: a `403` on every visitor's first request would put a
+red line in their browser's console, which the subject forbids.
 
 Sign-up and log-in say `csrf_protect` explicitly. `SessionAuthentication`
 enforces CSRF only once it has *found* a session, so the two routes that run
