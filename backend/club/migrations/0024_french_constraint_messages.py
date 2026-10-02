@@ -26,7 +26,7 @@ class Migration(migrations.Migration):
                 fields=("entry", "user"),
                 name="unique_participant_per_entry",
                 violation_error_code="already_participant",
-                violation_error_message="Ce membre participe déjà à cette entrée.",
+                violation_error_message="Ce membre participe déjà à cette avancée.",
             ),
         ),
         migrations.AlterConstraint(
@@ -60,7 +60,9 @@ class Migration(migrations.Migration):
                 ),
                 name="slot_ends_after_it_starts",
                 violation_error_code="slot_ends_before_it_starts",
-                violation_error_message="La date de fin doit être après la date de début.",
+                violation_error_message=(
+                    "La date de fin ne peut pas précéder la date de début."
+                ),
             ),
         ),
     ]

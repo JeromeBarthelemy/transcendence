@@ -36,6 +36,21 @@ def test_the_same_team_joins_one_season_only_once():
         TeamSeason.objects.create(team=rouages, season=this_year)
 
 
+def test_a_duplicate_team_season_reads_in_french_through_the_admin():
+    # The Django admin calls full_clean() before saving — the one place
+    # today this constraint is actually reachable (admin.site.register
+    # includes TeamSeason), where it must read in French, not as the raw
+    # IntegrityError test_the_same_team_joins_one_season_only_once covers.
+    this_year = season()
+    rouages = team()
+    TeamSeason.objects.create(team=rouages, season=this_year)
+
+    with pytest.raises(ValidationError) as raised:
+        TeamSeason(team=rouages, season=this_year).full_clean()
+
+    assert raised.value.error_dict["__all__"][0].code == "team_season_exists"
+
+
 def test_the_same_team_carries_on_into_the_next_season():
     rouages = team()
 
