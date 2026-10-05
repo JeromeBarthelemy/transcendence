@@ -56,10 +56,13 @@ services:
       - media_files:/app/media
       - fastembed_cache:/app/.cache
       - static_files:/app/staticfiles
+    # exec: Daphne replaces the shell as PID 1, so `docker compose stop`'s
+    # SIGTERM reaches it and it closes its connections, instead of the shell
+    # ignoring it until Docker kills both ten seconds later.
     command: >-
       sh -c "python manage.py migrate &&
       python manage.py collectstatic --noinput &&
-      daphne -b 0.0.0.0 -p 8000 config.asgi:application"
+      exec daphne -b 0.0.0.0 -p 8000 config.asgi:application"
     expose:
       - "8000"
     healthcheck:

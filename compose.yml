@@ -6,9 +6,11 @@ services:
       DJANGO_ALLOWED_HOSTS: localhost,127.0.0.1,backend
     volumes:
       - ./backend:/app
+    # exec: the server replaces the shell as PID 1, so `docker compose stop`'s
+    # SIGTERM reaches it instead of being ignored until Docker kills it.
     command: >-
       sh -c "python manage.py migrate &&
-      python manage.py runserver 0.0.0.0:8000"
+      exec python manage.py runserver 0.0.0.0:8000"
     ports:
       - "8000:8000"
     healthcheck:
