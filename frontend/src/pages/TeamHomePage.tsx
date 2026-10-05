@@ -12,6 +12,7 @@ import type { Identity, TeamSeasonSummary } from "../api/auth";
 import { createTeamNote, getWorkday, type Workday } from "../api/workdays";
 import { getWorkItems, type WorkItem } from "../api/workItems";
 import { formatWorkdayDate, nameFormatter } from "../app/formatters";
+import { statusColors } from "../app/workItemStatus";
 import { RequestError } from "../components/ApiErrors";
 import { AvatarStack } from "../components/Avatar";
 import { OpenWorkItemPanel } from "./OpenWorkItemPanel";
@@ -78,23 +79,25 @@ function WorkItemCard({
     <article>
       <Link
         to={`/work-items/${item.id}`}
-        className="block p-4 transition hover:bg-[#f8fbff] focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#00c2d0] sm:p-5"
+        className="block p-4 transition hover:bg-mist focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-lagoon sm:p-5"
       >
         <div className="flex flex-wrap items-start justify-between gap-3">
-          <h3 className="brand-title text-xl text-[#041894]">{item.title}</h3>
-          <span className="rounded-full bg-[#eaf5ff] px-3 py-1 text-xs font-semibold text-[#0078dd]">
+          <h3 className="brand-title text-xl text-ink">{item.title}</h3>
+          <span
+            className={`rounded-full px-3 py-1 text-xs font-semibold ${statusColors[item.status]}`}
+          >
             {t(`teamHome.statuses.${item.status}`)}
           </span>
         </div>
 
         {item.current_step && (
-          <p className="mt-3 text-sm font-semibold text-[#0078dd]">
+          <p className="mt-3 text-sm font-semibold text-accent">
             {t(`teamHome.steps.${item.current_step}`)}
           </p>
         )}
 
         {item.last_progress ? (
-          <p className="mt-2 flex items-center gap-2 text-sm text-[#506784]">
+          <p className="mt-2 flex items-center gap-2 text-sm text-muted">
             <AvatarStack people={item.last_progress.participants} />
             {t("teamHome.lastProgress", {
               people: participants || t("teamHome.noParticipants"),
@@ -102,18 +105,16 @@ function WorkItemCard({
             })}
           </p>
         ) : (
-          <p className="mt-2 text-sm text-[#506784]">
-            {t("teamHome.notStarted")}
-          </p>
+          <p className="mt-2 text-sm text-muted">{t("teamHome.notStarted")}</p>
         )}
 
         {item.handover && (
-          <div className="mt-3 border-l-4 border-[#d59600] bg-[#fff7dc] py-2 pr-3 pl-3 text-[#634c12]">
+          <div className="mt-3 border-l-4 border-warning bg-warning-tint py-2 pr-3 pl-3 text-warning-ink">
             <p className="text-xs font-bold tracking-[0.12em] uppercase">
               {t("teamHome.handover")}
             </p>
             <p className="mt-2 text-sm leading-6">{item.handover.body}</p>
-            <p className="mt-2 text-xs text-[#7a6221]">
+            <p className="mt-2 text-xs text-warning-muted">
               {t("teamHome.handoverMeta", {
                 author: item.handover.author,
                 date: formatActivityDate(item.handover.day, currentWorkday),
@@ -144,7 +145,7 @@ function WorkItemSection({
   return (
     <section aria-labelledby={id}>
       <div className="mb-4 flex items-baseline justify-between gap-4">
-        <h2 id={id} className="brand-title text-2xl text-[#041894]">
+        <h2 id={id} className="brand-title text-2xl text-ink">
           <button
             type="button"
             className="flex items-center gap-2 text-left"
@@ -165,13 +166,13 @@ function WorkItemSection({
             {title}
           </button>
         </h2>
-        <span className="text-sm text-[#506784]">
+        <span className="text-sm text-muted">
           {t("teamHome.workItemCount", { count: items.length })}
         </span>
       </div>
       <div id={contentId} hidden={!isOpen}>
         {items.length > 0 ? (
-          <div className="divide-y divide-[#004fc5]/10 overflow-hidden rounded-2xl border border-[#004fc5]/12 bg-white shadow-sm">
+          <div className="divide-y divide-primary/10 overflow-hidden rounded-2xl border border-primary/12 bg-white shadow-sm">
             {items.map((item) => (
               <WorkItemCard
                 key={item.id}
@@ -181,7 +182,7 @@ function WorkItemSection({
             ))}
           </div>
         ) : (
-          <p className="rounded-2xl border border-dashed border-[#004fc5]/20 p-5 text-sm text-[#506784]">
+          <p className="rounded-2xl border border-dashed border-primary/20 p-5 text-sm text-muted">
             {t("teamHome.noWorkItems")}
           </p>
         )}
@@ -235,18 +236,18 @@ function TodaySummary({
   return (
     <section
       aria-labelledby="today-summary"
-      className="mt-10 rounded-2xl border border-[#004fc5]/12 bg-white p-5 shadow-sm"
+      className="mt-10 rounded-2xl border border-primary/12 bg-white p-5 shadow-sm"
     >
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
         <div>
           <h2
             id="today-summary"
-            className="text-xs font-bold tracking-[0.14em] text-[#0078dd] uppercase"
+            className="text-xs font-bold tracking-[0.14em] text-accent uppercase"
           >
             {t("teamHome.today")}
           </h2>
           {day.isPending ? (
-            <p role="status" className="mt-2 text-sm text-[#506784]">
+            <p role="status" className="mt-2 text-sm text-muted">
               {t("teamHome.loadingDay")}
             </p>
           ) : day.isError ? (
@@ -254,8 +255,8 @@ function TodaySummary({
               <RequestError error={day.error} />
             </div>
           ) : (
-            <p className="mt-2 text-sm text-[#506784]">
-              <span className="font-semibold text-[#041894]">
+            <p className="mt-2 text-sm text-muted">
+              <span className="font-semibold text-ink">
                 {formatWorkdayDate(day.data.day)}
               </span>
               <span aria-hidden="true"> · </span>
@@ -274,14 +275,14 @@ function TodaySummary({
               {day.data.previous && (
                 <Link
                   to={`/team-seasons/${teamSeasonId}/days/${day.data.previous}`}
-                  className="text-[#0078dd] hover:underline"
+                  className="text-accent hover:underline"
                 >
                   {t("teamHome.previousDayLink")}
                 </Link>
               )}
               <Link
                 to={`/team-seasons/${teamSeasonId}/days/${day.data.day}`}
-                className="text-[#0078dd] hover:underline"
+                className="text-accent hover:underline"
               >
                 {t("teamHome.daySummaryLink")}
               </Link>
@@ -291,7 +292,7 @@ function TodaySummary({
 
         <button
           type="button"
-          className="self-start rounded-xl bg-[#041894] px-4 py-2 text-sm font-semibold text-white hover:bg-[#0078dd] sm:self-auto"
+          className="self-start rounded-xl bg-ink px-4 py-2 text-sm font-semibold text-white hover:bg-accent sm:self-auto"
           aria-expanded={isNoteOpen}
           aria-controls="team-note-form"
           onClick={toggleNote}
@@ -301,21 +302,21 @@ function TodaySummary({
       </div>
 
       {noteSaved && (
-        <p role="status" className="mt-4 text-sm font-semibold text-[#167448]">
+        <p role="status" className="mt-4 text-sm font-semibold text-success">
           {t("teamHome.noteSaved")}
         </p>
       )}
 
       {dayNotes.length > 0 && (
-        <div className="mt-5 border-t border-[#004fc5]/10 pt-5">
-          <h3 className="text-sm font-semibold text-[#041894]">
+        <div className="mt-5 border-t border-primary/10 pt-5">
+          <h3 className="text-sm font-semibold text-ink">
             {t("teamHome.dayNotes")}
           </h3>
           <ul className="mt-3 space-y-3">
             {dayNotes.map((entry) => (
-              <li key={entry.id} className="rounded-xl bg-[#f4f8ff] px-4 py-3">
-                <p className="text-sm text-[#13294b]">{entry.body}</p>
-                <p className="mt-1 text-xs text-[#506784]">
+              <li key={entry.id} className="rounded-xl bg-mist px-4 py-3">
+                <p className="text-sm text-body">{entry.body}</p>
+                <p className="mt-1 text-xs text-muted">
                   {t("teamHome.noteMeta", {
                     author: entry.author,
                     time: noteTimeFormatter.format(new Date(entry.occurred_at)),
@@ -330,18 +331,18 @@ function TodaySummary({
       {isNoteOpen && (
         <form
           id="team-note-form"
-          className="mt-5 border-t border-[#004fc5]/10 pt-5"
+          className="mt-5 border-t border-primary/10 pt-5"
           onSubmit={submitNote}
         >
           <label
             htmlFor="team-note-body"
-            className="text-sm font-semibold text-[#041894]"
+            className="text-sm font-semibold text-ink"
           >
             {t("teamHome.noteLabel")}
           </label>
           <textarea
             id="team-note-body"
-            className="mt-2 min-h-24 w-full rounded-xl border border-[#004fc5]/20 px-3 py-2 text-[#13294b]"
+            className="mt-2 min-h-24 w-full rounded-xl border border-primary/20 px-3 py-2 text-body"
             value={noteBody}
             placeholder={t("teamHome.notePlaceholder")}
             required
@@ -353,7 +354,7 @@ function TodaySummary({
           <div className="mt-3 flex justify-end gap-3">
             <button
               type="button"
-              className="rounded-xl border border-[#004fc5]/20 px-4 py-2 text-sm font-semibold text-[#041894]"
+              className="rounded-xl border border-primary/20 px-4 py-2 text-sm font-semibold text-ink"
               disabled={note.isPending}
               onClick={() => {
                 setIsNoteOpen(false);
@@ -365,7 +366,7 @@ function TodaySummary({
             </button>
             <button
               type="submit"
-              className="rounded-xl bg-[#0078dd] px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+              className="rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
               disabled={note.isPending || noteBody.trim().length === 0}
             >
               {note.isPending
@@ -393,15 +394,15 @@ function NotebookExport({ teamSeasonId }: { teamSeasonId: number }) {
 
   // Folded away: a season is exported once or twice, at its end.
   return (
-    <details className="mt-8 text-sm text-[#506784]">
-      <summary className="cursor-pointer font-semibold text-[#004fc5]">
+    <details className="mt-8 text-sm text-muted">
+      <summary className="cursor-pointer font-semibold text-primary">
         {t("teamHome.exportNotebook")}
       </summary>
       <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-end">
-        <label className="font-semibold text-[#041894]">
+        <label className="font-semibold text-ink">
           {t("teamHome.exportCategory")}
           <select
-            className="mt-2 block w-full rounded-xl border border-[#004fc5]/20 bg-white px-3 py-2 font-normal sm:w-auto"
+            className="mt-2 block w-full rounded-xl border border-primary/20 bg-white px-3 py-2 font-normal sm:w-auto"
             value={category}
             onChange={(event) => setCategory(event.target.value)}
           >
@@ -414,7 +415,7 @@ function NotebookExport({ teamSeasonId }: { teamSeasonId: number }) {
           </select>
         </label>
         <a
-          className="rounded-xl bg-[#004fc5] px-4 py-2 text-center font-semibold text-white"
+          className="rounded-xl bg-primary px-4 py-2 text-center font-semibold text-white"
           href={`/api/team-seasons/${teamSeasonId}/export/?${query}`}
           download
         >
@@ -455,14 +456,14 @@ export function TeamHomePage({ identity }: { identity: Identity }) {
   if (!selectedTeamSeason) {
     return (
       <main className="mx-auto w-full max-w-4xl flex-1 px-5 py-14 sm:px-8">
-        <p className="text-sm font-bold tracking-[0.14em] text-[#0078dd] uppercase">
+        <p className="text-sm font-bold tracking-[0.14em] text-accent uppercase">
           {t("teamHome.welcome", { name: identity.display_name })}
         </p>
-        <div className="mt-6 rounded-3xl border border-[#004fc5]/15 bg-white p-8 shadow-sm">
-          <h1 className="brand-title text-3xl text-[#041894]">
+        <div className="mt-6 rounded-3xl border border-primary/15 bg-white p-8 shadow-sm">
+          <h1 className="brand-title text-3xl text-ink">
             {t("teamHome.noTeamTitle")}
           </h1>
-          <p className="mt-3 max-w-xl leading-7 text-[#506784]">
+          <p className="mt-3 max-w-xl leading-7 text-muted">
             {t("teamHome.noTeamDescription")}
           </p>
         </div>
@@ -478,19 +479,19 @@ export function TeamHomePage({ identity }: { identity: Identity }) {
 
   return (
     <main className="mx-auto w-full max-w-6xl flex-1 px-5 py-10 sm:px-8 sm:py-14">
-      <p className="text-sm font-bold tracking-[0.14em] text-[#0078dd] uppercase">
+      <p className="text-sm font-bold tracking-[0.14em] text-accent uppercase">
         {t("teamHome.welcome", { name: identity.display_name })}
       </p>
 
       <div className="mt-3 flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
         <div>
-          <h1 className="brand-title text-3xl tracking-[-0.035em] text-[#041894] sm:text-4xl">
+          <h1 className="brand-title text-3xl tracking-[-0.035em] text-ink sm:text-4xl">
             {t("teamHome.teamTitle", {
               number: selectedTeamSeason.team.number,
               name: selectedTeamSeason.team.name,
             })}
           </h1>
-          <p className="mt-2 text-sm text-[#506784]">
+          <p className="mt-2 text-sm text-muted">
             {t("teamHome.season", {
               start: selectedTeamSeason.season.start_year,
               end: selectedTeamSeason.season.start_year + 1,
@@ -500,10 +501,10 @@ export function TeamHomePage({ identity }: { identity: Identity }) {
         </div>
 
         {identity.team_seasons.length > 1 && (
-          <label className="text-sm font-semibold text-[#041894]">
+          <label className="text-sm font-semibold text-ink">
             {t("teamHome.chooseTeam")}
             <select
-              className="mt-2 block w-full rounded-xl border border-[#004fc5]/20 bg-white px-3 py-2 font-normal sm:w-auto"
+              className="mt-2 block w-full rounded-xl border border-primary/20 bg-white px-3 py-2 font-normal sm:w-auto"
               value={selectedTeamSeason.id}
               onChange={(event) => setSelectedId(Number(event.target.value))}
             >
@@ -524,7 +525,7 @@ export function TeamHomePage({ identity }: { identity: Identity }) {
       />
 
       {workItems.isPending ? (
-        <p role="status" className="mt-10 text-sm text-[#506784]">
+        <p role="status" className="mt-10 text-sm text-muted">
           {t("teamHome.loading")}
         </p>
       ) : workItems.isError ? (
@@ -536,10 +537,10 @@ export function TeamHomePage({ identity }: { identity: Identity }) {
             teamSeasonId={selectedTeamSeason.id}
             workItems={workItems.data}
           >
-            <label className="text-sm font-semibold text-[#041894]">
+            <label className="text-sm font-semibold text-ink">
               {t("teamHome.filterByStatus")}
               <select
-                className="mt-2 block w-full rounded-xl border border-[#004fc5]/20 bg-white px-3 py-2 font-normal sm:w-auto"
+                className="mt-2 block w-full rounded-xl border border-primary/20 bg-white px-3 py-2 font-normal sm:w-auto"
                 value={statusFilter}
                 onChange={(event) =>
                   setStatusFilter(event.target.value as StatusFilter)

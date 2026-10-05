@@ -57,26 +57,24 @@ function CitationCard({ citation }: { citation: Citation }) {
   const binding = citation.authority === "binding";
 
   return (
-    <li className="rounded-xl border border-[#004fc5]/12 bg-[#f8fbff] p-3">
+    <li className="rounded-xl border border-primary/12 bg-mist p-3">
       <div className="flex flex-wrap items-center gap-2 text-xs">
         {citation.reference && (
-          <span className="rounded-md bg-[#041894] px-2 py-0.5 font-bold text-white">
+          <span className="rounded-md bg-ink px-2 py-0.5 font-bold text-white">
             {citation.reference}
           </span>
         )}
         <span
           className={`rounded-full px-2 py-0.5 font-semibold ${
-            binding
-              ? "bg-[#eaf5ff] text-[#004fc5]"
-              : "bg-[#e0fbf5] text-[#00695c]"
+            binding ? "bg-tint text-primary" : "bg-mint-tint text-mint-deep"
           }`}
         >
           {t(`fieldbot.sources.${citation.source}`)} ·{" "}
           {t(`fieldbot.authorities.${citation.authority}`)}
         </span>
-        <span className="text-[#506784]">{citation.document_title}</span>
+        <span className="text-muted">{citation.document_title}</span>
       </div>
-      <p className="mt-2 text-sm leading-6 whitespace-pre-line text-[#13294b]">
+      <p className="mt-2 text-sm leading-6 whitespace-pre-line text-body">
         {citation.text}
       </p>
     </li>
@@ -100,21 +98,19 @@ function BotReply({ exchange }: { exchange: Exchange }) {
   }
   if (!answer) {
     return (
-      <p role="status" className="flex items-center gap-2 text-[#506784]">
+      <p role="status" className="flex items-center gap-2 text-muted">
         {t("fieldbot.thinking")}
       </p>
     );
   }
   // The server only writes a sentence when it has nothing to cite.
   if (answer.citations.length === 0) {
-    return <p className="leading-7 text-[#13294b]">{answer.answer}</p>;
+    return <p className="leading-7 text-body">{answer.answer}</p>;
   }
   return (
     <>
-      {answer.answer && (
-        <p className="leading-7 text-[#13294b]">{answer.answer}</p>
-      )}
-      <p className="text-sm text-[#506784]">{t("fieldbot.citationsIntro")}</p>
+      {answer.answer && <p className="leading-7 text-body">{answer.answer}</p>}
+      <p className="text-sm text-muted">{t("fieldbot.citationsIntro")}</p>
       <ol aria-label={t("fieldbot.citations")} className="mt-3 space-y-3">
         {answer.citations.map((citation) => (
           <CitationCard key={citation.rank} citation={citation} />
@@ -202,7 +198,7 @@ function Conversation({ identity }: { identity: Identity }) {
         className={
           started
             ? "sr-only"
-            : "brand-title mt-8 text-center text-2xl tracking-[-0.03em] text-[#041894] sm:text-3xl"
+            : "brand-title mt-8 text-center text-2xl tracking-[-0.03em] text-ink sm:text-3xl"
         }
       >
         {t("fieldbot.title")}
@@ -219,10 +215,10 @@ function Conversation({ identity }: { identity: Identity }) {
               <div className="flex flex-row-reverse items-start gap-3">
                 <Avatar person={identity} />
                 <div className="flex max-w-[85%] min-w-0 flex-col items-end">
-                  <span className="text-xs font-semibold text-[#506784]">
+                  <span className="text-xs font-semibold text-muted">
                     {identity.display_name}
                   </span>
-                  <p className="mt-1 rounded-2xl rounded-tr-sm bg-[#004fc5] px-4 py-2.5 leading-7 whitespace-pre-line text-white [overflow-wrap:anywhere]">
+                  <p className="mt-1 rounded-2xl rounded-tr-sm bg-primary px-4 py-2.5 leading-7 whitespace-pre-line text-white [overflow-wrap:anywhere]">
                     {exchange.question}
                   </p>
                 </div>
@@ -233,10 +229,10 @@ function Conversation({ identity }: { identity: Identity }) {
                   thinking={!exchange.answer && !exchange.error}
                 />
                 <div className="flex max-w-[85%] min-w-0 flex-col">
-                  <span className="text-xs font-semibold text-[#506784]">
+                  <span className="text-xs font-semibold text-muted">
                     {t("fieldbot.botName")}
                   </span>
-                  <div className="mt-1 rounded-2xl rounded-tl-sm border border-[#004fc5]/12 bg-white px-4 py-3 shadow-sm">
+                  <div className="mt-1 rounded-2xl rounded-tl-sm border border-primary/12 bg-white px-4 py-3 shadow-sm">
                     <BotReply exchange={exchange} />
                   </div>
                 </div>
@@ -261,12 +257,12 @@ function Conversation({ identity }: { identity: Identity }) {
             value={draft}
             placeholder={t("fieldbot.placeholder")}
             aria-describedby={started ? undefined : `${inputId}-hint`}
-            className="field-sizing-content max-h-40 min-h-10 min-w-0 flex-1 resize-none [overflow-wrap:anywhere] bg-transparent py-2 leading-6 text-[#13294b] outline-none placeholder:text-[#7f93ad]"
+            className="field-sizing-content max-h-40 min-h-10 min-w-0 flex-1 resize-none [overflow-wrap:anywhere] bg-transparent py-2 leading-6 text-body outline-none placeholder:text-faint"
             onChange={(event) => setDraft(event.target.value)}
             onKeyDown={sendOnEnter}
           />
           {draft.length >= COUNTER_FROM && (
-            <span className="shrink-0 self-center text-xs whitespace-nowrap text-[#5c6f88]">
+            <span className="shrink-0 self-center text-xs whitespace-nowrap text-muted">
               {t("fieldbot.counter", {
                 count: draft.length,
                 max: QUESTION_MAX_LENGTH,
@@ -277,7 +273,7 @@ function Conversation({ identity }: { identity: Identity }) {
             type="submit"
             aria-label={t("fieldbot.send")}
             disabled={!canSend}
-            className="grid size-10 shrink-0 place-items-center rounded-full bg-[linear-gradient(135deg,#004fc5,#00c2d0)] text-white shadow-md transition hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00c2d0] disabled:cursor-not-allowed disabled:opacity-40"
+            className="grid size-10 shrink-0 place-items-center rounded-full bg-linear-135 from-primary to-lagoon text-white shadow-md transition hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lagoon disabled:cursor-not-allowed disabled:opacity-40"
           >
             <svg
               aria-hidden="true"
@@ -298,7 +294,7 @@ function Conversation({ identity }: { identity: Identity }) {
         {!started && (
           <p
             id={`${inputId}-hint`}
-            className="mt-2 px-5 text-center text-xs text-[#5c6f88]"
+            className="mt-2 px-5 text-center text-xs text-muted"
           >
             {t("fieldbot.hint")}
           </p>
@@ -315,7 +311,7 @@ export function FieldbotPage() {
   if (currentUser.isPending) {
     return (
       <main className="mx-auto w-full max-w-3xl flex-1 px-5 py-14 sm:px-8">
-        <p role="status" className="text-sm text-[#506784]">
+        <p role="status" className="text-sm text-muted">
           {t("auth.checkingSession")}
         </p>
       </main>

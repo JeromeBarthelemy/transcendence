@@ -14,7 +14,7 @@ import { SUGGESTIONS, sameTitle, suggestionsFor } from "./suggestions";
 const OTHER = ":other";
 
 const inputClass =
-  "mt-1 block w-full rounded-xl border border-[#004fc5]/20 bg-white px-3 py-2 text-sm font-normal";
+  "mt-1 block w-full rounded-xl border border-primary/20 bg-white px-3 py-2 text-sm font-normal";
 
 function Panel({
   teamSeasonId,
@@ -69,20 +69,17 @@ function Panel({
   return (
     <section
       aria-labelledby={titleId}
-      className="mt-4 rounded-2xl border border-[#004fc5]/12 bg-white p-5 shadow-sm"
+      className="mt-4 rounded-2xl border border-primary/12 bg-white p-5 shadow-sm"
     >
       <h2
         id={titleId}
-        className="text-xs font-bold tracking-[0.14em] text-[#0078dd] uppercase"
+        className="text-xs font-bold tracking-[0.14em] text-accent uppercase"
       >
         {t("openWorkItem.title")}
       </h2>
       <form className="mt-4 space-y-4" onSubmit={submit}>
         <div>
-          <label
-            htmlFor={choiceId}
-            className="text-sm font-semibold text-[#041894]"
-          >
+          <label htmlFor={choiceId} className="text-sm font-semibold text-ink">
             {t("openWorkItem.choice")}
           </label>
           <select
@@ -124,7 +121,7 @@ function Panel({
             <div>
               <label
                 htmlFor={inputId}
-                className="text-sm font-semibold text-[#041894]"
+                className="text-sm font-semibold text-ink"
               >
                 {t("openWorkItem.name")}
               </label>
@@ -142,11 +139,11 @@ function Panel({
               />
               <FieldErrors id={`${inputId}-errors`} issues={issues} />
               {existing && (
-                <p className="mt-2 text-sm text-[#506784]">
+                <p className="mt-2 text-sm text-muted">
                   {t("openWorkItem.taken")}{" "}
                   <Link
                     to={`/work-items/${existing.id}`}
-                    className="font-semibold text-[#0078dd] hover:text-[#041894]"
+                    className="font-semibold text-accent hover:text-ink"
                   >
                     {t("openWorkItem.goTo", { title: existing.title })}
                   </Link>
@@ -154,8 +151,8 @@ function Panel({
               )}
             </div>
 
-            <fieldset className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-[#13294b]">
-              <legend className="mb-1 font-semibold text-[#041894]">
+            <fieldset className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-body">
+              <legend className="mb-1 font-semibold text-ink">
                 {t("openWorkItem.place")}
               </legend>
               {[true, false].map((value) => (
@@ -175,7 +172,7 @@ function Panel({
 
         <button
           type="submit"
-          className="rounded-xl bg-[#0078dd] px-4 py-2 text-sm font-semibold text-white hover:bg-[#004fc5] disabled:opacity-50"
+          className="rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-white hover:bg-primary disabled:opacity-50"
           disabled={open.isPending || !ready}
         >
           {open.isPending
@@ -207,7 +204,7 @@ export function OpenWorkItemPanel({
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <button
           type="button"
-          className="self-start rounded-xl bg-[#041894] px-4 py-2 text-sm font-semibold text-white hover:bg-[#0078dd] sm:self-auto"
+          className="self-start rounded-xl bg-ink px-4 py-2 text-sm font-semibold text-white hover:bg-accent sm:self-auto"
           aria-expanded={isOpen}
           onClick={() => setIsOpen((open) => !open)}
         >
