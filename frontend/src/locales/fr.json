@@ -2,7 +2,9 @@
   "app": {
     "eyebrow": "Cahier d'ingénierie",
     "name": "Fieldnotes",
-    "footer": "Fieldnotes · un espace privé pour le club"
+    "footer": "Fieldnotes · un espace privé pour le club",
+    "privacy": "Confidentialité",
+    "terms": "Conditions d'utilisation"
   },
   "notFound": {
     "title": "Page introuvable",
