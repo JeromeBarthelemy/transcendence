@@ -4,19 +4,24 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('club', '0025_work_item_opened_on_creation'),
+        ("club", "0025_work_item_opened_on_creation"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='entry',
-            name='client_id',
-            field=models.UUIDField(blank=True, null=True, verbose_name="identifiant de l'appareil"),
+            model_name="entry",
+            name="client_id",
+            field=models.UUIDField(
+                blank=True, null=True, verbose_name="identifiant de l'appareil"
+            ),
         ),
         migrations.AddConstraint(
-            model_name='entry',
-            constraint=models.UniqueConstraint(condition=models.Q(('client_id__isnull', False)), fields=('author', 'client_id'), name='unique_client_id_per_author'),
+            model_name="entry",
+            constraint=models.UniqueConstraint(
+                condition=models.Q(("client_id__isnull", False)),
+                fields=("author", "client_id"),
+                name="unique_client_id_per_author",
+            ),
         ),
     ]

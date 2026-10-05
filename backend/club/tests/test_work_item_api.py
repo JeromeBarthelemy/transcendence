@@ -934,6 +934,7 @@ def test_a_replay_towards_another_team_is_refused_as_a_conflict(client):
     response = note(client, other, body="Là.", client_id=DEVICE_ID)
 
     assert response.status_code == 409
+    assert response.json()["detail"]["code"] == "client_id_taken"
     assert Entry.objects.count() == 1
 
 

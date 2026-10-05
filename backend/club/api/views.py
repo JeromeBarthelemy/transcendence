@@ -740,7 +740,10 @@ class NoteCreateView(APIView):
 
 def _replayed_note(existing: Entry, team_season: TeamSeason) -> Response:
     if existing.team_season_id != team_season.id:
-        raise Conflict()
+        raise Conflict(
+            "Cet identifiant appartient déjà à une remarque d'une autre équipe.",
+            code="client_id_taken",
+        )
     return Response(_entry(existing), status=status.HTTP_200_OK)
 
 
