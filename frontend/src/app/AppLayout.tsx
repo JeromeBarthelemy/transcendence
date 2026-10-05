@@ -41,22 +41,67 @@ export function AppLayout() {
   return (
     <div className="flex min-h-screen flex-col">
       <header className="border-b border-[#004fc5]/10 bg-white/85 backdrop-blur-sm">
-        <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-5 py-4 sm:px-8">
+        <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-4 px-5 py-4 sm:px-8">
           <Link
             to="/"
-            className="flex items-center gap-3 text-[#041894] no-underline"
+            className="flex items-center gap-2 text-[#041894] no-underline sm:gap-3"
           >
-            <span className="grid size-11 place-items-center overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-[#004fc5]/10">
-              <img src={logo} alt="" className="size-11 object-cover" />
+            <span className="grid size-9 place-items-center overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-[#004fc5]/10 sm:size-11">
+              <img
+                src={logo}
+                alt=""
+                className="size-9 object-cover sm:size-11"
+              />
             </span>
-            <span className="brand-title text-2xl tracking-[-0.035em]">
+            <span className="brand-title text-xl tracking-[-0.035em] sm:text-2xl">
               {t("app.name")}
             </span>
           </Link>
 
+          {currentUser.data && (
+            // Beside the name on a phone, where the links get a row of
+            // their own; after them on a wider screen.
+            <div className="flex items-center gap-2 sm:order-last sm:gap-4">
+              <Link
+                to="/profile"
+                aria-label={t("nav.profile", {
+                  name: currentUser.data.display_name,
+                })}
+                className="flex items-center gap-2 rounded-full py-1 pr-1 pl-1 text-sm text-[#506784] transition hover:bg-[#eaf5ff] hover:text-[#041894] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00c2d0] sm:pr-3"
+              >
+                <Avatar person={currentUser.data} />
+                <span className="hidden sm:inline">
+                  {currentUser.data.display_name}
+                </span>
+              </Link>
+              <button
+                type="button"
+                className="grid size-9 place-items-center rounded-full border border-[#004fc5]/25 text-sm font-semibold text-[#041894] transition hover:bg-[#eaf5ff] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00c2d0] disabled:opacity-60 sm:size-auto sm:px-4 sm:py-2"
+                disabled={logout.isPending}
+                onClick={() => logout.mutate()}
+              >
+                <svg
+                  aria-hidden="true"
+                  className="size-4 sm:hidden"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" />
+                </svg>
+                <span className="sr-only sm:not-sr-only">
+                  {logout.isPending ? t("auth.loggingOut") : t("auth.logout")}
+                </span>
+              </button>
+            </div>
+          )}
+
           <nav
             aria-label={t("nav.main")}
-            className="flex items-center gap-2 sm:gap-4"
+            className="flex w-full items-center gap-2 sm:ml-auto sm:w-auto sm:gap-4"
           >
             {currentUser.isPending ? (
               <span role="status" className="text-sm text-[#5c6f88]">
@@ -86,26 +131,6 @@ export function AppLayout() {
                     </Link>
                   </>
                 )}
-                <Link
-                  to="/profile"
-                  aria-label={t("nav.profile", {
-                    name: currentUser.data.display_name,
-                  })}
-                  className="flex items-center gap-2 rounded-full py-1 pr-1 pl-1 text-sm text-[#506784] transition hover:bg-[#eaf5ff] hover:text-[#041894] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00c2d0] sm:pr-3"
-                >
-                  <Avatar person={currentUser.data} />
-                  <span className="hidden sm:inline">
-                    {currentUser.data.display_name}
-                  </span>
-                </Link>
-                <button
-                  type="button"
-                  className="rounded-full border border-[#004fc5]/25 px-4 py-2 text-sm font-semibold text-[#041894] transition hover:bg-[#eaf5ff] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00c2d0] disabled:opacity-60"
-                  disabled={logout.isPending}
-                  onClick={() => logout.mutate()}
-                >
-                  {logout.isPending ? t("auth.loggingOut") : t("auth.logout")}
-                </button>
               </>
             ) : (
               <>

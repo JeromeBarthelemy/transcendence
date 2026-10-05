@@ -63,7 +63,7 @@ export function Avatar({
       <img
         src={src}
         alt={alt}
-        className={`${sizes[size]} shrink-0 rounded-full bg-[#eaf5ff] object-cover`}
+        className={`${sizes[size]} max-w-none shrink-0 rounded-full bg-[#eaf5ff] object-cover`}
         onError={() => setFailed(src)}
       />
     );
