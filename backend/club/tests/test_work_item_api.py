@@ -878,3 +878,70 @@ def test_a_day_with_no_trace_before_or_after_points_nowhere(client):
 
     # Another team's Friday is not this team's.
     assert (day["previous"], day["next"]) == (None, None)
+
+
+# --- replayed notes ---
+
+DEVICE_ID = "6f1f3c1e-2a4b-4c59-9d7e-0b8a1c2d3e4f"
+
+
+def test_a_note_replayed_with_the_same_client_id_is_stored_once(client):
+    rouages = team_season()
+    client.force_login(member_of(rouages))
+
+    first = note(client, rouages, body="Perceuse HS.", client_id=DEVICE_ID)
+    replayed = note(client, rouages, body="Perceuse HS.", client_id=DEVICE_ID)
+
+    assert first.status_code == 201
+    assert replayed.status_code == 200
+    assert replayed.json()["id"] == first.json()["id"]
+    assert Entry.objects.count() == 1
+
+
+def test_the_same_client_id_from_two_members_is_not_a_collision(client):
+    rouages = team_season()
+    lina, tom = member_of(rouages, "lina"), member_of(rouages, "tom")
+
+    client.force_login(lina)
+    first = note(client, rouages, body="Lina.", client_id=DEVICE_ID)
+    client.force_login(tom)
+    second = note(client, rouages, body="Tom.", client_id=DEVICE_ID)
+
+    assert first.status_code == 201
+    assert second.status_code == 201
+    assert Entry.objects.count() == 2
+
+
+def test_a_note_without_a_client_id_is_never_treated_as_a_replay(client):
+    rouages = team_season()
+    client.force_login(member_of(rouages))
+
+    note(client, rouages, body="Une remarque.")
+    again = note(client, rouages, body="Une remarque.")
+
+    assert again.status_code == 201
+    assert Entry.objects.count() == 2
+
+
+def test_a_replay_towards_another_team_is_refused_as_a_conflict(client):
+    rouages = team_season(12345)
+    other = team_season(67890)
+    lina = member_of(rouages)
+    client.force_login(lina)
+    note(client, rouages, body="Ici.", client_id=DEVICE_ID)
+    Membership.objects.create(user=lina, team_season=other)
+
+    response = note(client, other, body="Là.", client_id=DEVICE_ID)
+
+    assert response.status_code == 409
+    assert Entry.objects.count() == 1
+
+
+def test_a_malformed_client_id_is_refused(client):
+    rouages = team_season()
+    client.force_login(member_of(rouages))
+
+    response = note(client, rouages, body="Une remarque.", client_id="pas-un-uuid")
+
+    assert response.status_code == 400
+    assert not Entry.objects.exists()

@@ -17,7 +17,7 @@ from django.contrib.auth.models import (
 from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator
 from django.db import models, transaction
-from django.db.models import F
+from django.db.models import F, Q
 from django.db.models.signals import post_delete
 from django.dispatch import receiver
 from django.utils import timezone
@@ -586,9 +586,21 @@ class Entry(models.Model):
         blank=True,
     )
 
+    # Chosen by the device that wrote the trace: a replayed offline save with
+    # the same id must not create a second one. Unique per author only, since
+    # two members' devices can produce the same value by chance.
+    client_id = models.UUIDField("identifiant de l'appareil", null=True, blank=True)
+
     class Meta:
         ordering = ["-occurred_at", "-id"]
         verbose_name = "trace"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["author", "client_id"],
+                condition=Q(client_id__isnull=False),
+                name="unique_client_id_per_author",
+            ),
+        ]
 
     def __str__(self) -> str:
         return f"{self.get_type_display()} — {self.team_season}"

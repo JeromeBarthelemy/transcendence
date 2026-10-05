@@ -424,6 +424,7 @@ class NoteSerializer(serializers.Serializer[Entry]):
     work_item = serializers.PrimaryKeyRelatedField(
         queryset=WorkItem.objects.all(), required=False
     )
+    client_id = serializers.UUIDField(required=False)
 
     def validate_work_item(self, value: WorkItem) -> WorkItem:
         if value.team_season != self.context["team_season"]:
