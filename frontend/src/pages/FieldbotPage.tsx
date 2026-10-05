@@ -126,6 +126,7 @@ function Conversation({ identity }: { identity: Identity }) {
   const [draft, setDraft] = useState("");
   const [exchanges, setExchanges] = useState<Exchange[]>([]);
   const nextId = useRef(1);
+  const logRef = useRef<HTMLOListElement>(null);
 
   const ask = useMutation({
     mutationFn: ({ question }: { id: number; question: string }) =>
@@ -141,16 +142,12 @@ function Conversation({ identity }: { identity: Identity }) {
   });
 
   const last = exchanges.at(-1);
-  // Each new question, and then its reply, scrolls into view — down to the
-  // bottom of the page, not to the end of the conversation: the sticky form
-  // would sit on top of the end of the answer, and the footer stay out of
-  // sight. At the bottom, the form is back in its own place under the log.
+  // Each new question, and then its reply, scrolls the conversation's own box
+  // to its end; the page itself stays where it is.
   useEffect(() => {
-    if (last) {
-      window.scrollTo({
-        top: document.documentElement.scrollHeight,
-        behavior: "smooth",
-      });
+    const log = logRef.current;
+    if (last && log) {
+      log.scrollTo?.({ top: log.scrollHeight, behavior: "smooth" });
     }
   }, [last]);
 
@@ -184,12 +181,14 @@ function Conversation({ identity }: { identity: Identity }) {
   const started = exchanges.length > 0;
 
   return (
+    // `fieldbot-page` fits the layout to the window (AppLayout), so the
+    // conversation scrolls in its box rather than the whole page.
     <main
-      className={`mx-auto flex w-full max-w-3xl flex-1 flex-col px-5 pb-6 sm:px-8 ${
-        started ? "pt-8" : "justify-center py-10"
+      className={`fieldbot-page mx-auto flex min-h-0 w-full max-w-3xl flex-1 flex-col px-5 pb-6 sm:px-8 ${
+        started ? "pt-6" : "justify-center py-10"
       }`}
     >
-      <div className="flex flex-col items-center">
+      <div className="flex shrink-0 flex-col items-center">
         <Sphere size="lg" thinking={ask.isPending} />
       </div>
       {/* Hidden rather than removed once the conversation starts: the page
@@ -206,9 +205,10 @@ function Conversation({ identity }: { identity: Identity }) {
 
       {started && (
         <ol
+          ref={logRef}
           role="log"
           aria-label={t("fieldbot.conversation")}
-          className="mt-8 flex-1 space-y-6"
+          className="mt-6 min-h-48 flex-1 space-y-6 overflow-y-auto overscroll-contain rounded-3xl border border-primary/10 bg-white/60 p-4 sm:p-6"
         >
           {exchanges.map((exchange) => (
             <li key={exchange.id} className="space-y-6">
@@ -242,10 +242,7 @@ function Conversation({ identity }: { identity: Identity }) {
         </ol>
       )}
 
-      <form
-        onSubmit={send}
-        className={`sticky bottom-4 ${started ? "mt-8" : "mt-6"}`}
-      >
+      <form onSubmit={send} className={`shrink-0 ${started ? "mt-4" : "mt-6"}`}>
         <div className="fieldbot-input flex items-end gap-2 rounded-3xl py-2 pr-2 pl-5">
           <label htmlFor={inputId} className="sr-only">
             {t("fieldbot.label")}
@@ -289,8 +286,7 @@ function Conversation({ identity }: { identity: Identity }) {
             </svg>
           </button>
         </div>
-        {/* Only before the first question: under a sticky box, it would sit
-            on top of the messages scrolling past. */}
+        {/* Only before the first question: the conversation needs the room. */}
         {!started && (
           <p
             id={`${inputId}-hint`}

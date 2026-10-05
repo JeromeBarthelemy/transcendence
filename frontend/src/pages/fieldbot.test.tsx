@@ -53,8 +53,8 @@ function renderAt(path: string) {
 
 beforeEach(() => {
   setDocumentCookie("csrftoken=test-token; path=/");
-  // jsdom lays nothing out, and says so on every scroll.
-  vi.spyOn(window, "scrollTo").mockImplementation(() => {});
+  // jsdom lays nothing out: an element has no scrollTo of its own.
+  Element.prototype.scrollTo = vi.fn();
 });
 
 afterEach(() => {
@@ -210,7 +210,7 @@ it("does not send a question made of blanks", async () => {
   ).toBe(false);
 });
 
-it("scrolls to the bottom of the page, under the question box, on each reply", async () => {
+it("scrolls the conversation's own box to its end on each reply, not the page", async () => {
   const user = userEvent.setup();
   stubApi(() =>
     json({ question: "Quelle heure ?", answer: "Midi.", citations: [] }, 201),
@@ -224,13 +224,17 @@ it("scrolls to the bottom of the page, under the question box, on each reply", a
   await user.click(screen.getByRole("button", { name: "Envoyer la question" }));
   await screen.findByText("Midi.");
 
-  // Once for the question, once for its reply — to the page's own end, so
-  // the sticky form lands in its place instead of over the answer.
-  expect(window.scrollTo).toHaveBeenCalledTimes(2);
-  expect(window.scrollTo).toHaveBeenLastCalledWith({
-    top: document.documentElement.scrollHeight,
+  // Once for the question, once for its reply, both on the log itself.
+  const log = screen.getByRole("log", { name: "Conversation avec Fieldbot" });
+  const scrollTo = vi.mocked(Element.prototype.scrollTo);
+  expect(scrollTo).toHaveBeenCalledTimes(2);
+  expect(scrollTo.mock.contexts.at(-1)).toBe(log);
+  expect(scrollTo).toHaveBeenLastCalledWith({
+    top: log.scrollHeight,
     behavior: "smooth",
   });
+  // The main element is what fits the layout to the window.
+  expect(log.closest("main")?.className).toContain("fieldbot-page");
 });
 
 it("takes one question at a time, keeping the next one until the answer is in", async () => {

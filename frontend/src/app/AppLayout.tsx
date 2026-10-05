@@ -357,7 +357,10 @@ export function AppLayout() {
   const identity = currentUser.data ?? null;
 
   return (
-    <div className="flex min-h-screen flex-col">
+    // A page that scrolls inside itself (Fieldbot's conversation) gets a
+    // layout exactly the window's height, footer included; every other page
+    // grows with its content.
+    <div className="flex min-h-screen flex-col has-[.fieldbot-page]:h-dvh">
       <header className="relative border-b border-primary/10 bg-white/85 backdrop-blur-sm">
         {/* One row at every width: what does not fit goes in the menu. */}
         <div className="mx-auto flex w-full max-w-6xl flex-nowrap items-center justify-between gap-3 px-5 py-4 sm:px-8">
