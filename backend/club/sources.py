@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from typing import TypedDict
 from urllib.error import URLError
 from urllib.parse import unquote, urlsplit
-from urllib.request import urlopen
+from urllib.request import HTTPRedirectHandler, build_opener
 
 from django.utils import timezone
 
@@ -55,8 +55,20 @@ def check_source_url(url: str) -> str:
     return url
 
 
+class _FirstRedirects(HTTPRedirectHandler):
+    """Every hop is held to the allow-list, not only the URL the administrator
+    gave: a permitted page can otherwise redirect the server anywhere."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        check_source_url(newurl)
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+
+_OPENER = build_opener(_FirstRedirects)
+
+
 def fetch_page(url: str) -> str:
-    with urlopen(url, timeout=FETCH_TIMEOUT_SECONDS) as response:
+    with _OPENER.open(url, timeout=FETCH_TIMEOUT_SECONDS) as response:
         return response.read().decode(_PAGE_ENCODING)
 
 
@@ -186,10 +198,16 @@ def accept_update(update: SourceUpdate) -> Document:
     return document
 
 
+class NoPassage(ValueError):
+    pass
+
+
 def add_source(*, season: Season, source: str, url: str) -> Document:
     """A new copy of the manual, from its page. Its URL is kept, so the
     automatic checks follow it from now on."""
     page = fetch_page(url)
+    if not _CHUNKER_OF[source](page):
+        raise NoPassage("la page ne contient aucun passage à indexer")
     title = unquote(urlsplit(url).path.rsplit("/", 1)[-1]).removesuffix(".htm")
     return ingest_document(
         season=season,

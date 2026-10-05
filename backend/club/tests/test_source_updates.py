@@ -1,4 +1,8 @@
+import threading
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.error import URLError
+
+import pytest
 
 from club.models import Chunk, Document, Season, SourceUpdate, User
 from club.rag import ingest_document
@@ -6,6 +10,7 @@ from club.sources import (
     accept_update,
     check_document,
     content_hash,
+    fetch_page,
     latest_documents,
     summarize,
 )
@@ -293,3 +298,52 @@ def test_a_page_that_cannot_be_fetched_is_refused_by_name(client, monkeypatch):
     assert response.status_code == 400
     assert response.json()["detail"]["code"] == "fetch_failed"
     assert not Document.objects.exists()
+
+
+def test_a_page_with_no_passage_is_refused_and_nothing_is_written(client, monkeypatch):
+    season()
+    client.force_login(administrator())
+    serve(monkeypatch, "<html><body></body></html>")
+
+    response = client.post(
+        "/api/rules/sources/",
+        {
+            "source": "game_manual",
+            "url": "https://ftc-resources.firstinspires.org/ftc/game/cm-html/m.htm",
+        },
+        content_type="application/json",
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"]["code"] == "no_passage"
+    assert not Document.objects.exists()
+
+
+def test_a_redirect_off_first_s_site_is_refused_before_it_is_followed():
+    followed: list[str] = []
+
+    class Redirecting(BaseHTTPRequestHandler):
+        def do_GET(self):
+            if self.path == "/start":
+                self.send_response(302)
+                self.send_header("Location", f"http://127.0.0.1:{port}/secret")
+                self.end_headers()
+            else:
+                followed.append(self.path)
+                self.send_response(200)
+                self.end_headers()
+
+        def log_message(self, *args):
+            pass
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Redirecting)
+    port = server.server_address[1]
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    try:
+        with pytest.raises(ValueError):
+            fetch_page(f"http://127.0.0.1:{port}/start")
+    finally:
+        server.shutdown()
+        server.server_close()
+
+    assert followed == []
