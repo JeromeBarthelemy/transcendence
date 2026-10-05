@@ -198,6 +198,23 @@ def test_shared_progress_counts_once_for_the_team_and_once_per_participant(clien
     assert members["tom"]["progress_entries"] == 1
 
 
+def test_mentors_do_not_count_as_participating_members(client):
+    rouages = team_season()
+    lina = member_of(rouages, "lina")
+    mentor = user("paul", User.ClubRole.MENTOR)
+    item = WorkItem.objects.create(team_season=rouages, title="intake")
+    progress(rouages, item, at(WEDNESDAY, 14), mentor, mentor)
+    client.force_login(lina)
+
+    data = client.get(url(rouages)).json()
+
+    assert data["activity_by_day"] == [
+        {"day": "2026-11-18", "progress_entries": 1, "active_members": 0}
+    ]
+    assert [member["display_name"] for member in data["members"]] == ["lina"]
+    assert data["members"][0]["progress_entries"] == 0
+
+
 def test_member_counts_are_distinct_and_notes_and_decisions_do_not_count(client):
     rouages = team_season()
     lina = member_of(rouages, "lina")

@@ -541,8 +541,8 @@ empty day has nothing to read, and the slots on which nothing moved are what
 Activity analytics are derived from the same records rather than stored a
 second time. The period applies only to `progress` entries and follows the
 same 4 a.m.–4 a.m. workday as the day screen. One progress shared by several
-participants counts once for the team and once for each participant; notes
-and decision attendees do not count. Per-member `active_days`,
+participants counts once for the team and once for each student participant;
+mentors, notes and decision attendees do not count. Per-student `active_days`,
 `progress_entries`, distinct `work_items`, and `last_progress_day` describe
 recorded participation, not productivity. Former or anonymized participants
 remain in the history with `is_current_member: false`.
