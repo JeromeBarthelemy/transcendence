@@ -5,8 +5,18 @@ import { AppLayout } from "./AppLayout";
 export const routes: RouteObject[] = [
   {
     element: <AppLayout />,
+    // Opened first, a lazy page leaves the router nothing to draw while its
+    // code arrives, and it warns in the console unless told what to show:
+    // nothing, for those few milliseconds, as before.
+    HydrateFallback: () => null,
     children: [
       { path: "/", element: <HomePage /> },
+      {
+        path: "*",
+        lazy: async () => ({
+          Component: (await import("../pages/NotFoundPage")).NotFoundPage,
+        }),
+      },
       {
         path: "/work-items/:workItemId",
         lazy: async () => ({

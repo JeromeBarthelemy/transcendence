@@ -4,6 +4,11 @@
     "name": "Fieldnotes",
     "footer": "Fieldnotes · un espace privé pour le club"
   },
+  "notFound": {
+    "title": "Page introuvable",
+    "description": "Cette adresse ne mène à aucune page de Fieldnotes : le lien est peut-être ancien, ou l'adresse mal tapée.",
+    "home": "Retour à l'accueil"
+  },
   "nav": {
     "main": "Navigation principale",
     "teams": "Équipes",
