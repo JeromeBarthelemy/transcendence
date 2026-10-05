@@ -22,6 +22,13 @@ from rest_framework.views import APIView
 
 from club.analytics.activity import summarize_activity
 from club.attachments import DOWNLOAD_ONLY
+from club.corrections import (
+    EntryChanged,
+    can_correct,
+    can_remove,
+    can_remove_attachment,
+    correct,
+)
 from club.export import gather, to_markdown_zip
 from club.gdpr import request_deletion, send_export
 from club.live import broadcast
@@ -71,6 +78,7 @@ from .serializers import (
     AttachmentSerializer,
     AvatarSerializer,
     CloseWorkItemSerializer,
+    CorrectionSerializer,
     CreateTeamSerializer,
     DaySerializer,
     DecisionSerializer,
@@ -529,7 +537,9 @@ class WorkItemListView(APIView):
         return Response(_work_item(item), status=status.HTTP_201_CREATED)
 
 
-def _entry(entry: Entry) -> dict[str, object]:
+def _entry(entry: Entry, reader: User) -> dict[str, object]:
+    """`reader` is who asks: the rights it carries are theirs, from the same
+    rules the API applies (club/corrections.py)."""
     return {
         "id": entry.id,
         "work_item": {"id": entry.work_item.id, "title": entry.work_item.title}
@@ -542,11 +552,13 @@ def _entry(entry: Entry) -> dict[str, object]:
         "occurred_at": entry.occurred_at,
         "author": entry.author.display_name,
         "participants": [_member(user) for user in entry.participants.all()],
-        "attachments": [_attachment(file) for file in entry.attachments.all()],
+        "attachments": [_attachment(file, reader) for file in entry.attachments.all()],
+        "can_remove": can_remove(entry, reader),
+        "can_correct": can_correct(entry, reader),
     }
 
 
-def _attachment(attachment: Attachment) -> dict[str, object]:
+def _attachment(attachment: Attachment, reader: User) -> dict[str, object]:
     return {
         "id": attachment.id,
         "name": attachment.name,
@@ -554,6 +566,7 @@ def _attachment(attachment: Attachment) -> dict[str, object]:
         "url": f"/api/attachments/{attachment.id}/",
         "people_recognisable": attachment.people_recognisable,
         "uploaded_by": attachment.uploaded_by.display_name,
+        "can_remove": can_remove_attachment(attachment, reader),
     }
 
 
@@ -576,7 +589,7 @@ class WorkItemDetailView(APIView):
         return Response(
             {
                 **_work_item(item),
-                "current_progress": _entry(current_progress)
+                "current_progress": _entry(current_progress, request.user)
                 if current_progress
                 else None,
                 "current_user_participates": bool(
@@ -585,7 +598,7 @@ class WorkItemDetailView(APIView):
                         pk=request.user.pk
                     ).exists()
                 ),
-                "thread": [_entry(entry) for entry in thread],
+                "thread": [_entry(entry, request.user) for entry in thread],
             }
         )
 
@@ -646,7 +659,7 @@ class TickView(APIView):
         if created or joined:
             broadcast(item.team_season_id, item.id)
         return Response(
-            _entry(entry),
+            _entry(entry, user),
             status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
         )
 
@@ -676,7 +689,7 @@ class EntryAttachmentsView(APIView):
         serializer.is_valid(raise_exception=True)
         attachment = serializer.save()
         broadcast(entry.team_season_id, entry.work_item_id)
-        return Response(_attachment(attachment), status=status.HTTP_201_CREATED)
+        return Response(_attachment(attachment, user), status=status.HTTP_201_CREATED)
 
 
 class AttachmentView(APIView):
@@ -696,8 +709,7 @@ class AttachmentView(APIView):
         attachment = self._acted_on(request, pk)
         user = request.user
         assert isinstance(user, User)
-        is_mentor = user.club_role == User.ClubRole.MENTOR
-        if not is_mentor and attachment.uploaded_by_id != user.pk:
+        if not can_remove_attachment(attachment, user):
             raise PermissionDenied(
                 "Seuls la personne qui l'a déposé et les mentors retirent un fichier.",
                 code="delete_not_uploader",
@@ -721,6 +733,8 @@ class EntryDetailView(APIView):
         assert isinstance(user, User)
         entry = get_object_or_404(Entry, pk=pk)
         team_season_acted_on(user, entry.team_season_id)
+        if "body" in request.data and can_correct(entry, user):
+            return self._correct(request, entry, user)
         serializer = WriteProgressSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
@@ -739,7 +753,33 @@ class EntryDetailView(APIView):
                 code="progress_changed",
             ) from changed
         broadcast(entry.team_season_id, entry.work_item_id)
-        return Response(_entry(entry))
+        return Response(_entry(entry, user))
+
+    def _correct(self, request: Request, entry: Entry, user: User) -> Response:
+        serializer = CorrectionSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        try:
+            correct(entry, user, **serializer.validated_data)
+        except EntryChanged as changed:
+            raise Conflict(
+                "Ce texte a été modifié pendant que vous le corrigiez.",
+                code="entry_changed",
+            ) from changed
+        return Response(_entry(entry, user))
+
+    def delete(self, request: Request, pk: int) -> Response:
+        user = request.user
+        assert isinstance(user, User)
+        entry = get_object_or_404(Entry, pk=pk)
+        team_season_acted_on(user, entry.team_season_id)
+        if not can_remove(entry, user):
+            raise PermissionDenied(
+                "Seuls son auteur et les mentors retirent cette trace ; "
+                "d'une avancée, on se retire.",
+                code="remove_not_allowed",
+            )
+        entry.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class NoteCreateView(APIView):
@@ -753,7 +793,7 @@ class NoteCreateView(APIView):
         serializer.is_valid(raise_exception=True)
         entry = serializer.save()
         broadcast(team_season.id, entry.work_item_id)
-        return Response(_entry(entry), status=status.HTTP_201_CREATED)
+        return Response(_entry(entry, user), status=status.HTTP_201_CREATED)
 
 
 class DecisionCreateView(APIView):
@@ -767,7 +807,7 @@ class DecisionCreateView(APIView):
         serializer.is_valid(raise_exception=True)
         entry = serializer.save()
         broadcast(team_season.id, entry.work_item_id)
-        return Response(_entry(entry), status=status.HTTP_201_CREATED)
+        return Response(_entry(entry, user), status=status.HTTP_201_CREATED)
 
 
 class DayView(APIView):
@@ -793,7 +833,7 @@ class DayView(APIView):
                 "day": the_day,
                 "previous": previous,
                 "next": following,
-                "entries": [_entry(entry) for entry in entries],
+                "entries": [_entry(entry, user) for entry in entries],
                 "advanced_work_items": len(
                     {
                         entry.work_item_id
