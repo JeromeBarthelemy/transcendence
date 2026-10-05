@@ -6,7 +6,7 @@ import type { WorkItem } from "../api/workItems";
  * neutral grey — dropping a lead is a normal outcome, not an error, so not
  * red; and not amber either, which belongs to the pending handover. */
 export const statusColors: Record<WorkItem["status"], string> = {
-  open: "bg-tint text-accent",
-  done: "bg-success-tint text-success",
-  dropped: "bg-fog text-muted",
+    open: "bg-tint text-primary",
+    done: "bg-success-tint text-success",
+    dropped: "bg-fog text-muted",
 };
