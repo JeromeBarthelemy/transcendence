@@ -9,6 +9,7 @@ import {
   createWorkItemNote,
   deleteWorkItem,
   getWorkItem,
+  type ProgressChanges,
   tickWorkItem,
   updateProgress,
   uploadAttachment,
@@ -20,7 +21,7 @@ import {
 import { nameFormatter } from "../app/formatters";
 import { useCurrentUser } from "../app/useCurrentUser";
 import { statusColors } from "../app/workItemStatus";
-import { RequestError } from "../components/ApiErrors";
+import { fieldIssues, RequestError } from "../components/ApiErrors";
 import { AvatarStack } from "../components/Avatar";
 
 const dateFormatter = new Intl.DateTimeFormat("fr-FR", {
@@ -179,15 +180,57 @@ function ProgressEditor({
   entry: WorkItemEntry;
 }) {
   const { t } = useTranslation();
+  const queryClient = useQueryClient();
   const invalidateWorkItem = useInvalidateWorkItem(item);
-  const [body, setBody] = useState(entry.body);
+  const [addition, setAddition] = useState("");
   const [handover, setHandover] = useState(entry.handover);
+  // What the member is writing from. Not read from `entry` at save time: a
+  // reload in the background would hand over a text they never saw.
+  const [handoverWas, setHandoverWas] = useState(entry.handover);
+  // The handover someone else saved meanwhile, once a save was refused.
+  const [theirs, setTheirs] = useState<{ by: string; handover: string } | null>(
+    null,
+  );
   const [saved, setSaved] = useState(false);
+
+  const changes: ProgressChanges = {};
+  if (addition.trim()) {
+    changes.addition = addition.trim();
+  }
+  if (handover !== handoverWas) {
+    changes.handover = handover;
+    changes.handover_was = handoverWas;
+  }
+  const nothingToSave = Object.keys(changes).length === 0;
+
   const save = useMutation({
-    mutationFn: () => updateProgress(entry.id, { body, handover }),
-    onSuccess: async () => {
+    mutationFn: () => updateProgress(entry.id, changes),
+    onSuccess: async (savedEntry) => {
+      setAddition("");
+      setHandover(savedEntry.handover);
+      setHandoverWas(savedEntry.handover);
+      setTheirs(null);
       setSaved(true);
       await invalidateWorkItem();
+    },
+    onError: async (error) => {
+      if (fieldIssues(error, "detail")[0]?.code !== "progress_changed") {
+        return;
+      }
+      const fresh = await queryClient.fetchQuery({
+        queryKey: ["work-items", item.id],
+        queryFn: () => getWorkItem(item.id),
+        // The cache is what the refusal says is out of date.
+        staleTime: 0,
+      });
+      const current = fresh.thread.find((other) => other.id === entry.id);
+      if (current) {
+        setTheirs({
+          by: current.updated_by ?? t("workItem.someone"),
+          handover: current.handover,
+        });
+        setHandoverWas(current.handover);
+      }
     },
   });
 
@@ -200,19 +243,28 @@ function ProgressEditor({
   return (
     <div className="mt-6 border-t border-primary/10 pt-5">
       <form onSubmit={submit}>
-        <label
-          htmlFor={`progress-body-${entry.id}`}
-          className="text-sm font-semibold text-ink"
-        >
+        <p className="mb-4 text-sm text-muted">{t("workItem.sharedHint")}</p>
+        <p className="text-sm font-semibold text-ink">
           {t("workItem.doneToday")}
+        </p>
+        {entry.body ? (
+          <p className="mt-2 whitespace-pre-wrap text-body">{entry.body}</p>
+        ) : (
+          <p className="mt-2 text-sm text-muted">{t("workItem.nothingYet")}</p>
+        )}
+        <label
+          htmlFor={`progress-addition-${entry.id}`}
+          className="mt-5 block text-sm font-semibold text-ink"
+        >
+          {t("workItem.addition")}
         </label>
         <textarea
-          id={`progress-body-${entry.id}`}
+          id={`progress-addition-${entry.id}`}
           className="mt-2 min-h-28 w-full rounded-xl border border-primary/20 px-3 py-2 text-body"
-          value={body}
-          placeholder={t("workItem.doneTodayPlaceholder")}
+          value={addition}
+          placeholder={t("workItem.additionPlaceholder")}
           onChange={(event) => {
-            setBody(event.target.value);
+            setAddition(event.target.value);
             setSaved(false);
           }}
         />
@@ -228,13 +280,29 @@ function ProgressEditor({
           className="mt-2 min-h-24 w-full rounded-xl border border-warning/35 bg-warning-wash px-3 py-2 text-body"
           value={handover}
           placeholder={t("workItem.nextTimePlaceholder")}
+          aria-describedby={
+            theirs ? `progress-handover-changed-${entry.id}` : undefined
+          }
           onChange={(event) => {
             setHandover(event.target.value);
             setSaved(false);
           }}
         />
+        {theirs && (
+          <div
+            id={`progress-handover-changed-${entry.id}`}
+            role="alert"
+            className="mt-2 rounded-xl border border-warning/35 bg-warning-wash p-3 text-sm text-body"
+          >
+            <p className="font-semibold">
+              {t("workItem.changedMeanwhile", { name: theirs.by })}
+            </p>
+            <p className="mt-1 whitespace-pre-wrap">{theirs.handover}</p>
+            <p className="mt-1 text-muted">{t("workItem.mergeThenSave")}</p>
+          </div>
+        )}
 
-        {save.isError && <RequestError error={save.error} />}
+        {save.isError && !theirs && <RequestError error={save.error} />}
         {saved && (
           <p role="status" className="mt-3 text-sm font-semibold text-success">
             {t("workItem.progressSaved")}
@@ -244,7 +312,7 @@ function ProgressEditor({
           <button
             type="submit"
             className="rounded-xl bg-accent px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-50"
-            disabled={save.isPending}
+            disabled={save.isPending || nothingToSave}
           >
             {save.isPending ? t("workItem.saving") : t("workItem.save")}
           </button>

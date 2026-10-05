@@ -69,6 +69,7 @@ const entrySchema = z.object({
   step: z.nullable(workItemStepSchema),
   handover: z.string(),
   occurred_at: z.string(),
+  updated_by: z.nullable(z.string()),
   author: z.string(),
   participants: z.array(memberSchema),
   attachments: z.array(attachmentSchema),
@@ -154,9 +155,18 @@ export async function deleteWorkItem(id: number): Promise<void> {
   await del(`/api/work-items/${id}/`);
 }
 
+/** The text is only added to. A handover change sends what it started
+ * from: the server refuses it with `progress_changed` if the handover holds
+ * something else by now. */
+export interface ProgressChanges {
+  addition?: string;
+  handover?: string;
+  handover_was?: string;
+}
+
 export async function updateProgress(
   entryId: number,
-  input: { body: string; handover: string },
+  input: ProgressChanges,
 ): Promise<WorkItemEntry> {
   const { body } = await patch(`/api/entries/${entryId}/`, input);
   return parseEntry(body);
