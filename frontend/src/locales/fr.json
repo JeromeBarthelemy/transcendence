@@ -421,6 +421,7 @@
     "admin_must_be_mentor": "Un administrateur doit être mentor.",
     "last_admin_cannot_leave": "Vous êtes le seul administrateur du club : vous ne pouvez pas supprimer votre compte.",
     "no_contact_email": "Aucune adresse de contact n'est enregistrée pour ce compte : impossible d'envoyer la confirmation.",
+    "mail_unavailable": "Le courriel ne peut pas être envoyé pour le moment : rien n'a été fait. Réessayez plus tard.",
     "account_anonymized": "Ce compte a été supprimé : il ne peut plus être modifié.",
     "avatar_too_large": "Cette photo dépasse 10 Mo.",
     "avatar_too_many_pixels": "Cette photo compte trop de pixels.",

@@ -460,7 +460,10 @@ Neither goes to the login address: it identifies an account without being
 assumed to deliver, and the youngest members have none that does. Both go to
 `contact_email` instead — the member's own for an adult, their legal
 guardian's for a minor — and both are refused with `no_contact_email` when
-that column is empty, before anything changes. `DELETE` also takes the
+that column is empty, before anything changes. A request is confirmed by
+e-mail or not carried out: when the mail cannot go out (the relay refuses,
+or there is none to reach), both are refused with `mail_unavailable` and
+nothing changes. `DELETE` also takes the
 account's own `password` in its body and refuses a missing or wrong one with
 `wrong_password`, nothing changed — a session left open on a shared club
 computer must not delete the account in one click.
