@@ -44,7 +44,6 @@ function progress(overrides: object = {}) {
     step: "prototyping",
     handover: "Tester les galets à 12 V.",
     occurred_at: "2026-09-28T14:30:00+02:00",
-    updated_by: null as string | null,
     author: "Lina",
     participants: [
       { display_name: "Lina", avatar: null },
@@ -400,7 +399,6 @@ it("adds to what was done and saves the changed handoff", async () => {
       ...server.progress,
       body: `${server.progress.body}\n\n${input.addition}`,
       handover: input.handover,
-      updated_by: "Marie",
     };
     return json(server.progress);
   });
@@ -506,7 +504,6 @@ it("after a refusal, shows the other version under the field in conflict, then s
       refusedOnce = true;
       server.progress = progress({
         handover: "Ne pas resserrer la courroie.",
-        updated_by: "Lina",
       });
       return progressChanged();
     }
@@ -525,7 +522,7 @@ it("after a refusal, shows the other version under the field in conflict, then s
 
   await waitFor(() => {
     expect(noteUnder(handover)?.textContent).toContain(
-      "Lina a enregistré une autre version pendant que vous écriviez :",
+      "« À faire la prochaine fois » a changé pendant que vous écriviez :",
     );
   });
   expect(noteUnder(handover)?.textContent).toContain(
@@ -586,7 +583,6 @@ it("adds a note to the work item and refreshes its history", async () => {
     step: null,
     handover: "",
     occurred_at: "2026-09-29T14:30:00+02:00",
-    updated_by: null,
     author: "Marie",
     participants: [],
     attachments: [],

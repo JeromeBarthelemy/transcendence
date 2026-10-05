@@ -69,7 +69,6 @@ const entrySchema = z.object({
   step: z.nullable(workItemStepSchema),
   handover: z.string(),
   occurred_at: z.string(),
-  updated_by: z.nullable(z.string()),
   author: z.string(),
   participants: z.array(memberSchema),
   attachments: z.array(attachmentSchema),

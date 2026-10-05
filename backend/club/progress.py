@@ -16,10 +16,6 @@ class ProgressChanged(Exception):
     """Not a ValidationError: nothing in the request is wrong, the progress
     moved under it, and the API answers 409 rather than 400."""
 
-    def __init__(self, by: User | None) -> None:
-        super().__init__()
-        self.by = by
-
 
 def check_step(work_item: WorkItem, step: str | None) -> None:
     if step is not None and not work_item.on_robot:
@@ -107,13 +103,15 @@ def edit_progress(
             code="edit_not_participant",
         )
     check_step(work_item, step)
+    addition = addition.strip()
+    if not addition and step is None and handover is None:
+        return
 
     # Tested and written by the database in one UPDATE, not read then
     # written: two additions at the same moment both land, and a handover
     # change only goes through over the handover it was written from.
     matches = Q(pk=entry.pk)
     changes: dict[str, Any] = {"updated_by": user, "updated_at": timezone.now()}
-    addition = addition.strip()
     if addition:
         changes["body"] = Case(
             When(body="", then=Value(addition)),
@@ -128,4 +126,4 @@ def edit_progress(
     saved = Entry.objects.filter(matches).update(**changes)
     entry.refresh_from_db()
     if not saved:
-        raise ProgressChanged(entry.updated_by)
+        raise ProgressChanged

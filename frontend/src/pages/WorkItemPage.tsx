@@ -188,9 +188,7 @@ function ProgressEditor({
   // reload in the background would hand over a text they never saw.
   const [handoverWas, setHandoverWas] = useState(entry.handover);
   // The handover someone else saved meanwhile, once a save was refused.
-  const [theirs, setTheirs] = useState<{ by: string; handover: string } | null>(
-    null,
-  );
+  const [theirs, setTheirs] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
 
   const changes: ProgressChanges = {};
@@ -225,10 +223,7 @@ function ProgressEditor({
       });
       const current = fresh.thread.find((other) => other.id === entry.id);
       if (current) {
-        setTheirs({
-          by: current.updated_by ?? t("workItem.someone"),
-          handover: current.handover,
-        });
+        setTheirs(current.handover);
         setHandoverWas(current.handover);
       }
     },
@@ -281,28 +276,28 @@ function ProgressEditor({
           value={handover}
           placeholder={t("workItem.nextTimePlaceholder")}
           aria-describedby={
-            theirs ? `progress-handover-changed-${entry.id}` : undefined
+            theirs !== null
+              ? `progress-handover-changed-${entry.id}`
+              : undefined
           }
           onChange={(event) => {
             setHandover(event.target.value);
             setSaved(false);
           }}
         />
-        {theirs && (
+        {theirs !== null && (
           <div
             id={`progress-handover-changed-${entry.id}`}
             role="alert"
             className="mt-2 rounded-xl border border-warning/35 bg-warning-wash p-3 text-sm text-body"
           >
-            <p className="font-semibold">
-              {t("workItem.changedMeanwhile", { name: theirs.by })}
-            </p>
-            <p className="mt-1 whitespace-pre-wrap">{theirs.handover}</p>
+            <p className="font-semibold">{t("workItem.changedMeanwhile")}</p>
+            <p className="mt-1 whitespace-pre-wrap">{theirs}</p>
             <p className="mt-1 text-muted">{t("workItem.mergeThenSave")}</p>
           </div>
         )}
 
-        {save.isError && !theirs && <RequestError error={save.error} />}
+        {save.isError && theirs === null && <RequestError error={save.error} />}
         {saved && (
           <p role="status" className="mt-3 text-sm font-semibold text-success">
             {t("workItem.progressSaved")}

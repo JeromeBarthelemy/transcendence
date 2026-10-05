@@ -279,10 +279,9 @@ def test_a_handover_changed_since_is_not_overwritten():
     join(entry, tom)
     edit_progress(entry, marie, handover="Tester à 12 V.", handover_was="Tester.")
 
-    with pytest.raises(ProgressChanged) as refused:
+    with pytest.raises(ProgressChanged):
         edit_progress(entry, tom, handover="Régler le PID.", handover_was="Tester.")
 
-    assert refused.value.by == marie
     entry.refresh_from_db()
     assert entry.handover == "Tester à 12 V."
 
@@ -316,3 +315,14 @@ def test_a_refused_save_adds_nothing():
 
     entry.refresh_from_db()
     assert entry.body == "Monté."
+
+
+def test_an_empty_save_leaves_the_progress_untouched():
+    marie = student()
+    entry = record_progress(work_item(), marie, "Monté.", handover="Tester.")
+
+    edit_progress(entry, marie, addition="   ")
+
+    entry.refresh_from_db()
+    assert entry.updated_by is None
+    assert entry.updated_at is None

@@ -531,7 +531,6 @@ def _entry(entry: Entry) -> dict[str, object]:
         "step": entry.step,
         "handover": entry.handover,
         "occurred_at": entry.occurred_at,
-        "updated_by": entry.updated_by.display_name if entry.updated_by else None,
         "author": entry.author.display_name,
         "participants": [_member(user) for user in entry.participants.all()],
         "attachments": [_attachment(file) for file in entry.attachments.all()],
@@ -560,7 +559,7 @@ class WorkItemDetailView(APIView):
         assert isinstance(request.user, User)
         item = _work_item_acted_on(request.user, pk)
         thread = (
-            item.entries.select_related("author", "updated_by", "work_item")
+            item.entries.select_related("author", "work_item")
             .prefetch_related("participants", "attachments__uploaded_by")
             .order_by("-occurred_at", "-id")
         )
@@ -705,9 +704,8 @@ class EntryDetailView(APIView):
                 handover_was=data.get("handover_was"),
             )
         except ProgressChanged as changed:
-            name = changed.by.display_name if changed.by else "Quelqu'un"
             raise Conflict(
-                f"{name} a modifié cette avancée pendant que vous écriviez.",
+                "Cette avancée a été modifiée pendant que vous écriviez.",
                 code="progress_changed",
             ) from changed
         return Response(_entry(entry))
@@ -749,9 +747,7 @@ class DayView(APIView):
             serializer.is_valid(raise_exception=True)
             the_day = serializer.validated_data["day"]
         entries = list(
-            day_entries(team_season, the_day).select_related(
-                "author", "updated_by", "work_item"
-            )
+            day_entries(team_season, the_day).select_related("author", "work_item")
         )
         # The roster the attendance is counted against: students, as mentors
         # are never counted present.
