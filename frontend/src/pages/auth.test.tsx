@@ -268,29 +268,35 @@ it("shows one login error for bad credentials", async () => {
 });
 
 it("opens and closes a session using the rotated CSRF cookie", async () => {
+  const marieIdentity = {
+    display_name: "Marie",
+    club_role: "student",
+    is_club_admin: false,
+    avatar: null,
+    team_seasons: [],
+  };
+  // Like the server: once logged in, /me answers with the session, and the
+  // cookie the login rotated stays rotated.
+  let loggedIn = false;
   const fetchMock = vi.fn(async (path: string, options?: RequestInit) => {
     if (path === "/api/auth/me/") {
+      if (loggedIn) {
+        return json(marieIdentity, 200);
+      }
       setDocumentCookie("csrftoken=first-token; path=/");
-      return json(null, 200);
+      return json({ detail: issue("not_authenticated") }, 403);
     }
     if (path === "/api/auth/login/") {
       expect(options?.headers).toMatchObject({ "X-CSRFToken": "first-token" });
       setDocumentCookie("csrftoken=rotated-token; path=/");
-      return json(
-        {
-          display_name: "Marie",
-          club_role: "student",
-          is_club_admin: false,
-          avatar: null,
-          team_seasons: [],
-        },
-        200,
-      );
+      loggedIn = true;
+      return json(marieIdentity, 200);
     }
     if (path === "/api/auth/logout/") {
       expect(options?.headers).toMatchObject({
         "X-CSRFToken": "rotated-token",
       });
+      loggedIn = false;
       return new Response(null, { status: 204 });
     }
     throw new Error(`Unexpected request: ${path}`);
@@ -307,11 +313,16 @@ it("opens and closes a session using the rotated CSRF cookie", async () => {
   await user.click(screen.getByRole("button", { name: "Se connecter" }));
   expect(await screen.findByText("Bonjour, Marie.")).toBeTruthy();
 
+  await user.click(
+    screen.getByRole("button", { name: "Menu du compte (Marie)" }),
+  );
   await user.click(screen.getByRole("button", { name: "Se déconnecter" }));
   await waitFor(() => {
     expect(screen.getByRole("link", { name: "Créer mon compte" })).toBeTruthy();
   });
-  expect(fetchMock).toHaveBeenCalledTimes(3);
+  const paths = fetchMock.mock.calls.map(([path]) => path);
+  expect(paths.filter((path) => path === "/api/auth/login/")).toHaveLength(1);
+  expect(paths.filter((path) => path === "/api/auth/logout/")).toHaveLength(1);
 });
 
 it("clears a stale session when logout says it is already gone", async () => {
@@ -339,8 +350,9 @@ it("clears a stale session when logout says it is already gone", async () => {
 
   const user = userEvent.setup();
   await user.click(
-    await screen.findByRole("button", { name: "Se déconnecter" }),
+    await screen.findByRole("button", { name: "Menu du compte (Marie)" }),
   );
+  await user.click(screen.getByRole("button", { name: "Se déconnecter" }));
 
   expect(
     await screen.findByRole("link", { name: "Créer mon compte" }),
@@ -375,8 +387,9 @@ it("keeps a logout permission refusal visible", async () => {
 
   const user = userEvent.setup();
   await user.click(
-    await screen.findByRole("button", { name: "Se déconnecter" }),
+    await screen.findByRole("button", { name: "Menu du compte (Marie)" }),
   );
+  await user.click(screen.getByRole("button", { name: "Se déconnecter" }));
 
   expect(
     await screen.findByText("Vous n'avez pas l'autorisation nécessaire."),
