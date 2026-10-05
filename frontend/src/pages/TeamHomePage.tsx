@@ -12,6 +12,7 @@ import type { Identity, TeamSeasonSummary } from "../api/auth";
 import { createTeamNote, getWorkday, type Workday } from "../api/workdays";
 import { getWorkItems, type WorkItem } from "../api/workItems";
 import { formatWorkdayDate, nameFormatter } from "../app/formatters";
+import { LiveBoard } from "../app/live";
 import { statusColors } from "../app/workItemStatus";
 import { RequestError } from "../components/ApiErrors";
 import { AvatarStack } from "../components/Avatar";
@@ -522,6 +523,7 @@ export function TeamHomePage({ identity }: { identity: Identity }) {
       <p className="text-sm font-bold tracking-[0.14em] text-accent uppercase">
         {t("teamHome.welcome", { name: identity.display_name })}
       </p>
+      <LiveBoard teamSeasonId={selectedTeamSeason.id} />
 
       <div className="mt-3 flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
         <div>

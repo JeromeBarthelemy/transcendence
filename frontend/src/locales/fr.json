@@ -358,6 +358,9 @@
     "avatarType": "Ce fichier n'a pas été envoyé : choisissez une photo JPEG, PNG, WebP ou HEIC.",
     "avatarSize": "Ce fichier n'a pas été envoyé : la photo dépasse 10 Mo."
   },
+  "live": {
+    "offline": "Hors ligne : les changements des autres arriveront à la reconnexion."
+  },
   "personalData": {
     "title": "Données personnelles",
     "intro": "Vos données vous appartiennent. Chaque demande est confirmée par courriel à l'adresse de contact de votre compte — celle de votre responsable légal si vous êtes mineur.",
