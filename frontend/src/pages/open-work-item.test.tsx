@@ -89,7 +89,9 @@ function renderHome() {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
-  const router = createMemoryRouter(routes, { initialEntries: ["/"] });
+  const router = createMemoryRouter(routes, {
+    initialEntries: ["/?section=work-items"],
+  });
   render(
     <QueryClientProvider client={queryClient}>
       <RouterProvider router={router} />

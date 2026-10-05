@@ -41,6 +41,11 @@
     "teamTitle": "Équipe {{number}} · {{name}}",
     "season": "Saison {{start}}–{{end}} · {{game}}",
     "chooseTeam": "Changer d'équipe",
+    "sectionsLabel": "Sections de l'équipe",
+    "sections": {
+      "work-items": "Chantiers",
+      "activity": "Activité"
+    },
     "loading": "Chargement des chantiers…",
     "today": "Aujourd'hui",
     "loadingDay": "Chargement de la séance…",
