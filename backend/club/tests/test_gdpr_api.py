@@ -2,6 +2,8 @@
 e-mail to their contact address — never the login one (docs/modules.md §10).
 """
 
+from smtplib import SMTPException
+
 import pytest
 from django.core.files.base import ContentFile
 
@@ -190,6 +192,27 @@ def test_without_a_contact_address_the_export_is_refused(client, mailoutbox):
     assert mailoutbox == []
 
 
+@pytest.fixture(params=[SMTPException("relay refused"), ConnectionRefusedError()])
+def mail_down(request, monkeypatch):
+    """The relay refusing, or no relay at all: no network, no `EMAIL_HOST`."""
+
+    def fail(self, messages):
+        raise request.param
+
+    monkeypatch.setattr(
+        "django.core.mail.backends.locmem.EmailBackend.send_messages", fail
+    )
+
+
+def test_an_export_the_mail_cannot_carry_is_refused(client, mail_down):
+    client.force_login(student(contact_email="parent.lina@club.fr"))
+
+    response = client.post("/api/auth/me/export/")
+
+    assert response.status_code == 400
+    assert response.json()["detail"]["code"] == "mail_unavailable"
+
+
 def test_an_anonymous_caller_cannot_request_an_export(client):
     assert client.post("/api/auth/me/export/").status_code in (401, 403)
 
@@ -277,27 +300,22 @@ def test_deletion_leaves_the_password_unusable(client, mailoutbox):
     assert lina.has_usable_password() is False
 
 
-def test_a_failed_confirmation_e_mail_leaves_the_account_unchanged(
-    client, mailoutbox, monkeypatch
+def test_a_deletion_the_mail_cannot_confirm_leaves_the_account_as_it_was(
+    client, mail_down
 ):
-    from club import gdpr
-
-    def broken_send_mail(*args, **kwargs):
-        raise RuntimeError("SMTP is down")
-
-    monkeypatch.setattr(gdpr, "send_mail", broken_send_mail)
     lina = student(contact_email="parent.lina@club.fr")
     original_email = lina.email
     client.force_login(lina)
 
-    with pytest.raises(RuntimeError):
-        delete(client)
+    response = delete(client)
 
+    assert response.status_code == 400
+    assert response.json()["detail"]["code"] == "mail_unavailable"
     lina.refresh_from_db()
     assert lina.is_active is True
     assert lina.email == original_email
     assert lina.has_usable_password() is True
-    assert mailoutbox == []
+    assert client.get("/api/auth/me/").json() is not None
 
 
 def test_a_deleted_account_still_exists_and_keeps_its_traces(client, mailoutbox):

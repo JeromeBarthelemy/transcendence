@@ -215,6 +215,9 @@ EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "")
 EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "")
 EMAIL_USE_TLS = env_bool("EMAIL_USE_TLS", True)
 DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "fieldnotes@localhost")
+# Django's default is none: a network that drops packets without answering
+# would hold the request forever instead of failing.
+EMAIL_TIMEOUT = 10
 
 
 # ---------------------------------------------------------------------------
