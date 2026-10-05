@@ -498,7 +498,7 @@ the screen to them.
 | `GET /api/teams/` | the newest season and its teams, each with its `team_season` and its members as `{"membership", "user", "display_name", "avatar"}` |
 | `POST /api/teams/` | create a team — `number`, `name`, and the `season`'s start year — and open it for that season |
 | `PATCH /api/teams/{id}/` | rename it; the number is FIRST's and never changes |
-| `DELETE /api/teams/{id}/` | delete it — refused with `team_has_members` while anyone is on it, `team_has_history` once it has more than a season or any work |
+| `DELETE /api/teams/{id}/` | delete it — refused with `team_has_members` while anyone is on it, `team_has_history` once it has more than a season, `team_has_work` once its season holds a work item or a trace |
 | `GET /api/users/?search=&team_season=` | the member list as the screen's typeahead: up to ten active accounts whose display name contains the text, regardless of case, less those already on `team_season` |
 | `POST /api/memberships/` | put `user` on `team_season`; twice is `membership_exists` |
 | `DELETE /api/memberships/{id}/` | take them off it |

@@ -428,9 +428,13 @@ class TeamDetailView(APIView):
                 team.team_seasons.all().delete()
                 team.delete()
         except ProtectedError as blocked:
-            # Backstop for whatever the count() check above does not yet
-            # know to look for.
-            raise Conflict(code="team_has_history") from blocked
+            # Work items and entries are the only PROTECT links to a team
+            # season, so this is the cause; a new one must change the message.
+            raise Conflict(
+                "Cette équipe a déjà des chantiers ou des traces : elle fait "
+                "partie de l'histoire du club et ne peut pas être supprimée.",
+                code="team_has_work",
+            ) from blocked
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 

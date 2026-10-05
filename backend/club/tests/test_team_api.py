@@ -7,7 +7,15 @@ these do not wait on DRF landing to be written.
 from django.test import Client
 
 from club.api.serializers import AddMembershipSerializer, CreateTeamSerializer
-from club.models import Membership, Season, Team, TeamSeason, User, WorkItem
+from club.models import (
+    Entry,
+    Membership,
+    Season,
+    Team,
+    TeamSeason,
+    User,
+    WorkItem,
+)
 
 from .races import overtaken_by
 
@@ -217,8 +225,27 @@ def test_a_team_with_work_items_cannot_be_deleted_over_the_api(client):
     response = client.delete(f"/api/teams/{rouages_2026.team.id}/")
 
     assert response.status_code == 409
-    assert response.json()["detail"]["code"] == "team_has_history"
+    assert response.json()["detail"]["code"] == "team_has_work"
     assert WorkItem.objects.filter(team_season=rouages_2026).exists()
+
+
+def test_a_team_with_a_note_cannot_be_deleted_and_says_why(client):
+    # The in-room trial's team: one season, nobody left on it, and a note a
+    # student wrote before she moved to another team. #119
+    client.force_login(admin())
+    baguettechs = team_season(209989)
+    Entry.objects.create(
+        team_season=baguettechs,
+        author=student("lina@club.fr", "Lina"),
+        type=Entry.Type.NOTE,
+        body="On teste le châssis vendredi.",
+    )
+
+    response = client.delete(f"/api/teams/{baguettechs.team.id}/")
+
+    assert response.status_code == 409
+    assert response.json()["detail"]["code"] == "team_has_work"
+    assert Team.objects.filter(id=baguettechs.team.id).exists()
 
 
 # --- memberships ---
