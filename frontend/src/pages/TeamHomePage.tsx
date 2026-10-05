@@ -15,6 +15,7 @@ import { formatWorkdayDate, nameFormatter } from "../app/formatters";
 import { statusColors } from "../app/workItemStatus";
 import { RequestError } from "../components/ApiErrors";
 import { AvatarStack } from "../components/Avatar";
+import { TeamActivity } from "../components/TeamActivity";
 import { OpenWorkItemPanel } from "./OpenWorkItemPanel";
 
 type StatusFilter = "all" | WorkItem["status"];
@@ -522,6 +523,11 @@ export function TeamHomePage({ identity }: { identity: Identity }) {
         key={selectedTeamSeason.id}
         teamSeasonId={selectedTeamSeason.id}
         day={day}
+      />
+
+      <TeamActivity
+        teamSeason={selectedTeamSeason}
+        currentWorkday={day.data?.day}
       />
 
       {workItems.isPending ? (

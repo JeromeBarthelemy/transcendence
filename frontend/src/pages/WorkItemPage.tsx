@@ -44,6 +44,8 @@ function useInvalidateWorkItem(item: WorkItemDetail) {
   return async () => {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ["work-items", item.id] }),
+      // This team-season prefix refreshes the work-item list, day summaries,
+      // and activity analytics after a progress tick or edit.
       queryClient.invalidateQueries({
         queryKey: ["team-seasons", item.team_season],
       }),
