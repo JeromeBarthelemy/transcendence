@@ -19,6 +19,9 @@ from .views import (
     MeView,
     NoteCreateView,
     RuleQuestionView,
+    RuleSourceAcceptView,
+    RuleSourcesCheckView,
+    RuleSourcesView,
     SignUpView,
     TeamDetailView,
     TeamListView,
@@ -96,4 +99,15 @@ urlpatterns = [
         name="export",
     ),
     path("rules/ask/", RuleQuestionView.as_view(), name="rule-ask"),
+    path("rules/sources/", RuleSourcesView.as_view(), name="rule-sources"),
+    path(
+        "rules/sources/check/",
+        RuleSourcesCheckView.as_view(),
+        name="rule-sources-check",
+    ),
+    path(
+        "rules/sources/<str:source>/accept/",
+        RuleSourceAcceptView.as_view(),
+        name="rule-source-accept",
+    ),
 ]

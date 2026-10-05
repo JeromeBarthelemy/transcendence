@@ -775,6 +775,10 @@ class Document(models.Model):
     title = models.CharField("titre", max_length=200)
     url = models.URLField(blank=True)
     fetched_at = models.DateTimeField("récupéré le", default=timezone.now)
+    # Of the page as fetched, not of the passages: a check compares this first
+    # and only chunks the page when it differs.
+    content_hash = models.CharField("empreinte du contenu", max_length=64, blank=True)
+    checked_at = models.DateTimeField("vérifié le", null=True, blank=True)
 
     class Meta:
         ordering = ["-fetched_at"]
@@ -782,6 +786,30 @@ class Document(models.Model):
 
     def __str__(self) -> str:
         return self.title
+
+
+class SourceUpdate(models.Model):
+    """A checked source page that changed, waiting for an admin to accept it.
+    Until then `ask` keeps searching the current copy: nothing is replaced
+    silently. Holds the fetched text so accepting does not fetch it again."""
+
+    season = models.ForeignKey(
+        Season, on_delete=models.CASCADE, related_name="source_updates"
+    )
+    source = models.CharField("source", max_length=15, choices=Document.Source.choices)
+    url = models.URLField()
+    content_hash = models.CharField("empreinte du contenu", max_length=64)
+    candidate_text = models.TextField("texte récupéré")
+    summary = models.JSONField("résumé des changements", default=dict)
+    detected_at = models.DateTimeField("détecté le", default=timezone.now)
+
+    class Meta:
+        verbose_name = "mise à jour de source"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["season", "source"], name="unique_pending_update_per_source"
+            ),
+        ]
 
 
 class Chunk(models.Model):

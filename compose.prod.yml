@@ -75,6 +75,27 @@ services:
       timeout: 2s
       retries: 10
 
+  # Checks the rulebook's sources against their official pages every 24 hours.
+  # Same image and database as `backend`, so it starts only once the backend
+  # has migrated and answers its healthcheck. A changed page is only ever
+  # recorded as an update for an administrator to accept (club/sources.py).
+  sources-check:
+    image: transcendence-backend
+    pull_policy: never
+    depends_on:
+      backend:
+        condition: service_healthy
+    env_file: ./backend/.env
+    environment:
+      DJANGO_DB_PATH: /app/data/db.sqlite3
+      # 86400 seconds is 24 hours; shorter values are for testing the loop.
+      SOURCES_CHECK_INTERVAL_SECONDS: ${SOURCES_CHECK_INTERVAL_SECONDS:-86400}
+    volumes:
+      - sqlite_data:/app/data
+    command: >-
+      sh -c "while true; do python manage.py check_sources; sleep $$SOURCES_CHECK_INTERVAL_SECONDS; done"
+    restart: unless-stopped
+
   proxy:
     build:
       context: .

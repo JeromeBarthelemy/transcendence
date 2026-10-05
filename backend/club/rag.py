@@ -32,6 +32,7 @@ from typing import Any
 import numpy as np
 from django.conf import settings
 from django.db import transaction
+from django.utils import timezone
 from fastembed import TextEmbedding
 from fastembed.common.model_description import ModelSource, PoolingType
 
@@ -347,7 +348,13 @@ _CHUNKER_OF: dict[str, Callable[[str], list[tuple[str, str]]]] = {
 
 
 def ingest_document(
-    *, season: Season, source: str, title: str, text: str, url: str = ""
+    *,
+    season: Season,
+    source: str,
+    title: str,
+    text: str,
+    url: str = "",
+    content_hash: str = "",
 ) -> Document:
     """All or nothing where it counts: a document without its passages
     would never be found, and passages without their document would cite
@@ -371,6 +378,8 @@ def ingest_document(
             authority=AUTHORITY_OF[source],
             title=title,
             url=url,
+            content_hash=content_hash,
+            checked_at=timezone.now() if content_hash else None,
         )
         Chunk.objects.bulk_create(
             Chunk(
