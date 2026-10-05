@@ -15,7 +15,7 @@ from club.models import (
     WorkItem,
     WorkshopSlot,
 )
-from club.progress import record_progress
+from club.progress import join, record_progress
 from club.workdays import workday
 
 from .races import overtaken_by
@@ -510,23 +510,26 @@ def write(client, entry, **body):
     )
 
 
-def test_a_participant_writes_the_progress(client):
+def test_a_participant_adds_to_the_progress(client):
     rouages = team_season()
     lina = member_of(rouages)
-    entry = record_progress(robot_work_item(rouages), lina, "")
+    entry = record_progress(
+        robot_work_item(rouages), lina, "Galets montés.", handover="Tester."
+    )
     client.force_login(lina)
 
     response = write(
         client,
         entry,
-        body="Galets montés.",
+        addition="Courroie tendue.",
         step="building",
         handover="Ne pas resserrer la courroie.",
+        handover_was="Tester.",
     )
 
     assert response.status_code == 200
+    assert response.json()["body"] == "Galets montés.\n\nCourroie tendue."
     entry.refresh_from_db()
-    assert entry.body == "Galets montés."
     assert entry.step == Entry.Step.BUILDING
     assert entry.handover == "Ne pas resserrer la courroie."
 
@@ -536,7 +539,7 @@ def test_a_student_who_did_not_take_part_cannot_write_it(client):
     entry = record_progress(robot_work_item(rouages), member_of(rouages, "lina"), "")
     client.force_login(member_of(rouages, "tom"))
 
-    response = write(client, entry, body="Pas moi.")
+    response = write(client, entry, addition="Pas moi.")
 
     assert response.status_code == 400
     assert response.json()["detail"]["code"] == "edit_not_participant"
@@ -548,7 +551,7 @@ def test_a_note_is_not_written_as_a_progress(client):
     note = Entry.objects.create(team_season=rouages, author=lina, type=Entry.Type.NOTE)
     client.force_login(lina)
 
-    response = write(client, note, body="Perceuse HS.")
+    response = write(client, note, addition="Perceuse HS.")
 
     assert response.json()["detail"]["code"] == "edit_not_progress"
 
@@ -558,7 +561,55 @@ def test_a_student_cannot_write_another_teams_progress(client):
     entry = record_progress(robot_work_item(other), member_of(other, "sam"), "")
     client.force_login(member_of(team_season(12345)))
 
-    assert write(client, entry, body="Pas chez moi.").status_code == 403
+    assert write(client, entry, addition="Pas chez moi.").status_code == 403
+
+
+def test_a_progress_text_sent_whole_is_refused_rather_than_ignored(client):
+    rouages = team_season()
+    lina = member_of(rouages)
+    entry = record_progress(robot_work_item(rouages), lina, "Galets montés.")
+    client.force_login(mentor())
+
+    response = write(client, entry, body="Rien.")
+
+    assert response.status_code == 400
+    assert response.json()["body"][0]["code"] == "use_addition"
+    entry.refresh_from_db()
+    assert entry.body == "Galets montés."
+
+
+def test_a_handover_change_must_say_what_it_started_from(client):
+    rouages = team_season()
+    lina = member_of(rouages)
+    entry = record_progress(robot_work_item(rouages), lina, "Galets montés.")
+    client.force_login(lina)
+
+    response = write(client, entry, handover="Tester.")
+
+    assert response.status_code == 400
+    assert response.json()["handover_was"][0]["code"] == "required"
+
+
+def test_a_handover_saved_over_a_newer_one_answers_progress_changed(client):
+    rouages = team_season()
+    lina, tom = member_of(rouages), member_of(rouages, "tom")
+    entry = record_progress(
+        robot_work_item(rouages), lina, "Galets montés.", handover="Tester."
+    )
+    join(entry, tom)
+    client.force_login(lina)
+    write(client, entry, handover="Tester à 12 V.", handover_was="Tester.")
+    client.force_login(tom)
+
+    response = write(client, entry, handover="Régler le PID.", handover_was="Tester.")
+
+    assert response.status_code == 409
+    refusal = response.json()["detail"]
+    assert refusal["code"] == "progress_changed"
+    # Whoever saved last may only have added text: nobody is named.
+    assert lina.display_name not in refusal["message"]
+    entry.refresh_from_db()
+    assert entry.handover == "Tester à 12 V."
 
 
 # --- notes ---

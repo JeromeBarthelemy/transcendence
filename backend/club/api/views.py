@@ -37,7 +37,7 @@ from club.models import (
     WorkItem,
     remove_after_commit,
 )
-from club.progress import edit_progress, join, record_progress
+from club.progress import ProgressChanged, edit_progress, join, record_progress
 from club.rag import ask, serialize
 from club.sources import CheckOutcome, accept_update, check_all, latest_documents
 from club.workdays import (
@@ -694,13 +694,20 @@ class EntryDetailView(APIView):
         serializer = WriteProgressSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
-        edit_progress(
-            entry,
-            user,
-            data.get("body", entry.body),
-            step=data.get("step"),
-            handover=data.get("handover"),
-        )
+        try:
+            edit_progress(
+                entry,
+                user,
+                addition=data.get("addition", ""),
+                step=data.get("step"),
+                handover=data.get("handover"),
+                handover_was=data.get("handover_was"),
+            )
+        except ProgressChanged as changed:
+            raise Conflict(
+                "Cette avancée a été modifiée pendant que vous écriviez.",
+                code="progress_changed",
+            ) from changed
         return Response(_entry(entry))
 
 
