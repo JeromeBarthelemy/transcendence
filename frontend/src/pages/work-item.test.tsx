@@ -93,8 +93,9 @@ function workItem(overrides: object = {}) {
 }
 
 function renderWorkItem() {
+  // The application's staleTime: a fresh cache must not hide a newer save.
   const queryClient = new QueryClient({
-    defaultOptions: { queries: { retry: false } },
+    defaultOptions: { queries: { retry: false, staleTime: 30_000 } },
   });
   const router = createMemoryRouter(routes, {
     initialEntries: ["/work-items/10"],
@@ -132,7 +133,7 @@ it("shows the current progress, handover, participants and full history", async 
   expect(screen.getByText(/Robot · 1796 · Les Rouages/)).toBeTruthy();
   expect(screen.getAllByText("Lina et Marie")).toHaveLength(2);
   expect(screen.getAllByText("Tester les galets à 12 V.")).toHaveLength(3);
-  expect(screen.getByDisplayValue("Galets montés.")).toBeTruthy();
+  expect(screen.getAllByText("Galets montés.").length).toBeGreaterThan(0);
   expect(
     screen.getByRole("link", { name: "plan-intake.pdf" }).getAttribute("href"),
   ).toBe("/api/attachments/5/");
@@ -167,7 +168,7 @@ it("asks a non-participant to join before editing the progress", async () => {
       "Rejoignez cette avancée pour pouvoir la compléter.",
     ),
   ).toBeTruthy();
-  expect(screen.queryByLabelText("Fait aujourd'hui")).toBeNull();
+  expect(screen.queryByLabelText("Votre ajout")).toBeNull();
   expect(screen.getByRole("button", { name: "Je participe" })).toBeTruthy();
 });
 
@@ -274,7 +275,7 @@ it("joins an existing progress without changing its step", async () => {
     await screen.findByRole("button", { name: "Je participe" }),
   );
 
-  expect(await screen.findByLabelText("Fait aujourd'hui")).toBeTruthy();
+  expect(await screen.findByLabelText("Votre ajout")).toBeTruthy();
   const tickRequest = fetchMock.mock.calls.find(
     ([path]) => path === "/api/work-items/10/tick/",
   );
@@ -328,7 +329,7 @@ it("starts today's progress at the chosen step", async () => {
     screen.getByRole("button", { name: "Commencer cette étape" }),
   );
 
-  expect(await screen.findByLabelText("Fait aujourd'hui")).toBeTruthy();
+  expect(await screen.findByLabelText("Votre ajout")).toBeTruthy();
   const tickRequest = fetchMock.mock.calls.find(
     ([path]) => path === "/api/work-items/10/tick/",
   );
@@ -337,33 +338,70 @@ it("starts today's progress at the chosen step", async () => {
   });
 });
 
-it("saves what was done and the handoff for next time", async () => {
-  setDocumentCookie("csrftoken=test; path=/");
-  let currentProgress = progress();
+function progressServer(
+  respond: (input: Record<string, string>) => Response,
+  identityOverrides: object = {},
+) {
+  const server = { progress: progress() };
   const fetchMock = vi.fn(
     async (path: string, options?: RequestInit): Promise<Response> => {
       if (path === "/api/auth/me/") {
-        return json(identity());
+        return json({ ...identity(), ...identityOverrides });
       }
       if (path === "/api/work-items/10/" && !options?.method) {
         return json(
           workItem({
-            current_progress: currentProgress,
-            thread: [currentProgress],
+            current_progress: server.progress,
+            thread: [server.progress],
           }),
         );
       }
       if (path === "/api/entries/31/" && options?.method === "PATCH") {
-        currentProgress = {
-          ...currentProgress,
-          ...JSON.parse(String(options.body)),
-        };
-        return json(currentProgress);
+        return respond(JSON.parse(String(options.body)));
       }
       throw new Error(`Unexpected request: ${path}`);
     },
   );
   vi.stubGlobal("fetch", fetchMock);
+  return { server, fetchMock };
+}
+
+function saveRequests(fetchMock: ReturnType<typeof vi.fn>) {
+  return fetchMock.mock.calls
+    .filter(
+      ([path, options]) =>
+        path === "/api/entries/31/" && options?.method === "PATCH",
+    )
+    .map(([, options]) => JSON.parse(String(options?.body)));
+}
+
+/** The note an input points to, so a test checks it sits with that field. */
+function noteUnder(field: HTMLElement) {
+  const id = field.getAttribute("aria-describedby");
+  return id ? document.getElementById(id) : null;
+}
+
+const progressChanged = () =>
+  json(
+    {
+      detail: {
+        code: "progress_changed",
+        message: "Lina a modifié cette avancée pendant que vous écriviez.",
+      },
+    },
+    409,
+  );
+
+it("adds to what was done and saves the changed handoff", async () => {
+  setDocumentCookie("csrftoken=test; path=/");
+  const { server, fetchMock } = progressServer((input) => {
+    server.progress = {
+      ...server.progress,
+      body: `${server.progress.body}\n\n${input.addition}`,
+      handover: input.handover,
+    };
+    return json(server.progress);
+  });
   const queryClient = renderWorkItem();
   const homeWorkItemsKey = ["team-seasons", 7, "work-items"] as const;
   const todayKey = ["team-seasons", 7, "days", "today"] as const;
@@ -378,10 +416,9 @@ it("saves what was done and the handoff for next time", async () => {
   queryClient.setQueryData(todayKey, { cached: true });
   queryClient.setQueryData(daySummaryKey, { cached: true });
 
-  const body = await screen.findByLabelText("Fait aujourd'hui");
+  const addition = await screen.findByLabelText("Votre ajout");
   const handover = screen.getByLabelText("À faire la prochaine fois");
-  await userEvent.clear(body);
-  await userEvent.type(body, "Courroie alignée.");
+  await userEvent.type(addition, "Courroie alignée.");
   await userEvent.clear(handover);
   await userEvent.type(handover, "Mesurer le jeu latéral.");
   await userEvent.click(
@@ -389,6 +426,14 @@ it("saves what was done and the handoff for next time", async () => {
   );
 
   expect(await screen.findByText("Avancée enregistrée.")).toBeTruthy();
+  expect(saveRequests(fetchMock)).toEqual([
+    {
+      addition: "Courroie alignée.",
+      handover: "Mesurer le jeu latéral.",
+      handover_was: "Tester les galets à 12 V.",
+    },
+  ]);
+  expect((addition as HTMLTextAreaElement).value).toBe("");
   await waitFor(() => {
     expect(queryClient.getQueryState(homeWorkItemsKey)?.isInvalidated).toBe(
       true,
@@ -396,15 +441,134 @@ it("saves what was done and the handoff for next time", async () => {
     expect(queryClient.getQueryState(todayKey)?.isInvalidated).toBe(true);
     expect(queryClient.getQueryState(daySummaryKey)?.isInvalidated).toBe(true);
   });
-  const saveRequest = fetchMock.mock.calls.find(
-    ([path]) => path === "/api/entries/31/",
-  );
-  expect(JSON.parse(String(saveRequest?.[1]?.body))).toEqual({
-    body: "Courroie alignée.",
-    handover: "Mesurer le jeu latéral.",
-  });
   await waitFor(() => {
-    expect(screen.getAllByText("Courroie alignée.").length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Courroie alignée\./).length).toBeGreaterThan(0);
+  });
+});
+
+it("shows what was done as text no participant can erase", async () => {
+  progressServer(() => json({}));
+  renderWorkItem();
+
+  await screen.findByLabelText("Votre ajout");
+  expect(screen.queryByDisplayValue("Galets montés.")).toBeNull();
+  expect(
+    screen.getByText(
+      "Un seul texte pour l'avancée, commun à tous les participants : ce que vous ajoutez s'écrit à la suite.",
+    ),
+  ).toBeTruthy();
+});
+
+it("sends no handoff it did not change, and nothing at all when empty", async () => {
+  setDocumentCookie("csrftoken=test; path=/");
+  const { server, fetchMock } = progressServer(() => json(server.progress));
+  renderWorkItem();
+  const save = await screen.findByRole("button", {
+    name: "Enregistrer l'avancée",
+  });
+
+  expect((save as HTMLButtonElement).disabled).toBe(true);
+  await userEvent.type(screen.getByLabelText("Votre ajout"), "Moteur testé.");
+  await userEvent.click(save);
+
+  await waitFor(() => {
+    expect(saveRequests(fetchMock)).toEqual([{ addition: "Moteur testé." }]);
+  });
+});
+
+it("keeps the handoff it started from when the work item reloads in the background", async () => {
+  setDocumentCookie("csrftoken=test; path=/");
+  const { server, fetchMock } = progressServer(progressChanged);
+  const queryClient = renderWorkItem();
+  const handover = await screen.findByLabelText("À faire la prochaine fois");
+  await userEvent.type(handover, " Puis à 14 V.");
+
+  server.progress = progress({ handover: "Régler le PID." });
+  await queryClient.refetchQueries({ queryKey: ["work-items", 10] });
+  await userEvent.click(
+    screen.getByRole("button", { name: "Enregistrer l'avancée" }),
+  );
+
+  await waitFor(() => {
+    expect(saveRequests(fetchMock)[0]?.handover_was).toBe(
+      "Tester les galets à 12 V.",
+    );
+  });
+});
+
+it("after a refusal, shows the other version under the field in conflict, then saves from it", async () => {
+  setDocumentCookie("csrftoken=test; path=/");
+  let refusedOnce = false;
+  const { server, fetchMock } = progressServer((input) => {
+    if (!refusedOnce) {
+      refusedOnce = true;
+      server.progress = progress({
+        handover: "Ne pas resserrer la courroie.",
+      });
+      return progressChanged();
+    }
+    server.progress = { ...server.progress, handover: input.handover };
+    return json(server.progress);
+  });
+  renderWorkItem();
+  const addition = await screen.findByLabelText("Votre ajout");
+  const handover = screen.getByLabelText("À faire la prochaine fois");
+  await userEvent.type(addition, "Moteur testé.");
+  await userEvent.clear(handover);
+  await userEvent.type(handover, "Régler le PID.");
+  const save = screen.getByRole("button", { name: "Enregistrer l'avancée" });
+
+  await userEvent.click(save);
+
+  await waitFor(() => {
+    expect(noteUnder(handover)?.textContent).toContain(
+      "« À faire la prochaine fois » a changé pendant que vous écriviez :",
+    );
+  });
+  expect(noteUnder(handover)?.textContent).toContain(
+    "Ne pas resserrer la courroie.",
+  );
+  expect(noteUnder(addition)).toBeNull();
+  expect(screen.queryByText(/Quelqu'un a modifié cette avancée/)).toBeNull();
+  expect((addition as HTMLTextAreaElement).value).toBe("Moteur testé.");
+  expect((handover as HTMLTextAreaElement).value).toBe("Régler le PID.");
+
+  await userEvent.clear(handover);
+  await userEvent.type(
+    handover,
+    "Ne pas resserrer la courroie. Régler le PID.",
+  );
+  await userEvent.click(save);
+
+  expect(await screen.findByText("Avancée enregistrée.")).toBeTruthy();
+  expect(saveRequests(fetchMock)[1]).toEqual({
+    addition: "Moteur testé.",
+    handover: "Ne pas resserrer la courroie. Régler le PID.",
+    handover_was: "Ne pas resserrer la courroie.",
+  });
+  expect(noteUnder(handover)).toBeNull();
+});
+
+it("lets a mentor add to what was done, as anyone else", async () => {
+  setDocumentCookie("csrftoken=test; path=/");
+  const { server, fetchMock } = progressServer(() => json(server.progress), {
+    display_name: "Claire",
+    club_role: "mentor",
+  });
+  renderWorkItem();
+
+  await userEvent.type(
+    await screen.findByLabelText("Votre ajout"),
+    "Retenir celle en TPU.",
+  );
+  await userEvent.click(
+    screen.getByRole("button", { name: "Enregistrer l'avancée" }),
+  );
+
+  await waitFor(() => {
+    expect(saveRequests(fetchMock)).toEqual([
+      { addition: "Retenir celle en TPU." },
+    ]);
   });
 });
 

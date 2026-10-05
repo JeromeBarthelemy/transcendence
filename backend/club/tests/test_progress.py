@@ -6,7 +6,7 @@ from django.db import IntegrityError
 from django.utils import timezone
 
 from club.models import Entry, Season, Team, TeamSeason, User, WorkItem
-from club.progress import edit_progress, join, record_progress
+from club.progress import ProgressChanged, edit_progress, join, record_progress
 
 Step = Entry.Step
 
@@ -153,30 +153,53 @@ def test_a_student_who_has_not_joined_cannot_edit_a_progress():
     entry = record_progress(work_item(), student(), "Trois idées de rouleaux.")
 
     with pytest.raises(ValidationError):
-        edit_progress(entry, student("tom"), "Deux idées, en fait.")
+        edit_progress(entry, student("tom"), addition="Deux idées, en fait.")
 
 
-def test_a_participant_edits_a_progress():
+def test_a_participant_adds_to_the_progress_text():
     entry = record_progress(work_item(), student(), "Trois idées de rouleaux.")
     tom = student("tom")
     join(entry, tom)
 
-    edit_progress(entry, tom, "Deux idées, en fait.")
+    edit_progress(entry, tom, addition="  Une imprimée en TPU.  ")
 
     entry.refresh_from_db()
-    assert entry.body == "Deux idées, en fait."
+    assert entry.body == "Trois idées de rouleaux.\n\nUne imprimée en TPU."
     assert entry.updated_by == tom
     assert entry.updated_at is not None
 
 
-def test_a_mentor_edits_a_progress_without_joining_it():
-    entry = record_progress(work_item(), student(), "rouleaux")
+def test_the_first_addition_becomes_the_text():
+    marie = student()
+    entry = record_progress(work_item(), marie, "")
+
+    edit_progress(entry, marie, addition="Trois idées de rouleaux.")
+
+    entry.refresh_from_db()
+    assert entry.body == "Trois idées de rouleaux."
+
+
+def test_two_additions_both_stay():
+    marie, tom = student(), student("tom")
+    entry = record_progress(work_item(), marie, "")
+    join(entry, tom)
+
+    edit_progress(entry, marie, addition="Rouleaux montés.")
+    edit_progress(entry, tom, addition="Moteur testé.")
+
+    entry.refresh_from_db()
+    assert entry.body == "Rouleaux montés.\n\nMoteur testé."
+
+
+def test_a_mentor_adds_to_a_progress_without_joining_it():
+    entry = record_progress(work_item(), student(), "Trois idées de rouleaux.")
     paul = mentor()
 
-    edit_progress(entry, paul, "Trois idées de rouleaux, dont une imprimée.")
+    edit_progress(entry, paul, addition="Retenir celle en TPU.")
 
     assert not entry.participants.filter(pk=paul.pk).exists()
     entry.refresh_from_db()
+    assert entry.body == "Trois idées de rouleaux.\n\nRetenir celle en TPU."
     assert entry.updated_by == paul
 
 
@@ -184,7 +207,7 @@ def test_an_edit_cannot_put_a_step_off_the_robot():
     entry = record_progress(work_item(on_robot=False), student(), "Relance.")
 
     with pytest.raises(ValidationError):
-        edit_progress(entry, mentor(), "Relance.", step=Step.BUILDING)
+        edit_progress(entry, mentor(), step=Step.BUILDING)
 
 
 def test_a_note_is_not_edited_as_a_progress():
@@ -194,7 +217,7 @@ def test_a_note_is_not_edited_as_a_progress():
     )
 
     with pytest.raises(ValidationError):
-        edit_progress(note, mentor(), "Perceuse HS.")
+        edit_progress(note, mentor(), addition="Perceuse HS.")
 
 
 def test_a_progress_leaves_the_handover_shown_on_its_work_item():
@@ -242,7 +265,64 @@ def test_a_participant_corrects_the_handover_of_a_progress():
     marie = student()
     entry = record_progress(work_item(), marie, "Monté.", handover="Tester à 21 V.")
 
-    edit_progress(entry, marie, "Monté.", handover="Tester à 12 V.")
+    edit_progress(
+        entry, marie, handover="Tester à 12 V.", handover_was="Tester à 21 V."
+    )
 
     entry.refresh_from_db()
     assert entry.handover == "Tester à 12 V."
+
+
+def test_a_handover_changed_since_is_not_overwritten():
+    marie, tom = student(), student("tom")
+    entry = record_progress(work_item(), marie, "Monté.", handover="Tester.")
+    join(entry, tom)
+    edit_progress(entry, marie, handover="Tester à 12 V.", handover_was="Tester.")
+
+    with pytest.raises(ProgressChanged):
+        edit_progress(entry, tom, handover="Régler le PID.", handover_was="Tester.")
+
+    entry.refresh_from_db()
+    assert entry.handover == "Tester à 12 V."
+
+
+def test_someone_elses_addition_does_not_refuse_a_handover_change():
+    marie, tom = student(), student("tom")
+    entry = record_progress(work_item(), marie, "Monté.", handover="Tester.")
+    join(entry, tom)
+    edit_progress(entry, marie, addition="Courroie tendue.")
+
+    edit_progress(entry, tom, handover="Tester à 12 V.", handover_was="Tester.")
+
+    entry.refresh_from_db()
+    assert entry.handover == "Tester à 12 V."
+
+
+def test_a_refused_save_adds_nothing():
+    marie, tom = student(), student("tom")
+    entry = record_progress(work_item(), marie, "Monté.", handover="Tester.")
+    join(entry, tom)
+    edit_progress(entry, marie, handover="Tester à 12 V.", handover_was="Tester.")
+
+    with pytest.raises(ProgressChanged):
+        edit_progress(
+            entry,
+            tom,
+            addition="Moteur testé.",
+            handover="Régler le PID.",
+            handover_was="Tester.",
+        )
+
+    entry.refresh_from_db()
+    assert entry.body == "Monté."
+
+
+def test_an_empty_save_leaves_the_progress_untouched():
+    marie = student()
+    entry = record_progress(work_item(), marie, "Monté.", handover="Tester.")
+
+    edit_progress(entry, marie, addition="   ")
+
+    entry.refresh_from_db()
+    assert entry.updated_by is None
+    assert entry.updated_at is None

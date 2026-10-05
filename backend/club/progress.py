@@ -1,11 +1,20 @@
 """Recording a progress: the one way an avancée is written, so that its rules
 hold whichever screen or route writes it."""
 
+from typing import Any
+
 from django.core.exceptions import ValidationError
 from django.db import transaction
+from django.db.models import Case, F, Q, TextField, Value, When
+from django.db.models.functions import Concat
 from django.utils import timezone
 
 from club.models import Entry, EntryParticipant, User, WorkItem
+
+
+class ProgressChanged(Exception):
+    """Not a ValidationError: nothing in the request is wrong, the progress
+    moved under it, and the API answers 409 rather than 400."""
 
 
 def check_step(work_item: WorkItem, step: str | None) -> None:
@@ -67,13 +76,20 @@ def join(entry: Entry, user: User) -> None:
 def edit_progress(
     entry: Entry,
     user: User,
-    body: str,
+    *,
+    addition: str = "",
     step: str | None = None,
     handover: str | None = None,
+    handover_was: str | None = None,
 ) -> None:
-    """Its participants write it; mentors correct anyone's, since the student
-    who wrote it badly may be gone for the season. Without a step or a
-    handover, they stay as they were."""
+    """By its participants, and by mentors, who step in on any team. Its
+    text is shared by all of them, so it is only added to, never replaced:
+    nobody erases what someone else wrote. Without a step or a handover,
+    they stay as they were.
+
+    A handover change says what it started from (`handover_was`): if the
+    handover holds something else by now, the save is refused rather than
+    erasing it, and nothing of it is written."""
     work_item = entry.work_item
     # record_progress always sets the work item; the second test is for mypy.
     if entry.type != Entry.Type.PROGRESS or work_item is None:
@@ -87,12 +103,27 @@ def edit_progress(
             code="edit_not_participant",
         )
     check_step(work_item, step)
+    addition = addition.strip()
+    if not addition and step is None and handover is None:
+        return
 
-    entry.body = body
-    if step is not None:
-        entry.step = step
+    # Tested and written by the database in one UPDATE, not read then
+    # written: two additions at the same moment both land, and a handover
+    # change only goes through over the handover it was written from.
+    matches = Q(pk=entry.pk)
+    changes: dict[str, Any] = {"updated_by": user, "updated_at": timezone.now()}
+    if addition:
+        changes["body"] = Case(
+            When(body="", then=Value(addition)),
+            default=Concat(F("body"), Value(f"\n\n{addition}")),
+            output_field=TextField(),
+        )
     if handover is not None:
-        entry.handover = handover
-    entry.updated_by = user
-    entry.updated_at = timezone.now()
-    entry.save(update_fields=["body", "step", "handover", "updated_by", "updated_at"])
+        matches &= Q(handover=handover_was)
+        changes["handover"] = handover
+    if step is not None:
+        changes["step"] = step
+    saved = Entry.objects.filter(matches).update(**changes)
+    entry.refresh_from_db()
+    if not saved:
+        raise ProgressChanged

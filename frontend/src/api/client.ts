@@ -135,8 +135,8 @@ export async function patch(path: string, body: object): Promise<ApiResponse> {
   return send("PATCH", path, body);
 }
 
-export async function del(path: string): Promise<ApiResponse> {
-  return send("DELETE", path);
+export async function del(path: string, body?: object): Promise<ApiResponse> {
+  return send("DELETE", path, body);
 }
 
 /** Sends a multipart form through XMLHttpRequest rather than fetch, which
