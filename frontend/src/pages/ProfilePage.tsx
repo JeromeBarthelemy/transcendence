@@ -1,16 +1,25 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { type ChangeEvent, useEffect, useId, useState } from "react";
+import {
+  type ChangeEvent,
+  type FormEvent,
+  useEffect,
+  useId,
+  useState,
+} from "react";
 import { useTranslation } from "react-i18next";
-import { Navigate } from "react-router-dom";
+import { Navigate, useNavigate } from "react-router-dom";
 
 import {
   AVATAR_ACCEPT,
   type AvatarRefusal,
   checkAvatar,
+  deleteAccount,
   deleteAvatar,
   type Identity,
+  requestDataExport,
   uploadAvatar,
 } from "../api/auth";
+import { ApiRequestError } from "../api/client";
 import { currentUserQueryKey, useCurrentUser } from "../app/useCurrentUser";
 import {
   FieldErrors,
@@ -266,6 +275,158 @@ function PhotoForm({ identity }: { identity: Identity }) {
   );
 }
 
+/** The member's rights over their own data (docs/modules.md §10): a copy by
+ * e-mail, and erasure. Both confirmations go to the account's contact
+ * address, which for a minor is their legal guardian's — the page cannot
+ * say which, since the identity deliberately leaves minority out. */
+function PersonalData() {
+  const { t } = useTranslation();
+  const queryClient = useQueryClient();
+  const navigate = useNavigate();
+  const passwordId = useId();
+  const [isConfirming, setIsConfirming] = useState(false);
+  const [password, setPassword] = useState("");
+
+  const exportData = useMutation({ mutationFn: requestDataExport });
+  const erase = useMutation({
+    mutationFn: deleteAccount,
+    onSuccess: () => {
+      // The server has ended the session: nothing of the account may stay
+      // on screen, nor in the cache for whoever uses this computer next.
+      navigate("/", { replace: true, state: { accountDeleted: true } });
+      queryClient.removeQueries();
+      queryClient.setQueryData(currentUserQueryKey, null);
+    },
+  });
+  const wrongPassword =
+    erase.error instanceof ApiRequestError &&
+    erase.error
+      .forField("detail")
+      .some((issue) => issue.code === "wrong_password");
+
+  function confirmDeletion(event: FormEvent) {
+    event.preventDefault();
+    if (password && !erase.isPending) {
+      erase.mutate(password);
+    }
+  }
+
+  function cancel() {
+    setIsConfirming(false);
+    setPassword("");
+    erase.reset();
+  }
+
+  return (
+    <section
+      aria-labelledby="personal-data-title"
+      className="mt-8 rounded-3xl border border-primary/12 bg-white p-5 shadow-sm sm:p-7"
+    >
+      <h2 id="personal-data-title" className="brand-title text-2xl text-ink">
+        {t("personalData.title")}
+      </h2>
+      <p className="mt-2 text-sm leading-6 text-muted">
+        {t("personalData.intro")}
+      </p>
+
+      <div className="mt-6 flex flex-col gap-3 border-t border-primary/10 pt-5 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h3 className="font-semibold text-ink">
+            {t("personalData.exportTitle")}
+          </h3>
+          <p className="mt-1 text-sm leading-6 text-muted">
+            {t("personalData.exportDescription")}
+          </p>
+        </div>
+        <button
+          type="button"
+          className={`${primaryButtonClass} shrink-0`}
+          disabled={exportData.isPending}
+          onClick={() => exportData.mutate()}
+        >
+          {exportData.isPending
+            ? t("personalData.exporting")
+            : t("personalData.export")}
+        </button>
+      </div>
+      {exportData.isSuccess && (
+        <p role="status" className="mt-3 text-sm text-success">
+          {t("personalData.exported")}
+        </p>
+      )}
+      {exportData.isError && <RequestError error={exportData.error} />}
+
+      <div className="mt-6 flex flex-col gap-3 border-t border-primary/10 pt-5 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h3 className="font-semibold text-ink">
+            {t("personalData.deleteTitle")}
+          </h3>
+          <p className="mt-1 text-sm leading-6 text-muted">
+            {t("personalData.deleteDescription")}
+          </p>
+        </div>
+        {!isConfirming && (
+          <button
+            type="button"
+            className={`${dangerButtonClass} shrink-0`}
+            onClick={() => setIsConfirming(true)}
+          >
+            {t("personalData.delete")}
+          </button>
+        )}
+      </div>
+
+      {isConfirming && (
+        <form
+          onSubmit={confirmDeletion}
+          className="mt-4 rounded-2xl border border-red-800/20 bg-red-50 p-4 sm:p-5"
+        >
+          <p className="text-sm font-semibold text-red-900">
+            {t("personalData.deleteWarning")}
+          </p>
+          <label
+            htmlFor={passwordId}
+            className="mt-4 block text-sm font-semibold text-ink"
+          >
+            {t("personalData.password")}
+          </label>
+          <input
+            id={passwordId}
+            type="password"
+            autoComplete="current-password"
+            // biome-ignore lint/a11y/noAutofocus: the member just asked for this form; the password is the only thing left to do.
+            autoFocus
+            value={password}
+            aria-invalid={wrongPassword}
+            className="mt-2 block w-full rounded-xl border border-red-800/25 bg-white px-3 py-2 text-body"
+            onChange={(event) => setPassword(event.target.value)}
+          />
+          <RequestError error={erase.error} />
+          <div className="mt-4 flex flex-wrap gap-3">
+            <button
+              type="submit"
+              className="rounded-xl bg-red-800 px-4 py-2 text-sm font-semibold text-white hover:bg-red-900 disabled:opacity-50"
+              disabled={!password || erase.isPending}
+            >
+              {erase.isPending
+                ? t("personalData.deleting")
+                : t("personalData.confirmDelete")}
+            </button>
+            <button
+              type="button"
+              className={secondaryButtonClass}
+              disabled={erase.isPending}
+              onClick={cancel}
+            >
+              {t("profile.cancel")}
+            </button>
+          </div>
+        </form>
+      )}
+    </section>
+  );
+}
+
 export function ProfilePage() {
   const { t } = useTranslation();
   const currentUser = useCurrentUser();
@@ -304,6 +465,7 @@ export function ProfilePage() {
         {identity.is_club_admin && ` · ${t("profile.clubAdmin")}`}
       </p>
       <PhotoForm identity={identity} />
+      <PersonalData />
     </main>
   );
 }

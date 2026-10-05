@@ -305,6 +305,23 @@
     "avatarType": "Ce fichier n'a pas été envoyé : choisissez une photo JPEG, PNG, WebP ou HEIC.",
     "avatarSize": "Ce fichier n'a pas été envoyé : la photo dépasse 10 Mo."
   },
+  "personalData": {
+    "title": "Données personnelles",
+    "intro": "Vos données vous appartiennent. Chaque demande est confirmée par courriel à l'adresse de contact de votre compte — celle de votre responsable légal si vous êtes mineur.",
+    "exportTitle": "Exporter mes données",
+    "exportDescription": "Une copie de votre compte dans un fichier lisible (JSON), et votre photo, envoyées par courriel.",
+    "export": "Exporter",
+    "exporting": "Envoi…",
+    "exported": "C'est envoyé : la copie de vos données arrive par courriel.",
+    "deleteTitle": "Supprimer mon compte",
+    "deleteDescription": "Votre nom, vos adresses, votre date de naissance, votre photo et votre mot de passe sont effacés. Ce que vous avez écrit reste dans le cahier de l'équipe, signé « Ancien membre ».",
+    "delete": "Supprimer",
+    "deleteWarning": "Cette suppression est définitive : votre compte ne pourra pas être récupéré. Saisissez votre mot de passe pour la confirmer.",
+    "password": "Mot de passe",
+    "confirmDelete": "Supprimer définitivement",
+    "deleting": "Suppression…",
+    "deleted": "Votre compte a été supprimé. Une confirmation a été envoyée par courriel."
+  },
   "fieldbot": {
     "title": "Des questions sur le règlement du club ?",
     "label": "Votre question sur le règlement",
@@ -418,6 +435,7 @@
     "admin_must_be_mentor": "Un administrateur doit être mentor.",
     "last_admin_cannot_leave": "Vous êtes le seul administrateur du club : vous ne pouvez pas supprimer votre compte.",
     "no_contact_email": "Aucune adresse de contact n'est enregistrée pour ce compte : impossible d'envoyer la confirmation.",
+    "wrong_password": "Mot de passe incorrect : le compte n'a pas été supprimé.",
     "account_anonymized": "Ce compte a été supprimé : il ne peut plus être modifié.",
     "avatar_too_large": "Cette photo dépasse 10 Mo.",
     "avatar_too_many_pixels": "Cette photo compte trop de pixels.",
