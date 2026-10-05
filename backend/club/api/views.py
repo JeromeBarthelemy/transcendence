@@ -20,6 +20,7 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from club.analytics.activity import summarize_activity
 from club.attachments import DOWNLOAD_ONLY
 from club.export import gather, to_markdown_zip
 from club.gdpr import request_deletion, send_export
@@ -36,9 +37,10 @@ from club.models import (
     WorkItem,
     remove_after_commit,
 )
-from club.progress import edit_progress, join, record_progress
+from club.progress import ProgressChanged, edit_progress, join, record_progress
 from club.rag import ask, serialize
 from club.sources import (
+    CheckOutcome,
     NoPassage,
     accept_update,
     add_source,
@@ -700,13 +702,20 @@ class EntryDetailView(APIView):
         serializer = WriteProgressSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
-        edit_progress(
-            entry,
-            user,
-            data.get("body", entry.body),
-            step=data.get("step"),
-            handover=data.get("handover"),
-        )
+        try:
+            edit_progress(
+                entry,
+                user,
+                addition=data.get("addition", ""),
+                step=data.get("step"),
+                handover=data.get("handover"),
+                handover_was=data.get("handover_was"),
+            )
+        except ProgressChanged as changed:
+            raise Conflict(
+                "Cette avancée a été modifiée pendant que vous écriviez.",
+                code="progress_changed",
+            ) from changed
         return Response(_entry(entry))
 
 
@@ -783,6 +792,21 @@ class GapsView(APIView):
         return Response(gaps(team_season, period["since"], period["until"]))
 
 
+class ActivityAnalyticsView(APIView):
+    """Participation over a period, plus the work's current snapshot."""
+
+    def get(self, request: Request, team_season_id: int) -> Response:
+        user = request.user
+        assert isinstance(user, User)
+        team_season = team_season_acted_on(user, team_season_id)
+        serializer = PeriodSerializer(data=request.query_params)
+        serializer.is_valid(raise_exception=True)
+        period = serializer.validated_data
+        return Response(
+            summarize_activity(team_season, period["since"], period["until"])
+        )
+
+
 class ExportView(APIView):
     def get(self, request: Request, team_season_id: int) -> FileResponse:
         user = request.user
@@ -823,7 +847,7 @@ class RuleQuestionView(APIView):
         return Response(serialize(query), status=status.HTTP_201_CREATED)
 
 
-def _rule_sources() -> list[dict[str, Any]]:
+def _rule_sources(checks: list[CheckOutcome] | None = None) -> list[dict[str, Any]]:
     season = Season.objects.first()
     if season is None:
         return []
@@ -836,10 +860,12 @@ def _rule_sources() -> list[dict[str, Any]]:
     pending = {
         update.source: update for update in SourceUpdate.objects.filter(season=season)
     }
+    outcome_of = {outcome.document.source: outcome for outcome in checks or []}
     rows: list[dict[str, Any]] = []
     for source in Document.Source:
         document = current.get(source.value)
         update = pending.get(source.value)
+        outcome = outcome_of.get(source.value)
         rows.append(
             {
                 "source": source.value,
@@ -850,6 +876,13 @@ def _rule_sources() -> list[dict[str, Any]]:
                 "pending": (
                     {"detected_at": update.detected_at, "summary": update.summary}
                     if update
+                    else None
+                ),
+                # Only on the answer to a check just run: a failed check must not
+                # look like the previous state, which is all the rows would show.
+                "check": (
+                    {"status": outcome.status, "detail": outcome.detail}
+                    if outcome
                     else None
                 ),
             }
@@ -896,8 +929,7 @@ class RuleSourcesCheckView(APIView):
     permission_classes = [IsClubAdmin]
 
     def post(self, request: Request) -> Response:
-        check_all(latest_documents())
-        return Response(_rule_sources())
+        return Response(_rule_sources(check_all(latest_documents())))
 
 
 class RuleSourceAcceptView(APIView):

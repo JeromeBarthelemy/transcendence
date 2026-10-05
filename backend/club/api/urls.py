@@ -1,6 +1,7 @@
 from django.urls import path
 
 from .views import (
+    ActivityAnalyticsView,
     AttachmentView,
     AvatarView,
     DayView,
@@ -86,6 +87,11 @@ urlpatterns = [
         "team-seasons/<int:team_season_id>/gaps/",
         GapsView.as_view(),
         name="gaps",
+    ),
+    path(
+        "team-seasons/<int:team_season_id>/analytics/activity/",
+        ActivityAnalyticsView.as_view(),
+        name="activity-analytics",
     ),
     path(
         "team-seasons/<int:team_season_id>/export/",

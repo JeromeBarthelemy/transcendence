@@ -76,7 +76,7 @@ export function LoginPage() {
   if (currentUser.isPending) {
     return (
       <AuthPageFrame {...pageCopy}>
-        <p role="status" className="text-sm text-[#506784]">
+        <p role="status" className="text-sm text-muted">
           {t("auth.checkingSession")}
         </p>
       </AuthPageFrame>
@@ -153,13 +153,13 @@ export function LoginPage() {
         </button>
       </form>
 
-      <p className="mt-6 text-sm leading-6 text-[#506784]">
+      <p className="mt-6 text-sm leading-6 text-muted">
         {t("login.noAccount")}{" "}
         <Link to="/signup" className="form-link">
           {t("auth.signup")}
         </Link>
       </p>
-      <p className="mt-3 text-sm leading-6 text-[#506784]">
+      <p className="mt-3 text-sm leading-6 text-muted">
         {t("login.forgotPassword")}
       </p>
     </AuthPageFrame>

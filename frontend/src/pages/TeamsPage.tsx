@@ -39,13 +39,13 @@ const SEARCH_DELAY_MS = 250;
 const nameCollator = new Intl.Collator("fr-FR", { sensitivity: "base" });
 
 const inputClass =
-  "mt-2 block w-full rounded-xl border border-[#004fc5]/20 bg-white px-3 py-2 font-normal text-[#13294b]";
+  "mt-2 block w-full rounded-xl border border-primary/20 bg-white px-3 py-2 font-normal text-body";
 const primaryButtonClass =
-  "rounded-xl bg-[#0078dd] px-4 py-2 text-sm font-semibold text-white hover:bg-[#004fc5] disabled:opacity-50";
+  "rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-white hover:bg-primary disabled:opacity-50";
 const secondaryButtonClass =
-  "rounded-xl border border-[#004fc5]/20 px-3 py-1.5 text-sm font-semibold text-[#041894] hover:bg-[#eaf5ff] disabled:opacity-50";
+  "rounded-xl border border-primary/20 px-3 py-1.5 text-sm font-semibold text-ink hover:bg-tint disabled:opacity-50";
 const dropdownClass =
-  "absolute z-10 mt-1 max-h-64 w-full overflow-y-auto rounded-xl border border-[#004fc5]/15 bg-white py-2 shadow-lg";
+  "absolute z-10 mt-1 max-h-64 w-full overflow-y-auto rounded-xl border border-primary/15 bg-white py-2 shadow-lg";
 const dangerButtonClass =
   "rounded-xl border border-red-800/25 px-3 py-1.5 text-sm font-semibold text-red-800 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50";
 
@@ -96,17 +96,17 @@ function CreateTeamForm({ seasonYear }: { seasonYear: number }) {
   return (
     <form
       aria-labelledby="create-team-title"
-      className="rounded-2xl border border-[#004fc5]/12 bg-white p-5 shadow-sm"
+      className="rounded-2xl border border-primary/12 bg-white p-5 shadow-sm"
       onSubmit={submit}
     >
       <h2
         id="create-team-title"
-        className="text-xs font-bold tracking-[0.14em] text-[#0078dd] uppercase"
+        className="text-xs font-bold tracking-[0.14em] text-accent uppercase"
       >
         {t("teams.createTitle")}
       </h2>
       <div className="mt-4 grid gap-4 sm:grid-cols-[10rem_1fr_auto] sm:items-start">
-        <label className="text-sm font-semibold text-[#041894]">
+        <label className="text-sm font-semibold text-ink">
           {t("teams.number")}
           <input
             className={inputClass}
@@ -123,7 +123,7 @@ function CreateTeamForm({ seasonYear }: { seasonYear: number }) {
             issues={fieldIssues(create.error, "number")}
           />
         </label>
-        <label className="text-sm font-semibold text-[#041894]">
+        <label className="text-sm font-semibold text-ink">
           {t("teams.name")}
           <input
             className={inputClass}
@@ -228,7 +228,7 @@ function MemberSearch({ team }: { team: ManagedTeam }) {
 
   return (
     <div className="relative">
-      <label htmlFor={inputId} className="text-sm font-semibold text-[#041894]">
+      <label htmlFor={inputId} className="text-sm font-semibold text-ink">
         {t("teams.addMember")}
       </label>
       <input
@@ -271,8 +271,8 @@ function MemberSearch({ team }: { team: ManagedTeam }) {
               role="option"
               tabIndex={-1}
               aria-selected={index === activeIndex}
-              className={`flex cursor-pointer items-center gap-3 px-3 py-2 text-sm text-[#13294b] ${
-                index === activeIndex ? "bg-[#eaf5ff]" : "hover:bg-[#f4f8ff]"
+              className={`flex cursor-pointer items-center gap-3 px-3 py-2 text-sm text-body ${
+                index === activeIndex ? "bg-tint" : "hover:bg-mist"
               }`}
               // Keeps the input focused, so blur does not close the list first.
               onMouseDown={(event) => event.preventDefault()}
@@ -280,7 +280,7 @@ function MemberSearch({ team }: { team: ManagedTeam }) {
             >
               <Avatar person={user} />
               <span className="flex-1">{user.display_name}</span>
-              <span className="text-xs text-[#506784]">
+              <span className="text-xs text-muted">
                 {t(`teams.roles.${user.club_role}`)}
               </span>
             </div>
@@ -288,10 +288,7 @@ function MemberSearch({ team }: { team: ManagedTeam }) {
         </div>
       )}
       {showList && candidates.length === 0 && (
-        <p
-          role="status"
-          className={`${dropdownClass} px-3 text-sm text-[#506784]`}
-        >
+        <p role="status" className={`${dropdownClass} px-3 text-sm text-muted`}>
           {users.isFetching || search !== query.trim()
             ? t("teams.searching")
             : users.isError
@@ -300,7 +297,7 @@ function MemberSearch({ team }: { team: ManagedTeam }) {
         </p>
       )}
       {add.isPending && (
-        <p role="status" className="mt-2 text-sm text-[#506784]">
+        <p role="status" className="mt-2 text-sm text-muted">
           {t("teams.addingMember")}
         </p>
       )}
@@ -332,9 +329,7 @@ function MemberRow({
   return (
     <li className="flex flex-wrap items-center gap-3 py-2">
       <Avatar person={member} />
-      <span className="flex-1 text-sm text-[#13294b]">
-        {member.display_name}
-      </span>
+      <span className="flex-1 text-sm text-body">{member.display_name}</span>
       <button
         type="button"
         className={secondaryButtonClass}
@@ -389,11 +384,11 @@ function TeamCard({ team }: { team: ManagedTeam }) {
   return (
     <article
       aria-labelledby={titleId}
-      className="rounded-2xl border border-[#004fc5]/12 bg-white p-5 shadow-sm"
+      className="rounded-2xl border border-primary/12 bg-white p-5 shadow-sm"
     >
       {isRenaming ? (
         <form onSubmit={submitRename}>
-          <label className="text-sm font-semibold text-[#041894]">
+          <label className="text-sm font-semibold text-ink">
             {t("teams.renameLabel", { number: team.number })}
             <input
               className={inputClass}
@@ -440,7 +435,7 @@ function TeamCard({ team }: { team: ManagedTeam }) {
         </form>
       ) : (
         <div className="flex flex-wrap items-start justify-between gap-3">
-          <h2 id={titleId} className="brand-title text-2xl text-[#041894]">
+          <h2 id={titleId} className="brand-title text-2xl text-ink">
             {label}
           </h2>
           <div className="flex gap-2">
@@ -472,7 +467,7 @@ function TeamCard({ team }: { team: ManagedTeam }) {
       )}
 
       {hasMembers && !isRenaming && (
-        <p id={deleteHintId} className="mt-1 text-xs text-[#506784]">
+        <p id={deleteHintId} className="mt-1 text-xs text-muted">
           {t("teams.deleteBlockedHint")}
         </p>
       )}
@@ -513,12 +508,12 @@ function TeamCard({ team }: { team: ManagedTeam }) {
         </div>
       )}
 
-      <section className="mt-5 border-t border-[#004fc5]/10 pt-4">
-        <h3 className="text-sm font-semibold text-[#041894]">
+      <section className="mt-5 border-t border-primary/10 pt-4">
+        <h3 className="text-sm font-semibold text-ink">
           {t("teams.memberCount", { count: team.members.length })}
         </h3>
         {members.length > 0 ? (
-          <ul className="mt-2 divide-y divide-[#004fc5]/8">
+          <ul className="mt-2 divide-y divide-primary/8">
             {members.map((member) => (
               <MemberRow
                 key={member.membership}
@@ -528,7 +523,7 @@ function TeamCard({ team }: { team: ManagedTeam }) {
             ))}
           </ul>
         ) : (
-          <p className="mt-2 text-sm text-[#506784]">{t("teams.noMembers")}</p>
+          <p className="mt-2 text-sm text-muted">{t("teams.noMembers")}</p>
         )}
         <div className="mt-4">
           <MemberSearch team={team} />
@@ -547,26 +542,26 @@ function TeamManagement() {
 
   return (
     <main className="mx-auto w-full max-w-4xl flex-1 px-5 py-10 sm:px-8 sm:py-14">
-      <p className="text-sm font-bold tracking-[0.14em] text-[#0078dd] uppercase">
+      <p className="text-sm font-bold tracking-[0.14em] text-accent uppercase">
         {t("teams.eyebrow")}
       </p>
-      <h1 className="brand-title mt-3 text-3xl tracking-[-0.035em] text-[#041894] sm:text-4xl">
+      <h1 className="brand-title mt-3 text-3xl tracking-[-0.035em] text-ink sm:text-4xl">
         {t("teams.title")}
       </h1>
 
       {teams.isPending ? (
-        <p role="status" className="mt-8 text-sm text-[#506784]">
+        <p role="status" className="mt-8 text-sm text-muted">
           {t("teams.loading")}
         </p>
       ) : teams.isError ? (
         <RequestError error={teams.error} />
       ) : teams.data.season === null ? (
-        <p className="mt-8 rounded-2xl border border-dashed border-[#004fc5]/20 p-5 text-sm text-[#506784]">
+        <p className="mt-8 rounded-2xl border border-dashed border-primary/20 p-5 text-sm text-muted">
           {t("teams.noSeason")}
         </p>
       ) : (
         <>
-          <p className="mt-2 text-sm text-[#506784]">
+          <p className="mt-2 text-sm text-muted">
             {t("teamHome.season", {
               start: teams.data.season.start_year,
               end: teams.data.season.start_year + 1,
@@ -576,7 +571,7 @@ function TeamManagement() {
           <div className="mt-8 space-y-6">
             <CreateTeamForm seasonYear={teams.data.season.start_year} />
             {teams.data.teams.length === 0 ? (
-              <p className="rounded-2xl border border-dashed border-[#004fc5]/20 p-5 text-sm text-[#506784]">
+              <p className="rounded-2xl border border-dashed border-primary/20 p-5 text-sm text-muted">
                 {t("teams.noTeams")}
               </p>
             ) : (

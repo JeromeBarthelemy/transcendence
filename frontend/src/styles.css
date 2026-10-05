@@ -1,8 +1,91 @@
 @import "tailwindcss";
 
+/* The palette (assets/palette.png) and the colors around it, named once.
+   Pages use the names — `text-muted`, `bg-tint`, `border-primary/20` — never
+   a hex value: changing a color is one line here, and two blues that differ
+   are two names, not a typo. */
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Poppins", ui-sans-serif, system-ui, sans-serif;
+
+  /* The palette, darkest to lightest. */
+  --color-ink: #041894;
+  --color-primary: #004fc5;
+  --color-accent: #0078dd;
+  --color-azure: #009edf;
+  --color-lagoon: #00c2d0;
+  --color-mint: #00e4bc;
+
+  /* Text. */
+  --color-body: #13294b;
+  --color-muted: #506784;
+  --color-faint: #7f93ad;
+
+  /* Surfaces and lines. */
+  --color-canvas: #f5f9ff;
+  --color-tint: #eaf5ff;
+  --color-mist: #f4f8ff;
+  --color-fog: #eef1f5;
+  --color-line: #bfd4ef;
+  /* Light text over the home page's dark gradient. */
+  --color-ice: #d9f7ff;
+  --color-seafoam: #a8f4e7;
+  --color-mint-tint: #e0fbf5;
+  --color-mint-deep: #00695c;
+
+  /* States. A handover is the warning: it must not be missed. */
+  --color-success: #167448;
+  --color-success-tint: #e3f3ea;
+  --color-warning: #d59600;
+  --color-warning-tint: #fff7dc;
+  --color-warning-wash: #fffdf5;
+  --color-warning-ink: #634c12;
+  --color-warning-muted: #7a6221;
+  --color-danger: #c43d5c;
+
+  --shadow-button: 0 8px 22px --alpha(var(--color-primary) / 19%);
+  --shadow-panel: 0 18px 55px --alpha(var(--color-primary) / 7%);
+  --shadow-hero: 0 22px 70px --alpha(var(--color-primary) / 16%);
+}
+
+/* Inter for reading, Poppins for headings and titles. Only the weights the
+   pages use: a face nothing asks for is never downloaded anyway, but a list
+   of every file would say otherwise. */
+@font-face {
+  font-family: "Inter";
+  src: url("./assets/inter/Inter-Regular.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Inter";
+  src: url("./assets/inter/Inter-Italic.woff2") format("woff2");
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Inter";
+  src: url("./assets/inter/Inter-SemiBold.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Inter";
+  src: url("./assets/inter/Inter-Bold.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+}
+
 @font-face {
   font-family: "Poppins";
-  src: url("./assets/poppins_font/Poppins-Regular.ttf") format("truetype");
+  src: url("./assets/poppins/Poppins-Regular.woff2") format("woff2");
   font-style: normal;
   font-weight: 400;
   font-display: swap;
@@ -10,7 +93,7 @@
 
 @font-face {
   font-family: "Poppins";
-  src: url("./assets/poppins_font/Poppins-SemiBold.ttf") format("truetype");
+  src: url("./assets/poppins/Poppins-SemiBold.woff2") format("woff2");
   font-style: normal;
   font-weight: 600;
   font-display: swap;
@@ -18,16 +101,15 @@
 
 @font-face {
   font-family: "Poppins";
-  src: url("./assets/poppins_font/Poppins-Bold.ttf") format("truetype");
+  src: url("./assets/poppins/Poppins-Bold.woff2") format("woff2");
   font-style: normal;
   font-weight: 700;
   font-display: swap;
 }
 
 :root {
-  font-family: "Poppins", ui-sans-serif, system-ui, sans-serif;
-  color: #041894;
-  background: #f5f9ff;
+  color: var(--color-ink);
+  background: var(--color-canvas);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
 }
@@ -41,28 +123,43 @@ body {
   min-height: 100vh;
   margin: 0;
   background:
-    radial-gradient(circle at 88% 8%, #00e4bc24 0, transparent 30rem),
-    radial-gradient(circle at 8% 84%, #009edf1c 0, transparent 35rem), #f5f9ff;
-}
-
-button,
-input {
-  font: inherit;
+    radial-gradient(
+      circle at 88% 8%,
+      --alpha(var(--color-mint) / 14%) 0,
+      transparent 30rem
+    ),
+    radial-gradient(
+      circle at 8% 84%,
+      --alpha(var(--color-azure) / 11%) 0,
+      transparent 35rem
+    ),
+    var(--color-canvas);
 }
 
 ::selection {
-  color: #041894;
-  background: #00e4bc66;
+  color: var(--color-ink);
+  background: --alpha(var(--color-mint) / 40%);
+}
+
+@layer base {
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-family: var(--font-display);
+  }
 }
 
 .brand-title {
-  font-family: "Poppins", ui-sans-serif, system-ui, sans-serif;
+  font-family: var(--font-display);
   font-weight: 700;
 }
 
 .form-label {
   display: block;
-  color: #041894;
+  color: var(--color-ink);
   font-size: 0.875rem;
   font-weight: 700;
 }
@@ -72,10 +169,10 @@ input {
   width: 100%;
   margin-top: 0.5rem;
   padding: 0.75rem 0.9rem;
-  border: 1px solid #bfd4ef;
+  border: 1px solid var(--color-line);
   border-radius: 0.8rem;
-  color: #041894;
-  background: #fff;
+  color: var(--color-ink);
+  background: var(--color-white);
   outline: none;
   transition:
     border-color 150ms ease,
@@ -83,17 +180,17 @@ input {
 }
 
 .form-input:focus-visible {
-  border-color: #0078dd;
-  box-shadow: 0 0 0 3px #009edf2e;
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px --alpha(var(--color-azure) / 18%);
 }
 
 .form-input[aria-invalid="true"] {
-  border-color: #c43d5c;
+  border-color: var(--color-danger);
 }
 
 .form-hint {
   margin-top: 0.45rem;
-  color: #5c6f88;
+  color: var(--color-muted);
   font-size: 0.8rem;
   line-height: 1.5;
 }
@@ -103,8 +200,8 @@ input {
   padding: 0.85rem 1.25rem;
   border: 0;
   border-radius: 999px;
-  color: #fff;
-  background: #004fc5;
+  color: var(--color-white);
+  background: var(--color-primary);
   font-size: 0.875rem;
   font-weight: 700;
   text-decoration: none;
@@ -113,11 +210,11 @@ input {
 }
 
 .form-submit:hover {
-  background: #0078dd;
+  background: var(--color-accent);
 }
 
 .form-submit:focus-visible {
-  outline: 2px solid #00c2d0;
+  outline: 2px solid var(--color-lagoon);
   outline-offset: 3px;
 }
 
@@ -127,14 +224,14 @@ input {
 }
 
 .form-link {
-  color: #0078dd;
+  color: var(--color-accent);
   font-weight: 700;
   text-decoration: underline;
   text-underline-offset: 3px;
 }
 
 .form-link:hover {
-  color: #041894;
+  color: var(--color-ink);
 }
 
 .fieldbot-sphere {
@@ -144,11 +241,11 @@ input {
   border-radius: 50%;
   background: radial-gradient(
     circle closest-side,
-    #041894 0%,
-    #004fc5 49%,
-    #009edf 92%
+    var(--color-ink) 0%,
+    var(--color-primary) 49%,
+    var(--color-azure) 92%
   );
-  box-shadow: 0 0 2.6em 0.3em #0078dd38;
+  box-shadow: 0 0 2.6em 0.3em --alpha(var(--color-accent) / 22%);
 }
 
 .fieldbot-sphere-lg {
@@ -175,8 +272,8 @@ input {
 /* The question box: a quiet border at rest, the palette's gradient once it
    holds the focus. */
 .fieldbot-input {
-  border: 2px solid #bfd4ef;
-  background: #fff;
+  border: 2px solid var(--color-line);
+  background: var(--color-white);
   transition:
     border-color 150ms ease,
     box-shadow 150ms ease;
@@ -185,11 +282,18 @@ input {
 .fieldbot-input:focus-within {
   border-color: transparent;
   background:
-    linear-gradient(#fff, #fff) padding-box,
-    linear-gradient(120deg, #041894, #0078dd, #00c2d0, #00e4bc) border-box;
+    linear-gradient(var(--color-white), var(--color-white)) padding-box,
+    linear-gradient(
+      120deg,
+      var(--color-ink),
+      var(--color-accent),
+      var(--color-lagoon),
+      var(--color-mint)
+    )
+    border-box;
   box-shadow:
-    0 0 0 4px #009edf24,
-    0 12px 32px -14px #004fc580;
+    0 0 0 4px --alpha(var(--color-azure) / 14%),
+    0 12px 32px -14px --alpha(var(--color-primary) / 50%);
 }
 
 /* The privacy policy and the terms: long text, so spacing and lists come
@@ -205,13 +309,13 @@ input {
   margin-top: 2.5rem;
   font-size: 1.375rem;
   font-weight: 700;
-  color: #041894;
+  color: var(--color-ink);
 }
 
 .legal h3 {
   margin-top: 1.5rem;
   font-weight: 700;
-  color: #041894;
+  color: var(--color-ink);
 }
 
 .legal ul {
@@ -221,11 +325,11 @@ input {
 
 .legal .legal-why {
   font-style: italic;
-  color: #506784;
+  color: var(--color-muted);
 }
 
 .legal a {
-  color: #0078dd;
+  color: var(--color-accent);
   text-decoration: underline;
 }
 
@@ -237,7 +341,7 @@ input {
 
 .legal th,
 .legal td {
-  border: 1px solid #bfd4ef;
+  border: 1px solid var(--color-line);
   padding: 0.5rem 0.75rem;
   text-align: left;
   vertical-align: top;

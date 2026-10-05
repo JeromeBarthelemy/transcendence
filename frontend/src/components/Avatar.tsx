@@ -63,12 +63,12 @@ export function Avatar({
       <img
         src={src}
         alt={alt}
-        className={`${sizes[size]} max-w-none shrink-0 rounded-full bg-[#eaf5ff] object-cover`}
+        className={`${sizes[size]} max-w-none shrink-0 rounded-full bg-tint object-cover`}
         onError={() => setFailed(src)}
       />
     );
   }
-  const className = `${sizes[size]} grid shrink-0 place-items-center rounded-full bg-[#eaf5ff] font-bold text-[#0078dd]`;
+  const className = `${sizes[size]} grid shrink-0 place-items-center rounded-full bg-tint font-bold text-accent`;
   if (alt) {
     return (
       <span role="img" aria-label={alt} className={className}>

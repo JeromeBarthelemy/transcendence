@@ -162,3 +162,16 @@ export async function uploadAvatar(
 export async function deleteAvatar(): Promise<void> {
   await del("/api/auth/me/avatar/");
 }
+
+/** The right of access: a copy of the account, sent by e-mail to its contact
+ * address — never shown on screen, since the confirmation is the point. */
+export async function requestDataExport(): Promise<void> {
+  await post("/api/auth/me/export/");
+}
+
+/** The right to erasure. The account's own password confirms it; the server
+ * then anonymizes the account, e-mails the confirmation and ends the
+ * session. */
+export async function deleteAccount(password: string): Promise<void> {
+  await del("/api/auth/me/", { password });
+}

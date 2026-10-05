@@ -8,11 +8,12 @@ fills, read here for the first time.
 """
 
 import json
+from smtplib import SMTPException
 from typing import Any
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
-from django.core.mail import EmailMessage, send_mail
+from django.core.mail import EmailMessage
 from django.db import transaction
 
 from .api.permissions import not_the_last_admin
@@ -89,6 +90,20 @@ def export_data(user: User) -> dict[str, Any]:
     }
 
 
+def _send(message: EmailMessage) -> None:
+    """A request is confirmed by e-mail or not carried out. A relay that
+    refuses, or none to reach — no network, no `EMAIL_HOST` — is said as
+    such, not left to surface as a 500."""
+    try:
+        message.send()
+    except (SMTPException, OSError):
+        raise ValidationError(
+            "Le courriel ne peut pas être envoyé pour le moment : rien n'a "
+            "été fait. Réessayez plus tard.",
+            code="mail_unavailable",
+        ) from None
+
+
 def send_export(user: User) -> None:
     """Fails before anything is sent if there is nowhere to send it —
     checked first, same backstop-first spirit as everywhere else the club
@@ -106,17 +121,19 @@ def send_export(user: User) -> None:
             attachments.append(("avatar.webp", user.avatar.read(), "image/webp"))
         finally:
             user.avatar.close()
-    EmailMessage(
-        subject="Export de vos données — Fieldnotes",
-        body=(
-            "Bonjour,\n\n"
-            f"Voici l'export des données du compte « {user.display_name} », "
-            "en pièce jointe, au format lisible (JSON).\n"
-        ),
-        from_email=settings.DEFAULT_FROM_EMAIL,
-        to=[to],
-        attachments=attachments,
-    ).send()
+    _send(
+        EmailMessage(
+            subject="Export de vos données — Fieldnotes",
+            body=(
+                "Bonjour,\n\n"
+                f"Voici l'export des données du compte « {user.display_name} », "
+                "en pièce jointe, au format lisible (JSON).\n"
+            ),
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            to=[to],
+            attachments=attachments,
+        )
+    )
 
 
 def anonymize(user: User) -> None:
@@ -182,14 +199,16 @@ def request_deletion(user: User, *, password: str | None) -> None:
     not_the_last_admin(user)
     display_name = user.display_name
     anonymize(user)
-    send_mail(
-        subject="Suppression de compte confirmée — Fieldnotes",
-        message=(
-            "Bonjour,\n\n"
-            f"Le compte « {display_name} » a été supprimé à sa demande : son "
-            "identité a été effacée. Ce qu'il a écrit reste dans le classeur "
-            "de l'équipe.\n"
-        ),
-        from_email=settings.DEFAULT_FROM_EMAIL,
-        recipient_list=[to],
+    _send(
+        EmailMessage(
+            subject="Suppression de compte confirmée — Fieldnotes",
+            body=(
+                "Bonjour,\n\n"
+                f"Le compte « {display_name} » a été supprimé à sa demande : son "
+                "identité a été effacée. Ce qu'il a écrit reste dans le classeur "
+                "de l'équipe.\n"
+            ),
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            to=[to],
+        )
     )

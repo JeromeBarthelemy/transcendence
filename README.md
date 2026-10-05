@@ -50,7 +50,7 @@ The frontend foundation installed by the initial skeleton is:
 **React Hook Form and Zod** validate the account forms in the browser, while
 **Vitest and React Testing Library** exercise their user flows. The PWA will
 add **vite-plugin-pwa/Workbox and IndexedDB** when it needs durable offline
-support. IndexedDB will store pending scouting operations; TanStack Query's
+support. IndexedDB will store pending progress entries; TanStack Query's
 cache alone is not durable offline storage.
 
 The backend stack is:
@@ -460,7 +460,10 @@ Neither goes to the login address: it identifies an account without being
 assumed to deliver, and the youngest members have none that does. Both go to
 `contact_email` instead — the member's own for an adult, their legal
 guardian's for a minor — and both are refused with `no_contact_email` when
-that column is empty, before anything changes. `DELETE` also takes the
+that column is empty, before anything changes. A request is confirmed by
+e-mail or not carried out: when the mail cannot go out (the relay refuses,
+or there is none to reach), both are refused with `mail_unavailable` and
+nothing changes. `DELETE` also takes the
 account's own `password` in its body and refuses a missing or wrong one with
 `wrong_password`, nothing changed — a session left open on a shared club
 computer must not delete the account in one click.
@@ -517,7 +520,7 @@ anyone else gets a `403` with the code `not_a_member`.
 | `PATCH /api/work-items/{id}/` | close it, `done` or `dropped`; working on it again reopens it |
 | `DELETE /api/work-items/{id}/` | delete one opened by mistake: refused with `work_item_has_traces` (`409`) once it has any trace, even an empty progress — drop it instead |
 | `POST /api/work-items/{id}/tick/` | sign up to today's progress, created by the first to tick |
-| `PATCH /api/entries/{id}/` | write a progress — sentence, step, handover — for its participants and mentors |
+| `PATCH /api/entries/{id}/` | add to a progress (`addition`, appended: nobody erases what another wrote) and change its step or handover, for its participants and mentors; a handover change sends `handover_was` and is refused with `progress_changed` (`409`) if the handover changed since; a `body` is refused with `use_addition` rather than ignored |
 | `POST /api/entries/{id}/attachments/` | attach a file to any of the team's entries, as `multipart/form-data` fields `file` and `people_recognisable`, the latter always answered: left out, it is `required`, never read as no |
 | `GET /api/attachments/{id}/` | the file, to the team and mentors |
 | `DELETE /api/attachments/{id}/` | remove it — whoever attached it, or a mentor; anyone else gets `delete_not_uploader` |
@@ -525,6 +528,7 @@ anyone else gets a `403` with the code `not_a_member`.
 | `POST /api/team-seasons/{id}/decisions/` | a decision, same fields as a note plus `attendees`: members of the team or mentors, ticked by the author; only the author counts as present |
 | `GET /api/team-seasons/{id}/days/{YYYY-MM-DD}/` | the day's entries, number of work items advanced, who was there, the roster they count against, and the `previous` and `next` days the team left a trace; `today` resolves the current 4 a.m.–4 a.m. workday on the server |
 | `GET /api/team-seasons/{id}/gaps/?since=&until=` | the workshop-slot days on which nothing moved forward |
+| `GET /api/team-seasons/{id}/analytics/activity/?since=&until=` | progress activity by workday and member over the inclusive period, plus a current work-item snapshot |
 | `GET /api/team-seasons/{id}/export/?format=markdown` | the season's notebook as a `.zip`, one Markdown file per category; `category` (`robot`, `outreach`, `team-life`) and `work_item` narrow it |
 
 A day runs from 4 a.m. to 4 a.m., in Paris time: a late session belongs to
@@ -536,6 +540,21 @@ Every entry names its work item, `{"id", "title"}`, or `null` for a note to
 the whole team. A day skips to the closest days with something in them: an
 empty day has nothing to read, and the slots on which nothing moved are what
 `gaps` lists.
+
+Activity analytics are derived from the same records rather than stored a
+second time. The period applies only to `progress` entries and follows the
+same 4 a.m.–4 a.m. workday as the day screen. One progress shared by several
+participants counts once for the team and once for each student participant;
+mentors, notes and decision attendees do not count. Per-student `active_days`,
+`progress_entries`, distinct `work_items`, and `last_progress_day` describe
+recorded participation, not productivity. Former or anonymized participants
+remain in the history with `is_current_member: false`.
+
+The `snapshot` is deliberately current rather than historical: it groups all
+of the team's work items by their present status and latest progress step,
+and counts items with no progress yet. The calculation lives in
+`club.analytics`, alongside the future match and trial analytics, so API
+views only validate access and input.
 
 The export is raw material for the portfolio, which students write elsewhere:
 the season's entries by category — building the robot (work items on the
@@ -801,7 +820,10 @@ requests — stays English.
 - `frontend/src/api/` — typed clients for Django endpoints.
 - `frontend/src/pages/` — route-level React screens.
 - `frontend/src/locales/` — the French user-interface catalogue.
-- `frontend/src/styles.css` — Tailwind entry point and global styles.
+- `frontend/src/styles.css` — Tailwind entry point and global styles. Its
+  `@theme` names every color the pages use (`text-muted`, `bg-tint`,
+  `border-primary/20`), so no page writes a hex value, and the two fonts:
+  Inter for text, Poppins for headings and titles.
 - `compose.yml` — the complete development stack in one command.
 - `compose.prod.yml`, `deploy/` — the HTTPS production stack: Caddy
   (`deploy/Dockerfile`, `deploy/Caddyfile`) in front of Django on Daphne.

@@ -19,7 +19,7 @@ export function AdminOnly({
   if (currentUser.isPending) {
     return (
       <main className="mx-auto w-full max-w-4xl flex-1 px-5 py-14 sm:px-8">
-        <p role="status" className="text-sm text-[#506784]">
+        <p role="status" className="text-sm text-muted">
           {t("auth.checkingSession")}
         </p>
       </main>
@@ -38,11 +38,11 @@ export function AdminOnly({
   if (!currentUser.data.is_club_admin) {
     return (
       <main className="mx-auto w-full max-w-4xl flex-1 px-5 py-14 sm:px-8">
-        <div className="rounded-3xl border border-[#004fc5]/15 bg-white p-8 shadow-sm">
-          <h1 className="brand-title text-3xl text-[#041894]">
+        <div className="rounded-3xl border border-primary/15 bg-white p-8 shadow-sm">
+          <h1 className="brand-title text-3xl text-ink">
             {t("admin.forbiddenTitle")}
           </h1>
-          <p className="mt-3 max-w-xl leading-7 text-[#506784]">
+          <p className="mt-3 max-w-xl leading-7 text-muted">
             {t("admin.forbiddenDescription")}
           </p>
         </div>

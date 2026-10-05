@@ -212,6 +212,38 @@ def test_the_official_qa_is_not_checked_automatically():
     assert qa.pk not in [document.pk for document in latest_documents()]
 
 
+def test_a_page_back_to_the_searched_content_drops_the_change_waiting(monkeypatch):
+    the_season = season()
+    copy = manual_copy(the_season)
+    serve(monkeypatch, CHANGED_HTML)
+    check_document(copy)
+    assert SourceUpdate.objects.filter(season=the_season).exists()
+
+    serve(monkeypatch, REAL_HTML_EXCERPT)
+    outcome = check_document(copy)
+
+    assert outcome.status == "unchanged"
+    assert not SourceUpdate.objects.filter(season=the_season).exists()
+
+
+def test_a_failed_manual_check_is_reported_to_the_administrator(client, monkeypatch):
+    copy = manual_copy(season())
+
+    def unreachable(url):
+        raise URLError("hors ligne")
+
+    monkeypatch.setattr("club.sources.fetch_page", unreachable)
+    client.force_login(administrator())
+
+    response = client.post("/api/rules/sources/check/")
+
+    assert response.status_code == 200
+    manual = next(row for row in response.json() if row["source"] == "game_manual")
+    assert manual["check"]["status"] == "error"
+    assert "hors ligne" in manual["check"]["detail"]
+    assert copy.pk in [document.pk for document in latest_documents()]
+
+
 def test_a_source_url_must_be_https_and_on_first_s_own_site(client):
     season()
     client.force_login(administrator())

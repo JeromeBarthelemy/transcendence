@@ -104,7 +104,7 @@ export function SignUpPage() {
   if (currentUser.isPending) {
     return (
       <AuthPageFrame {...pageCopy}>
-        <p role="status" className="text-sm text-[#506784]">
+        <p role="status" className="text-sm text-muted">
           {t("auth.checkingSession")}
         </p>
       </AuthPageFrame>
@@ -121,7 +121,7 @@ export function SignUpPage() {
         })}
       >
         {signup.variables?.email && (
-          <p className="rounded-2xl border border-[#009edf]/20 bg-[#eefaff] p-5 text-sm leading-6 text-[#506784]">
+          <p className="rounded-2xl border border-azure/20 bg-tint p-5 text-sm leading-6 text-muted">
             {t("signup.emailLoginHelp", { email: signup.data.email })}
           </p>
         )}
@@ -342,7 +342,7 @@ export function SignUpPage() {
         </button>
       </form>
 
-      <p className="mt-6 text-sm leading-6 text-[#506784]">
+      <p className="mt-6 text-sm leading-6 text-muted">
         {t("signup.alreadyMember")}{" "}
         <Link to="/login" className="form-link">
           {t("auth.login")}

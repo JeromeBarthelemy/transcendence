@@ -400,9 +400,25 @@ class TickSerializer(serializers.Serializer[Entry]):
 
 
 class WriteProgressSerializer(serializers.Serializer[Entry]):
-    body = serializers.CharField(allow_blank=True, required=False)
+    addition = serializers.CharField(allow_blank=True, required=False)
     step = serializers.ChoiceField(choices=Entry.Step.choices, required=False)
     handover = serializers.CharField(allow_blank=True, required=False)
+    handover_was = serializers.CharField(allow_blank=True, required=False)
+
+    def validate(self, attrs: dict[str, Any]) -> dict[str, Any]:
+        """A handover change without what it started from would erase blind.
+        `body` is refused, not ignored: an outdated screen still sending it
+        would otherwise be told its text was saved."""
+        if "body" in self.initial_data:
+            raise serializers.ValidationError(
+                {"body": "Le texte d'une avancée ne se remplace pas : ajoutez-y."},
+                code="use_addition",
+            )
+        if "handover" in attrs and "handover_was" not in attrs:
+            raise serializers.ValidationError(
+                {"handover_was": "Ce champ est obligatoire."}, code="required"
+            )
+        return attrs
 
 
 class NoteSerializer(serializers.Serializer[Entry]):
@@ -471,6 +487,14 @@ class DaySerializer(serializers.Serializer[None]):
 class PeriodSerializer(serializers.Serializer[None]):
     since = serializers.DateField()
     until = serializers.DateField()
+
+    def validate(self, attrs: dict[str, Any]) -> dict[str, Any]:
+        if attrs["since"] > attrs["until"]:
+            raise serializers.ValidationError(
+                "La date de début doit précéder la date de fin.",
+                code="period_reversed",
+            )
+        return attrs
 
 
 class ExportSerializer(serializers.Serializer[None]):
