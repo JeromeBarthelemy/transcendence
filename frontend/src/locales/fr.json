@@ -15,8 +15,11 @@
     "main": "Navigation principale",
     "teams": "Équipes",
     "users": "Membres",
-    "profile": "Mon profil ({{name}})",
-    "fieldbot": "Fieldbot"
+    "fieldbot": "Fieldbot",
+    "account": "Menu du compte ({{name}})",
+    "viewProfile": "Voir mon profil",
+    "menu": "Menu",
+    "admin": "Administration"
   },
   "home": {
     "eyebrow": "La mémoire du club",

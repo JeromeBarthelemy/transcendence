@@ -136,11 +136,6 @@ body {
     var(--color-canvas);
 }
 
-button,
-input {
-  font: inherit;
-}
-
 ::selection {
   color: var(--color-ink);
   background: --alpha(var(--color-mint) / 40%);

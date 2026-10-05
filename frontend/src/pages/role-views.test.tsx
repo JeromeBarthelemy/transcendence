@@ -60,11 +60,9 @@ function renderHomeAs(identity: object) {
   );
 }
 
-function adminLinks() {
+function administration() {
   const nav = screen.getByRole("navigation", { name: "Navigation principale" });
-  return within(nav)
-    .queryAllByRole("link")
-    .map((link) => link.textContent);
+  return within(nav).queryByRole("button", { name: "Administration" });
 }
 
 afterEach(() => {
@@ -85,7 +83,7 @@ it("shows a student their own team, with no selector", async () => {
     await screen.findByRole("heading", { name: "Équipe 1796 · Les Rouages" }),
   ).toBeTruthy();
   expect(screen.queryByLabelText("Changer d'équipe")).toBeNull();
-  expect(adminLinks()).not.toContain("Membres");
+  expect(administration()).toBeNull();
 });
 
 it("offers a mentor a team selector", async () => {
@@ -99,8 +97,7 @@ it("offers a mentor a team selector", async () => {
 
   const selector = await screen.findByLabelText("Changer d'équipe");
   expect(within(selector).getAllByRole("option")).toHaveLength(4);
-  expect(adminLinks()).not.toContain("Équipes");
-  expect(adminLinks()).not.toContain("Membres");
+  expect(administration()).toBeNull();
 });
 
 it("offers a club admin every team, and the administration screens", async () => {
@@ -114,5 +111,5 @@ it("offers a club admin every team, and the administration screens", async () =>
 
   const selector = await screen.findByLabelText("Changer d'équipe");
   expect(within(selector).getAllByRole("option")).toHaveLength(4);
-  expect(adminLinks()).toEqual(expect.arrayContaining(["Équipes", "Membres"]));
+  expect(administration()).toBeTruthy();
 });

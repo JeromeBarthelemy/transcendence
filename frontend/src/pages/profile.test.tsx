@@ -135,8 +135,11 @@ it("opens the profile from the signed-in member's name", async () => {
 
   renderAt("/teams");
   await user.click(
-    await screen.findByRole("link", { name: "Mon profil (Marie Durand)" }),
+    await screen.findByRole("button", {
+      name: "Menu du compte (Marie Durand)",
+    }),
   );
+  await user.click(screen.getByRole("link", { name: "Voir mon profil" }));
 
   expect(
     await screen.findByRole("heading", { name: "Marie Durand" }),
@@ -210,8 +213,8 @@ it("previews the photo, shows the upload's progress and puts the new face everyw
   expect(
     await screen.findByText("Votre nouvelle photo est enregistrée."),
   ).toBeTruthy();
-  const header = screen.getByRole("link", {
-    name: "Mon profil (Marie Durand)",
+  const header = screen.getByRole("button", {
+    name: "Menu du compte (Marie Durand)",
   });
   // A version on the address, or the browser would show the face it already
   // drew under that address.
