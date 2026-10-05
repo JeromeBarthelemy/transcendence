@@ -19,6 +19,7 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from club.analytics.activity import summarize_activity
 from club.attachments import DOWNLOAD_ONLY
 from club.export import gather, to_markdown_zip
 from club.gdpr import request_deletion, send_export
@@ -770,6 +771,21 @@ class GapsView(APIView):
         serializer.is_valid(raise_exception=True)
         period = serializer.validated_data
         return Response(gaps(team_season, period["since"], period["until"]))
+
+
+class ActivityAnalyticsView(APIView):
+    """Participation over a period, plus the work's current snapshot."""
+
+    def get(self, request: Request, team_season_id: int) -> Response:
+        user = request.user
+        assert isinstance(user, User)
+        team_season = team_season_acted_on(user, team_season_id)
+        serializer = PeriodSerializer(data=request.query_params)
+        serializer.is_valid(raise_exception=True)
+        period = serializer.validated_data
+        return Response(
+            summarize_activity(team_season, period["since"], period["until"])
+        )
 
 
 class ExportView(APIView):

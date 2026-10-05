@@ -470,6 +470,14 @@ class PeriodSerializer(serializers.Serializer[None]):
     since = serializers.DateField()
     until = serializers.DateField()
 
+    def validate(self, attrs: dict[str, Any]) -> dict[str, Any]:
+        if attrs["since"] > attrs["until"]:
+            raise serializers.ValidationError(
+                "La date de début doit précéder la date de fin.",
+                code="period_reversed",
+            )
+        return attrs
+
 
 class ExportSerializer(serializers.Serializer[None]):
     format = serializers.ChoiceField(choices=["markdown"], default="markdown")

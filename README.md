@@ -525,6 +525,7 @@ anyone else gets a `403` with the code `not_a_member`.
 | `POST /api/team-seasons/{id}/decisions/` | a decision, same fields as a note plus `attendees`: members of the team or mentors, ticked by the author; only the author counts as present |
 | `GET /api/team-seasons/{id}/days/{YYYY-MM-DD}/` | the day's entries, number of work items advanced, who was there, the roster they count against, and the `previous` and `next` days the team left a trace; `today` resolves the current 4 a.m.–4 a.m. workday on the server |
 | `GET /api/team-seasons/{id}/gaps/?since=&until=` | the workshop-slot days on which nothing moved forward |
+| `GET /api/team-seasons/{id}/analytics/activity/?since=&until=` | progress activity by workday and member over the inclusive period, plus a current work-item snapshot |
 | `GET /api/team-seasons/{id}/export/?format=markdown` | the season's notebook as a `.zip`, one Markdown file per category; `category` (`robot`, `outreach`, `team-life`) and `work_item` narrow it |
 
 A day runs from 4 a.m. to 4 a.m., in Paris time: a late session belongs to
@@ -536,6 +537,21 @@ Every entry names its work item, `{"id", "title"}`, or `null` for a note to
 the whole team. A day skips to the closest days with something in them: an
 empty day has nothing to read, and the slots on which nothing moved are what
 `gaps` lists.
+
+Activity analytics are derived from the same records rather than stored a
+second time. The period applies only to `progress` entries and follows the
+same 4 a.m.–4 a.m. workday as the day screen. One progress shared by several
+participants counts once for the team and once for each student participant;
+mentors, notes and decision attendees do not count. Per-student `active_days`,
+`progress_entries`, distinct `work_items`, and `last_progress_day` describe
+recorded participation, not productivity. Former or anonymized participants
+remain in the history with `is_current_member: false`.
+
+The `snapshot` is deliberately current rather than historical: it groups all
+of the team's work items by their present status and latest progress step,
+and counts items with no progress yet. The calculation lives in
+`club.analytics`, alongside the future match and trial analytics, so API
+views only validate access and input.
 
 The export is raw material for the portfolio, which students write elsewhere:
 the season's entries by category — building the robot (work items on the
