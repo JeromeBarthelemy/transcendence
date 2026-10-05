@@ -41,6 +41,8 @@ function entry(fields: object) {
     handover: "",
     occurred_at: "2026-09-30T15:00:00Z",
     author: "Lina",
+    can_remove: false,
+    can_correct: false,
     participants: [],
     attachments: [],
     ...fields,
@@ -55,6 +57,7 @@ function attachment(contentType: string) {
     url: "/api/attachments/1/",
     people_recognisable: false,
     uploaded_by: "Lina",
+    can_remove: false,
   };
 }
 

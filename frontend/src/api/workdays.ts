@@ -18,6 +18,8 @@ const entrySchema = z.object({
   body: z.string(),
   occurred_at: z.string(),
   author: z.string(),
+  can_remove: z.boolean(),
+  can_correct: z.boolean(),
 });
 
 const workdaySchema = z.object({

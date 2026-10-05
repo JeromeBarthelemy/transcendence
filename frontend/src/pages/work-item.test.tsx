@@ -45,6 +45,8 @@ function progress(overrides: object = {}) {
     handover: "Tester les galets à 12 V.",
     occurred_at: "2026-09-28T14:30:00+02:00",
     author: "Lina",
+    can_remove: false,
+    can_correct: false,
     participants: [
       { display_name: "Lina", avatar: null },
       { display_name: "Marie", avatar: null },
@@ -57,6 +59,7 @@ function progress(overrides: object = {}) {
         url: "/api/attachments/5/",
         people_recognisable: false,
         uploaded_by: "Lina",
+        can_remove: false,
       },
     ],
     ...overrides,
@@ -76,6 +79,8 @@ function workItem(overrides: object = {}) {
     handover: {
       body: "Tester les galets à 12 V.",
       author: "Lina",
+      can_remove: false,
+      can_correct: false,
       step: "prototyping",
       occurred_at: "2026-09-28T14:30:00+02:00",
       day: "2026-09-28",
@@ -299,6 +304,8 @@ it("starts today's progress at the chosen step", async () => {
     participants: [{ display_name: "Marie", avatar: null }],
     attachments: [],
     author: "Marie",
+    can_remove: false,
+    can_correct: false,
   });
   const fetchMock = vi.fn(
     async (path: string, options?: RequestInit): Promise<Response> => {
@@ -594,6 +601,8 @@ it("adds a note to the work item and refreshes its history", async () => {
     handover: "",
     occurred_at: "2026-09-29T14:30:00+02:00",
     author: "Marie",
+    can_remove: false,
+    can_correct: false,
     participants: [],
     attachments: [],
   };
@@ -744,6 +753,7 @@ it("uploads a file with its image-right answer", async () => {
       url: "/api/attachments/9/",
       people_recognisable: false,
       uploaded_by: "Marie",
+      can_remove: false,
     });
     upload = {
       onprogress: null as ((event: ProgressEvent) => void) | null,
@@ -970,4 +980,76 @@ it("offers no way out of a progress one is not on", async () => {
     await screen.findByRole("button", { name: "Je participe" }),
   ).toBeTruthy();
   expect(screen.queryByRole("button", { name: "Me retirer" })).toBeNull();
+});
+
+function removingServer(thread: object[]) {
+  let current = thread;
+  const fetchMock = vi.fn(
+    async (path: string, options?: RequestInit): Promise<Response> => {
+      if (path === "/api/auth/me/") {
+        return json(identity());
+      }
+      if (path === "/api/work-items/10/" && !options?.method) {
+        return json(workItem({ current_progress: null, thread: current }));
+      }
+      if (options?.method === "DELETE") {
+        current = [];
+        return new Response(null, { status: 204 });
+      }
+      throw new Error(`Unexpected request: ${path}`);
+    },
+  );
+  vi.stubGlobal("fetch", fetchMock);
+  return () =>
+    fetchMock.mock.calls
+      .filter(([, options]) => options?.method === "DELETE")
+      .map(([path]) => path);
+}
+
+it("removes a trace from the history once confirmed", async () => {
+  setDocumentCookie("csrftoken=test; path=/");
+  const removed = removingServer([
+    {
+      ...progress(),
+      id: 41,
+      type: "note",
+      body: "Perceuse HS.",
+      attachments: [],
+      can_remove: true,
+    },
+  ]);
+  renderWorkItem();
+
+  await screen.findByText("Perceuse HS.");
+  await userEvent.click(screen.getByRole("button", { name: "Retirer" }));
+  await userEvent.click(
+    screen.getByRole("button", { name: "Retirer définitivement" }),
+  );
+
+  await waitFor(() => expect(removed()).toEqual(["/api/entries/41/"]));
+});
+
+it("removes a file once confirmed", async () => {
+  setDocumentCookie("csrftoken=test; path=/");
+  const withFile = progress();
+  const removed = removingServer([
+    {
+      ...withFile,
+      attachments: withFile.attachments.map((file) => ({
+        ...file,
+        can_remove: true,
+      })),
+    },
+  ]);
+  renderWorkItem();
+
+  await userEvent.click(
+    await screen.findByRole("button", { name: "Retirer plan-intake.pdf" }),
+  );
+  expect(screen.getByText("Retirer ce fichier ?")).toBeTruthy();
+  await userEvent.click(
+    screen.getByRole("button", { name: "Retirer définitivement" }),
+  );
+
+  await waitFor(() => expect(removed()).toEqual(["/api/attachments/5/"]));
 });
