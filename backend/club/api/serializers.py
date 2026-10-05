@@ -398,9 +398,18 @@ class TickSerializer(serializers.Serializer[Entry]):
 
 
 class WriteProgressSerializer(serializers.Serializer[Entry]):
-    body = serializers.CharField(allow_blank=True, required=False)
+    addition = serializers.CharField(allow_blank=True, required=False)
     step = serializers.ChoiceField(choices=Entry.Step.choices, required=False)
     handover = serializers.CharField(allow_blank=True, required=False)
+    handover_was = serializers.CharField(allow_blank=True, required=False)
+
+    def validate(self, attrs: dict[str, Any]) -> dict[str, Any]:
+        """A handover change without what it started from would erase blind."""
+        if "handover" in attrs and "handover_was" not in attrs:
+            raise serializers.ValidationError(
+                {"handover_was": "Ce champ est obligatoire."}, code="required"
+            )
+        return attrs
 
 
 class NoteSerializer(serializers.Serializer[Entry]):

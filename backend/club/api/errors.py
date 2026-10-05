@@ -20,9 +20,9 @@ from rest_framework.views import exception_handler as drf_exception_handler
 
 class Conflict(APIException):
     """The request was well-formed — a `ValidationError` (400) would be the
-    wrong signal — but the database refuses it because of a row that still
-    depends on the one being changed, a `ProtectedError` underneath. Deleting
-    a team with a season history is the first case; more will reuse this."""
+    wrong signal — but the current state of the data refuses it: a row that
+    still depends on the one being deleted, a `ProtectedError` underneath, or
+    a progress saved by someone else since the writer loaded it."""
 
     status_code = HTTP_409_CONFLICT
     default_code = "conflict"

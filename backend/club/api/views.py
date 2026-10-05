@@ -37,7 +37,7 @@ from club.models import (
     WorkItem,
     remove_after_commit,
 )
-from club.progress import edit_progress, join, record_progress
+from club.progress import ProgressChanged, edit_progress, join, record_progress
 from club.rag import ask, serialize
 from club.sources import CheckOutcome, accept_update, check_all, latest_documents
 from club.workdays import (
@@ -531,6 +531,7 @@ def _entry(entry: Entry) -> dict[str, object]:
         "step": entry.step,
         "handover": entry.handover,
         "occurred_at": entry.occurred_at,
+        "updated_by": entry.updated_by.display_name if entry.updated_by else None,
         "author": entry.author.display_name,
         "participants": [_member(user) for user in entry.participants.all()],
         "attachments": [_attachment(file) for file in entry.attachments.all()],
@@ -559,7 +560,7 @@ class WorkItemDetailView(APIView):
         assert isinstance(request.user, User)
         item = _work_item_acted_on(request.user, pk)
         thread = (
-            item.entries.select_related("author", "work_item")
+            item.entries.select_related("author", "updated_by", "work_item")
             .prefetch_related("participants", "attachments__uploaded_by")
             .order_by("-occurred_at", "-id")
         )
@@ -694,13 +695,21 @@ class EntryDetailView(APIView):
         serializer = WriteProgressSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
-        edit_progress(
-            entry,
-            user,
-            data.get("body", entry.body),
-            step=data.get("step"),
-            handover=data.get("handover"),
-        )
+        try:
+            edit_progress(
+                entry,
+                user,
+                addition=data.get("addition", ""),
+                step=data.get("step"),
+                handover=data.get("handover"),
+                handover_was=data.get("handover_was"),
+            )
+        except ProgressChanged as changed:
+            name = changed.by.display_name if changed.by else "Quelqu'un"
+            raise Conflict(
+                f"{name} a modifié cette avancée pendant que vous écriviez.",
+                code="progress_changed",
+            ) from changed
         return Response(_entry(entry))
 
 
@@ -740,7 +749,9 @@ class DayView(APIView):
             serializer.is_valid(raise_exception=True)
             the_day = serializer.validated_data["day"]
         entries = list(
-            day_entries(team_season, the_day).select_related("author", "work_item")
+            day_entries(team_season, the_day).select_related(
+                "author", "updated_by", "work_item"
+            )
         )
         # The roster the attendance is counted against: students, as mentors
         # are never counted present.
