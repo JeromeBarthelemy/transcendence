@@ -598,6 +598,7 @@ invented past what the source says.
 | --- | --- |
 | `POST /api/rules/ask/` | a question, answered with up to five cited passages from this season's ingested documents |
 | `GET /api/rules/sources/` | administrators only: per source, the copy searched, when it was checked, and any change waiting for acceptance with its summary |
+| `POST /api/rules/sources/` | administrators only: `source` (`game_manual`) and `url` on FIRST's own site (`https`, `ftc-resources.firstinspires.org`) — fetches the page, ingests it as the new copy, and the checks follow that URL from now on; `400` with `source_not_allowed` or `fetch_failed` otherwise |
 | `POST /api/rules/sources/check/` | administrators only: check the game manual against its page now, the same check the `sources-check` service runs every 24 hours (the Q&A is not checked yet) |
 | `POST /api/rules/sources/{source}/accept/` | administrators only: replace the searched copy with the fetched change; `404` when nothing is waiting |
 

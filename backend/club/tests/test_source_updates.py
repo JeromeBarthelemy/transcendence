@@ -205,3 +205,91 @@ def test_the_official_qa_is_not_checked_automatically():
 
     assert [document.pk for document in latest_documents()] == [manual.pk]
     assert qa.pk not in [document.pk for document in latest_documents()]
+
+
+def test_a_source_url_must_be_https_and_on_first_s_own_site(client):
+    season()
+    client.force_login(administrator())
+
+    plain = client.post(
+        "/api/rules/sources/",
+        {
+            "source": "game_manual",
+            "url": "http://ftc-resources.firstinspires.org/m.htm",
+        },
+        content_type="application/json",
+    )
+    elsewhere = client.post(
+        "/api/rules/sources/",
+        {"source": "game_manual", "url": "https://attacker.example/m.htm"},
+        content_type="application/json",
+    )
+
+    assert plain.status_code == 400
+    assert plain.json()["url"][0]["code"] == "source_not_allowed"
+    assert elsewhere.status_code == 400
+    assert elsewhere.json()["url"][0]["code"] == "source_not_allowed"
+    assert not Document.objects.exists()
+
+
+def test_a_member_cannot_add_a_source(client):
+    season()
+    client.force_login(User.objects.create_user("lina@club.fr", "Lina"))
+
+    response = client.post(
+        "/api/rules/sources/",
+        {
+            "source": "game_manual",
+            "url": "https://ftc-resources.firstinspires.org/ftc/game/cm-html/m.htm",
+        },
+        content_type="application/json",
+    )
+
+    assert response.status_code == 403
+
+
+def test_an_administrator_adds_the_manual_from_its_url_and_its_checks_follow(
+    client, monkeypatch
+):
+    the_season = season()
+    serve(monkeypatch, REAL_HTML_EXCERPT)
+    client.force_login(administrator())
+
+    response = client.post(
+        "/api/rules/sources/",
+        {
+            "source": "game_manual",
+            "url": "https://ftc-resources.firstinspires.org/ftc/game/cm-html/BIOBUZZ%20Competition%20Manual%20-%20TU03.htm",
+        },
+        content_type="application/json",
+    )
+
+    assert response.status_code == 201
+    copy = Document.objects.get(season=the_season)
+    assert copy.title == "BIOBUZZ Competition Manual - TU03"
+    assert copy.chunks.exists()
+    assert [document.pk for document in latest_documents()] == [copy.pk]
+    assert check_document(copy).status == "unchanged"
+
+
+def test_a_page_that_cannot_be_fetched_is_refused_by_name(client, monkeypatch):
+    season()
+    client.force_login(administrator())
+
+    def unreachable(url):
+        raise URLError("hors ligne")
+
+    monkeypatch.setattr("club.sources.fetch_page", unreachable)
+
+    response = client.post(
+        "/api/rules/sources/",
+        {
+            "source": "game_manual",
+            "url": "https://ftc-resources.firstinspires.org/ftc/game/cm-html/m.htm",
+        },
+        content_type="application/json",
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"]["code"] == "fetch_failed"
+    assert not Document.objects.exists()

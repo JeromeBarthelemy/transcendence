@@ -11,11 +11,12 @@ import hashlib
 from dataclasses import dataclass
 from typing import TypedDict
 from urllib.error import URLError
+from urllib.parse import unquote, urlsplit
 from urllib.request import urlopen
 
 from django.utils import timezone
 
-from .models import Document, SourceUpdate
+from .models import Document, Season, SourceUpdate
 from .rag import _CHUNKER_OF, ingest_document
 
 FETCH_TIMEOUT_SECONDS = 30
@@ -37,6 +38,21 @@ class ChangeSummary(TypedDict):
     changed: int
     references: list[str]
     references_total: int
+
+
+# Only FIRST's own export is read: an administrator's URL is otherwise a way
+# to make the server fetch any address it can reach.
+ALLOWED_HOSTS = frozenset({"ftc-resources.firstinspires.org"})
+
+
+def check_source_url(url: str) -> str:
+    """The URL when it points at FIRST's own rulebook, else the reason it does not."""
+    parts = urlsplit(url)
+    if parts.scheme != "https":
+        raise ValueError("L'adresse doit commencer par https://.")
+    if parts.hostname not in ALLOWED_HOSTS:
+        raise ValueError("Seules les pages de FIRST sont acceptées.")
+    return url
 
 
 def fetch_page(url: str) -> str:
@@ -168,3 +184,18 @@ def accept_update(update: SourceUpdate) -> Document:
     )
     update.delete()
     return document
+
+
+def add_source(*, season: Season, source: str, url: str) -> Document:
+    """A new copy of the manual, from its page. Its URL is kept, so the
+    automatic checks follow it from now on."""
+    page = fetch_page(url)
+    title = unquote(urlsplit(url).path.rsplit("/", 1)[-1]).removesuffix(".htm")
+    return ingest_document(
+        season=season,
+        source=source,
+        title=title,
+        text=page,
+        url=url,
+        content_hash=content_hash(page),
+    )
