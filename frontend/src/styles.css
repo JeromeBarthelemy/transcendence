@@ -35,6 +35,7 @@
 
   /* States. A handover is the warning: it must not be missed. */
   --color-success: #167448;
+  --color-success-tint: #e3f3ea;
   --color-warning: #d59600;
   --color-warning-tint: #fff7dc;
   --color-warning-wash: #fffdf5;

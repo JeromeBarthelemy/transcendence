@@ -19,6 +19,7 @@ import {
 } from "../api/workItems";
 import { nameFormatter } from "../app/formatters";
 import { useCurrentUser } from "../app/useCurrentUser";
+import { statusColors } from "../app/workItemStatus";
 import { RequestError } from "../components/ApiErrors";
 import { AvatarStack } from "../components/Avatar";
 
@@ -624,7 +625,9 @@ function WorkItemScreen({
               )}
             </>
           )}
-          <span className="rounded-full bg-tint px-3 py-1 text-sm font-semibold text-accent">
+          <span
+            className={`rounded-full px-3 py-1 text-sm font-semibold ${statusColors[item.status]}`}
+          >
             {close.isPending
               ? t("workItem.closing")
               : t(`teamHome.statuses.${item.status}`)}

@@ -12,6 +12,7 @@ import type { Identity, TeamSeasonSummary } from "../api/auth";
 import { createTeamNote, getWorkday, type Workday } from "../api/workdays";
 import { getWorkItems, type WorkItem } from "../api/workItems";
 import { formatWorkdayDate, nameFormatter } from "../app/formatters";
+import { statusColors } from "../app/workItemStatus";
 import { RequestError } from "../components/ApiErrors";
 import { AvatarStack } from "../components/Avatar";
 import { OpenWorkItemPanel } from "./OpenWorkItemPanel";
@@ -82,7 +83,9 @@ function WorkItemCard({
       >
         <div className="flex flex-wrap items-start justify-between gap-3">
           <h3 className="brand-title text-xl text-ink">{item.title}</h3>
-          <span className="rounded-full bg-tint px-3 py-1 text-xs font-semibold text-accent">
+          <span
+            className={`rounded-full px-3 py-1 text-xs font-semibold ${statusColors[item.status]}`}
+          >
             {t(`teamHome.statuses.${item.status}`)}
           </span>
         </div>
