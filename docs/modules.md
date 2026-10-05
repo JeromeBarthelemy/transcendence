@@ -170,7 +170,7 @@ rôle, montrer l'action qui disparaît côté élève.
 | `GET` | `/api/events` | le rayonnement, portée chiffrée comprise |
 | `GET` | `/api/teams/{n}/notebook` | les blocs de cahier marqués publics |
 | `POST` | `/api/media` | versement en masse depuis un poste de la salle |
-| `PUT` | `/api/scouting/observations/{uuid}` | l'upsert idempotent du terrain |
+| `PUT` | `/api/media/{id}` | la légende et les personnes reconnaissables, remplacées d'un bloc |
 | `DELETE` | `/api/media/{id}` | le retrait sur demande |
 
 **Avec Django** — DRF fournit les trois pièces : une classe d'authentification par
@@ -182,7 +182,7 @@ des vues et des sérialiseurs, à condition de les annoter.
 
 **Démo (3 min)** — appeler sans clé → 401. Avec une clé → 200. Marteler → 429.
 Ouvrir Swagger UI servi par l'application. Rejouer deux fois le même `PUT` et
-montrer qu'il n'y a qu'une observation.
+montrer que le média est dans le même état qu'après le premier.
 
 ---
 
@@ -192,8 +192,7 @@ montrer qu'il n'y a qu'une observation.
 - Handle connection/disconnection gracefully
 - Efficient message broadcasting
 
-**Chez nous** — le tableau des chantiers, qui travaille sur quoi en ce moment, et
-l'arrivée d'une vague de rapports de scouting au pit.
+**Chez nous** — le tableau des chantiers, qui travaille sur quoi en ce moment.
 
 **Avec Django** — Channels, donc ASGI. Les trois cases tombent sur le même
 mécanisme : un consumer WebSocket qui fait `group_add` à la connexion,
@@ -216,14 +215,14 @@ rétablir, montrer la reprise sans doublon.
 - Export functionality (PDF, CSV, etc.)
 - Customizable date ranges and filters
 
-**Le module le moins spécifié du lot.** La note de concept décrit trois écrans et
-pas celui-ci. À décider **avant** d'ouvrir la tranche 3 : quels sont les quatre
-graphiques ? Proposition de départ — la courbe de saison par grille, l'écart
-avant / après d'un essai avec sa dispersion, le profil d'une équipe observée
-(min, max, écart), la répartition des avancées par étape.
+**Chez nous** — l'activité d'une équipe, tirée des avancées déjà consignées :
+l'état et l'étape des chantiers, les avancées et les membres actifs jour par
+jour, la participation de chacun — jamais un classement. Les mesures d'essai et
+le scouting, qui auraient donné d'autres courbes, viendront après la soutenance ;
+d'ici là, un résultat d'essai s'écrit dans le texte de l'avancée.
 
-**Démo (3 min)** — changer la plage de dates, voir les courbes bouger. Saisir une
-observation dans un autre onglet, la voir arriver. Exporter en CSV.
+**Démo (3 min)** — changer la plage de dates, voir les courbes bouger. Enregistrer
+une avancée dans un autre onglet, la voir arriver. Exporter en CSV.
 
 ---
 
