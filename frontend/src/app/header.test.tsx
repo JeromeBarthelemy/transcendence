@@ -123,11 +123,57 @@ it("lists the navigation in the phone's menu, one menu open at a time", async ()
       .getAllByRole("link")
       .map((link) => link.textContent),
   ).toEqual(["Fieldbot", "Équipes", "Membres"]);
+  // The administration screens sit under their own red label.
+  expect(within(panel).getByText("Administration").className).toContain(
+    "text-red-800",
+  );
 
   await user.click(within(panel).getByRole("link", { name: "Équipes" }));
   // The screen is loaded on demand: the address changes once it is in.
   await waitFor(() => expect(router.state.location.pathname).toBe("/teams"));
   expect(hamburger.getAttribute("aria-expanded")).toBe("false");
+});
+
+it("gathers the administration screens behind one red entry", async () => {
+  const user = userEvent.setup();
+  const router = renderAs(paul);
+
+  const nav = await screen.findByRole("navigation", {
+    name: "Navigation principale",
+  });
+  const administration = await within(nav).findByRole("button", {
+    name: "Administration",
+  });
+  expect(administration.className).toContain("text-red-800");
+  // Not in the bar itself any more.
+  expect(
+    within(nav)
+      .getAllByRole("link")
+      .map((link) => link.textContent),
+  ).toEqual(["Fieldbot"]);
+
+  await user.click(administration);
+  expect(administration.getAttribute("aria-expanded")).toBe("true");
+  const panel = document.getElementById(
+    administration.getAttribute("aria-controls") ?? "",
+  );
+  if (!panel) throw new Error("The administration menu is missing");
+  expect(
+    within(panel)
+      .getAllByRole("link")
+      .map((link) => link.textContent),
+  ).toEqual(["Équipes", "Membres"]);
+
+  await user.click(within(panel).getByRole("link", { name: "Membres" }));
+  await waitFor(() => expect(router.state.location.pathname).toBe("/users"));
+  expect(administration.getAttribute("aria-expanded")).toBe("false");
+});
+
+it("shows no administration entry to a member who is not a club admin", async () => {
+  renderAs({ ...paul, display_name: "Claire", is_club_admin: false });
+
+  await screen.findByRole("button", { name: "Menu du compte (Claire)" });
+  expect(screen.queryByRole("button", { name: "Administration" })).toBeNull();
 });
 
 it("offers signing in and signing up in the phone's menu when signed out", async () => {

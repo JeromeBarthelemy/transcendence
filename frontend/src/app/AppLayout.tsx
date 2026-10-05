@@ -17,7 +17,7 @@ const navLinkClass = `rounded-full px-3 py-2 text-sm font-semibold whitespace-no
 const panelLinkClass =
   "block rounded-xl px-3 py-2.5 text-sm font-semibold text-ink no-underline hover:bg-tint focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-lagoon";
 
-type OpenMenu = "account" | "nav" | null;
+type OpenMenu = "account" | "admin" | "nav" | null;
 
 /** A button that shows a panel, and every way to put it away again: Escape
  * (focus back on the button), a click anywhere else, or a new page. */
@@ -61,14 +61,78 @@ function useMenu(
   };
 }
 
+function AdminLinks({
+  linkClass,
+  onNavigate,
+}: {
+  linkClass: string;
+  onNavigate: () => void;
+}) {
+  const { t } = useTranslation();
+  return (
+    <>
+      <Link to="/teams" className={linkClass} onClick={onNavigate}>
+        {t("nav.teams")}
+      </Link>
+      <Link to="/users" className={linkClass} onClick={onNavigate}>
+        {t("nav.users")}
+      </Link>
+    </>
+  );
+}
+
+/** The administration screens, gathered behind one red entry: they act on
+ * the whole club, not on a team's work. */
+function AdminMenu({
+  open,
+  setOpen,
+}: {
+  open: OpenMenu;
+  setOpen: (menu: OpenMenu) => void;
+}) {
+  const { t } = useTranslation();
+  const panelId = useId();
+  const menu = useMenu("admin", open, setOpen);
+
+  return (
+    <div ref={menu.rootRef} className="relative">
+      <button
+        ref={menu.buttonRef}
+        type="button"
+        aria-expanded={menu.isOpen}
+        aria-controls={panelId}
+        className={`flex items-center gap-1 rounded-full py-2 pr-2 pl-3 text-sm font-semibold whitespace-nowrap text-red-800 transition hover:bg-red-50 ${focusRing}`}
+        onClick={menu.toggle}
+      >
+        {t("nav.admin")}
+        <Chevron open={menu.isOpen} />
+      </button>
+      {menu.isOpen && (
+        <div
+          id={panelId}
+          className="absolute top-full right-0 z-30 mt-2 w-48 rounded-2xl border border-primary/10 bg-white p-2 shadow-panel"
+        >
+          <AdminLinks
+            linkClass={panelLinkClass}
+            onNavigate={() => setOpen(null)}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
 function NavLinks({
   identity,
   linkClass,
   onNavigate,
+  admin,
 }: {
   identity: Identity | null;
   linkClass: string;
   onNavigate?: () => void;
+  /** What a club admin gets for the administration screens. */
+  admin: ReactNode;
 }) {
   const { t } = useTranslation();
   if (!identity) {
@@ -88,16 +152,7 @@ function NavLinks({
       <Link to="/fieldbot" className={linkClass} onClick={onNavigate}>
         {t("nav.fieldbot")}
       </Link>
-      {identity.is_club_admin && (
-        <>
-          <Link to="/teams" className={linkClass} onClick={onNavigate}>
-            {t("nav.teams")}
-          </Link>
-          <Link to="/users" className={linkClass} onClick={onNavigate}>
-            {t("nav.users")}
-          </Link>
-        </>
-      )}
+      {identity.is_club_admin && admin}
     </>
   );
 }
@@ -233,6 +288,19 @@ function MobileMenu({
             identity={identity}
             linkClass={panelLinkClass}
             onNavigate={() => setOpen(null)}
+            admin={
+              <div>
+                <p className="mt-2 border-t border-primary/10 px-3 pt-3 pb-1 text-xs font-bold tracking-[0.12em] text-red-800 uppercase">
+                  {t("nav.admin")}
+                </p>
+                <div className="pl-3">
+                  <AdminLinks
+                    linkClass={panelLinkClass}
+                    onNavigate={() => setOpen(null)}
+                  />
+                </div>
+              </div>
+            }
           />
         </nav>
       )}
@@ -315,7 +383,11 @@ export function AppLayout() {
               className="hidden items-center gap-2 md:flex"
             >
               {!currentUser.isPending && (
-                <NavLinks identity={identity} linkClass={navLinkClass} />
+                <NavLinks
+                  identity={identity}
+                  linkClass={navLinkClass}
+                  admin={<AdminMenu open={open} setOpen={setOpen} />}
+                />
               )}
             </nav>
             {currentUser.isPending ? (

@@ -99,7 +99,7 @@ it("keeps the screen from a member who is not a club admin", async () => {
   expect(
     await screen.findByRole("heading", { name: "Accès réservé" }),
   ).toBeTruthy();
-  expect(screen.queryByRole("link", { name: "Équipes" })).toBeNull();
+  expect(screen.queryByRole("button", { name: "Administration" })).toBeNull();
   expect(fetchMock.mock.calls.map(([path]) => path)).not.toContain(
     "/api/teams/",
   );
@@ -138,7 +138,9 @@ it("finds a member as the name is typed and adds them to the team", async () => 
 
   renderTeams();
 
-  expect(await screen.findByRole("link", { name: "Équipes" })).toBeTruthy();
+  expect(
+    await screen.findByRole("button", { name: "Administration" }),
+  ).toBeTruthy();
   const search = await screen.findByRole("combobox", {
     name: "Ajouter un membre",
   });

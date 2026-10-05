@@ -18,7 +18,8 @@
     "fieldbot": "Fieldbot",
     "account": "Menu du compte ({{name}})",
     "viewProfile": "Voir mon profil",
-    "menu": "Menu"
+    "menu": "Menu",
+    "admin": "Administration"
   },
   "home": {
     "eyebrow": "La mémoire du club",
