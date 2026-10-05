@@ -54,6 +54,8 @@ DEBUG = env_bool("DJANGO_DEBUG", False)
 ALLOWED_HOSTS = env_list("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1")
 
 INSTALLED_APPS = [
+    # First, so that runserver serves WebSockets too, through Daphne.
+    "daphne",
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
@@ -92,6 +94,10 @@ TEMPLATES = [
 ]
 
 ASGI_APPLICATION = "config.asgi.application"
+
+# In memory: production runs a single Daphne process. A second one would not
+# see the first one's groups, and would need Redis instead (README).
+CHANNEL_LAYERS = {"default": {"BACKEND": "channels.layers.InMemoryChannelLayer"}}
 WSGI_APPLICATION = "config.wsgi.application"
 
 

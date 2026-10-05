@@ -591,6 +591,24 @@ The members a route lists — a progress's participants, who was there on a
 day — each come as `{"display_name", "avatar"}`, so the interface can put a
 face next to a name without asking again.
 
+### Live board
+
+A screen open on a team season listens on a WebSocket,
+`ws/team-seasons/{id}/`, through the same session as the API and only from
+the site's own pages (an origin outside `ALLOWED_HOSTS` is refused). A member
+hears their team, a mentor any of them; the socket only listens, every write
+still goes through the API. Each write on the board — opening, closing or
+deleting a work item, ticking, adding to a progress, a note, a decision, a
+file added or removed — sends, once committed, `{"work_item": id}` (or `null`
+for a note to the whole team) to that team season's listeners. The screens
+then reload what they show through the API: the message says what changed,
+never what it now holds, so nothing is serialized twice and a screen that
+reconnects only has to reload.
+
+The channel layer lives in memory, which holds for the single Daphne process
+the stack runs. A second process would not see the first one's listeners: it
+would need Redis as the channel layer.
+
 ### Attachments
 
 Every entry comes with its `attachments`, each as `{"id", "name",
