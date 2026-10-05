@@ -10,6 +10,7 @@ from django.db.models.functions import Concat
 from django.utils import timezone
 
 from club.models import Entry, EntryParticipant, User, WorkItem
+from club.workdays import progress_of_the_day, workday
 
 
 class ProgressChanged(Exception):
@@ -127,3 +128,25 @@ def edit_progress(
     entry.refresh_from_db()
     if not saved:
         raise ProgressChanged
+
+
+@transaction.atomic
+def leave_todays_progress(work_item: WorkItem, user: User) -> None:
+    """Undoes a tick made by mistake, for oneself only: nobody signs anybody
+    up, nobody signs anybody out. Past days are corrected, not left.
+
+    The last one leaving takes the progress with them, text included — a
+    progress nobody did is no trace. One still holding a file stays: the
+    file is. Whether anyone is left is tested by the database in the delete
+    itself, so two members leaving at once cannot both see the other one
+    still there."""
+    entry = progress_of_the_day(work_item, workday(timezone.now()))
+    if entry is None or not entry.participants.filter(pk=user.pk).exists():
+        raise ValidationError(
+            "Vous ne participez pas à l'avancée d'aujourd'hui sur ce chantier.",
+            code="not_a_participant",
+        )
+    EntryParticipant.objects.filter(entry=entry, user=user).delete()
+    Entry.objects.filter(
+        pk=entry.pk, participants__isnull=True, attachments__isnull=True
+    ).delete()

@@ -149,6 +149,12 @@ export async function closeWorkItem(
   return result.data;
 }
 
+/** Leaves today's progress, for oneself only. The last one leaving a
+ * progress that holds no file deletes it, text included. */
+export async function leaveTodaysProgress(workItemId: number): Promise<void> {
+  await del(`/api/work-items/${workItemId}/tick/`);
+}
+
 /** Only a work item with no trace: the server refuses any other. */
 export async function deleteWorkItem(id: number): Promise<void> {
   await del(`/api/work-items/${id}/`);

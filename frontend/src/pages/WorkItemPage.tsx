@@ -9,6 +9,7 @@ import {
   createWorkItemNote,
   deleteWorkItem,
   getWorkItem,
+  leaveTodaysProgress,
   type ProgressChanges,
   tickWorkItem,
   updateProgress,
@@ -337,7 +338,22 @@ function TodayPanel({
       await invalidateWorkItem();
     },
   });
+  const [isConfirmingLeave, setIsConfirmingLeave] = useState(false);
+  const leave = useMutation({
+    mutationFn: () => leaveTodaysProgress(item.id),
+    onSuccess: async () => {
+      setIsConfirmingLeave(false);
+      await invalidateWorkItem();
+    },
+  });
   const progress = item.current_progress;
+  // The server deletes a progress its last participant leaves, unless it
+  // holds a file: worth a confirmation only when something written goes.
+  const leavingDeletesText =
+    progress !== null &&
+    progress.participants.length === 1 &&
+    progress.attachments.length === 0 &&
+    Boolean(progress.body || progress.handover);
   const selectedStepWasStarted = item.thread.some(
     (entry) => entry.type === "progress" && entry.step === selectedStep,
   );
@@ -409,7 +425,18 @@ function TodayPanel({
               {participants || t("workItem.noParticipants")}
             </p>
           </div>
-          {!item.current_user_participates && (
+          {item.current_user_participates ? (
+            <button
+              type="button"
+              className="rounded-xl border border-primary/25 px-4 py-2 text-sm font-semibold text-ink disabled:opacity-50"
+              disabled={leave.isPending || isConfirmingLeave}
+              onClick={() =>
+                leavingDeletesText ? setIsConfirmingLeave(true) : leave.mutate()
+              }
+            >
+              {t("workItem.leave")}
+            </button>
+          ) : (
             <button
               type="button"
               className="rounded-xl border border-primary/25 px-4 py-2 text-sm font-semibold text-ink disabled:opacity-50"
@@ -435,7 +462,31 @@ function TodayPanel({
         )
       )}
 
+      {isConfirmingLeave && (
+        <div className="mt-4 rounded-2xl border border-red-800/20 bg-red-50 p-4">
+          <p className="text-sm text-red-900">{t("workItem.leaveDeletes")}</p>
+          <div className="mt-3 flex flex-wrap gap-3">
+            <button
+              type="button"
+              className="rounded-xl border border-primary/20 bg-white px-4 py-2 text-sm font-semibold text-ink disabled:opacity-50"
+              disabled={leave.isPending}
+              onClick={() => setIsConfirmingLeave(false)}
+            >
+              {t("workItem.cancel")}
+            </button>
+            <button
+              type="button"
+              className="rounded-xl bg-red-800 px-4 py-2 text-sm font-semibold text-white hover:bg-red-900 disabled:opacity-50"
+              disabled={leave.isPending}
+              onClick={() => leave.mutate()}
+            >
+              {t("workItem.confirmLeave")}
+            </button>
+          </div>
+        </div>
+      )}
       {tick.isError && <RequestError error={tick.error} />}
+      {leave.isError && <RequestError error={leave.error} />}
       {canEdit && (
         <ProgressEditor key={progress.id} item={item} entry={progress} />
       )}
