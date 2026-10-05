@@ -130,9 +130,7 @@ def test_an_empty_team_has_a_complete_zero_snapshot(client):
 def test_the_snapshot_uses_current_status_and_latest_progress_step(client):
     rouages = team_season()
     lina = member_of(rouages, "lina")
-    WorkItem.objects.create(
-        team_season=rouages, title="idée", status=WorkItem.Status.SUGGESTED
-    )
+    WorkItem.objects.create(team_season=rouages, title="sans avancée")
     building = WorkItem.objects.create(
         team_season=rouages, title="intake", status=WorkItem.Status.OPEN
     )
@@ -158,7 +156,7 @@ def test_the_snapshot_uses_current_status_and_latest_progress_step(client):
     statuses = by_value(snapshot["work_items_by_status"], "status")
     steps = by_value(snapshot["work_items_by_step"], "step")
 
-    assert statuses == {"suggested": 1, "open": 1, "done": 1, "dropped": 0}
+    assert statuses == {"open": 2, "done": 1, "dropped": 0}
     assert steps["building"] == 1
     assert sum(steps.values()) == 1
     assert snapshot["work_items_without_progress"] == 1
