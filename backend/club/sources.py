@@ -103,6 +103,12 @@ class CheckOutcome:
     detail: str = ""
 
 
+def _forget_pending(document: Document) -> None:
+    """The page is back to what is searched: a change waiting from before is
+    no longer a change, and must not be accepted over the current copy."""
+    SourceUpdate.objects.filter(season=document.season, source=document.source).delete()
+
+
 def check_document(document: Document) -> CheckOutcome:
     try:
         page = fetch_page(document.url)
@@ -113,6 +119,7 @@ def check_document(document: Document) -> CheckOutcome:
     now = timezone.now()
     if digest == document.content_hash:
         Document.objects.filter(pk=document.pk).update(checked_at=now)
+        _forget_pending(document)
         return CheckOutcome(document, "unchanged")
 
     text = page
@@ -128,6 +135,7 @@ def check_document(document: Document) -> CheckOutcome:
         Document.objects.filter(pk=document.pk).update(
             content_hash=digest, checked_at=now
         )
+        _forget_pending(document)
         return CheckOutcome(document, "unchanged")
 
     SourceUpdate.objects.update_or_create(

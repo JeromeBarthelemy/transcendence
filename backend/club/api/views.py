@@ -38,7 +38,7 @@ from club.models import (
 )
 from club.progress import edit_progress, join, record_progress
 from club.rag import ask, serialize
-from club.sources import accept_update, check_all, latest_documents
+from club.sources import CheckOutcome, accept_update, check_all, latest_documents
 from club.workdays import (
     attendance,
     day_entries,
@@ -816,7 +816,7 @@ class RuleQuestionView(APIView):
         return Response(serialize(query), status=status.HTTP_201_CREATED)
 
 
-def _rule_sources() -> list[dict[str, Any]]:
+def _rule_sources(checks: list[CheckOutcome] | None = None) -> list[dict[str, Any]]:
     season = Season.objects.first()
     if season is None:
         return []
@@ -829,10 +829,12 @@ def _rule_sources() -> list[dict[str, Any]]:
     pending = {
         update.source: update for update in SourceUpdate.objects.filter(season=season)
     }
+    outcome_of = {outcome.document.source: outcome for outcome in checks or []}
     rows: list[dict[str, Any]] = []
     for source in Document.Source:
         document = current.get(source.value)
         update = pending.get(source.value)
+        outcome = outcome_of.get(source.value)
         rows.append(
             {
                 "source": source.value,
@@ -843,6 +845,13 @@ def _rule_sources() -> list[dict[str, Any]]:
                 "pending": (
                     {"detected_at": update.detected_at, "summary": update.summary}
                     if update
+                    else None
+                ),
+                # Only on the answer to a check just run: a failed check must not
+                # look like the previous state, which is all the rows would show.
+                "check": (
+                    {"status": outcome.status, "detail": outcome.detail}
+                    if outcome
                     else None
                 ),
             }
@@ -864,8 +873,7 @@ class RuleSourcesCheckView(APIView):
     permission_classes = [IsClubAdmin]
 
     def post(self, request: Request) -> Response:
-        check_all(latest_documents())
-        return Response(_rule_sources())
+        return Response(_rule_sources(check_all(latest_documents())))
 
 
 class RuleSourceAcceptView(APIView):
