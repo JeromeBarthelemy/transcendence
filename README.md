@@ -797,7 +797,10 @@ requests — stays English.
 - `frontend/src/api/` — typed clients for Django endpoints.
 - `frontend/src/pages/` — route-level React screens.
 - `frontend/src/locales/` — the French user-interface catalogue.
-- `frontend/src/styles.css` — Tailwind entry point and global styles.
+- `frontend/src/styles.css` — Tailwind entry point and global styles. Its
+  `@theme` names every color the pages use (`text-muted`, `bg-tint`,
+  `border-primary/20`), so no page writes a hex value, and the two fonts:
+  Inter for text, Poppins for headings and titles.
 - `compose.yml` — the complete development stack in one command.
 - `compose.prod.yml`, `deploy/` — the HTTPS production stack: Caddy
   (`deploy/Dockerfile`, `deploy/Caddyfile`) in front of Django on Daphne.

@@ -92,30 +92,30 @@ function AttachmentUploader({
   }
 
   return (
-    <form className="mt-6 border-t border-[#004fc5]/10 pt-5" onSubmit={submit}>
+    <form className="mt-6 border-t border-primary/10 pt-5" onSubmit={submit}>
       <label
         htmlFor={`attachment-file-${entryId}`}
-        className="text-sm font-semibold text-[#041894]"
+        className="text-sm font-semibold text-ink"
       >
         {t("workItem.addAttachment")}
       </label>
-      <p className="mt-1 text-xs leading-5 text-[#506784]">
+      <p className="mt-1 text-xs leading-5 text-muted">
         {t("workItem.attachmentHint")}
       </p>
       <input
         ref={fileInput}
         id={`attachment-file-${entryId}`}
         type="file"
-        className="mt-3 block w-full text-sm text-[#506784] file:mr-3 file:rounded-lg file:border-0 file:bg-[#eaf5ff] file:px-3 file:py-2 file:font-semibold file:text-[#004fc5]"
+        className="mt-3 block w-full text-sm text-muted file:mr-3 file:rounded-lg file:border-0 file:bg-tint file:px-3 file:py-2 file:font-semibold file:text-primary"
         accept=".jpg,.jpeg,.png,.webp,.heic,.mp4,.mov,.webm,.pdf,.step,.stp,.stl"
         onChange={(event) => setFile(event.target.files?.[0] ?? null)}
       />
 
       <fieldset className="mt-4">
-        <legend className="text-sm font-semibold text-[#041894]">
+        <legend className="text-sm font-semibold text-ink">
           {t("workItem.peopleRecognisable")}
         </legend>
-        <div className="mt-2 flex gap-5 text-sm text-[#13294b]">
+        <div className="mt-2 flex gap-5 text-sm text-body">
           <label className="flex items-center gap-2">
             <input
               type="radio"
@@ -141,19 +141,19 @@ function AttachmentUploader({
 
       {upload.isPending && (
         <div className="mt-4">
-          <label className="text-xs text-[#506784]" htmlFor="upload-progress">
+          <label className="text-xs text-muted" htmlFor="upload-progress">
             {t("workItem.uploading", { progress: uploadProgress })}
           </label>
           <progress
             id="upload-progress"
-            className="mt-1 block w-full accent-[#0078dd]"
+            className="mt-1 block w-full accent-accent"
             max={100}
             value={uploadProgress}
           />
         </div>
       )}
       {upload.isSuccess && (
-        <p role="status" className="mt-3 text-sm font-semibold text-[#167448]">
+        <p role="status" className="mt-3 text-sm font-semibold text-success">
           {t("workItem.attachmentSaved")}
         </p>
       )}
@@ -161,7 +161,7 @@ function AttachmentUploader({
 
       <button
         type="submit"
-        className="mt-4 rounded-xl border border-[#004fc5]/25 px-4 py-2 text-sm font-semibold text-[#041894] disabled:opacity-50"
+        className="mt-4 rounded-xl border border-primary/25 px-4 py-2 text-sm font-semibold text-ink disabled:opacity-50"
         disabled={upload.isPending || !file || !peopleAnswer}
       >
         {t("workItem.upload")}
@@ -197,17 +197,17 @@ function ProgressEditor({
   }
 
   return (
-    <div className="mt-6 border-t border-[#004fc5]/10 pt-5">
+    <div className="mt-6 border-t border-primary/10 pt-5">
       <form onSubmit={submit}>
         <label
           htmlFor={`progress-body-${entry.id}`}
-          className="text-sm font-semibold text-[#041894]"
+          className="text-sm font-semibold text-ink"
         >
           {t("workItem.doneToday")}
         </label>
         <textarea
           id={`progress-body-${entry.id}`}
-          className="mt-2 min-h-28 w-full rounded-xl border border-[#004fc5]/20 px-3 py-2 text-[#13294b]"
+          className="mt-2 min-h-28 w-full rounded-xl border border-primary/20 px-3 py-2 text-body"
           value={body}
           placeholder={t("workItem.doneTodayPlaceholder")}
           onChange={(event) => {
@@ -218,13 +218,13 @@ function ProgressEditor({
 
         <label
           htmlFor={`progress-handover-${entry.id}`}
-          className="mt-5 block text-sm font-semibold text-[#041894]"
+          className="mt-5 block text-sm font-semibold text-ink"
         >
           {t("workItem.nextTime")}
         </label>
         <textarea
           id={`progress-handover-${entry.id}`}
-          className="mt-2 min-h-24 w-full rounded-xl border border-[#d59600]/35 bg-[#fffdf5] px-3 py-2 text-[#13294b]"
+          className="mt-2 min-h-24 w-full rounded-xl border border-warning/35 bg-warning-wash px-3 py-2 text-body"
           value={handover}
           placeholder={t("workItem.nextTimePlaceholder")}
           onChange={(event) => {
@@ -235,17 +235,14 @@ function ProgressEditor({
 
         {save.isError && <RequestError error={save.error} />}
         {saved && (
-          <p
-            role="status"
-            className="mt-3 text-sm font-semibold text-[#167448]"
-          >
+          <p role="status" className="mt-3 text-sm font-semibold text-success">
             {t("workItem.progressSaved")}
           </p>
         )}
         <div className="mt-4 flex justify-end">
           <button
             type="submit"
-            className="rounded-xl bg-[#0078dd] px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-50"
+            className="rounded-xl bg-accent px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-50"
             disabled={save.isPending}
           >
             {save.isPending ? t("workItem.saving") : t("workItem.save")}
@@ -292,21 +289,21 @@ function TodayPanel({
   return (
     <section
       aria-labelledby="today-title"
-      className="rounded-3xl border border-[#004fc5]/12 bg-white p-5 shadow-sm sm:p-7"
+      className="rounded-3xl border border-primary/12 bg-white p-5 shadow-sm sm:p-7"
     >
-      <p className="text-xs font-bold tracking-[0.14em] text-[#0078dd] uppercase">
+      <p className="text-xs font-bold tracking-[0.14em] text-accent uppercase">
         {t("workItem.today")}
       </p>
-      <h2 id="today-title" className="brand-title mt-1 text-2xl text-[#041894]">
+      <h2 id="today-title" className="brand-title mt-1 text-2xl text-ink">
         {progress ? t("workItem.todayProgress") : t("workItem.noProgressToday")}
       </h2>
 
       {item.on_robot && (
-        <div className="mt-5 flex flex-col gap-3 rounded-2xl bg-[#f4f8ff] p-4 sm:flex-row sm:items-end">
-          <label className="flex-1 text-sm font-semibold text-[#041894]">
+        <div className="mt-5 flex flex-col gap-3 rounded-2xl bg-mist p-4 sm:flex-row sm:items-end">
+          <label className="flex-1 text-sm font-semibold text-ink">
             {t("workItem.currentStep")}
             <select
-              className="mt-2 block w-full rounded-xl border border-[#004fc5]/20 bg-white px-3 py-2 font-normal"
+              className="mt-2 block w-full rounded-xl border border-primary/20 bg-white px-3 py-2 font-normal"
               value={selectedStep}
               onChange={(event) =>
                 setSelectedStep(event.target.value as WorkItemStep)
@@ -321,7 +318,7 @@ function TodayPanel({
           </label>
           <button
             type="button"
-            className="rounded-xl bg-[#041894] px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+            className="rounded-xl bg-ink px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
             disabled={
               tick.isPending ||
               (progress !== null && selectedStep === progress.step)
@@ -340,10 +337,10 @@ function TodayPanel({
       {progress ? (
         <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
           <div>
-            <p className="text-sm font-semibold text-[#041894]">
+            <p className="text-sm font-semibold text-ink">
               {t("workItem.participants")}
             </p>
-            <p className="mt-1 flex items-center gap-2 text-sm text-[#506784]">
+            <p className="mt-1 flex items-center gap-2 text-sm text-muted">
               <AvatarStack people={progress.participants} />
               {participants || t("workItem.noParticipants")}
             </p>
@@ -351,7 +348,7 @@ function TodayPanel({
           {!item.current_user_participates && (
             <button
               type="button"
-              className="rounded-xl border border-[#004fc5]/25 px-4 py-2 text-sm font-semibold text-[#041894] disabled:opacity-50"
+              className="rounded-xl border border-primary/25 px-4 py-2 text-sm font-semibold text-ink disabled:opacity-50"
               disabled={tick.isPending}
               onClick={() => tick.mutate(undefined)}
             >
@@ -363,7 +360,7 @@ function TodayPanel({
         !item.on_robot && (
           <button
             type="button"
-            className="mt-5 rounded-xl bg-[#041894] px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+            className="mt-5 rounded-xl bg-ink px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
             disabled={tick.isPending}
             onClick={() => tick.mutate(undefined)}
           >
@@ -379,7 +376,7 @@ function TodayPanel({
         <ProgressEditor key={progress.id} item={item} entry={progress} />
       )}
       {progress && !canEdit && (
-        <p className="mt-6 rounded-xl bg-[#fff7dc] p-4 text-sm text-[#634c12]">
+        <p className="mt-6 rounded-xl bg-warning-tint p-4 text-sm text-warning-ink">
           {t("workItem.joinToWrite")}
         </p>
       )}
@@ -394,16 +391,16 @@ function HistoryEntry({ entry }: { entry: WorkItemEntry }) {
   );
 
   return (
-    <li className="relative border-l-2 border-[#00c2d0]/35 pb-8 pl-6 last:pb-0">
-      <span className="absolute top-1 -left-[7px] size-3 rounded-full bg-[#0078dd] ring-4 ring-[#eaf8ff]" />
+    <li className="relative border-l-2 border-lagoon/35 pb-8 pl-6 last:pb-0">
+      <span className="absolute top-1 -left-[7px] size-3 rounded-full bg-accent ring-4 ring-tint" />
       <article>
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div>
-            <p className="text-xs font-bold tracking-[0.12em] text-[#0078dd] uppercase">
+            <p className="text-xs font-bold tracking-[0.12em] text-accent uppercase">
               {t(`workItem.entryTypes.${entry.type}`)}
               {entry.step ? ` · ${t(`teamHome.steps.${entry.step}`)}` : ""}
             </p>
-            <p className="mt-1 text-xs text-[#506784]">
+            <p className="mt-1 text-xs text-muted">
               {t("workItem.entryMeta", {
                 author: entry.author,
                 date: dateTimeFormatter.format(new Date(entry.occurred_at)),
@@ -411,7 +408,7 @@ function HistoryEntry({ entry }: { entry: WorkItemEntry }) {
             </p>
           </div>
           {participantNames && (
-            <span className="flex items-center gap-2 rounded-full bg-[#eaf5ff] py-1 pr-3 pl-1 text-xs text-[#004fc5]">
+            <span className="flex items-center gap-2 rounded-full bg-tint py-1 pr-3 pl-1 text-xs text-primary">
               <AvatarStack people={entry.participants} />
               {participantNames}
             </span>
@@ -419,12 +416,12 @@ function HistoryEntry({ entry }: { entry: WorkItemEntry }) {
         </div>
 
         {entry.body && (
-          <p className="mt-4 whitespace-pre-wrap leading-7 text-[#13294b]">
+          <p className="mt-4 whitespace-pre-wrap leading-7 text-body">
             {entry.body}
           </p>
         )}
         {entry.handover && (
-          <div className="mt-4 border-l-4 border-[#d59600] bg-[#fff7dc] p-3 text-sm text-[#634c12]">
+          <div className="mt-4 border-l-4 border-warning bg-warning-tint p-3 text-sm text-warning-ink">
             <p className="font-bold">{t("workItem.nextTime")}</p>
             <p className="mt-1 whitespace-pre-wrap leading-6">
               {entry.handover}
@@ -436,7 +433,7 @@ function HistoryEntry({ entry }: { entry: WorkItemEntry }) {
             {entry.attachments.map((attachment) => (
               <li
                 key={attachment.id}
-                className="overflow-hidden rounded-xl border border-[#004fc5]/12 bg-[#f8fbff]"
+                className="overflow-hidden rounded-xl border border-primary/12 bg-mist"
               >
                 {attachment.content_type.startsWith("image/") && (
                   <img
@@ -446,12 +443,12 @@ function HistoryEntry({ entry }: { entry: WorkItemEntry }) {
                   />
                 )}
                 <a
-                  className="block p-3 text-sm font-semibold text-[#004fc5] hover:underline"
+                  className="block p-3 text-sm font-semibold text-primary hover:underline"
                   href={attachment.url}
                 >
                   {attachment.name}
                 </a>
-                <p className="px-3 pb-3 text-xs text-[#506784]">
+                <p className="px-3 pb-3 text-xs text-muted">
                   {t("workItem.uploadedBy", {
                     name: attachment.uploaded_by,
                   })}
@@ -492,27 +489,24 @@ function WorkItemNoteForm({ item }: { item: WorkItemDetail }) {
   return (
     <section
       aria-labelledby="work-item-note-title"
-      className="rounded-3xl border border-[#004fc5]/12 bg-white p-5 shadow-sm sm:p-7"
+      className="rounded-3xl border border-primary/12 bg-white p-5 shadow-sm sm:p-7"
     >
-      <h2
-        id="work-item-note-title"
-        className="brand-title text-2xl text-[#041894]"
-      >
+      <h2 id="work-item-note-title" className="brand-title text-2xl text-ink">
         {t("workItem.addNote")}
       </h2>
-      <p className="mt-2 text-sm leading-6 text-[#506784]">
+      <p className="mt-2 text-sm leading-6 text-muted">
         {t("workItem.noteHint")}
       </p>
       <form className="mt-4" onSubmit={submit}>
         <label
           htmlFor={`work-item-note-${item.id}`}
-          className="text-sm font-semibold text-[#041894]"
+          className="text-sm font-semibold text-ink"
         >
           {t("workItem.noteLabel")}
         </label>
         <textarea
           id={`work-item-note-${item.id}`}
-          className="mt-2 min-h-24 w-full rounded-xl border border-[#004fc5]/20 px-3 py-2 text-[#13294b]"
+          className="mt-2 min-h-24 w-full rounded-xl border border-primary/20 px-3 py-2 text-body"
           value={body}
           placeholder={t("workItem.notePlaceholder")}
           onChange={(event) => {
@@ -522,17 +516,14 @@ function WorkItemNoteForm({ item }: { item: WorkItemDetail }) {
         />
         {note.isError && <RequestError error={note.error} />}
         {saved && (
-          <p
-            role="status"
-            className="mt-3 text-sm font-semibold text-[#167448]"
-          >
+          <p role="status" className="mt-3 text-sm font-semibold text-success">
             {t("workItem.noteSaved")}
           </p>
         )}
         <div className="mt-4 flex justify-end">
           <button
             type="submit"
-            className="rounded-xl border border-[#004fc5]/25 px-4 py-2 text-sm font-semibold text-[#041894] disabled:opacity-50"
+            className="rounded-xl border border-primary/25 px-4 py-2 text-sm font-semibold text-ink disabled:opacity-50"
             disabled={note.isPending || !body.trim()}
           >
             {note.isPending ? t("workItem.noteSaving") : t("workItem.saveNote")}
@@ -579,21 +570,21 @@ function WorkItemScreen({
     <main className="mx-auto w-full max-w-6xl flex-1 px-5 py-10 sm:px-8 sm:py-14">
       <Link
         to="/"
-        className="text-sm font-semibold text-[#004fc5] hover:underline"
+        className="text-sm font-semibold text-primary hover:underline"
       >
         ← {t("workItem.back")}
       </Link>
 
-      <header className="mt-7 flex flex-col justify-between gap-5 border-b border-[#004fc5]/10 pb-7 sm:flex-row sm:items-end">
+      <header className="mt-7 flex flex-col justify-between gap-5 border-b border-primary/10 pb-7 sm:flex-row sm:items-end">
         <div>
-          <p className="text-sm font-bold tracking-[0.14em] text-[#0078dd] uppercase">
+          <p className="text-sm font-bold tracking-[0.14em] text-accent uppercase">
             {item.on_robot ? t("teamHome.robot") : t("teamHome.offRobot")}
             {team ? ` · ${team}` : ""}
           </p>
-          <h1 className="brand-title mt-2 text-4xl tracking-[-0.04em] text-[#041894] sm:text-5xl">
+          <h1 className="brand-title mt-2 text-4xl tracking-[-0.04em] text-ink sm:text-5xl">
             {item.title}
           </h1>
-          <p className="mt-3 text-sm text-[#506784]">
+          <p className="mt-3 text-sm text-muted">
             {t("workItem.openedOn", {
               date: dateFormatter.format(new Date(item.opened_at)),
             })}
@@ -624,7 +615,7 @@ function WorkItemScreen({
               {!item.on_robot && (
                 <button
                   type="button"
-                  className="rounded-full border border-[#167448]/30 px-3 py-1 text-sm font-semibold text-[#167448] hover:bg-[#167448]/10 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="rounded-full border border-success/30 px-3 py-1 text-sm font-semibold text-success hover:bg-success/10 disabled:cursor-not-allowed disabled:opacity-50"
                   disabled={close.isPending}
                   onClick={() => close.mutate("done")}
                 >
@@ -633,7 +624,7 @@ function WorkItemScreen({
               )}
             </>
           )}
-          <span className="rounded-full bg-[#eaf5ff] px-3 py-1 text-sm font-semibold text-[#0078dd]">
+          <span className="rounded-full bg-tint px-3 py-1 text-sm font-semibold text-accent">
             {close.isPending
               ? t("workItem.closing")
               : t(`teamHome.statuses.${item.status}`)}
@@ -648,7 +639,7 @@ function WorkItemScreen({
           <div className="mt-4 flex gap-3">
             <button
               type="button"
-              className="rounded-xl border border-[#004fc5]/20 bg-white px-4 py-2 text-sm font-semibold text-[#041894] disabled:opacity-50"
+              className="rounded-xl border border-primary/20 bg-white px-4 py-2 text-sm font-semibold text-ink disabled:opacity-50"
               disabled={remove.isPending}
               onClick={() => setIsConfirmingDelete(false)}
             >
@@ -668,14 +659,14 @@ function WorkItemScreen({
       )}
 
       {item.handover && (
-        <section className="mt-8 border-l-4 border-[#d59600] bg-[#fff7dc] p-5 text-[#634c12]">
+        <section className="mt-8 border-l-4 border-warning bg-warning-tint p-5 text-warning-ink">
           <h2 className="text-xs font-bold tracking-[0.14em] uppercase">
             {t("workItem.handover")}
           </h2>
           <p className="mt-2 whitespace-pre-wrap leading-7">
             {item.handover.body}
           </p>
-          <p className="mt-2 text-xs text-[#7a6221]">
+          <p className="mt-2 text-xs text-warning-muted">
             {t("workItem.entryMeta", {
               author: item.handover.author,
               date: dateTimeFormatter.format(
@@ -693,13 +684,10 @@ function WorkItemScreen({
         </div>
 
         <section aria-labelledby="history-title">
-          <p className="text-xs font-bold tracking-[0.14em] text-[#0078dd] uppercase">
+          <p className="text-xs font-bold tracking-[0.14em] text-accent uppercase">
             {t("workItem.fromStart")}
           </p>
-          <h2
-            id="history-title"
-            className="brand-title mt-1 text-3xl text-[#041894]"
-          >
+          <h2 id="history-title" className="brand-title mt-1 text-3xl text-ink">
             {t("workItem.history")}
           </h2>
           {item.thread.length > 0 ? (
@@ -709,7 +697,7 @@ function WorkItemScreen({
               ))}
             </ol>
           ) : (
-            <p className="mt-5 rounded-2xl border border-dashed border-[#004fc5]/20 p-5 text-sm text-[#506784]">
+            <p className="mt-5 rounded-2xl border border-dashed border-primary/20 p-5 text-sm text-muted">
               {t("workItem.emptyHistory")}
             </p>
           )}
@@ -735,7 +723,7 @@ export function WorkItemPage() {
   if (currentUser.isPending) {
     return (
       <main className="mx-auto w-full max-w-6xl flex-1 px-5 py-14 sm:px-8">
-        <p role="status" className="text-sm text-[#506784]">
+        <p role="status" className="text-sm text-muted">
           {t("auth.checkingSession")}
         </p>
       </main>
@@ -759,7 +747,7 @@ export function WorkItemPage() {
   if (workItem.isPending) {
     return (
       <main className="mx-auto w-full max-w-6xl flex-1 px-5 py-14 sm:px-8">
-        <p role="status" className="text-sm text-[#506784]">
+        <p role="status" className="text-sm text-muted">
           {t("workItem.loading")}
         </p>
       </main>

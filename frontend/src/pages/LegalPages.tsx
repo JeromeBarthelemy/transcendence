@@ -14,11 +14,11 @@ function LegalPage({
   children: ReactNode;
 }) {
   return (
-    <main className="legal mx-auto w-full max-w-3xl flex-1 px-5 py-10 text-[#13294b] sm:px-8 sm:py-14">
-      <h1 className="brand-title text-3xl tracking-[-0.035em] text-[#041894] sm:text-4xl">
+    <main className="legal mx-auto w-full max-w-3xl flex-1 px-5 py-10 text-body sm:px-8 sm:py-14">
+      <h1 className="brand-title text-3xl tracking-[-0.035em] text-ink sm:text-4xl">
         {title}
       </h1>
-      <p className="mt-2 text-sm text-[#506784]">
+      <p className="mt-2 text-sm text-muted">
         Dernière mise à jour : {UPDATED_ON}
       </p>
       {children}

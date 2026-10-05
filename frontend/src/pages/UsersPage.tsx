@@ -36,11 +36,11 @@ const ROLE_FILTERS: RoleFilter[] = ["all", "student", "mentor", "admin"];
 const nameCollator = new Intl.Collator("fr-FR", { sensitivity: "base" });
 
 const inputClass =
-  "mt-2 block w-full rounded-xl border border-[#004fc5]/20 bg-white px-3 py-2 font-normal text-[#13294b]";
+  "mt-2 block w-full rounded-xl border border-primary/20 bg-white px-3 py-2 font-normal text-body";
 const primaryButtonClass =
-  "rounded-xl bg-[#0078dd] px-4 py-2 text-sm font-semibold text-white hover:bg-[#004fc5] disabled:opacity-50";
+  "rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-white hover:bg-primary disabled:opacity-50";
 const secondaryButtonClass =
-  "rounded-xl border border-[#004fc5]/20 px-4 py-2 text-sm font-semibold text-[#041894] hover:bg-[#eaf5ff] disabled:opacity-50";
+  "rounded-xl border border-primary/20 px-4 py-2 text-sm font-semibold text-ink hover:bg-tint disabled:opacity-50";
 
 /** Case- and accent-blind, so « elo » finds Élodie. */
 function fold(text: string) {
@@ -86,7 +86,7 @@ function Avatar({ user, size = "size-9" }: { user: ClubUser; size?: string }) {
   return (
     <span
       aria-hidden="true"
-      className={`${size} grid shrink-0 place-items-center rounded-full bg-[#eaf5ff] text-sm font-bold text-[#0078dd]`}
+      className={`${size} grid shrink-0 place-items-center rounded-full bg-tint text-sm font-bold text-accent`}
     >
       {user.display_name.charAt(0).toUpperCase()}
     </span>
@@ -98,11 +98,11 @@ function Badges({ user }: { user: ClubUser }) {
   const status = userStatus(user);
   return (
     <span className="flex flex-wrap gap-1.5">
-      <span className="rounded-full bg-[#eaf5ff] px-2.5 py-0.5 text-xs font-semibold text-[#0078dd]">
+      <span className="rounded-full bg-tint px-2.5 py-0.5 text-xs font-semibold text-accent">
         {t(`users.roles.${user.club_role}`)}
       </span>
       {user.is_club_admin && (
-        <span className="rounded-full bg-[#041894] px-2.5 py-0.5 text-xs font-semibold text-white">
+        <span className="rounded-full bg-ink px-2.5 py-0.5 text-xs font-semibold text-white">
           {t("users.admin")}
         </span>
       )}
@@ -110,8 +110,8 @@ function Badges({ user }: { user: ClubUser }) {
         <span
           className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
             status === "suspended"
-              ? "bg-[#fff7dc] text-[#634c12]"
-              : "bg-[#eef1f5] text-[#506784]"
+              ? "bg-warning-tint text-warning-ink"
+              : "bg-fog text-muted"
           }`}
         >
           {t(`users.statuses.${status}`)}
@@ -144,21 +144,21 @@ function UserList({ identity }: { identity: Identity }) {
 
   return (
     <main className="mx-auto w-full max-w-4xl flex-1 px-5 py-10 sm:px-8 sm:py-14">
-      <p className="text-sm font-bold tracking-[0.14em] text-[#0078dd] uppercase">
+      <p className="text-sm font-bold tracking-[0.14em] text-accent uppercase">
         {t("admin.eyebrow")}
       </p>
-      <h1 className="brand-title mt-3 text-3xl tracking-[-0.035em] text-[#041894] sm:text-4xl">
+      <h1 className="brand-title mt-3 text-3xl tracking-[-0.035em] text-ink sm:text-4xl">
         {t("users.title")}
       </h1>
 
       {deletedName && (
-        <p role="status" className="mt-4 text-sm font-semibold text-[#167448]">
+        <p role="status" className="mt-4 text-sm font-semibold text-success">
           {t("users.deleted", { name: deletedName })}
         </p>
       )}
 
       <div className="mt-8 grid gap-4 sm:grid-cols-[1fr_auto_auto]">
-        <label className="text-sm font-semibold text-[#041894]">
+        <label className="text-sm font-semibold text-ink">
           {t("users.search")}
           <input
             type="search"
@@ -168,7 +168,7 @@ function UserList({ identity }: { identity: Identity }) {
             onChange={(event) => setSearch(event.target.value)}
           />
         </label>
-        <label className="text-sm font-semibold text-[#041894]">
+        <label className="text-sm font-semibold text-ink">
           {t("users.filterStatus")}
           <select
             className={inputClass}
@@ -182,7 +182,7 @@ function UserList({ identity }: { identity: Identity }) {
             ))}
           </select>
         </label>
-        <label className="text-sm font-semibold text-[#041894]">
+        <label className="text-sm font-semibold text-ink">
           {t("users.filterRole")}
           <select
             className={inputClass}
@@ -199,36 +199,36 @@ function UserList({ identity }: { identity: Identity }) {
       </div>
 
       {users.isPending ? (
-        <p role="status" className="mt-8 text-sm text-[#506784]">
+        <p role="status" className="mt-8 text-sm text-muted">
           {t("users.loading")}
         </p>
       ) : users.isError ? (
         <RequestError error={users.error} />
       ) : (
         <section aria-labelledby="user-list-count" className="mt-8">
-          <h2 id="user-list-count" className="text-sm text-[#506784]">
+          <h2 id="user-list-count" className="text-sm text-muted">
             {t("users.count", { count: visible.length })}
           </h2>
           {visible.length > 0 ? (
-            <ul className="mt-3 divide-y divide-[#004fc5]/10 overflow-hidden rounded-2xl border border-[#004fc5]/12 bg-white shadow-sm">
+            <ul className="mt-3 divide-y divide-primary/10 overflow-hidden rounded-2xl border border-primary/12 bg-white shadow-sm">
               {visible.map((user) => (
                 <li key={user.id}>
                   <Link
                     to={`/users/${user.id}`}
-                    className="flex flex-wrap items-center gap-3 px-4 py-3 no-underline hover:bg-[#f4f8ff] focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#00c2d0]"
+                    className="flex flex-wrap items-center gap-3 px-4 py-3 no-underline hover:bg-mist focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-lagoon"
                   >
                     <Avatar user={user} />
                     <span className="min-w-0 flex-1">
-                      <span className="block font-semibold text-[#041894]">
+                      <span className="block font-semibold text-ink">
                         {user.display_name}
                         {isSelf(user, identity) && (
-                          <span className="font-normal text-[#506784]">
+                          <span className="font-normal text-muted">
                             {" "}
                             {t("users.you")}
                           </span>
                         )}
                       </span>
-                      <span className="block truncate text-sm text-[#506784]">
+                      <span className="block truncate text-sm text-muted">
                         {user.email}
                       </span>
                     </span>
@@ -238,7 +238,7 @@ function UserList({ identity }: { identity: Identity }) {
               ))}
             </ul>
           ) : (
-            <p className="mt-3 rounded-2xl border border-dashed border-[#004fc5]/20 p-5 text-sm text-[#506784]">
+            <p className="mt-3 rounded-2xl border border-dashed border-primary/20 p-5 text-sm text-muted">
               {t("users.noMatch")}
             </p>
           )}
@@ -289,25 +289,25 @@ function RoleForm({ user, locked }: { user: ClubUser; locked: boolean }) {
   return (
     <form
       aria-labelledby="role-form-title"
-      className="mt-8 rounded-2xl border border-[#004fc5]/12 bg-white p-5 shadow-sm"
+      className="mt-8 rounded-2xl border border-primary/12 bg-white p-5 shadow-sm"
       onSubmit={submit}
     >
       <h2
         id="role-form-title"
-        className="text-xs font-bold tracking-[0.14em] text-[#0078dd] uppercase"
+        className="text-xs font-bold tracking-[0.14em] text-accent uppercase"
       >
         {t("users.rightsTitle")}
       </h2>
       <fieldset disabled={locked || save.isPending} className="mt-4 space-y-5">
         <fieldset>
-          <legend className="text-sm font-semibold text-[#041894]">
+          <legend className="text-sm font-semibold text-ink">
             {t("users.role")}
           </legend>
           <div className="mt-2 flex flex-wrap gap-4">
             {(["student", "mentor"] as const).map((role) => (
               <label
                 key={role}
-                className="flex items-center gap-2 text-sm text-[#13294b]"
+                className="flex items-center gap-2 text-sm text-body"
               >
                 <input
                   type="radio"
@@ -323,7 +323,7 @@ function RoleForm({ user, locked }: { user: ClubUser; locked: boolean }) {
         </fieldset>
 
         <div>
-          <label className="flex items-center gap-2 text-sm font-semibold text-[#041894]">
+          <label className="flex items-center gap-2 text-sm font-semibold text-ink">
             <input
               type="checkbox"
               checked={isClubAdmin}
@@ -336,7 +336,7 @@ function RoleForm({ user, locked }: { user: ClubUser; locked: boolean }) {
             />
             {t("users.isClubAdmin")}
           </label>
-          <p id={adminHintId} className="mt-1 ml-6 text-xs text-[#506784]">
+          <p id={adminHintId} className="mt-1 ml-6 text-xs text-muted">
             {t("users.isClubAdminHint")}
           </p>
           <FieldErrors
@@ -346,7 +346,7 @@ function RoleForm({ user, locked }: { user: ClubUser; locked: boolean }) {
         </div>
 
         <div>
-          <label className="flex items-center gap-2 text-sm font-semibold text-[#041894]">
+          <label className="flex items-center gap-2 text-sm font-semibold text-ink">
             <input
               type="checkbox"
               checked={isActive}
@@ -358,7 +358,7 @@ function RoleForm({ user, locked }: { user: ClubUser; locked: boolean }) {
             />
             {t("users.isActive")}
           </label>
-          <p id={activeHintId} className="mt-1 ml-6 text-xs text-[#506784]">
+          <p id={activeHintId} className="mt-1 ml-6 text-xs text-muted">
             {t("users.isActiveHint")}
           </p>
         </div>
@@ -368,7 +368,7 @@ function RoleForm({ user, locked }: { user: ClubUser; locked: boolean }) {
         <RequestError error={save.error} handledFields={["is_club_admin"]} />
       )}
       {saved && !isDirty && (
-        <p role="status" className="mt-4 text-sm font-semibold text-[#167448]">
+        <p role="status" className="mt-4 text-sm font-semibold text-success">
           {t("users.saved")}
         </p>
       )}
@@ -429,7 +429,7 @@ function DeleteSection({ user }: { user: ClubUser }) {
       >
         {t("users.deleteTitle")}
       </h2>
-      <p className="mt-3 text-sm leading-6 text-[#506784]">
+      <p className="mt-3 text-sm leading-6 text-muted">
         {t("users.deleteExplanation")}
       </p>
       {isConfirming ? (
@@ -494,7 +494,7 @@ function UserDetail({ identity }: { identity: Identity }) {
     <main className="mx-auto w-full max-w-3xl flex-1 px-5 py-10 sm:px-8 sm:py-14">
       <Link
         to="/users"
-        className="text-sm font-semibold text-[#0078dd] hover:underline"
+        className="text-sm font-semibold text-accent hover:underline"
       >
         {t("users.backToList")}
       </Link>
@@ -504,7 +504,7 @@ function UserDetail({ identity }: { identity: Identity }) {
           {t("errors.not_found")}
         </p>
       ) : user.isPending ? (
-        <p role="status" className="mt-6 text-sm text-[#506784]">
+        <p role="status" className="mt-6 text-sm text-muted">
           {t("users.loadingOne")}
         </p>
       ) : user.isError ? (
@@ -514,10 +514,10 @@ function UserDetail({ identity }: { identity: Identity }) {
           <div className="mt-6 flex flex-wrap items-center gap-4">
             <Avatar user={user.data} size="size-16" />
             <div className="min-w-0 flex-1">
-              <h1 className="brand-title text-3xl tracking-[-0.035em] text-[#041894]">
+              <h1 className="brand-title text-3xl tracking-[-0.035em] text-ink">
                 {user.data.display_name}
               </h1>
-              <p className="mt-1 truncate text-sm text-[#506784]">
+              <p className="mt-1 truncate text-sm text-muted">
                 {user.data.email}
               </p>
             </div>
@@ -525,12 +525,12 @@ function UserDetail({ identity }: { identity: Identity }) {
           </div>
 
           {isSelf(user.data, identity) && (
-            <p className="mt-6 rounded-xl bg-[#f4f8ff] px-4 py-3 text-sm text-[#13294b]">
+            <p className="mt-6 rounded-xl bg-mist px-4 py-3 text-sm text-body">
               {t("users.selfNotice")}
             </p>
           )}
           {user.data.is_anonymized && (
-            <p className="mt-6 rounded-xl bg-[#eef1f5] px-4 py-3 text-sm text-[#13294b]">
+            <p className="mt-6 rounded-xl bg-fog px-4 py-3 text-sm text-body">
               {t("users.anonymizedNotice")}
             </p>
           )}
