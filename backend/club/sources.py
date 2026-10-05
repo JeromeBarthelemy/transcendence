@@ -1,4 +1,4 @@
-"""Keeping the rulebook's copies of the manual and the Q&A current.
+"""Keeping the rulebook's copy of the game manual current.
 
 A check fetches each source page and compares it with the copy the RAG
 searches. A changed page is never swapped in silently: it becomes a
@@ -8,9 +8,7 @@ copy until then (club/api/views.py, RuleSourcesView).
 
 import difflib
 import hashlib
-import json
 from dataclasses import dataclass
-from html.parser import HTMLParser
 from typing import TypedDict
 from urllib.error import URLError
 from urllib.request import urlopen
@@ -41,47 +39,6 @@ class ChangeSummary(TypedDict):
     references_total: int
 
 
-# The Q&A page carries its questions as a JSON list. A question without an
-# answer is not a ruling and is never indexed. The name of the answer field is
-# not confirmed yet: no answered question has been seen on the public page.
-_QA_QUESTIONS_KEY = '"questions":'
-_QA_ANSWER_FIELD = "answer"
-
-
-class _LinesParser(HTMLParser):
-    def __init__(self) -> None:
-        super().__init__(convert_charrefs=True)
-        self.lines: list[str] = []
-        self._current: list[str] = []
-        self._skip = 0
-
-    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
-        if tag in _SKIP_TAGS:
-            self._skip += 1
-        elif tag in _BLOCK_TAGS:
-            self._break_line()
-
-    def handle_endtag(self, tag: str) -> None:
-        if tag in _SKIP_TAGS:
-            self._skip = max(0, self._skip - 1)
-        elif tag in _BLOCK_TAGS:
-            self._break_line()
-
-    def handle_data(self, data: str) -> None:
-        if not self._skip:
-            self._current.append(data)
-
-    def _break_line(self) -> None:
-        line = " ".join("".join(self._current).split())
-        if line:
-            self.lines.append(line)
-        self._current = []
-
-    def text(self) -> str:
-        self._break_line()
-        return "\n".join(self.lines)
-
-
 def fetch_page(url: str) -> str:
     with urlopen(url, timeout=FETCH_TIMEOUT_SECONDS) as response:
         return response.read().decode(_PAGE_ENCODING)
@@ -89,38 +46,6 @@ def fetch_page(url: str) -> str:
 
 def content_hash(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
-
-
-def _plain(markup: str) -> str:
-    parser = _LinesParser()
-    parser.feed(markup)
-    return parser.text()
-
-
-def _qa_text(page: str) -> str:
-    """Only the answered questions, each as the line `Q<number> <title>` the
-    Q&A chunker starts a passage on, followed by its text and its answer."""
-    start = page.find(_QA_QUESTIONS_KEY)
-    if start < 0:
-        return ""
-    questions, _ = json.JSONDecoder().raw_decode(page, start + len(_QA_QUESTIONS_KEY))
-    lines: list[str] = []
-    for question in questions:
-        answer = question.get(_QA_ANSWER_FIELD)
-        if not answer:
-            continue
-        lines.append(f"Q{question['number']} {_plain(question['title'])}")
-        lines.append(_plain(question["content"]))
-        lines.append(_plain(answer))
-    return "\n".join(lines)
-
-
-def _candidate_text(source: str, page: str) -> str:
-    """What is stored and later ingested: the manual's own HTML, or the Q&A's
-    answered questions as plain lines."""
-    if source == Document.Source.OFFICIAL_QA:
-        return _qa_text(page)
-    return page
 
 
 def summarize(
@@ -165,7 +90,8 @@ def latest_documents() -> list[Document]:
     """The copy `ask` searches, per season and source, and only those with a
     page to check against."""
     latest: dict[tuple[int, str], Document] = {}
-    for document in Document.objects.filter(url__gt="").order_by("-fetched_at", "-id"):
+    manuals = Document.objects.filter(url__gt="", source=Document.Source.GAME_MANUAL)
+    for document in manuals.order_by("-fetched_at", "-id"):
         latest.setdefault((document.season_id, document.source), document)
     return list(latest.values())
 
@@ -189,7 +115,7 @@ def check_document(document: Document) -> CheckOutcome:
         Document.objects.filter(pk=document.pk).update(checked_at=now)
         return CheckOutcome(document, "unchanged")
 
-    text = _candidate_text(document.source, page)
+    text = page
     candidate = _CHUNKER_OF[document.source](text)
     if not candidate:
         return CheckOutcome(
