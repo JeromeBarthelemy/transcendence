@@ -507,6 +507,7 @@
     "last_admin_cannot_leave": "Vous êtes le seul administrateur du club : vous ne pouvez pas supprimer votre compte.",
     "not_a_participant": "Vous ne participez pas à l'avancée d'aujourd'hui sur ce chantier.",
     "entry_changed": "Ce texte a été modifié pendant que vous le corrigiez.",
+    "correct_not_allowed": "Seuls les mentors corrigent une trace.",
     "remove_not_allowed": "Seuls son auteur et les mentors retirent cette trace.",
     "no_contact_email": "Aucune adresse de contact n'est enregistrée pour ce compte : impossible d'envoyer la confirmation.",
     "mail_unavailable": "Le courriel ne peut pas être envoyé pour le moment : rien n'a été fait. Réessayez plus tard.",

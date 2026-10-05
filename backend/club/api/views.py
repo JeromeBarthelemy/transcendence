@@ -733,8 +733,16 @@ class EntryDetailView(APIView):
         assert isinstance(user, User)
         entry = get_object_or_404(Entry, pk=pk)
         team_season_acted_on(user, entry.team_season_id)
-        if "body" in request.data and can_correct(entry, user):
-            return self._correct(request, entry, user)
+        if "body" in request.data:
+            if can_correct(entry, user):
+                return self._correct(request, entry, user)
+            # A progress is added to, and its serializer says so; a note or a
+            # decision has nothing to add to.
+            if entry.type != Entry.Type.PROGRESS:
+                raise PermissionDenied(
+                    "Seuls les mentors corrigent une trace.",
+                    code="correct_not_allowed",
+                )
         serializer = WriteProgressSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data

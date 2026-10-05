@@ -1033,7 +1033,7 @@ def test_a_correction_must_say_what_it_started_from(client):
     assert response.json()["body_was"][0]["code"] == "required"
 
 
-def test_a_student_sending_a_whole_text_is_still_told_to_add(client):
+def test_a_student_correcting_a_note_is_told_only_mentors_correct(client):
     rouages = team_season()
     lina = member_of(rouages)
     mistake = a_note(rouages, lina)
@@ -1041,8 +1041,10 @@ def test_a_student_sending_a_whole_text_is_still_told_to_add(client):
 
     response = correction(client, mistake, body="Rien.", body_was="Perceuse HS.")
 
-    assert response.status_code == 400
-    assert response.json()["body"][0]["code"] == "use_addition"
+    assert response.status_code == 403
+    assert response.json()["detail"]["code"] == "correct_not_allowed"
+    mistake.refresh_from_db()
+    assert mistake.body == "Perceuse HS."
 
 
 def test_a_trace_says_what_its_reader_may_do_with_it(client):
