@@ -3,7 +3,7 @@ from urllib.error import URLError
 from club.models import Chunk, Document, Season, SourceUpdate, User
 from club.rag import chunk_qa, ingest_document
 from club.sources import (
-    _chunkable,
+    _candidate_text,
     accept_update,
     check_document,
     content_hash,
@@ -71,12 +71,62 @@ def test_added_and_removed_passages_are_counted_separately():
     assert set(summary["references"]) == {"G102", "G104"}
 
 
-def test_a_qa_page_is_reduced_to_its_lines_before_it_is_chunked():
-    page = "<html><body><p>Q44 Blue robot over the gate?</p><p>Ruling: No.</p></body></html>"
+def qa_page(questions):
+    """The Q&A board embeds its questions as JSON in the page. `answer` is the
+    field assumed for an answered question: not yet confirmed on the public page."""
+    import json
 
-    text = _chunkable(Document.Source.OFFICIAL_QA, page)
+    return (
+        '<html><body><script>window.board = {"questions":'
+        + json.dumps(questions)
+        + "};</script></body></html>"
+    )
 
-    assert [reference for reference, _ in chunk_qa(text)] == ["Q44"]
+
+def question(number, title, content, answer=None):
+    entry = {
+        "number": number,
+        "title": title,
+        "content": f"<p>{content}</p>",
+        "status": "ACCEPTED",
+    }
+    if answer is not None:
+        entry["answer"] = f"<p>{answer}</p>"
+    return entry
+
+
+def test_a_question_without_an_answer_is_not_indexed():
+    page = qa_page(
+        [
+            question(
+                1, "Allowed gamepads", "Which gamepads?", answer="Any listed one."
+            ),
+            question(2, "Still open", "Is this legal?"),
+        ]
+    )
+
+    text = _candidate_text(Document.Source.OFFICIAL_QA, page)
+
+    assert [reference for reference, _ in chunk_qa(text)] == ["Q1"]
+    assert "Still open" not in text
+
+
+def test_a_qa_page_with_no_answered_question_is_refused_not_proposed(monkeypatch):
+    the_season = season()
+    copy = ingest_document(
+        season=the_season,
+        source=Document.Source.OFFICIAL_QA,
+        title="Q&A",
+        text="Q1 Allowed gamepads\nAny listed one.",
+        url="https://ftc.example/qa",
+    )
+    serve(monkeypatch, qa_page([question(1, "Allowed gamepads", "Which gamepads?")]))
+
+    outcome = check_document(copy)
+
+    assert outcome.status == "error"
+    assert not SourceUpdate.objects.exists()
+    assert Chunk.objects.filter(document=copy).exists()
 
 
 # --- checking ---

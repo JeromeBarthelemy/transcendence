@@ -8,6 +8,7 @@ copy until then (club/api/views.py, RuleSourcesView).
 
 import difflib
 import hashlib
+import json
 from dataclasses import dataclass
 from html.parser import HTMLParser
 from typing import TypedDict
@@ -38,6 +39,13 @@ class ChangeSummary(TypedDict):
     changed: int
     references: list[str]
     references_total: int
+
+
+# The Q&A page carries its questions as a JSON list. A question without an
+# answer is not a ruling and is never indexed. The name of the answer field is
+# not confirmed yet: no answered question has been seen on the public page.
+_QA_QUESTIONS_KEY = '"questions":'
+_QA_ANSWER_FIELD = "answer"
 
 
 class _LinesParser(HTMLParser):
@@ -83,13 +91,35 @@ def content_hash(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
-def _chunkable(source: str, page: str) -> str:
-    """The manual is chunked from its HTML markup; the Q&A is chunked from
-    plain lines, so its page is reduced to them first."""
+def _plain(markup: str) -> str:
+    parser = _LinesParser()
+    parser.feed(markup)
+    return parser.text()
+
+
+def _qa_text(page: str) -> str:
+    """Only the answered questions, each as the line `Q<number> <title>` the
+    Q&A chunker starts a passage on, followed by its text and its answer."""
+    start = page.find(_QA_QUESTIONS_KEY)
+    if start < 0:
+        return ""
+    questions, _ = json.JSONDecoder().raw_decode(page, start + len(_QA_QUESTIONS_KEY))
+    lines: list[str] = []
+    for question in questions:
+        answer = question.get(_QA_ANSWER_FIELD)
+        if not answer:
+            continue
+        lines.append(f"Q{question['number']} {_plain(question['title'])}")
+        lines.append(_plain(question["content"]))
+        lines.append(_plain(answer))
+    return "\n".join(lines)
+
+
+def _candidate_text(source: str, page: str) -> str:
+    """What is stored and later ingested: the manual's own HTML, or the Q&A's
+    answered questions as plain lines."""
     if source == Document.Source.OFFICIAL_QA:
-        parser = _LinesParser()
-        parser.feed(page)
-        return parser.text()
+        return _qa_text(page)
     return page
 
 
@@ -159,8 +189,12 @@ def check_document(document: Document) -> CheckOutcome:
         Document.objects.filter(pk=document.pk).update(checked_at=now)
         return CheckOutcome(document, "unchanged")
 
-    text = _chunkable(document.source, page)
+    text = _candidate_text(document.source, page)
     candidate = _CHUNKER_OF[document.source](text)
+    if not candidate:
+        return CheckOutcome(
+            document, "error", "la page ne contient aucun passage à indexer"
+        )
     current = list(document.chunks.values_list("reference", "text"))
     summary = summarize(current, candidate)
     if _is_empty(summary):
