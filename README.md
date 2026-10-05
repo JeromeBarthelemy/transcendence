@@ -50,7 +50,7 @@ The frontend foundation installed by the initial skeleton is:
 **React Hook Form and Zod** validate the account forms in the browser, while
 **Vitest and React Testing Library** exercise their user flows. The PWA will
 add **vite-plugin-pwa/Workbox and IndexedDB** when it needs durable offline
-support. IndexedDB will store pending scouting operations; TanStack Query's
+support. IndexedDB will store pending progress entries; TanStack Query's
 cache alone is not durable offline storage.
 
 The backend stack is:
