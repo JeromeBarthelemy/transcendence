@@ -2,6 +2,7 @@
 tenant to resolve: every route below is about the person calling it."""
 
 import tempfile
+from typing import Any
 
 from django.contrib.auth import login, logout
 from django.core.exceptions import ValidationError as DjangoValidationError
@@ -24,9 +25,11 @@ from club.export import gather, to_markdown_zip
 from club.gdpr import request_deletion, send_export
 from club.models import (
     Attachment,
+    Document,
     Entry,
     Membership,
     Season,
+    SourceUpdate,
     Team,
     TeamSeason,
     User,
@@ -35,6 +38,7 @@ from club.models import (
 )
 from club.progress import edit_progress, join, record_progress
 from club.rag import ask, serialize
+from club.sources import accept_update, check_all, latest_documents
 from club.workdays import (
     attendance,
     day_entries,
@@ -810,3 +814,74 @@ class RuleQuestionView(APIView):
             )
         query = ask(serializer.validated_data["question"], season, user)
         return Response(serialize(query), status=status.HTTP_201_CREATED)
+
+
+def _rule_sources() -> list[dict[str, Any]]:
+    season = Season.objects.first()
+    if season is None:
+        return []
+    current = {
+        document.source: document
+        for document in reversed(
+            list(Document.objects.filter(season=season).order_by("-fetched_at", "-id"))
+        )
+    }
+    pending = {
+        update.source: update for update in SourceUpdate.objects.filter(season=season)
+    }
+    rows: list[dict[str, Any]] = []
+    for source in Document.Source:
+        document = current.get(source.value)
+        update = pending.get(source.value)
+        rows.append(
+            {
+                "source": source.value,
+                "title": document.title if document else None,
+                "url": document.url if document else "",
+                "fetched_at": document.fetched_at if document else None,
+                "checked_at": document.checked_at if document else None,
+                "pending": (
+                    {"detected_at": update.detected_at, "summary": update.summary}
+                    if update
+                    else None
+                ),
+            }
+        )
+    return rows
+
+
+class RuleSourcesView(APIView):
+    """What an administrator sees about the rulebook's sources: the copy the
+    RAG searches, when it was last checked, and the change waiting for them."""
+
+    permission_classes = [IsClubAdmin]
+
+    def get(self, request: Request) -> Response:
+        return Response(_rule_sources())
+
+
+class RuleSourcesCheckView(APIView):
+    permission_classes = [IsClubAdmin]
+
+    def post(self, request: Request) -> Response:
+        check_all(latest_documents())
+        return Response(_rule_sources())
+
+
+class RuleSourceAcceptView(APIView):
+    """Replaces the searched copy with the fetched one, once an administrator
+    has read what changed. Nothing is replaced before this."""
+
+    permission_classes = [IsClubAdmin]
+
+    def post(self, request: Request, source: str) -> Response:
+        season = Season.objects.first()
+        update = (
+            SourceUpdate.objects.filter(season=season, source=source).first()
+            if season
+            else None
+        )
+        if update is None:
+            raise Http404("Aucune mise à jour en attente pour cette source.")
+        accept_update(update)
+        return Response(_rule_sources())
