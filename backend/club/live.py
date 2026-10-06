@@ -65,12 +65,14 @@ websocket_urlpatterns = [
 def broadcast(team_season_id: int, work_item_id: int | None) -> None:
     """Once the write is committed: a screen told before then would reload
     the old state, and one told of a rolled-back write, a change that never
-    happened."""
+    happened. Robust, since the write stands either way: a failed notice is
+    logged, not answered as an error the client would retry."""
     layer = get_channel_layer()
     assert layer is not None
     transaction.on_commit(
         lambda: async_to_sync(layer.group_send)(
             group_name(team_season_id),
             {"type": "work_items.changed", "work_item": work_item_id},
-        )
+        ),
+        robust=True,
     )

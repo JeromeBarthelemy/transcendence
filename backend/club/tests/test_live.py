@@ -8,6 +8,7 @@ from types import SimpleNamespace
 
 import pytest
 from asgiref.sync import async_to_sync, sync_to_async
+from channels.layers import get_channel_layer
 from channels.testing import WebsocketCommunicator
 from config.asgi import application
 from django.core.files.uploadedfile import SimpleUploadedFile
@@ -267,3 +268,20 @@ def test_a_refused_write_notifies_nobody(board, django_capture_on_commit_callbac
 
     assert response.status_code == 409
     assert heard is None
+
+
+def test_a_notification_that_fails_does_not_fail_the_write(
+    board, monkeypatch, django_capture_on_commit_callbacks
+):
+    async def unreachable(group, message):
+        raise OSError("channel layer unreachable")
+
+    monkeypatch.setattr(get_channel_layer(), "group_send", unreachable)
+
+    with django_capture_on_commit_callbacks(execute=True):
+        response = board.client.post(
+            f"/api/team-seasons/{board.team_season.id}/notes/",
+            **as_json(body="Perceuse HS."),
+        )
+
+    assert response.status_code == 201
