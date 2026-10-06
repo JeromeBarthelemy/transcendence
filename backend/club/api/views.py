@@ -24,6 +24,7 @@ from club.analytics.activity import summarize_activity
 from club.attachments import DOWNLOAD_ONLY
 from club.export import gather, to_markdown_zip
 from club.gdpr import request_deletion, send_export
+from club.live import broadcast
 from club.models import (
     Attachment,
     Document,
@@ -523,7 +524,9 @@ class WorkItemListView(APIView):
             data=request.data, context={"team_season": team_season}
         )
         serializer.is_valid(raise_exception=True)
-        return Response(_work_item(serializer.save()), status=status.HTTP_201_CREATED)
+        item = serializer.save()
+        broadcast(team_season.id, item.id)
+        return Response(_work_item(item), status=status.HTTP_201_CREATED)
 
 
 def _entry(entry: Entry) -> dict[str, object]:
@@ -591,7 +594,9 @@ class WorkItemDetailView(APIView):
         item = _work_item_acted_on(request.user, pk)
         serializer = CloseWorkItemSerializer(item, data=request.data)
         serializer.is_valid(raise_exception=True)
-        return Response(_work_item(serializer.save()))
+        serializer.save()
+        broadcast(item.team_season_id, item.id)
+        return Response(_work_item(item))
 
     def delete(self, request: Request, pk: int) -> Response:
         """Only a work item opened by mistake: one with any trace is dropped
@@ -599,6 +604,7 @@ class WorkItemDetailView(APIView):
         judge, even for a progress ticked in the same instant."""
         assert isinstance(request.user, User)
         item = _work_item_acted_on(request.user, pk)
+        team_season_id, item_id = item.team_season_id, item.id
         try:
             item.delete()
         except ProtectedError:
@@ -606,6 +612,7 @@ class WorkItemDetailView(APIView):
                 "Ce chantier a déjà des traces : abandonnez-le plutôt.",
                 code="work_item_has_traces",
             ) from None
+        broadcast(team_season_id, item_id)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
@@ -632,8 +639,12 @@ class TickView(APIView):
         if created:
             entry = record_progress(item, user, "", step=step)
         assert entry is not None
-        if not entry.participants.filter(pk=user.pk).exists():
+        joined = not entry.participants.filter(pk=user.pk).exists()
+        if joined:
             join(entry, user)
+        # A tick made twice changes nothing: no screen to reload.
+        if created or joined:
+            broadcast(item.team_season_id, item.id)
         return Response(
             _entry(entry),
             status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
@@ -644,7 +655,9 @@ class TickView(APIView):
         `leave_todays_progress`."""
         user = request.user
         assert isinstance(user, User)
-        leave_todays_progress(_work_item_acted_on(user, pk), user)
+        item = _work_item_acted_on(user, pk)
+        leave_todays_progress(item, user)
+        broadcast(item.team_season_id, item.id)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
@@ -661,7 +674,9 @@ class EntryAttachmentsView(APIView):
             data=request.data, context={"entry": entry, "user": user}
         )
         serializer.is_valid(raise_exception=True)
-        return Response(_attachment(serializer.save()), status=status.HTTP_201_CREATED)
+        attachment = serializer.save()
+        broadcast(entry.team_season_id, entry.work_item_id)
+        return Response(_attachment(attachment), status=status.HTTP_201_CREATED)
 
 
 class AttachmentView(APIView):
@@ -688,6 +703,7 @@ class AttachmentView(APIView):
                 code="delete_not_uploader",
             )
         attachment.delete()
+        broadcast(attachment.entry.team_season_id, attachment.entry.work_item_id)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
     def _acted_on(self, request: Request, pk: int) -> Attachment:
@@ -722,6 +738,7 @@ class EntryDetailView(APIView):
                 "Cette avancée a été modifiée pendant que vous écriviez.",
                 code="progress_changed",
             ) from changed
+        broadcast(entry.team_season_id, entry.work_item_id)
         return Response(_entry(entry))
 
 
@@ -734,7 +751,9 @@ class NoteCreateView(APIView):
             data=request.data, context={"team_season": team_season, "author": user}
         )
         serializer.is_valid(raise_exception=True)
-        return Response(_entry(serializer.save()), status=status.HTTP_201_CREATED)
+        entry = serializer.save()
+        broadcast(team_season.id, entry.work_item_id)
+        return Response(_entry(entry), status=status.HTTP_201_CREATED)
 
 
 class DecisionCreateView(APIView):
@@ -746,7 +765,9 @@ class DecisionCreateView(APIView):
             data=request.data, context={"team_season": team_season, "author": user}
         )
         serializer.is_valid(raise_exception=True)
-        return Response(_entry(serializer.save()), status=status.HTTP_201_CREATED)
+        entry = serializer.save()
+        broadcast(team_season.id, entry.work_item_id)
+        return Response(_entry(entry), status=status.HTTP_201_CREATED)
 
 
 class DayView(APIView):

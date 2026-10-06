@@ -28,6 +28,11 @@ https://{$FIELDNOTES_HOST:localhost} {
 		reverse_proxy backend:8000
 	}
 
+	# The live board's WebSockets: Caddy passes the upgrade through as is.
+	handle /ws/* {
+		reverse_proxy backend:8000
+	}
+
 	# collectstatic's output (Django admin's CSS/JS) — DEBUG=false means
 	# Django itself no longer serves these, so the proxy must. handle_path,
 	# not handle: it strips the /static prefix before file_server looks

@@ -5,5 +5,6 @@ export default defineConfig({
     environment: "jsdom",
     environmentOptions: { jsdom: { url: "http://localhost:5173" } },
     clearMocks: true,
+    setupFiles: ["./src/test-setup.ts"],
   },
 });
