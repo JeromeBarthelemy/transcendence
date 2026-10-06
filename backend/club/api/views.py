@@ -7,7 +7,7 @@ from typing import Any
 from django.contrib.auth import login, logout
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
-from django.db.models import ProtectedError
+from django.db.models import ProtectedError, QuerySet
 from django.http import FileResponse, Http404, JsonResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -918,6 +918,12 @@ def _notification(notice: Notification) -> dict[str, object]:
     }
 
 
+def _notifications_open_to(user: User) -> QuerySet[Notification]:
+    """A notification leads to its team: once the member may no longer open
+    it, it leaves their list and their unread count."""
+    return user.notifications.filter(team_season__in=team_seasons_open_to(user))
+
+
 class NotificationListView(APIView):
     """The member's own, newest first: the unread count and the latest few,
     for the header (#151)."""
@@ -927,7 +933,7 @@ class NotificationListView(APIView):
     def get(self, request: Request) -> Response:
         user = request.user
         assert isinstance(user, User)
-        mine = user.notifications.select_related("actor")
+        mine = _notifications_open_to(user).select_related("actor")
         return Response(
             {
                 "unread": mine.filter(read_at=None).count(),
@@ -945,7 +951,7 @@ class NotificationReadView(APIView):
         assert isinstance(user, User)
         serializer = ReadNotificationsSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        unread = user.notifications.filter(read_at=None)
+        unread = _notifications_open_to(user).filter(read_at=None)
         ids = serializer.validated_data.get("ids")
         (unread if ids is None else unread.filter(pk__in=ids)).update(
             read_at=timezone.now()

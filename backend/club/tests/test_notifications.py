@@ -131,6 +131,44 @@ def test_a_deactivated_account_is_never_notified(db):
     assert notified() == []
 
 
+def test_a_follower_removed_from_the_team_is_no_longer_notified(db):
+    rouages = team_season()
+    lina, tom = member_of(rouages, "lina"), member_of(rouages, "tom")
+    intake = WorkItem.objects.create(team_season=rouages, title="intake")
+    join(record_progress(intake, lina, "Galets montés."), tom)
+    Membership.objects.filter(user=tom).delete()
+
+    record_change(
+        lina,
+        Notification.Verb.ENTRY_ADDED,
+        team_season=rouages,
+        work_item=intake,
+        entry=note(rouages, lina, intake),
+    )
+
+    assert notified() == []
+
+
+def test_a_mentor_follower_is_notified_without_being_a_member(db):
+    rouages = team_season()
+    lina = member_of(rouages, "lina")
+    marc = User.objects.create_user(
+        "marc@example.org", "marc", club_role=User.ClubRole.MENTOR
+    )
+    intake = WorkItem.objects.create(team_season=rouages, title="intake")
+    join(record_progress(intake, lina, "Galets montés."), marc)
+
+    record_change(
+        lina,
+        Notification.Verb.ENTRY_ADDED,
+        team_season=rouages,
+        work_item=intake,
+        entry=note(rouages, lina, intake),
+    )
+
+    assert notified() == ["marc"]
+
+
 def test_a_removal_is_still_told_once_the_trace_and_work_item_are_gone(db):
     rouages = team_season()
     lina, tom = member_of(rouages, "lina"), member_of(rouages, "tom")
@@ -207,6 +245,22 @@ def test_a_member_never_sees_anyone_elses_notifications(client, db):
     # Lina was told, Tom wrote it.
     assert answer == {"unread": 0, "items": []}
     assert Notification.objects.filter(recipient=lina).count() == 1
+
+
+def test_a_member_removed_from_the_team_no_longer_sees_its_notifications(client, db):
+    rouages = team_season()
+    lina, tom = member_of(rouages, "lina"), member_of(rouages, "tom")
+    told_of_a_note(rouages, lina)
+    Membership.objects.filter(user=tom).delete()
+    client.force_login(tom)
+
+    listed = client.get("/api/notifications/").json()
+    marked = client.post(
+        "/api/notifications/read/", {}, content_type="application/json"
+    )
+
+    assert listed == {"unread": 0, "items": []}
+    assert marked.json() == {"unread": 0}
 
 
 def test_a_deleted_work_item_is_still_named_in_its_notice(client, db):

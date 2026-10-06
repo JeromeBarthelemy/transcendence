@@ -2,7 +2,7 @@
 with it: one call per write, from the views. A write that forgets it shows at
 once, since its screens stop being live too."""
 
-from django.db.models import QuerySet
+from django.db.models import Q, QuerySet
 
 from club.live import broadcast
 from club.models import Entry, Notification, TeamSeason, User, WorkItem
@@ -44,12 +44,15 @@ def _recipients(
     work_item: WorkItem | None,
 ) -> QuerySet[User]:
     """Those who follow the work item — who took part in one of its progress
-    entries — or the whole team for what concerns none; never the actor."""
+    entries and may still open it, by the rule of `team_season_acted_on` — or
+    the whole team for what concerns none; never the actor."""
     if work_item is None or verb in TEAM_NEWS:
         users = User.objects.filter(memberships__team_season=team_season)
     else:
         users = User.objects.filter(
             participations__work_item=work_item,
             participations__type=Entry.Type.PROGRESS,
+        ).filter(
+            Q(club_role=User.ClubRole.MENTOR) | Q(memberships__team_season=team_season)
         )
     return users.filter(is_active=True).exclude(pk=actor.pk).distinct()
