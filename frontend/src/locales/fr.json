@@ -218,6 +218,7 @@
     "history": "Historique",
     "emptyHistory": "Aucune avancée n'a encore été enregistrée.",
     "entryMeta": "{{author}} · {{date}}",
+    "removeFile": "Retirer {{name}}",
     "uploadedBy": "Ajouté par {{name}}",
     "entryTypes": {
       "progress": "Avancée",
@@ -361,6 +362,19 @@
   "live": {
     "offline": "Hors ligne : les changements des autres arriveront à la reconnexion."
   },
+  "entryActions": {
+    "correct": "Corriger",
+    "correctLabel": "Corriger le texte",
+    "save": "Enregistrer",
+    "cancel": "Annuler",
+    "changedMeanwhile": "Ce texte a changé pendant que vous le corrigiez :",
+    "remove": "Retirer",
+    "confirmRemove": "Retirer définitivement",
+    "removeNote": "Retirer cette remarque ?",
+    "removeDecision": "Retirer cette décision ?",
+    "removeProgress": "Retirer cette avancée, avec ses participants et ses fichiers ?",
+    "removeFile": "Retirer ce fichier ?"
+  },
   "personalData": {
     "title": "Données personnelles",
     "intro": "Vos données vous appartiennent. Chaque demande est confirmée par courriel à l'adresse de contact de votre compte — celle de votre responsable légal si vous êtes mineur.",
@@ -492,6 +506,9 @@
     "admin_must_be_mentor": "Un administrateur doit être mentor.",
     "last_admin_cannot_leave": "Vous êtes le seul administrateur du club : vous ne pouvez pas supprimer votre compte.",
     "not_a_participant": "Vous ne participez pas à l'avancée d'aujourd'hui sur ce chantier.",
+    "entry_changed": "Ce texte a été modifié pendant que vous le corrigiez.",
+    "correct_not_allowed": "Seuls les mentors corrigent une trace.",
+    "remove_not_allowed": "Seuls son auteur et les mentors retirent cette trace.",
     "no_contact_email": "Aucune adresse de contact n'est enregistrée pour ce compte : impossible d'envoyer la confirmation.",
     "mail_unavailable": "Le courriel ne peut pas être envoyé pour le moment : rien n'a été fait. Réessayez plus tard.",
     "wrong_password": "Mot de passe incorrect : le compte n'a pas été supprimé.",

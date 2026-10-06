@@ -419,6 +419,13 @@ class WriteProgressSerializer(serializers.Serializer[Entry]):
         return attrs
 
 
+class CorrectionSerializer(serializers.Serializer[Entry]):
+    """A mentor's correction, with the text it was written over."""
+
+    body = serializers.CharField(allow_blank=True)
+    body_was = serializers.CharField(allow_blank=True)
+
+
 class NoteSerializer(serializers.Serializer[Entry]):
     body = serializers.CharField()
     work_item = serializers.PrimaryKeyRelatedField(

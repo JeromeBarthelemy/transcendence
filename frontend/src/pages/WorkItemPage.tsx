@@ -11,6 +11,7 @@ import {
   getWorkItem,
   leaveTodaysProgress,
   type ProgressChanges,
+  removeAttachment,
   tickWorkItem,
   updateProgress,
   uploadAttachment,
@@ -25,6 +26,7 @@ import { useCurrentUser } from "../app/useCurrentUser";
 import { statusColors } from "../app/workItemStatus";
 import { fieldIssues, RequestError } from "../components/ApiErrors";
 import { AvatarStack } from "../components/Avatar";
+import { EntryActions } from "../components/EntryActions";
 
 const dateFormatter = new Intl.DateTimeFormat("fr-FR", {
   dateStyle: "long",
@@ -502,11 +504,82 @@ function TodayPanel({
   );
 }
 
-function HistoryEntry({ entry }: { entry: WorkItemEntry }) {
+function AttachmentRemoval({
+  item,
+  attachment,
+}: {
+  item: WorkItemDetail;
+  attachment: WorkItemEntry["attachments"][number];
+}) {
   const { t } = useTranslation();
+  const invalidateWorkItem = useInvalidateWorkItem(item);
+  const [isConfirming, setIsConfirming] = useState(false);
+  const remove = useMutation({
+    mutationFn: () => removeAttachment(attachment.id),
+    onSuccess: invalidateWorkItem,
+  });
+
+  if (!isConfirming) {
+    return (
+      <button
+        type="button"
+        aria-label={t("workItem.removeFile", { name: attachment.name })}
+        className="px-3 pb-3 text-xs font-semibold text-red-800 hover:underline"
+        onClick={() => setIsConfirming(true)}
+      >
+        {t("entryActions.remove")}
+      </button>
+    );
+  }
+  return (
+    <div className="mx-3 mb-3 rounded-xl border border-red-800/20 bg-red-50 p-3">
+      <p className="text-sm text-red-900">{t("entryActions.removeFile")}</p>
+      <div className="mt-2 flex flex-wrap gap-3">
+        <button
+          type="button"
+          className="rounded-xl border border-primary/20 bg-white px-3 py-1.5 text-sm font-semibold text-ink disabled:opacity-50"
+          disabled={remove.isPending}
+          onClick={() => setIsConfirming(false)}
+        >
+          {t("entryActions.cancel")}
+        </button>
+        <button
+          type="button"
+          className="rounded-xl bg-red-800 px-3 py-1.5 text-sm font-semibold text-white hover:bg-red-900 disabled:opacity-50"
+          disabled={remove.isPending}
+          onClick={() => remove.mutate()}
+        >
+          {t("entryActions.confirmRemove")}
+        </button>
+      </div>
+      {remove.isError && <RequestError error={remove.error} />}
+    </div>
+  );
+}
+
+function HistoryEntry({
+  item,
+  entry,
+}: {
+  item: WorkItemDetail;
+  entry: WorkItemEntry;
+}) {
+  const { t } = useTranslation();
+  const queryClient = useQueryClient();
+  const invalidateWorkItem = useInvalidateWorkItem(item);
   const participantNames = nameFormatter.format(
     entry.participants.map((participant) => participant.display_name),
   );
+
+  async function currentBody() {
+    const fresh = await queryClient.fetchQuery({
+      queryKey: ["work-items", item.id],
+      queryFn: () => getWorkItem(item.id),
+      // The cache is what the refusal says is out of date.
+      staleTime: 0,
+    });
+    return fresh.thread.find((other) => other.id === entry.id)?.body ?? null;
+  }
 
   return (
     <li className="relative border-l-2 border-lagoon/35 pb-8 pl-6 last:pb-0">
@@ -533,11 +606,17 @@ function HistoryEntry({ entry }: { entry: WorkItemEntry }) {
           )}
         </div>
 
-        {entry.body && (
-          <p className="mt-4 whitespace-pre-wrap leading-7 text-body">
-            {entry.body}
-          </p>
-        )}
+        <EntryActions
+          entry={entry}
+          onChanged={invalidateWorkItem}
+          currentBody={currentBody}
+        >
+          {entry.body && (
+            <p className="mt-4 whitespace-pre-wrap leading-7 text-body">
+              {entry.body}
+            </p>
+          )}
+        </EntryActions>
         {entry.handover && (
           <div className="mt-4 border-l-4 border-warning bg-warning-tint p-3 text-sm text-warning-ink">
             <p className="font-bold">{t("workItem.nextTime")}</p>
@@ -571,6 +650,9 @@ function HistoryEntry({ entry }: { entry: WorkItemEntry }) {
                     name: attachment.uploaded_by,
                   })}
                 </p>
+                {attachment.can_remove && (
+                  <AttachmentRemoval item={item} attachment={attachment} />
+                )}
               </li>
             ))}
           </ul>
@@ -814,7 +896,7 @@ function WorkItemScreen({
           {item.thread.length > 0 ? (
             <ol className="mt-6">
               {item.thread.map((entry) => (
-                <HistoryEntry key={entry.id} entry={entry} />
+                <HistoryEntry key={entry.id} item={item} entry={entry} />
               ))}
             </ol>
           ) : (

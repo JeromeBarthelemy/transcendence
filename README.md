@@ -521,7 +521,8 @@ anyone else gets a `403` with the code `not_a_member`.
 | `DELETE /api/work-items/{id}/` | delete one opened by mistake: refused with `work_item_has_traces` (`409`) once it has any trace, even an empty progress — drop it instead |
 | `POST /api/work-items/{id}/tick/` | sign up to today's progress, created by the first to tick |
 | `DELETE /api/work-items/{id}/tick/` | leave today's progress ticked by mistake, oneself only (`not_a_participant` otherwise); the last one leaving takes it with them, text included, unless it holds a file |
-| `PATCH /api/entries/{id}/` | add to a progress (`addition`, appended: nobody erases what another wrote) and change its step or handover, for its participants and mentors; a handover change sends `handover_was` and is refused with `progress_changed` (`409`) if the handover changed since; a `body` is refused with `use_addition` rather than ignored |
+| `PATCH /api/entries/{id}/` | add to a progress (`addition`, appended: nobody erases what another wrote) and change its step or handover, for its participants and mentors; a handover change sends `handover_was` and is refused with `progress_changed` (`409`) if the handover changed since; a student's `body` is refused rather than ignored — `use_addition` on a progress, `correct_not_allowed` (`403`) on a note or a decision; a mentor corrects any trace's text with `body` and `body_was`, refused with `entry_changed` (`409`) if the text changed since |
+| `DELETE /api/entries/{id}/` | remove a trace — a note or a decision by its author, any trace by a mentor, with its participants and files; anyone else gets `remove_not_allowed`. A student leaves a progress rather than removing it |
 | `POST /api/entries/{id}/attachments/` | attach a file to any of the team's entries, as `multipart/form-data` fields `file` and `people_recognisable`, the latter always answered: left out, it is `required`, never read as no |
 | `GET /api/attachments/{id}/` | the file, to the team and mentors |
 | `DELETE /api/attachments/{id}/` | remove it — whoever attached it, or a mentor; anyone else gets `delete_not_uploader` |
@@ -538,7 +539,9 @@ progress, and the handover shown on a work item is the latest one left,
 with who left it, when, and at which step.
 
 Every entry names its work item, `{"id", "title"}`, or `null` for a note to
-the whole team. A day skips to the closest days with something in them: an
+the whole team. It also says what its reader may do with it — `can_remove`,
+`can_correct`, and `can_remove` on each file — computed by the rules the API
+applies (`club/corrections.py`), so a screen shows only the buttons that work. A day skips to the closest days with something in them: an
 empty day has nothing to read, and the slots on which nothing moved are what
 `gaps` lists.
 

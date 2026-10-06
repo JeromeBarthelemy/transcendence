@@ -16,6 +16,7 @@ import { LiveBoard } from "../app/live";
 import { statusColors } from "../app/workItemStatus";
 import { RequestError } from "../components/ApiErrors";
 import { AvatarStack } from "../components/Avatar";
+import { EntryActions } from "../components/EntryActions";
 import { TeamActivity } from "../components/TeamActivity";
 import { OpenWorkItemPanel } from "./OpenWorkItemPanel";
 
@@ -223,6 +224,18 @@ function TodaySummary({
     day.data?.entries.filter(
       (entry) => entry.type === "note" && entry.work_item === null,
     ) ?? [];
+  const reloadDays = () =>
+    queryClient.invalidateQueries({ queryKey: daysQueryKey });
+
+  async function currentBody(entryId: number) {
+    const fresh = await queryClient.fetchQuery({
+      queryKey: ["team-seasons", teamSeasonId, "days", "today"],
+      queryFn: () => getWorkday(teamSeasonId, "today"),
+      // The cache is what the refusal says is out of date.
+      staleTime: 0,
+    });
+    return fresh.entries.find((other) => other.id === entryId)?.body ?? null;
+  }
 
   function submitNote(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -320,7 +333,13 @@ function TodaySummary({
           <ul className="mt-3 space-y-3">
             {dayNotes.map((entry) => (
               <li key={entry.id} className="rounded-xl bg-mist px-4 py-3">
-                <p className="text-sm text-body">{entry.body}</p>
+                <EntryActions
+                  entry={entry}
+                  onChanged={reloadDays}
+                  currentBody={() => currentBody(entry.id)}
+                >
+                  <p className="text-sm text-body">{entry.body}</p>
+                </EntryActions>
                 <p className="mt-1 text-xs text-muted">
                   {t("teamHome.noteMeta", {
                     author: entry.author,

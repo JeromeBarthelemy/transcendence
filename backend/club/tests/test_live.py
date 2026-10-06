@@ -14,7 +14,7 @@ from config.asgi import application
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import Client
 
-from club.models import Membership, Season, Team, TeamSeason, User, WorkItem
+from club.models import Entry, Membership, Season, Team, TeamSeason, User, WorkItem
 from club.progress import record_progress
 
 
@@ -122,6 +122,12 @@ def pdf():
     return SimpleUploadedFile("plan.pdf", b"%PDF-1.7\n%\xe2\xe3\xcf\xd3\n1 0 obj\n")
 
 
+def as_mentor():
+    client = Client()
+    client.force_login(mentor())
+    return client
+
+
 def as_json(**body):
     return {"data": body, "content_type": "application/json"}
 
@@ -182,6 +188,27 @@ WRITES = {
         b.client.post(
             f"/api/entries/{b.progress.id}/attachments/",
             {"file": pdf(), "people_recognisable": "false"},
+        ),
+        lambda response: b.intake.id,
+    ),
+    "remove a trace": lambda b: (
+        b.client.delete(
+            "/api/entries/{}/".format(
+                Entry.objects.create(
+                    team_season=b.team_season,
+                    author=b.lina,
+                    type=Entry.Type.NOTE,
+                    body="Doublon.",
+                    work_item=b.intake,
+                ).id
+            )
+        ),
+        lambda response: b.intake.id,
+    ),
+    "correct a trace": lambda b: (
+        as_mentor().patch(
+            f"/api/entries/{b.progress.id}/",
+            **as_json(body="Galets montés et serrés.", body_was="Galets montés."),
         ),
         lambda response: b.intake.id,
     ),
