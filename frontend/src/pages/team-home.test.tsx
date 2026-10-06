@@ -214,6 +214,9 @@ it("explains the empty state to a member without a team", async () => {
     if (path === "/api/auth/me/") {
       return json(identity([]));
     }
+    if (path === "/api/notifications/") {
+      return json({ unread: 0, items: [] });
+    }
     throw new Error(`Unexpected request: ${path}`);
   });
   vi.stubGlobal("fetch", fetchMock);
@@ -224,7 +227,13 @@ it("explains the empty state to a member without a team", async () => {
       name: "Vous n'avez pas encore d'équipe.",
     }),
   ).toBeTruthy();
-  expect(fetchMock).toHaveBeenCalledTimes(1);
+  // No team data: only the identity, and the header's bell.
+  await waitFor(() =>
+    expect(fetchMock.mock.calls.map(([path]) => path).sort()).toEqual([
+      "/api/auth/me/",
+      "/api/notifications/",
+    ]),
+  );
 });
 
 it("opens a team section from the URL and only loads its own data", async () => {
