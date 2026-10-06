@@ -64,6 +64,13 @@ def _report(reconciliation: Reconciliation, applied: Applied) -> str:
                     for account in reconciliation.departed
                 ],
             ),
+            *_section(
+                "Comptes non rattachés",
+                [
+                    f"  {account.display_name:<22}{account.email}"
+                    for account in reconciliation.untied
+                ],
+            ),
         ]
     )
 

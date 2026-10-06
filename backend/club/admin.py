@@ -131,10 +131,24 @@ class UserAdmin(BaseUserAdmin):
             },
         ),
     )
-    list_display = ("email", "display_name", "club_role", "is_club_admin", "is_staff")
+    list_display = (
+        "email",
+        "display_name",
+        "assoconnect_id",
+        "club_role",
+        "is_club_admin",
+        "is_staff",
+    )
     # is_minor is computed from the birth date on the current day, so the admin
-    # cannot filter on it.
-    list_filter = ("club_role", "is_club_admin", "is_staff", "is_active")
+    # cannot filter on it. An empty member number is an account no import has
+    # tied yet.
+    list_filter = (
+        ("assoconnect_id", admin.EmptyFieldListFilter),
+        "club_role",
+        "is_club_admin",
+        "is_staff",
+        "is_active",
+    )
     search_fields = ("email", "display_name")
     ordering = ("display_name",)
 
