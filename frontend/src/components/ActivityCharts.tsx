@@ -69,25 +69,29 @@ export function ActivityOverTimeChart({
         </ResponsiveContainer>
       </div>
 
-      <table className="sr-only">
-        <caption>{title}</caption>
-        <thead>
-          <tr>
-            <th scope="col">{dayLabel}</th>
-            <th scope="col">{progressLabel}</th>
-            <th scope="col">{membersLabel}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {data.map((item) => (
-            <tr key={item.day}>
-              <th scope="row">{formatDay(item.day)}</th>
-              <td>{item.progress_entries}</td>
-              <td>{item.active_members}</td>
+      {/* On a wrapper: a table never shrinks below its content, so sr-only
+          on the table itself would leave it overflowing a phone's width. */}
+      <div className="sr-only">
+        <table>
+          <caption>{title}</caption>
+          <thead>
+            <tr>
+              <th scope="col">{dayLabel}</th>
+              <th scope="col">{progressLabel}</th>
+              <th scope="col">{membersLabel}</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {data.map((item) => (
+              <tr key={item.day}>
+                <th scope="row">{formatDay(item.day)}</th>
+                <td>{item.progress_entries}</td>
+                <td>{item.active_members}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
@@ -146,23 +150,25 @@ export function WorkItemsByStepChart({
         </ResponsiveContainer>
       </div>
 
-      <table className="sr-only">
-        <caption>{title}</caption>
-        <thead>
-          <tr>
-            <th scope="col">{stepLabel}</th>
-            <th scope="col">{countLabel}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {data.map((item) => (
-            <tr key={item.step}>
-              <th scope="row">{item.label}</th>
-              <td>{item.count}</td>
+      <div className="sr-only">
+        <table>
+          <caption>{title}</caption>
+          <thead>
+            <tr>
+              <th scope="col">{stepLabel}</th>
+              <th scope="col">{countLabel}</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {data.map((item) => (
+              <tr key={item.step}>
+                <th scope="row">{item.label}</th>
+                <td>{item.count}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
