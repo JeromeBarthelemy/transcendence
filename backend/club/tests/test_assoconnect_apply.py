@@ -14,9 +14,11 @@ ORDERED_AT = timezone.make_aware(datetime.combine(ORDERED_ON, time.min))
 
 
 def reconciliation(*matches):
-    """Only the matched lines are applied; the other three lists are shown to
-    the club admin, never acted on."""
-    return Reconciliation(matched=list(matches), to_decide=[], waiting=[], departed=[])
+    """Only the matched lines are applied; the other lists are shown to the
+    club admin, never acted on."""
+    return Reconciliation(
+        matched=list(matches), to_decide=[], waiting=[], departed=[], untied=[]
+    )
 
 
 def test_a_matched_account_takes_its_member_number_and_birth_date():
