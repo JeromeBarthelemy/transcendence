@@ -137,9 +137,10 @@ def leave_todays_progress(work_item: WorkItem, user: User) -> None:
 
     The last one leaving takes the progress with them, text included — a
     progress nobody did is no trace. One still holding a file stays: the
-    file is. Whether anyone is left is tested by the database in the delete
-    itself, so two members leaving at once cannot both see the other one
-    still there."""
+    file is. Django looks for who is left before deleting, in two queries:
+    with SQLite in IMMEDIATE mode (settings.py), the transaction holds the
+    write lock across both, so a tick arriving meanwhile waits, then finds
+    the progress gone and opens a new one, instead of being deleted with it."""
     entry = progress_of_the_day(work_item, workday(timezone.now()))
     if entry is None or not entry.participants.filter(pk=user.pk).exists():
         raise ValidationError(
