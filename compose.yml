@@ -3,6 +3,8 @@ services:
     build: ./backend
     env_file: ./backend/.env
     environment:
+      # `backend` is the Host that Vite's proxy sends. A phone's address goes
+      # in DJANGO_DEV_ORIGINS (backend/.env), which extends this list.
       DJANGO_ALLOWED_HOSTS: localhost,127.0.0.1,backend
     volumes:
       - ./backend:/app

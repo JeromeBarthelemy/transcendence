@@ -10,6 +10,7 @@ on one machine, serving one club. No inbound traffic from outside that room.
 
 import os
 from pathlib import Path
+from urllib.parse import urlsplit
 
 from dotenv import load_dotenv
 
@@ -38,6 +39,11 @@ def env_list(name: str, default: str = "") -> list[str]:
         for item in os.environ.get(name, default).split(",")
         if item.strip()
     ]
+
+
+def hosts_of(origins: list[str]) -> list[str]:
+    """The addresses of origins such as `http://192.168.1.40:5173`."""
+    return [urlsplit(origin).hostname or "" for origin in origins]
 
 
 # ---------------------------------------------------------------------------
@@ -261,6 +267,11 @@ CSRF_TRUSTED_ORIGINS = env_list("DJANGO_CSRF_TRUSTED_ORIGINS")
 # match, and the CSRF check compares Origin against this list before the view
 # is ever reached.
 if DEBUG:
-    CSRF_TRUSTED_ORIGINS += env_list(
+    dev_origins = env_list(
         "DJANGO_DEV_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173"
     )
+    CSRF_TRUSTED_ORIGINS += dev_origins
+    # The live socket checks its Origin against ALLOWED_HOSTS instead
+    # (asgi.py): a phone trying the dev stack on the laptop's address would
+    # sign in, then stay "offline".
+    ALLOWED_HOSTS += hosts_of(dev_origins)
