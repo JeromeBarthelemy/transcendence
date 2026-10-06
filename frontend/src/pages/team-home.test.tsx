@@ -64,6 +64,7 @@ function workItem(item: object, teamSeasonId = 7) {
   return {
     team_season: teamSeasonId,
     opened_at: new Date().toISOString(),
+    closed_at: null,
     ...item,
   };
 }

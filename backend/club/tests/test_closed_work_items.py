@@ -259,3 +259,16 @@ def test_reopening_an_open_work_item_is_refused(client, db):
 
     assert response.json()["status"][0]["code"] == "already_open"
     assert notes_on(pince) == []
+
+
+def test_a_work_item_says_when_it_was_closed_and_forgets_it_once_reopened(client, db):
+    # The screen says "dropped on 2 October" above the read-only page.
+    rouages = team_season()
+    client.force_login(member_of(rouages))
+    pince = WorkItem.objects.create(team_season=rouages, title="pince")
+
+    dropped = change(client, pince, status="dropped", reason="Trop lourde.").json()
+    reopened = change(client, pince, status="open").json()
+
+    assert dropped["closed_at"] is not None
+    assert reopened["closed_at"] is None

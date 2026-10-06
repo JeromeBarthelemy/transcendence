@@ -1,11 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { type FormEvent, useRef, useState } from "react";
+import { type FormEvent, useId, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
 
 import type { Identity } from "../api/auth";
 import {
-  closeWorkItem,
+  changeWorkItemStatus,
   createWorkItemNote,
   deleteWorkItem,
   getWorkItem,
@@ -17,6 +17,7 @@ import {
   uploadAttachment,
   type WorkItemDetail,
   type WorkItemEntry,
+  type WorkItemStatus,
   type WorkItemStep,
   workItemSteps,
 } from "../api/workItems";
@@ -734,6 +735,63 @@ function WorkItemNoteForm({ item }: { item: WorkItemDetail }) {
   );
 }
 
+/** Closing or reopening, with why. Dropping requires a reason, since that
+ * is what the notebook would otherwise lose; the form is the confirmation,
+ * so nothing closes by a stray click. */
+function StatusForm({
+  status,
+  isPending,
+  onCancel,
+  onConfirm,
+}: {
+  status: WorkItemStatus;
+  isPending: boolean;
+  onCancel: () => void;
+  onConfirm: (reason: string) => void;
+}) {
+  const { t } = useTranslation();
+  const reasonId = useId();
+  const [reason, setReason] = useState("");
+  const required = status === "dropped";
+  return (
+    <form
+      className="mt-6 rounded-2xl border border-primary/15 bg-white p-5"
+      onSubmit={(event) => {
+        event.preventDefault();
+        onConfirm(reason.trim());
+      }}
+    >
+      <label htmlFor={reasonId} className="form-label">
+        {t(`workItem.reasonFor.${status}`)}
+      </label>
+      <textarea
+        id={reasonId}
+        className="form-input mt-2 min-h-24"
+        value={reason}
+        required={required}
+        onChange={(event) => setReason(event.target.value)}
+      />
+      <div className="mt-4 flex gap-3">
+        <button
+          type="button"
+          className="rounded-xl border border-primary/20 bg-white px-4 py-2 text-sm font-semibold text-ink disabled:opacity-50"
+          disabled={isPending}
+          onClick={onCancel}
+        >
+          {t("workItem.cancel")}
+        </button>
+        <button
+          type="submit"
+          className="rounded-xl bg-ink px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+          disabled={isPending || (required && !reason.trim())}
+        >
+          {t(`workItem.confirmStatus.${status}`)}
+        </button>
+      </div>
+    </form>
+  );
+}
+
 function WorkItemScreen({
   item,
   identity,
@@ -747,12 +805,22 @@ function WorkItemScreen({
   ).length;
   const team = teamLabel(identity, item.team_season);
   const invalidateWorkItem = useInvalidateWorkItem(item);
+  // The status being changed, its form open until it is saved or cancelled.
+  const [statusChange, setStatusChange] = useState<WorkItemStatus | null>(null);
   const close = useMutation({
-    mutationFn: (status: "done" | "dropped") => closeWorkItem(item.id, status),
+    mutationFn: ({
+      status,
+      reason,
+    }: {
+      status: WorkItemStatus;
+      reason: string;
+    }) => changeWorkItemStatus(item.id, status, reason),
     onSuccess: async () => {
+      setStatusChange(null);
       await invalidateWorkItem();
     },
   });
+  const isClosed = item.status !== "open";
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
@@ -803,13 +871,22 @@ function WorkItemScreen({
               {t("workItem.delete")}
             </button>
           )}
-          {item.status === "open" && (
+          {isClosed ? (
+            <button
+              type="button"
+              className="rounded-full border border-primary/25 px-3 py-1 text-sm font-semibold text-ink hover:bg-tint disabled:cursor-not-allowed disabled:opacity-50"
+              disabled={close.isPending}
+              onClick={() => setStatusChange("open")}
+            >
+              {t("workItem.reopen")}
+            </button>
+          ) : (
             <>
               <button
                 type="button"
                 className="rounded-full border border-red-800/25 px-3 py-1 text-sm font-semibold text-red-800 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
                 disabled={close.isPending}
-                onClick={() => close.mutate("dropped")}
+                onClick={() => setStatusChange("dropped")}
               >
                 {t("workItem.drop")}
               </button>
@@ -818,7 +895,7 @@ function WorkItemScreen({
                   type="button"
                   className="rounded-full border border-success/30 px-3 py-1 text-sm font-semibold text-success hover:bg-success/10 disabled:cursor-not-allowed disabled:opacity-50"
                   disabled={close.isPending}
-                  onClick={() => close.mutate("done")}
+                  onClick={() => setStatusChange("done")}
                 >
                   {t("workItem.finish")}
                 </button>
@@ -835,7 +912,29 @@ function WorkItemScreen({
         </div>
       </header>
 
+      {statusChange && (
+        <StatusForm
+          status={statusChange}
+          isPending={close.isPending}
+          onCancel={() => setStatusChange(null)}
+          onConfirm={(reason) => close.mutate({ status: statusChange, reason })}
+        />
+      )}
       {close.isError && <RequestError error={close.error} />}
+      {isClosed && (
+        <p className="mt-6 rounded-2xl border border-primary/15 bg-tint px-4 py-3 text-sm font-semibold text-ink">
+          {t(
+            item.status === "done"
+              ? "workItem.closedDone"
+              : "workItem.closedDropped",
+            {
+              date: item.closed_at
+                ? dateFormatter.format(new Date(item.closed_at))
+                : "",
+            },
+          )}
+        </p>
+      )}
       {isConfirmingDelete && (
         <div className="mt-6 rounded-2xl border border-red-800/20 bg-red-50 p-5">
           <p className="text-sm text-red-900">{t("workItem.deleteConfirm")}</p>
@@ -881,10 +980,14 @@ function WorkItemScreen({
       )}
 
       <div className="mt-8 grid items-start gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.9fr)]">
-        <div className="space-y-6">
-          <TodayPanel item={item} identity={identity} />
-          <WorkItemNoteForm item={item} />
-        </div>
+        {/* Closed, nothing moves it forward until it is reopened (#139): only
+            its history stays, which can still be put right. */}
+        {!isClosed && (
+          <div className="space-y-6">
+            <TodayPanel item={item} identity={identity} />
+            <WorkItemNoteForm item={item} />
+          </div>
+        )}
 
         <section aria-labelledby="history-title">
           <p className="text-xs font-bold tracking-[0.14em] text-accent uppercase">

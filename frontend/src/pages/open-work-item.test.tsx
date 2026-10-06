@@ -33,6 +33,7 @@ function workItem(id: number, title: string, onRobot: boolean, status: string) {
     on_robot: onRobot,
     status,
     opened_at: new Date().toISOString(),
+    closed_at: null,
     current_step: null,
     handover: null,
     last_progress: null,

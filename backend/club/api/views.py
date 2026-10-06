@@ -500,6 +500,7 @@ def _work_item(item: WorkItem) -> dict[str, object]:
         "on_robot": item.on_robot,
         "status": item.status,
         "opened_at": item.opened_at,
+        "closed_at": item.closed_at,
         # The latest progress already carries it: read once, not twice.
         "current_step": latest.step if latest else None,
         "handover": {

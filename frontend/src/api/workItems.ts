@@ -42,6 +42,7 @@ const workItemSchema = z.object({
   on_robot: z.boolean(),
   status: z.enum(["open", "done", "dropped"]),
   opened_at: z.string(),
+  closed_at: z.nullable(z.string()),
   current_step: z.nullable(workItemStepSchema),
   handover: handoverSchema,
   last_progress: lastProgressSchema,
@@ -85,6 +86,7 @@ const workItemDetailSchema = z.extend(workItemSchema, {
 
 export type WorkItemStep = z.infer<typeof workItemStepSchema>;
 export type WorkItem = z.infer<typeof workItemSchema>;
+export type WorkItemStatus = WorkItem["status"];
 export type WorkItemEntry = z.infer<typeof entrySchema>;
 export type WorkItemDetail = z.infer<typeof workItemDetailSchema>;
 
@@ -140,11 +142,17 @@ export async function tickWorkItem(
   return parseEntry(body);
 }
 
-export async function closeWorkItem(
+/** Closing, or reopening on purpose (#139). A reason becomes a note in the
+ * work item's history; dropping requires one. */
+export async function changeWorkItemStatus(
   id: number,
-  status: "done" | "dropped",
+  status: WorkItemStatus,
+  reason: string,
 ): Promise<WorkItem> {
-  const { body } = await patch(`/api/work-items/${id}/`, { status });
+  const { body } = await patch(`/api/work-items/${id}/`, {
+    status,
+    ...(reason ? { reason } : {}),
+  });
   const result = workItemSchema.safeParse(body);
   if (!result.success) {
     throw new Error("The work item response is invalid");
