@@ -639,9 +639,12 @@ class TickView(APIView):
         if created:
             entry = record_progress(item, user, "", step=step)
         assert entry is not None
-        if not entry.participants.filter(pk=user.pk).exists():
+        joined = not entry.participants.filter(pk=user.pk).exists()
+        if joined:
             join(entry, user)
-        broadcast(item.team_season_id, item.id)
+        # A tick made twice changes nothing: no screen to reload.
+        if created or joined:
+            broadcast(item.team_season_id, item.id)
         return Response(
             _entry(entry),
             status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,

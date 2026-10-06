@@ -285,3 +285,19 @@ def test_a_notification_that_fails_does_not_fail_the_write(
         )
 
     assert response.status_code == 201
+
+
+def test_ticking_again_changes_nothing_and_notifies_nobody(
+    board, django_capture_on_commit_callbacks
+):
+    response, heard = listen(
+        board.team_season,
+        board.lina,
+        lambda: board.client.post(
+            f"/api/work-items/{board.intake.id}/tick/", **as_json()
+        ),
+        django_capture_on_commit_callbacks,
+    )
+
+    assert response.status_code == 200
+    assert heard is None
