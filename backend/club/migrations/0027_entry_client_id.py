@@ -5,7 +5,7 @@ from django.db import migrations, models
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("club", "0025_work_item_opened_on_creation"),
+        ("club", "0026_rulebook_source_updates"),
     ]
 
     operations = [
