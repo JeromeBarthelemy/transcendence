@@ -8,6 +8,9 @@ const RECONNECT_AFTER = [1000, 2000, 5000, 10_000];
 // A socket dropping is only worth a notice once it stays down: a server
 // restart is a blip. The browser saying it is offline is shown at once.
 const OFFLINE_AFTER = 3000;
+// The server forgets a socket's subscription after a day, without closing it,
+// and only checks access on connecting: a fresh socket every hour bounds both.
+const RENEW_AFTER = 60 * 60 * 1000;
 
 export function liveUrl(
   teamSeasonId: number,
@@ -29,6 +32,7 @@ function useLiveBoard(teamSeasonId: number): boolean {
     let socket: WebSocket | null = null;
     let reconnect: ReturnType<typeof setTimeout> | undefined;
     let offlineNotice: ReturnType<typeof setTimeout> | undefined;
+    let renew: ReturnType<typeof setTimeout> | undefined;
     let attempts = 0;
 
     function clearNotice() {
@@ -48,6 +52,10 @@ function useLiveBoard(teamSeasonId: number): boolean {
         });
         queryClient.invalidateQueries({ queryKey: ["work-items"] });
         attempts = 0;
+        renew = setTimeout(() => {
+          shut();
+          connect();
+        }, RENEW_AFTER);
       };
       opened.onmessage = (event) => {
         const { work_item } = JSON.parse(event.data) as {
@@ -64,6 +72,7 @@ function useLiveBoard(teamSeasonId: number): boolean {
       };
       opened.onclose = () => {
         socket = null;
+        clearTimeout(renew);
         offlineNotice ??= setTimeout(() => setOffline(true), OFFLINE_AFTER);
         const wait =
           RECONNECT_AFTER[Math.min(attempts, RECONNECT_AFTER.length - 1)];
@@ -78,6 +87,7 @@ function useLiveBoard(teamSeasonId: number): boolean {
      * mount in development. */
     function shut() {
       clearTimeout(reconnect);
+      clearTimeout(renew);
       clearNotice();
       const closing = socket;
       socket = null;

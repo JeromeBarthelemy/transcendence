@@ -220,3 +220,20 @@ it("closes its socket when the page is left, and opens it again if the page come
   latest().open();
   expect(invalidated(["work-items", 11])).toBe(true);
 });
+
+it("starts a fresh socket every hour, without saying it is offline", () => {
+  const { invalidated, fresh } = renderBoard();
+  const first = latest();
+  first.open();
+
+  act(() => vi.advanceTimersByTime(60 * 60 * 1000));
+  // An hour on, the test's unobserved queries are gone: loaded afresh.
+  fresh();
+
+  expect(first.closed).toBe(true);
+  expect(FakeSocket.all).toHaveLength(2);
+  act(() => vi.advanceTimersByTime(5000));
+  expect(screen.queryByText(offline)).toBeNull();
+  latest().open();
+  expect(invalidated(["work-items", 11])).toBe(true);
+});
