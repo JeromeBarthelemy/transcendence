@@ -133,6 +133,8 @@ hostname -I    # the laptop's address on the Wi-Fi: the first one
 ```
 
 Add `http://<address>:5173` to `DJANGO_DEV_ORIGINS` in `backend/.env`,
+keeping the two defaults the variable replaces
+(`http://localhost:5173,http://127.0.0.1:5173,http://<address>:5173`),
 recreate the backend, then open `http://<address>:5173` on the phone:
 
 ```sh
@@ -141,6 +143,10 @@ docker compose up -d --force-recreate backend
 
 - **`restart` is not enough**: Compose reads `env_file` only when it creates
   the container.
+- **The same line keeps the board live**: the WebSocket checks its `Origin`
+  against `ALLOWED_HOSTS` rather than the CSRF origins, so in development
+  `ALLOWED_HOSTS` also takes the addresses of `DJANGO_DEV_ORIGINS`. Without
+  it the phone signs in, then stays "Hors ligne".
 - **The Django admin isn't reachable from a phone**: it listens on port 8000,
   outside Vite's proxy. Use it from the laptop.
 - **`permission denied` on the Docker socket right after installing
@@ -388,6 +394,12 @@ every later `POST` must echo in an `X-CSRFToken` header. The `null` answer
 sets the cookie too, which is what arms the login form. "Nobody" is an
 answer, not a refusal: a `403` on every visitor's first request would put a
 red line in their browser's console, which the subject forbids.
+
+Normal use leaves Chrome's console clean, on every screen and for every
+role. A refusal the member actually meets — a wrong password, a correction
+over a text changed meanwhile — is a `4xx`, and Chrome logs every `4xx`
+response as "Failed to load resource", whatever the page then does with it:
+that line is the refusal being reported, not the page failing.
 
 Sign-up and log-in say `csrf_protect` explicitly. `SessionAuthentication`
 enforces CSRF only once it has *found* a session, so the two routes that run
