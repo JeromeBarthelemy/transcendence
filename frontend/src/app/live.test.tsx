@@ -161,7 +161,21 @@ it("says at once that the browser is offline, and stops once it is back", () => 
 
   act(() => window.dispatchEvent(new Event("online")));
   expect(screen.queryByText(offline)).toBeNull();
-  expect(FakeSocket.all).toHaveLength(1);
+});
+
+it("starts a fresh socket once the browser is back online, the old one may be dead", () => {
+  const { invalidated, fresh } = renderBoard();
+  const stale = latest();
+  stale.open();
+  fresh();
+  act(() => window.dispatchEvent(new Event("offline")));
+
+  act(() => window.dispatchEvent(new Event("online")));
+
+  expect(stale.closed).toBe(true);
+  expect(FakeSocket.all).toHaveLength(2);
+  latest().open();
+  expect(invalidated(["work-items", 11])).toBe(true);
 });
 
 it("reconnects without waiting once the browser is back online", () => {

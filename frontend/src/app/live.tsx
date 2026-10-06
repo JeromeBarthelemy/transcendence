@@ -100,12 +100,12 @@ function useLiveBoard(teamSeasonId: number): boolean {
       setOffline(true);
     }
 
+    // The socket that seemed open meanwhile may be dead, with what was sent
+    // to it lost: a new one reloads the board on opening.
     function backOnline() {
-      clearNotice();
       setOffline(false);
-      if (socket === null) {
-        connect();
-      }
+      shut();
+      connect();
     }
 
     // Closed before the page goes, or Firefox reports the socket as
