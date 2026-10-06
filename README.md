@@ -465,8 +465,8 @@ here as anywhere else.
 
 | route | answers |
 | --- | --- |
-| `POST /api/auth/me/export/` | `202` — a JSON copy of the account, plus the avatar, by e-mail |
-| `DELETE /api/auth/me/` | `204` — `password` confirms it; anonymizes the account, confirmed by e-mail |
+| `POST /api/auth/me/export/` | `202` with `sent_to` — a JSON copy of the account, plus the avatar, by e-mail to that address |
+| `DELETE /api/auth/me/` | `200` with `sent_to` — `password` confirms it; anonymizes the account, confirmed by e-mail to that address |
 
 Neither goes to the login address: it identifies an account without being
 assumed to deliver, and the youngest members have none that does. Both go to

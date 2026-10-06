@@ -185,9 +185,9 @@ class MeView(APIView):
         assert isinstance(user, User)
         serializer = DeleteAccountSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        request_deletion(user, password=serializer.validated_data["password"])
+        sent_to = request_deletion(user, password=serializer.validated_data["password"])
         logout(request)
-        return Response(status=status.HTTP_204_NO_CONTENT)
+        return Response({"sent_to": sent_to})
 
 
 class MemberDataExportView(APIView):
@@ -197,8 +197,7 @@ class MemberDataExportView(APIView):
     def post(self, request: Request) -> Response:
         user = request.user
         assert isinstance(user, User)
-        send_export(user)
-        return Response(status=status.HTTP_202_ACCEPTED)
+        return Response({"sent_to": send_export(user)}, status=status.HTTP_202_ACCEPTED)
 
 
 def _identity(user: User) -> dict[str, object]:

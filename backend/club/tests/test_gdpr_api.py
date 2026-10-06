@@ -68,6 +68,16 @@ def test_a_member_receives_their_export_by_e_mail(client, mailoutbox):
     assert "Élève" in content
 
 
+def test_a_member_is_told_where_their_export_went(client, mailoutbox):
+    # A student may look in their own mailbox while it reached a guardian's.
+    lina = student(email="lina@club.fr", contact_email="parent.lina@club.fr")
+    client.force_login(lina)
+
+    response = client.post("/api/auth/me/export/")
+
+    assert response.json() == {"sent_to": "parent.lina@club.fr"}
+
+
 def test_the_export_never_goes_to_the_login_address(client, mailoutbox):
     # The login address may be built and undeliverable (the .invalid domain);
     # the contact address is the one AssoConnect actually confirms.
@@ -226,11 +236,20 @@ def test_a_member_deletes_their_own_account(client, mailoutbox):
 
     response = delete(client)
 
-    assert response.status_code == 204
+    assert response.status_code == 200
     lina.refresh_from_db()
     assert lina.is_active is False
     (mail,) = mailoutbox
     assert mail.to == ["parent.lina@club.fr"]
+
+
+def test_a_member_is_told_where_their_deletion_confirmation_went(client, mailoutbox):
+    lina = student(contact_email="parent.lina@club.fr")
+    client.force_login(lina)
+
+    response = delete(client)
+
+    assert response.json() == {"sent_to": "parent.lina@club.fr"}
 
 
 def test_deletion_anonymizes_the_display_name_and_login_address(client, mailoutbox):
@@ -415,7 +434,7 @@ def test_an_admin_can_leave_if_another_one_remains(client, mailoutbox):
 
     response = delete(client)
 
-    assert response.status_code == 204
+    assert response.status_code == 200
     boss.refresh_from_db()
     assert boss.is_active is False
 
