@@ -47,6 +47,8 @@ from club.models import (
 )
 from club.progress import (
     ProgressChanged,
+    WorkItemClosed,
+    check_open,
     edit_progress,
     join,
     leave_todays_progress,
@@ -629,6 +631,16 @@ class WorkItemDetailView(APIView):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
+def _open_for_work(item: WorkItem | None) -> None:
+    try:
+        check_open(item)
+    except WorkItemClosed as closed:
+        raise Conflict(
+            "Ce chantier est fermé : rouvrez-le pour le reprendre.",
+            code="work_item_closed",
+        ) from closed
+
+
 class TickView(APIView):
     """Ticking a work item is signing up to today's progress on it, which the
     first to tick creates. Ticking at another step than today's opens a
@@ -643,6 +655,7 @@ class TickView(APIView):
         user = request.user
         assert isinstance(user, User)
         item = _work_item_acted_on(user, pk)
+        _open_for_work(item)
         serializer = TickSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         step = serializer.validated_data.get("step")
@@ -683,6 +696,7 @@ class EntryAttachmentsView(APIView):
         assert isinstance(user, User)
         entry = get_object_or_404(Entry, pk=pk)
         team_season_acted_on(user, entry.team_season_id)
+        _open_for_work(entry.work_item)
         serializer = AttachmentSerializer(
             data=request.data, context={"entry": entry, "user": user}
         )
@@ -760,6 +774,8 @@ class EntryDetailView(APIView):
                 "Cette avancée a été modifiée pendant que vous écriviez.",
                 code="progress_changed",
             ) from changed
+        except WorkItemClosed:
+            _open_for_work(entry.work_item)
         broadcast(entry.team_season_id, entry.work_item_id)
         return Response(_entry(entry, user))
 
@@ -801,6 +817,7 @@ class NoteCreateView(APIView):
             data=request.data, context={"team_season": team_season, "author": user}
         )
         serializer.is_valid(raise_exception=True)
+        _open_for_work(serializer.validated_data.get("work_item"))
         entry = serializer.save()
         broadcast(team_season.id, entry.work_item_id)
         return Response(_entry(entry, user), status=status.HTTP_201_CREATED)
@@ -815,6 +832,7 @@ class DecisionCreateView(APIView):
             data=request.data, context={"team_season": team_season, "author": user}
         )
         serializer.is_valid(raise_exception=True)
+        _open_for_work(serializer.validated_data.get("work_item"))
         entry = serializer.save()
         broadcast(team_season.id, entry.work_item_id)
         return Response(_entry(entry, user), status=status.HTTP_201_CREATED)

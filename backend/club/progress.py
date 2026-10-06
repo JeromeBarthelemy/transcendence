@@ -25,6 +25,19 @@ def check_step(work_item: WorkItem, step: str | None) -> None:
         )
 
 
+class WorkItemClosed(Exception):
+    """Nothing moves a closed work item forward until it is reopened on
+    purpose (#139). Not a ValidationError: the request is fine, the work
+    item is not open, and the API answers 409."""
+
+
+def check_open(work_item: WorkItem | None) -> None:
+    """Correcting, removing or leaving a trace is still allowed: it repairs
+    the record, it does not move the work forward."""
+    if work_item is not None and work_item.status != WorkItem.Status.OPEN:
+        raise WorkItemClosed
+
+
 @transaction.atomic
 def record_progress(
     work_item: WorkItem,
@@ -39,16 +52,10 @@ def record_progress(
     A student who records a progress did it, and is signed up to it. A mentor
     may be writing up what the students forgot, which is not having been
     there: they join like anyone else if they took part."""
+    check_open(work_item)
     check_step(work_item, step)
     if work_item.on_robot:
         step = step or work_item.current_step or Entry.Step.BRAINSTORMING
-
-    # Working on a work item thought finished reopens it. The status is tested
-    # by the database, not read then written, so two students reopening it at
-    # the same moment cannot race.
-    WorkItem.objects.filter(
-        pk=work_item.pk, status__in=[WorkItem.Status.DONE, WorkItem.Status.DROPPED]
-    ).update(status=WorkItem.Status.OPEN, closed_at=None)
 
     entry = Entry.objects.create(
         # Taken from the work item, so a progress cannot land in another team.
@@ -103,6 +110,7 @@ def edit_progress(
             "Seuls ses participants et les mentors modifient une avancée.",
             code="edit_not_participant",
         )
+    check_open(work_item)
     check_step(work_item, step)
     addition = addition.strip()
     if not addition and step is None and handover is None:

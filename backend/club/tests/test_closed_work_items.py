@@ -1,0 +1,141 @@
+"""A closed work item is read-only (#139): nothing moves it forward until
+someone reopens it on purpose, but its history can still be put right."""
+
+import pytest
+from django.core.files.uploadedfile import SimpleUploadedFile
+
+from club.models import Entry, Membership, Season, Team, TeamSeason, User, WorkItem
+from club.progress import WorkItemClosed, record_progress
+
+CLOSED = [WorkItem.Status.DONE, WorkItem.Status.DROPPED]
+
+
+def team_season():
+    season, _ = Season.objects.get_or_create(start_year=2026, game_name="BioBuzz")
+    team = Team.objects.create(number=12345, name="Rouages")
+    return TeamSeason.objects.create(team=team, season=season)
+
+
+def member_of(team_season, name="lina"):
+    user = User.objects.create_user(f"{name}@example.org", name)
+    Membership.objects.create(user=user, team_season=team_season)
+    return user
+
+
+def mentor():
+    return User.objects.create_user(
+        "paul@example.org", "paul", club_role=User.ClubRole.MENTOR
+    )
+
+
+@pytest.fixture
+def closed(db, request):
+    """Outreach, with today's progress by Lina, then closed."""
+    rouages = team_season()
+    lina = member_of(rouages)
+    outreach = WorkItem.objects.create(team_season=rouages, title="outreach")
+    progress = record_progress(outreach, lina, "Stand monté.")
+    WorkItem.objects.filter(pk=outreach.pk).update(status=request.param)
+    outreach.refresh_from_db()
+    return outreach, lina, progress
+
+
+def refused(response):
+    assert response.status_code == 409
+    assert response.json()["detail"]["code"] == "work_item_closed"
+
+
+@pytest.mark.parametrize("closed", CLOSED, indirect=True)
+def test_a_progress_is_never_recorded_on_a_closed_work_item(closed):
+    outreach, lina, _ = closed
+
+    with pytest.raises(WorkItemClosed):
+        record_progress(outreach, lina, "Finalement, on reprend.")
+
+    outreach.refresh_from_db()
+    assert outreach.status != WorkItem.Status.OPEN
+
+
+@pytest.mark.parametrize("closed", CLOSED, indirect=True)
+def test_ticking_a_closed_work_item_is_refused(client, closed):
+    outreach, _, _ = closed
+    client.force_login(member_of(outreach.team_season, "tom"))
+
+    refused(
+        client.post(
+            f"/api/work-items/{outreach.id}/tick/", {}, content_type="application/json"
+        )
+    )
+
+
+@pytest.mark.parametrize("closed", CLOSED, indirect=True)
+def test_adding_to_the_progress_of_a_closed_work_item_is_refused(client, closed):
+    # Seen on 4 October: a progress written twelve minutes after its work
+    # item was dropped, which stayed dropped.
+    _, lina, progress = closed
+    client.force_login(lina)
+
+    refused(
+        client.patch(
+            f"/api/entries/{progress.id}/",
+            {"addition": "Flyers distribués."},
+            content_type="application/json",
+        )
+    )
+    progress.refresh_from_db()
+    assert progress.body == "Stand monté."
+
+
+@pytest.mark.parametrize("closed", CLOSED, indirect=True)
+@pytest.mark.parametrize("kind", ["notes", "decisions"])
+def test_a_note_or_decision_on_a_closed_work_item_is_refused(client, closed, kind):
+    outreach, lina, _ = closed
+    client.force_login(lina)
+
+    refused(
+        client.post(
+            f"/api/team-seasons/{outreach.team_season_id}/{kind}/",
+            {"body": "Une de plus.", "work_item": outreach.id},
+            content_type="application/json",
+        )
+    )
+    assert not Entry.objects.exclude(type=Entry.Type.PROGRESS).exists()
+
+
+@pytest.mark.parametrize("closed", CLOSED, indirect=True)
+def test_a_file_on_a_trace_of_a_closed_work_item_is_refused(
+    client, closed, settings, tmp_path
+):
+    settings.MEDIA_ROOT = tmp_path
+    _, lina, progress = closed
+    client.force_login(lina)
+
+    refused(
+        client.post(
+            f"/api/entries/{progress.id}/attachments/",
+            {
+                "file": SimpleUploadedFile("plan.pdf", b"%PDF-1.7\n1 0 obj\n"),
+                "people_recognisable": "false",
+            },
+        )
+    )
+    assert not progress.attachments.exists()
+
+
+@pytest.mark.parametrize("closed", CLOSED, indirect=True)
+def test_a_closed_work_items_history_can_still_be_put_right(client, closed):
+    # Correcting or removing a trace, or leaving a progress ticked by
+    # mistake, repairs the record; it does not move the work forward.
+    outreach, lina, progress = closed
+    client.force_login(mentor())
+
+    corrected = client.patch(
+        f"/api/entries/{progress.id}/",
+        {"body": "Stand monté et démonté.", "body_was": "Stand monté."},
+        content_type="application/json",
+    )
+    client.force_login(lina)
+    left = client.delete(f"/api/work-items/{outreach.id}/tick/")
+
+    assert corrected.status_code == 200
+    assert left.status_code == 204
