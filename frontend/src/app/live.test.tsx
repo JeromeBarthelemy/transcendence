@@ -53,13 +53,17 @@ afterEach(() => {
 
 function renderBoard() {
   const queryClient = new QueryClient();
-  for (const key of [
-    ["team-seasons", 7, "work-items"],
-    ["work-items", 10],
-    ["work-items", 11],
-  ]) {
-    queryClient.setQueryData(key, { cached: true });
-  }
+  // As freshly loaded: setting the data clears an earlier invalidation.
+  const fresh = () => {
+    for (const key of [
+      ["team-seasons", 7, "work-items"],
+      ["work-items", 10],
+      ["work-items", 11],
+    ]) {
+      queryClient.setQueryData(key, { cached: true });
+    }
+  };
+  fresh();
   const view = render(
     <QueryClientProvider client={queryClient}>
       <LiveBoard teamSeasonId={7} />
@@ -67,7 +71,7 @@ function renderBoard() {
   );
   const invalidated = (key: unknown[]) =>
     queryClient.getQueryState(key)?.isInvalidated;
-  return { ...view, invalidated };
+  return { ...view, invalidated, fresh };
 }
 
 const offline =
@@ -83,8 +87,9 @@ it("listens on its team season's socket, secure under https", () => {
 });
 
 it("reloads the team season and the work item a message names", () => {
-  const { invalidated } = renderBoard();
+  const { invalidated, fresh } = renderBoard();
   latest().open();
+  fresh();
 
   latest().receive({ work_item: 10 });
 
@@ -93,9 +98,22 @@ it("reloads the team season and the work item a message names", () => {
   expect(invalidated(["work-items", 11])).toBe(false);
 });
 
-it("reconnects after a drop and reloads what it may have missed", () => {
+it("reloads on its first connection what changed while it was connecting", () => {
   const { invalidated } = renderBoard();
+
+  latest().drop();
+  act(() => vi.advanceTimersByTime(1000));
+  expect(invalidated(["work-items", 11])).toBe(false);
   latest().open();
+
+  expect(invalidated(["team-seasons", 7, "work-items"])).toBe(true);
+  expect(invalidated(["work-items", 11])).toBe(true);
+});
+
+it("reconnects after a drop and reloads what it may have missed", () => {
+  const { invalidated, fresh } = renderBoard();
+  latest().open();
+  fresh();
 
   latest().drop();
   act(() => vi.advanceTimersByTime(1000));
@@ -171,9 +189,10 @@ it("waits for a socket still connecting to open before closing it", () => {
 });
 
 it("closes its socket when the page is left, and opens it again if the page comes back", () => {
-  const { invalidated } = renderBoard();
+  const { invalidated, fresh } = renderBoard();
   const socket = latest();
   socket.open();
+  fresh();
 
   act(() => window.dispatchEvent(new Event("pagehide")));
   expect(socket.closed).toBe(true);

@@ -18,9 +18,9 @@ export function liveUrl(
 }
 
 /** Hears when anyone changes the team season's board, and reloads what the
- * screen shows through the API: a message only says what changed. After a
- * drop, it reconnects and reloads everything, since it may have missed
- * messages meanwhile. Returns whether the screen is offline. */
+ * screen shows through the API: a message only says what changed. Each time
+ * it connects, it reloads everything: before the first connection as after a
+ * drop, it may have missed messages. Returns whether the screen is offline. */
 function useLiveBoard(teamSeasonId: number): boolean {
   const queryClient = useQueryClient();
   const [offline, setOffline] = useState(false);
@@ -30,7 +30,6 @@ function useLiveBoard(teamSeasonId: number): boolean {
     let reconnect: ReturnType<typeof setTimeout> | undefined;
     let offlineNotice: ReturnType<typeof setTimeout> | undefined;
     let attempts = 0;
-    let wasOpen = false;
 
     function clearNotice() {
       clearTimeout(offlineNotice);
@@ -44,13 +43,10 @@ function useLiveBoard(teamSeasonId: number): boolean {
       opened.onopen = () => {
         clearNotice();
         setOffline(false);
-        if (wasOpen) {
-          queryClient.invalidateQueries({
-            queryKey: ["team-seasons", teamSeasonId],
-          });
-          queryClient.invalidateQueries({ queryKey: ["work-items"] });
-        }
-        wasOpen = true;
+        queryClient.invalidateQueries({
+          queryKey: ["team-seasons", teamSeasonId],
+        });
+        queryClient.invalidateQueries({ queryKey: ["work-items"] });
         attempts = 0;
       };
       opened.onmessage = (event) => {
