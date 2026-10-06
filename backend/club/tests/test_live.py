@@ -14,8 +14,17 @@ from config.asgi import application
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import Client
 
-from club.models import Entry, Membership, Season, Team, TeamSeason, User, WorkItem
-from club.progress import record_progress
+from club.models import (
+    Entry,
+    Membership,
+    Notification,
+    Season,
+    Team,
+    TeamSeason,
+    User,
+    WorkItem,
+)
+from club.progress import join, record_progress
 
 
 def team_season(number=12345):
@@ -94,13 +103,16 @@ def test_a_connection_from_another_site_is_refused(db):
 @pytest.fixture
 def board(db, settings, tmp_path):
     """A team with a robot work item, today's progress and a file on it, and
-    an empty work item opened by mistake."""
+    an empty work item opened by mistake. Tom took part in the progress, so
+    he follows the robot work item."""
     settings.MEDIA_ROOT = tmp_path
     rouages = team_season()
     lina = member_of(rouages)
     intake = WorkItem.objects.create(team_season=rouages, title="intake", on_robot=True)
     empty = WorkItem.objects.create(team_season=rouages, title="pince")
     progress = record_progress(intake, lina, "Galets montés.", handover="Tester.")
+    tom = member_of(rouages, "tom")
+    join(progress, tom)
     client = Client()
     client.force_login(lina)
     attachment = client.post(
@@ -110,6 +122,7 @@ def board(db, settings, tmp_path):
     return SimpleNamespace(
         team_season=rouages,
         lina=lina,
+        tom=tom,
         client=client,
         intake=intake,
         empty=empty,
@@ -152,6 +165,12 @@ WRITES = {
     "tick": lambda b: (
         b.client.post(f"/api/work-items/{b.empty.id}/tick/", **as_json()),
         lambda response: b.empty.id,
+    ),
+    "tick at another step": lambda b: (
+        b.client.post(
+            f"/api/work-items/{b.intake.id}/tick/", **as_json(step="building")
+        ),
+        lambda response: b.intake.id,
     ),
     "leave today's progress": lambda b: (
         b.client.delete(f"/api/work-items/{b.intake.id}/tick/"),
@@ -328,3 +347,37 @@ def test_ticking_again_changes_nothing_and_notifies_nobody(
 
     assert response.status_code == 200
     assert heard is None
+
+
+# What each write tells Tom, who follows the robot work item; None when it
+# tells him nothing. Ticking or leaving a progress tells nobody: ten students
+# ticking at the start of a session would bury the notices that matter.
+TOLD_TO_TOM = {
+    "open a work item": Notification.Verb.WORK_ITEM_OPENED,
+    "close a work item": Notification.Verb.WORK_ITEM_DROPPED,
+    "delete a work item": Notification.Verb.WORK_ITEM_DELETED,
+    "tick": None,
+    "tick at another step": Notification.Verb.ENTRY_ADDED,
+    "leave today's progress": None,
+    "add to a progress": Notification.Verb.ENTRY_UPDATED,
+    "write a note on a work item": Notification.Verb.ENTRY_ADDED,
+    "write a note to the whole team": Notification.Verb.ENTRY_ADDED,
+    "record a decision": Notification.Verb.ENTRY_ADDED,
+    "remove a trace": Notification.Verb.ENTRY_REMOVED,
+    "correct a trace": Notification.Verb.ENTRY_UPDATED,
+    "attach a file": Notification.Verb.ENTRY_UPDATED,
+    "remove a file": Notification.Verb.ENTRY_UPDATED,
+}
+
+
+@pytest.mark.parametrize("write", WRITES.keys())
+def test_every_write_on_the_board_tells_those_who_follow_it(board, write):
+    # The board's own file, attached through the API, told Tom already.
+    Notification.objects.all().delete()
+
+    response, _ = WRITES[write](board)
+
+    told = Notification.objects.filter(recipient=board.tom)
+    assert response.status_code < 300
+    expected = TOLD_TO_TOM[write]
+    assert [n.verb for n in told] == ([] if expected is None else [expected])

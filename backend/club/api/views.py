@@ -37,6 +37,7 @@ from club.models import (
     Document,
     Entry,
     Membership,
+    Notification,
     Season,
     SourceUpdate,
     Team,
@@ -45,6 +46,7 @@ from club.models import (
     WorkItem,
     remove_after_commit,
 )
+from club.notifications import record_change
 from club.progress import (
     ProgressChanged,
     edit_progress,
@@ -533,7 +535,12 @@ class WorkItemListView(APIView):
         )
         serializer.is_valid(raise_exception=True)
         item = serializer.save()
-        broadcast(team_season.id, item.id)
+        record_change(
+            request.user,
+            Notification.Verb.WORK_ITEM_OPENED,
+            team_season=team_season,
+            work_item=item,
+        )
         return Response(_work_item(item), status=status.HTTP_201_CREATED)
 
 
@@ -608,7 +615,14 @@ class WorkItemDetailView(APIView):
         serializer = CloseWorkItemSerializer(item, data=request.data)
         serializer.is_valid(raise_exception=True)
         serializer.save()
-        broadcast(item.team_season_id, item.id)
+        record_change(
+            request.user,
+            Notification.Verb.WORK_ITEM_DONE
+            if item.status == WorkItem.Status.DONE
+            else Notification.Verb.WORK_ITEM_DROPPED,
+            team_season=item.team_season,
+            work_item=item,
+        )
         return Response(_work_item(item))
 
     def delete(self, request: Request, pk: int) -> Response:
@@ -617,15 +631,22 @@ class WorkItemDetailView(APIView):
         judge, even for a progress ticked in the same instant."""
         assert isinstance(request.user, User)
         item = _work_item_acted_on(request.user, pk)
-        team_season_id, item_id = item.team_season_id, item.id
         try:
-            item.delete()
+            # Told while the work item still exists; a refused deletion
+            # takes its notices back with it.
+            with transaction.atomic():
+                record_change(
+                    request.user,
+                    Notification.Verb.WORK_ITEM_DELETED,
+                    team_season=item.team_season,
+                    work_item=item,
+                )
+                item.delete()
         except ProtectedError:
             raise Conflict(
                 "Ce chantier a déjà des traces : abandonnez-le plutôt.",
                 code="work_item_has_traces",
             ) from None
-        broadcast(team_season_id, item_id)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
@@ -655,8 +676,18 @@ class TickView(APIView):
         joined = not entry.participants.filter(pk=user.pk).exists()
         if joined:
             join(entry, user)
-        # A tick made twice changes nothing: no screen to reload.
-        if created or joined:
+        # Joining tells nobody, only the open screens: ten students ticking at
+        # the start of a session would bury the notices that matter. A tick
+        # made twice changes nothing at all.
+        if created:
+            record_change(
+                user,
+                Notification.Verb.ENTRY_ADDED,
+                team_season=item.team_season,
+                work_item=item,
+                entry=entry,
+            )
+        elif joined:
             broadcast(item.team_season_id, item.id)
         return Response(
             _entry(entry, user),
@@ -670,6 +701,7 @@ class TickView(APIView):
         assert isinstance(user, User)
         item = _work_item_acted_on(user, pk)
         leave_todays_progress(item, user)
+        # Like joining: the open screens only.
         broadcast(item.team_season_id, item.id)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
@@ -688,7 +720,13 @@ class EntryAttachmentsView(APIView):
         )
         serializer.is_valid(raise_exception=True)
         attachment = serializer.save()
-        broadcast(entry.team_season_id, entry.work_item_id)
+        record_change(
+            user,
+            Notification.Verb.ENTRY_UPDATED,
+            team_season=entry.team_season,
+            work_item=entry.work_item,
+            entry=entry,
+        )
         return Response(_attachment(attachment, user), status=status.HTTP_201_CREATED)
 
 
@@ -715,7 +753,14 @@ class AttachmentView(APIView):
                 code="delete_not_uploader",
             )
         attachment.delete()
-        broadcast(attachment.entry.team_season_id, attachment.entry.work_item_id)
+        entry = attachment.entry
+        record_change(
+            user,
+            Notification.Verb.ENTRY_UPDATED,
+            team_season=entry.team_season,
+            work_item=entry.work_item,
+            entry=entry,
+        )
         return Response(status=status.HTTP_204_NO_CONTENT)
 
     def _acted_on(self, request: Request, pk: int) -> Attachment:
@@ -760,7 +805,13 @@ class EntryDetailView(APIView):
                 "Cette avancée a été modifiée pendant que vous écriviez.",
                 code="progress_changed",
             ) from changed
-        broadcast(entry.team_season_id, entry.work_item_id)
+        record_change(
+            user,
+            Notification.Verb.ENTRY_UPDATED,
+            team_season=entry.team_season,
+            work_item=entry.work_item,
+            entry=entry,
+        )
         return Response(_entry(entry, user))
 
     def _correct(self, request: Request, entry: Entry, user: User) -> Response:
@@ -773,7 +824,13 @@ class EntryDetailView(APIView):
                 "Ce texte a été modifié pendant que vous le corrigiez.",
                 code="entry_changed",
             ) from changed
-        broadcast(entry.team_season_id, entry.work_item_id)
+        record_change(
+            user,
+            Notification.Verb.ENTRY_UPDATED,
+            team_season=entry.team_season,
+            work_item=entry.work_item,
+            entry=entry,
+        )
         return Response(_entry(entry, user))
 
     def delete(self, request: Request, pk: int) -> Response:
@@ -787,8 +844,16 @@ class EntryDetailView(APIView):
                 "d'une avancée, on se retire.",
                 code="remove_not_allowed",
             )
-        entry.delete()
-        broadcast(entry.team_season_id, entry.work_item_id)
+        # Told while the trace still exists, so its followers are still found.
+        with transaction.atomic():
+            record_change(
+                user,
+                Notification.Verb.ENTRY_REMOVED,
+                team_season=entry.team_season,
+                work_item=entry.work_item,
+                entry=entry,
+            )
+            entry.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
@@ -802,7 +867,13 @@ class NoteCreateView(APIView):
         )
         serializer.is_valid(raise_exception=True)
         entry = serializer.save()
-        broadcast(team_season.id, entry.work_item_id)
+        record_change(
+            user,
+            Notification.Verb.ENTRY_ADDED,
+            team_season=team_season,
+            work_item=entry.work_item,
+            entry=entry,
+        )
         return Response(_entry(entry, user), status=status.HTTP_201_CREATED)
 
 
@@ -816,7 +887,13 @@ class DecisionCreateView(APIView):
         )
         serializer.is_valid(raise_exception=True)
         entry = serializer.save()
-        broadcast(team_season.id, entry.work_item_id)
+        record_change(
+            user,
+            Notification.Verb.ENTRY_ADDED,
+            team_season=team_season,
+            work_item=entry.work_item,
+            entry=entry,
+        )
         return Response(_entry(entry, user), status=status.HTTP_201_CREATED)
 
 
