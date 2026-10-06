@@ -290,10 +290,10 @@ function PersonalData() {
   const exportData = useMutation({ mutationFn: requestDataExport });
   const erase = useMutation({
     mutationFn: deleteAccount,
-    onSuccess: () => {
+    onSuccess: (sentTo) => {
       // The server has ended the session: nothing of the account may stay
       // on screen, nor in the cache for whoever uses this computer next.
-      navigate("/", { replace: true, state: { accountDeleted: true } });
+      navigate("/", { replace: true, state: { accountDeleted: sentTo } });
       queryClient.removeQueries();
       queryClient.setQueryData(currentUserQueryKey, null);
     },
@@ -351,7 +351,7 @@ function PersonalData() {
       </div>
       {exportData.isSuccess && (
         <p role="status" className="mt-3 text-sm text-success">
-          {t("personalData.exported")}
+          {t("personalData.exported", { address: exportData.data })}
         </p>
       )}
       {exportData.isError && <RequestError error={exportData.error} />}
