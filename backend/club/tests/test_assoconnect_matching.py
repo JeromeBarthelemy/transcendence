@@ -1,3 +1,5 @@
+from datetime import date
+
 from club.assoconnect.matching import (
     CLOSE_NAME,
     DISPUTED_NUMBER,
@@ -6,6 +8,7 @@ from club.assoconnect.matching import (
     Match,
     reconcile,
 )
+from club.models import User
 from club.tests.builders import account, line, verified_account
 
 
@@ -83,3 +86,46 @@ def test_a_verified_member_absent_from_the_export_is_listed_as_departed():
     reconciliation = reconcile([line()])
 
     assert reconciliation.departed == [gone]
+
+
+def test_an_account_no_line_claims_is_listed_as_untied():
+    stranger = account(
+        email="paul@example.org",
+        first_name="Paul",
+        last_name="Martin",
+        birth_date=date(2010, 1, 1),
+    )
+
+    reconciliation = reconcile([line()])
+
+    assert reconciliation.untied == [stranger]
+
+
+def test_an_account_without_a_request_is_listed_as_untied():
+    admin = User.objects.create_user("admin@example.org", "admin")
+
+    reconciliation = reconcile([line()])
+
+    assert reconciliation.untied == [admin]
+
+
+def test_an_account_matched_or_left_to_the_admin_is_not_listed_as_untied():
+    account()
+    account(email="leon@example.org", first_name="Léon", last_name="Bernard")
+    verified_account("9999")
+
+    reconciliation = reconcile(
+        [line(), line(assoconnect_id="7000", first_name="Léon", last_name="Martin")]
+    )
+
+    assert reconciliation.untied == []
+
+
+def test_a_deactivated_account_is_not_listed_as_untied():
+    stranger = User.objects.create_user("test@example.org", "test")
+    stranger.is_active = False
+    stranger.save()
+
+    reconciliation = reconcile([line()])
+
+    assert reconciliation.untied == []

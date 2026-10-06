@@ -104,11 +104,12 @@ def _send(message: EmailMessage) -> None:
         ) from None
 
 
-def send_export(user: User) -> None:
+def send_export(user: User) -> str:
     """Fails before anything is sent if there is nowhere to send it —
     checked first, same backstop-first spirit as everywhere else the club
     validates before acting. The avatar rides as a second attachment, the
-    only part of `export_data` that is not JSON-representable."""
+    only part of `export_data` that is not JSON-representable. Returns the
+    address it went to, for the member to know where to look."""
     to = _contact_email(user)
     payload = json.dumps(export_data(user), indent=2, ensure_ascii=False)
     attachments = [("export.json", payload, "application/json")]
@@ -134,6 +135,7 @@ def send_export(user: User) -> None:
             attachments=attachments,
         )
     )
+    return to
 
 
 def anonymize(user: User) -> None:
@@ -178,7 +180,7 @@ def anonymize(user: User) -> None:
 
 
 @transaction.atomic
-def request_deletion(user: User, *, password: str | None) -> None:
+def request_deletion(user: User, *, password: str | None) -> str:
     """The right to erasure: confirmed by `password` (a session left open
     on a shared computer must not delete the account in one click), then
     anonymized. `password=None` skips that check — only the Django admin
@@ -189,7 +191,8 @@ def request_deletion(user: User, *, password: str | None) -> None:
     transaction rather than before it, so two admins leaving at once are
     ordered by the database's own write lock (`transaction_mode:
     "IMMEDIATE"`, config/settings.py) instead of a stale read —
-    `select_for_update()` would say the same thing but SQLite ignores it."""
+    `select_for_update()` would say the same thing but SQLite ignores it.
+    Returns the address the confirmation went to."""
     if password is not None and not user.check_password(password):
         raise ValidationError(
             "Mot de passe incorrect : le compte n'a pas été supprimé.",
@@ -212,3 +215,4 @@ def request_deletion(user: User, *, password: str | None) -> None:
             to=[to],
         )
     )
+    return to
