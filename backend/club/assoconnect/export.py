@@ -82,7 +82,11 @@ def read_export(path: Path | str) -> list[ExportRow]:
     try:
         # The first sheet, never the active one: the active one is whichever
         # tab was selected when the file was last saved.
-        rows = workbook.worksheets[0].iter_rows(values_only=True)
+        sheet = workbook.worksheets[0]
+        # AssoConnect declares the sheet one row long whatever it holds, and
+        # read-only openpyxl would trust it and stop after the header.
+        sheet.reset_dimensions()
+        rows = sheet.iter_rows(values_only=True)
         header_row = next(rows, None)
         if header_row is None:
             raise ExportError("Le fichier est vide : pas même une ligne d'en-tête.")
@@ -94,6 +98,8 @@ def read_export(path: Path | str) -> list[ExportRow]:
         ]
     finally:
         workbook.close()
+    if not members:
+        raise ExportError("Le fichier ne contient aucun membre : rien à importer.")
     _refuse_duplicates(members)
     return members
 
