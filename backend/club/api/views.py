@@ -773,6 +773,7 @@ class EntryDetailView(APIView):
                 "Ce texte a été modifié pendant que vous le corrigiez.",
                 code="entry_changed",
             ) from changed
+        broadcast(entry.team_season_id, entry.work_item_id)
         return Response(_entry(entry, user))
 
     def delete(self, request: Request, pk: int) -> Response:
@@ -787,6 +788,7 @@ class EntryDetailView(APIView):
                 code="remove_not_allowed",
             )
         entry.delete()
+        broadcast(entry.team_season_id, entry.work_item_id)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
