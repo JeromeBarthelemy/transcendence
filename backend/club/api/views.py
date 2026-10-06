@@ -37,7 +37,13 @@ from club.models import (
     WorkItem,
     remove_after_commit,
 )
-from club.progress import ProgressChanged, edit_progress, join, record_progress
+from club.progress import (
+    ProgressChanged,
+    edit_progress,
+    join,
+    leave_todays_progress,
+    record_progress,
+)
 from club.rag import ask, serialize
 from club.sources import CheckOutcome, accept_update, check_all, latest_documents
 from club.workdays import (
@@ -632,6 +638,14 @@ class TickView(APIView):
             _entry(entry),
             status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
         )
+
+    def delete(self, request: Request, pk: int) -> Response:
+        """Leaving today's progress, ticked by mistake: see
+        `leave_todays_progress`."""
+        user = request.user
+        assert isinstance(user, User)
+        leave_todays_progress(_work_item_acted_on(user, pk), user)
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class EntryAttachmentsView(APIView):

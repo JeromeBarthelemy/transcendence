@@ -482,6 +482,59 @@ def test_ticking_at_another_step_opens_a_second_progress(client):
     assert intake.entries.count() == 2
 
 
+def untick(client, item):
+    return client.delete(f"/api/work-items/{item.id}/tick/")
+
+
+def test_a_member_leaves_todays_progress_they_ticked_by_mistake(client):
+    rouages = team_season()
+    intake = robot_work_item(rouages)
+    lina, tom = member_of(rouages), member_of(rouages, "tom")
+    client.force_login(lina)
+    tick(client, intake)
+    client.force_login(tom)
+    tick(client, intake)
+
+    response = untick(client, intake)
+
+    assert response.status_code == 204
+    progress = intake.entries.get()
+    assert list(progress.participants.all()) == [lina]
+
+
+def test_leaving_a_progress_one_is_not_on_is_refused_with_a_code(client):
+    rouages = team_season()
+    intake = robot_work_item(rouages)
+    client.force_login(member_of(rouages))
+    tick(client, intake)
+    client.force_login(member_of(rouages, "tom"))
+
+    response = untick(client, intake)
+
+    assert response.status_code == 400
+    assert response.json()["detail"]["code"] == "not_a_participant"
+
+
+def test_a_student_cannot_leave_another_teams_progress(client):
+    other = team_season(67890)
+    intake = robot_work_item(other)
+    client.force_login(member_of(team_season(12345)))
+
+    assert untick(client, intake).status_code == 403
+
+
+def test_once_its_mistaken_progress_is_left_a_work_item_can_be_deleted(client):
+    rouages = team_season()
+    pince = WorkItem.objects.create(team_season=rouages, title="pince")
+    client.force_login(member_of(rouages))
+    tick(client, pince)
+    untick(client, pince)
+
+    response = client.delete(f"/api/work-items/{pince.id}/")
+
+    assert response.status_code == 204
+
+
 def test_a_step_off_the_robot_is_refused_with_its_code(client):
     rouages = team_season()
     sponsoring = WorkItem.objects.create(team_season=rouages, title="sponsoring")

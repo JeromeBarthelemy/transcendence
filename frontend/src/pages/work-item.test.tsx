@@ -884,3 +884,90 @@ it("offers no deletion once the work item has a trace", async () => {
     screen.queryByRole("button", { name: "Supprimer ce chantier" }),
   ).toBeNull();
 });
+
+function leavingServer(currentProgress: object) {
+  const fetchMock = vi.fn(
+    async (path: string, options?: RequestInit): Promise<Response> => {
+      if (path === "/api/auth/me/") {
+        return json(identity());
+      }
+      if (path === "/api/work-items/10/" && !options?.method) {
+        return json(
+          workItem({
+            current_progress: currentProgress,
+            thread: [currentProgress],
+          }),
+        );
+      }
+      if (path === "/api/work-items/10/tick/" && options?.method === "DELETE") {
+        return new Response(null, { status: 204 });
+      }
+      throw new Error(`Unexpected request: ${path}`);
+    },
+  );
+  vi.stubGlobal("fetch", fetchMock);
+  return () =>
+    fetchMock.mock.calls.filter(
+      ([path, options]) =>
+        path === "/api/work-items/10/tick/" && options?.method === "DELETE",
+    ).length;
+}
+
+it("lets a participant leave today's progress they ticked by mistake", async () => {
+  setDocumentCookie("csrftoken=test; path=/");
+  const leaves = leavingServer(progress());
+  renderWorkItem();
+
+  await userEvent.click(
+    await screen.findByRole("button", { name: "Me retirer" }),
+  );
+
+  await waitFor(() => expect(leaves()).toBe(1));
+});
+
+it("asks before the last participant's leaving deletes a written progress", async () => {
+  setDocumentCookie("csrftoken=test; path=/");
+  const leaves = leavingServer(
+    progress({
+      participants: [{ display_name: "Marie", avatar: null }],
+      attachments: [],
+    }),
+  );
+  renderWorkItem();
+
+  await userEvent.click(
+    await screen.findByRole("button", { name: "Me retirer" }),
+  );
+  expect(
+    screen.getByText(
+      "Vous êtes le dernier participant : l'avancée et son texte seront supprimés.",
+    ),
+  ).toBeTruthy();
+  expect(leaves()).toBe(0);
+  await userEvent.click(
+    screen.getByRole("button", { name: "Me retirer et supprimer l'avancée" }),
+  );
+
+  await waitFor(() => expect(leaves()).toBe(1));
+});
+
+it("offers no way out of a progress one is not on", async () => {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (path: string): Promise<Response> => {
+      if (path === "/api/auth/me/") {
+        return json(identity());
+      }
+      if (path === "/api/work-items/10/") {
+        return json(workItem({ current_user_participates: false }));
+      }
+      throw new Error(`Unexpected request: ${path}`);
+    }),
+  );
+  renderWorkItem();
+
+  expect(
+    await screen.findByRole("button", { name: "Je participe" }),
+  ).toBeTruthy();
+  expect(screen.queryByRole("button", { name: "Me retirer" })).toBeNull();
+});
