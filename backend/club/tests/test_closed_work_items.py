@@ -139,3 +139,123 @@ def test_a_closed_work_items_history_can_still_be_put_right(client, closed):
 
     assert corrected.status_code == 200
     assert left.status_code == 204
+
+
+# --- closing, with its reason, and reopening on purpose ---
+
+
+def change(client, item, **body):
+    return client.patch(
+        f"/api/work-items/{item.id}/", body, content_type="application/json"
+    )
+
+
+def notes_on(item):
+    return list(
+        Entry.objects.filter(work_item=item, type=Entry.Type.NOTE).values_list(
+            "author__display_name", "body"
+        )
+    )
+
+
+def test_dropping_a_work_item_asks_why(client, db):
+    rouages = team_season()
+    client.force_login(member_of(rouages))
+    pince = WorkItem.objects.create(team_season=rouages, title="pince", on_robot=True)
+
+    response = change(client, pince, status="dropped")
+
+    assert response.status_code == 400
+    assert response.json()["reason"][0]["code"] == "reason_required"
+    pince.refresh_from_db()
+    assert pince.status == WorkItem.Status.OPEN
+
+
+def test_why_it_was_dropped_stays_in_its_history_as_a_note(client, db):
+    # What a judge looks for in an engineering notebook: why a lead was left.
+    rouages = team_season()
+    client.force_login(member_of(rouages))
+    pince = WorkItem.objects.create(team_season=rouages, title="pince", on_robot=True)
+
+    response = change(
+        client, pince, status="dropped", reason="Trop lourde pour le bras."
+    )
+
+    assert response.status_code == 200
+    pince.refresh_from_db()
+    assert pince.status == WorkItem.Status.DROPPED
+    assert notes_on(pince) == [("lina", "Trop lourde pour le bras.")]
+
+
+@pytest.mark.parametrize("reason", [None, "Dossier envoyé."])
+def test_finishing_may_say_why_or_not(client, db, reason):
+    rouages = team_season()
+    client.force_login(member_of(rouages))
+    sponsoring = WorkItem.objects.create(team_season=rouages, title="sponsoring")
+    body = {"status": "done"} | ({"reason": reason} if reason else {})
+
+    response = change(client, sponsoring, **body)
+
+    assert response.status_code == 200
+    assert notes_on(sponsoring) == ([("lina", reason)] if reason else [])
+
+
+def test_a_refused_closing_leaves_no_note_behind(client, db):
+    rouages = team_season()
+    client.force_login(member_of(rouages))
+    intake = WorkItem.objects.create(team_season=rouages, title="intake", on_robot=True)
+
+    response = change(client, intake, status="done", reason="Fini !")
+
+    assert response.json()["status"][0]["code"] == "done_on_robot"
+    assert notes_on(intake) == []
+
+
+@pytest.mark.parametrize("closed", CLOSED, indirect=True)
+def test_a_member_reopens_a_closed_work_item_on_purpose(client, closed):
+    outreach, lina, _ = closed
+    client.force_login(lina)
+
+    response = change(client, outreach, status="open")
+
+    assert response.status_code == 200
+    outreach.refresh_from_db()
+    assert outreach.status == WorkItem.Status.OPEN
+    assert outreach.closed_at is None
+    # Open again, it takes work again.
+    assert (
+        client.post(
+            f"/api/work-items/{outreach.id}/tick/", {}, content_type="application/json"
+        ).status_code
+        == 200
+    )
+
+
+@pytest.mark.parametrize("closed", CLOSED, indirect=True)
+def test_reopening_may_say_why(client, closed):
+    outreach, lina, _ = closed
+    client.force_login(lina)
+
+    change(client, outreach, status="open", reason="Nouveau salon en mars.")
+
+    assert notes_on(outreach) == [("lina", "Nouveau salon en mars.")]
+
+
+@pytest.mark.parametrize("closed", CLOSED, indirect=True)
+def test_a_closed_work_item_is_reopened_before_it_is_closed_again(client, closed):
+    outreach, lina, _ = closed
+    client.force_login(lina)
+
+    refused(change(client, outreach, status="dropped", reason="Finalement non."))
+    assert notes_on(outreach) == []
+
+
+def test_reopening_an_open_work_item_is_refused(client, db):
+    rouages = team_season()
+    client.force_login(member_of(rouages))
+    pince = WorkItem.objects.create(team_season=rouages, title="pince")
+
+    response = change(client, pince, status="open", reason="Pour voir.")
+
+    assert response.json()["status"][0]["code"] == "already_open"
+    assert notes_on(pince) == []

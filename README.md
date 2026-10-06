@@ -529,9 +529,9 @@ anyone else gets a `403` with the code `not_a_member`.
 | `GET /api/team-seasons/{id}/work-items/` | the team's work items, each with when it was opened, its current step, last progress and handover; progress dates include their 4 a.m.–4 a.m. workday |
 | `POST /api/team-seasons/{id}/work-items/` | open one |
 | `GET /api/work-items/{id}/` | one work item and its thread, newest first |
-| `PATCH /api/work-items/{id}/` | close it, `done` or `dropped`; working on it again reopens it |
+| `PATCH /api/work-items/{id}/` | close it, `done` or `dropped`, or reopen it on purpose, `open`; a `reason` becomes a note by whoever changed the status, required to drop (`reason_required`). A closed work item is reopened before anything else (`work_item_closed`, `409`) |
 | `DELETE /api/work-items/{id}/` | delete one opened by mistake: refused with `work_item_has_traces` (`409`) once it has any trace, even an empty progress — drop it instead |
-| `POST /api/work-items/{id}/tick/` | sign up to today's progress, created by the first to tick |
+| `POST /api/work-items/{id}/tick/` | sign up to today's progress, created by the first to tick; refused on a closed work item (`work_item_closed`, `409`), like adding to its progress, a note or decision on it, or a file on its traces — correcting, removing or leaving one is not |
 | `DELETE /api/work-items/{id}/tick/` | leave today's progress ticked by mistake, oneself only (`not_a_participant` otherwise); the last one leaving takes it with them, text included, unless it holds a file |
 | `PATCH /api/entries/{id}/` | add to a progress (`addition`, appended: nobody erases what another wrote) and change its step or handover, for its participants and mentors; a handover change sends `handover_was` and is refused with `progress_changed` (`409`) if the handover changed since; a student's `body` is refused rather than ignored — `use_addition` on a progress, `correct_not_allowed` (`403`) on a note or a decision; a mentor corrects any trace's text with `body` and `body_was`, refused with `entry_changed` (`409`) if the text changed since |
 | `DELETE /api/entries/{id}/` | remove a trace — a note or a decision by its author, any trace by a mentor, with its participants and files; anyone else gets `remove_not_allowed`. A student leaves a progress rather than removing it |

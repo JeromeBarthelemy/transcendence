@@ -79,7 +79,6 @@ from .serializers import (
     AskSerializer,
     AttachmentSerializer,
     AvatarSerializer,
-    CloseWorkItemSerializer,
     CorrectionSerializer,
     CreateTeamSerializer,
     DaySerializer,
@@ -95,6 +94,7 @@ from .serializers import (
     TickSerializer,
     UserRoleSerializer,
     UserSearchSerializer,
+    WorkItemStatusSerializer,
     WriteProgressSerializer,
 )
 
@@ -607,8 +607,13 @@ class WorkItemDetailView(APIView):
     def patch(self, request: Request, pk: int) -> Response:
         assert isinstance(request.user, User)
         item = _work_item_acted_on(request.user, pk)
-        serializer = CloseWorkItemSerializer(item, data=request.data)
+        serializer = WorkItemStatusSerializer(
+            item, data=request.data, context={"author": request.user}
+        )
         serializer.is_valid(raise_exception=True)
+        # Only a reopening changes a closed work item.
+        if serializer.validated_data["status"] != WorkItem.Status.OPEN:
+            _open_for_work(item)
         serializer.save()
         broadcast(item.team_season_id, item.id)
         return Response(_work_item(item))

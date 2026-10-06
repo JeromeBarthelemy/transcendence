@@ -142,7 +142,10 @@ WRITES = {
         lambda response: response.json()["id"],
     ),
     "close a work item": lambda b: (
-        b.client.patch(f"/api/work-items/{b.intake.id}/", **as_json(status="dropped")),
+        b.client.patch(
+            f"/api/work-items/{b.intake.id}/",
+            **as_json(status="dropped", reason="Trop lourd."),
+        ),
         lambda response: b.intake.id,
     ),
     "delete a work item": lambda b: (
