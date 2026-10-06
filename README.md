@@ -624,6 +624,33 @@ The channel layer lives in memory, which holds for the single Daphne process
 the stack runs. A second process would not see the first one's listeners: it
 would need Redis as the channel layer.
 
+### Notifications
+
+Each of those writes also tells the people it concerns, from one function
+(`club/notifications.py`, `record_change`) that every one of them calls and
+that sends the live message too: a write that forgot it would leave its
+screens stale as well, which shows at once.
+
+- **Who is told**: those who follow the work item — who took part in one of
+  its progress entries — or the whole team for a trace about no work item,
+  and for a work item opened or deleted, which nobody follows yet. Never the
+  member who made the change, never a deactivated account.
+- **What tells**: a trace added, updated (an addition, a step or handover, a
+  correction, a file added or removed) or removed; a work item opened, done,
+  dropped or deleted.
+- **What does not**: joining or leaving a progress. It still reloads the
+  open screens, but ten students ticking at the start of a session would
+  bury the notices that matter.
+
+A notice keeps the work item's title and the trace's type beside its links to
+them, so a deleted one is still named; its author stays a link to their
+account, so an anonymized member is shown as such.
+
+| Route | Answer |
+| --- | --- |
+| `GET /api/notifications/` | `{"unread", "items"}`: the member's own, newest first, the latest 20, each as `{"id", "verb", "actor", "team_season", "work_item", "entry", "created_at", "read"}` |
+| `POST /api/notifications/read/` | marks the member's own as read, all of them or those in `ids`; answers `{"unread"}`. Another member's id is ignored |
+
 ### Attachments
 
 Every entry comes with its `attachments`, each as `{"id", "name",

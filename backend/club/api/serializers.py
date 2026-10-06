@@ -631,3 +631,9 @@ class UserRoleSerializer(serializers.Serializer[User]):
 
 class AskSerializer(serializers.Serializer[None]):
     question = serializers.CharField(max_length=500)
+
+
+class ReadNotificationsSerializer(serializers.Serializer[None]):
+    """Without `ids`, every notification of the member's is read."""
+
+    ids = serializers.ListField(child=serializers.IntegerField(), required=False)

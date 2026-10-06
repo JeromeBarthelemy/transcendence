@@ -90,6 +90,7 @@ from .serializers import (
     NoteSerializer,
     OpenWorkItemSerializer,
     PeriodSerializer,
+    ReadNotificationsSerializer,
     RenameTeamSerializer,
     SignUpSerializer,
     TickSerializer,
@@ -895,6 +896,61 @@ class DecisionCreateView(APIView):
             entry=entry,
         )
         return Response(_entry(entry, user), status=status.HTTP_201_CREATED)
+
+
+def _notification(notice: Notification) -> dict[str, object]:
+    """What the header shows of one change. The work item's title and the
+    trace's type are the copies kept on the notice, so a deleted one is
+    still named."""
+    return {
+        "id": notice.id,
+        "verb": notice.verb,
+        "actor": _member(notice.actor),
+        "team_season": notice.team_season_id,
+        "work_item": {"id": notice.work_item_id, "title": notice.work_item_title}
+        if notice.work_item_title
+        else None,
+        "entry": {"id": notice.entry_id, "type": notice.entry_type}
+        if notice.entry_type
+        else None,
+        "created_at": notice.created_at,
+        "read": notice.read_at is not None,
+    }
+
+
+class NotificationListView(APIView):
+    """The member's own, newest first: the unread count and the latest few,
+    for the header (#151)."""
+
+    LATEST = 20
+
+    def get(self, request: Request) -> Response:
+        user = request.user
+        assert isinstance(user, User)
+        mine = user.notifications.select_related("actor")
+        return Response(
+            {
+                "unread": mine.filter(read_at=None).count(),
+                "items": [_notification(notice) for notice in mine[: self.LATEST]],
+            }
+        )
+
+
+class NotificationReadView(APIView):
+    """Marks the member's own as read — all, or those named by `ids`; another
+    member's id is ignored, not refused, since it reveals nothing either way."""
+
+    def post(self, request: Request) -> Response:
+        user = request.user
+        assert isinstance(user, User)
+        serializer = ReadNotificationsSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        unread = user.notifications.filter(read_at=None)
+        ids = serializer.validated_data.get("ids")
+        (unread if ids is None else unread.filter(pk__in=ids)).update(
+            read_at=timezone.now()
+        )
+        return Response({"unread": unread.count()})
 
 
 class DayView(APIView):

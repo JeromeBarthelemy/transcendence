@@ -156,3 +156,112 @@ def test_a_removal_is_still_told_once_the_trace_and_work_item_are_gone(db):
         (Notification.Verb.WORK_ITEM_DELETED, None, "intake"),
     ]
     assert all(n.recipient == tom and n.read_at is None for n in told)
+
+
+# --- reading them ---
+
+
+def told_of_a_note(team_season, author):
+    """A note by `author` on no work item: its whole team is told."""
+    record_change(
+        author,
+        Notification.Verb.ENTRY_ADDED,
+        team_season=team_season,
+        work_item=None,
+        entry=note(team_season, author),
+    )
+
+
+def test_a_member_sees_their_unread_count_and_what_happened(client, db):
+    rouages = team_season()
+    lina, tom = member_of(rouages, "lina"), member_of(rouages, "tom")
+    intake = WorkItem.objects.create(team_season=rouages, title="intake")
+    record_change(
+        lina, Notification.Verb.WORK_ITEM_OPENED, team_season=rouages, work_item=intake
+    )
+    told_of_a_note(rouages, lina)
+    client.force_login(tom)
+
+    answer = client.get("/api/notifications/").json()
+
+    assert answer["unread"] == 2
+    latest, first = answer["items"]
+    assert latest["verb"] == "entry_added"
+    assert latest["actor"] == {"display_name": "lina", "avatar": None}
+    assert latest["work_item"] is None
+    assert latest["entry"]["type"] == "note"
+    assert latest["read"] is False
+    assert first["verb"] == "work_item_opened"
+    assert first["work_item"] == {"id": intake.id, "title": "intake"}
+    assert first["entry"] is None
+
+
+def test_a_member_never_sees_anyone_elses_notifications(client, db):
+    rouages = team_season()
+    lina, tom = member_of(rouages, "lina"), member_of(rouages, "tom")
+    told_of_a_note(rouages, tom)
+    client.force_login(tom)
+
+    answer = client.get("/api/notifications/").json()
+
+    # Lina was told, Tom wrote it.
+    assert answer == {"unread": 0, "items": []}
+    assert Notification.objects.filter(recipient=lina).count() == 1
+
+
+def test_a_deleted_work_item_is_still_named_in_its_notice(client, db):
+    rouages = team_season()
+    lina, tom = member_of(rouages, "lina"), member_of(rouages, "tom")
+    pince = WorkItem.objects.create(team_season=rouages, title="pince")
+    record_change(
+        lina, Notification.Verb.WORK_ITEM_DELETED, team_season=rouages, work_item=pince
+    )
+    pince.delete()
+    client.force_login(tom)
+
+    (item,) = client.get("/api/notifications/").json()["items"]
+
+    assert item["work_item"] == {"id": None, "title": "pince"}
+
+
+def test_marking_all_as_read_brings_the_count_back_to_zero(client, db):
+    rouages = team_season()
+    lina, tom = member_of(rouages, "lina"), member_of(rouages, "tom")
+    told_of_a_note(rouages, lina)
+    told_of_a_note(rouages, lina)
+    client.force_login(tom)
+
+    response = client.post(
+        "/api/notifications/read/", {}, content_type="application/json"
+    )
+
+    assert response.json() == {"unread": 0}
+    answer = client.get("/api/notifications/").json()
+    assert answer["unread"] == 0
+    assert [item["read"] for item in answer["items"]] == [True, True]
+
+
+def test_marking_some_as_read_leaves_the_others_and_never_someone_elses(client, db):
+    rouages = team_season()
+    lina, tom = member_of(rouages, "lina"), member_of(rouages, "tom")
+    told_of_a_note(rouages, lina)
+    told_of_a_note(rouages, lina)
+    told_of_a_note(rouages, tom)
+    toms = list(Notification.objects.filter(recipient=tom).order_by("id"))
+    linas = Notification.objects.get(recipient=lina)
+    client.force_login(tom)
+
+    response = client.post(
+        "/api/notifications/read/",
+        {"ids": [toms[0].id, linas.id]},
+        content_type="application/json",
+    )
+
+    assert response.json() == {"unread": 1}
+    linas.refresh_from_db()
+    assert linas.read_at is None
+
+
+def test_a_visitor_has_no_notifications(client, db):
+    assert client.get("/api/notifications/").status_code == 403
+    assert client.post("/api/notifications/read/").status_code == 403
