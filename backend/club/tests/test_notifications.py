@@ -1,0 +1,158 @@
+"""Who is told of a change on the board (module 13): those who follow the work
+item, the whole team for what concerns no work item, never the one who made
+the change."""
+
+from club.models import (
+    Entry,
+    Membership,
+    Notification,
+    Season,
+    Team,
+    TeamSeason,
+    User,
+    WorkItem,
+)
+from club.notifications import record_change
+from club.progress import join, record_progress
+
+
+def team_season(number=12345):
+    season, _ = Season.objects.get_or_create(start_year=2026, game_name="BioBuzz")
+    team = Team.objects.create(number=number, name=f"Équipe {number}")
+    return TeamSeason.objects.create(team=team, season=season)
+
+
+def member_of(team_season, name):
+    user = User.objects.create_user(f"{name}@example.org", name)
+    Membership.objects.create(user=user, team_season=team_season)
+    return user
+
+
+def notified(verb=None):
+    notifications = Notification.objects.all()
+    if verb is not None:
+        notifications = notifications.filter(verb=verb)
+    return sorted(n.recipient.display_name for n in notifications)
+
+
+def note(team_season, author, work_item=None):
+    return Entry.objects.create(
+        team_season=team_season,
+        author=author,
+        work_item=work_item,
+        type=Entry.Type.NOTE,
+        body="Perceuse HS.",
+    )
+
+
+def test_a_note_on_a_work_item_notifies_those_who_took_part_in_its_progress(db):
+    rouages = team_season()
+    lina, tom, ines = (member_of(rouages, n) for n in ("lina", "tom", "ines"))
+    intake = WorkItem.objects.create(team_season=rouages, title="intake")
+    progress = record_progress(intake, lina, "Galets montés.")
+    join(progress, tom)
+
+    record_change(
+        ines,
+        Notification.Verb.ENTRY_ADDED,
+        team_season=rouages,
+        work_item=intake,
+        entry=note(rouages, ines, intake),
+    )
+
+    # Inès wrote it and never took part: Lina and Tom follow intake.
+    assert notified() == ["lina", "tom"]
+
+
+def test_the_author_of_a_change_is_never_told_of_it(db):
+    rouages = team_season()
+    lina, tom = member_of(rouages, "lina"), member_of(rouages, "tom")
+    intake = WorkItem.objects.create(team_season=rouages, title="intake")
+    progress = record_progress(intake, lina, "Galets montés.")
+    join(progress, tom)
+
+    record_change(
+        lina,
+        Notification.Verb.ENTRY_UPDATED,
+        team_season=rouages,
+        work_item=intake,
+        entry=progress,
+    )
+
+    assert notified() == ["tom"]
+
+
+def test_a_trace_about_no_work_item_notifies_the_whole_team(db):
+    rouages = team_season()
+    lina = member_of(rouages, "lina")
+    member_of(rouages, "tom")
+    member_of(rouages, "ines")
+    member_of(team_season(67890), "sam")
+
+    record_change(
+        lina,
+        Notification.Verb.ENTRY_ADDED,
+        team_season=rouages,
+        work_item=None,
+        entry=note(rouages, lina),
+    )
+
+    assert notified() == ["ines", "tom"]
+
+
+def test_opening_a_work_item_notifies_the_whole_team(db):
+    # Nobody follows a work item yet when it opens: it is the team's news.
+    rouages = team_season()
+    lina = member_of(rouages, "lina")
+    member_of(rouages, "tom")
+    intake = WorkItem.objects.create(team_season=rouages, title="intake")
+
+    record_change(
+        lina, Notification.Verb.WORK_ITEM_OPENED, team_season=rouages, work_item=intake
+    )
+
+    assert notified() == ["tom"]
+
+
+def test_a_deactivated_account_is_never_notified(db):
+    rouages = team_season()
+    lina, tom = member_of(rouages, "lina"), member_of(rouages, "tom")
+    tom.is_active = False
+    tom.save()
+
+    record_change(
+        lina,
+        Notification.Verb.ENTRY_ADDED,
+        team_season=rouages,
+        work_item=None,
+        entry=note(rouages, lina),
+    )
+
+    assert notified() == []
+
+
+def test_a_removal_is_still_told_once_the_trace_and_work_item_are_gone(db):
+    rouages = team_season()
+    lina, tom = member_of(rouages, "lina"), member_of(rouages, "tom")
+    intake = WorkItem.objects.create(team_season=rouages, title="intake")
+    removed = note(rouages, lina)
+
+    record_change(
+        lina,
+        Notification.Verb.ENTRY_REMOVED,
+        team_season=rouages,
+        work_item=None,
+        entry=removed,
+    )
+    removed.delete()
+    record_change(
+        lina, Notification.Verb.WORK_ITEM_DELETED, team_season=rouages, work_item=intake
+    )
+    intake.delete()
+
+    told = Notification.objects.order_by("id")
+    assert [(n.verb, n.entry_type, n.work_item_title) for n in told] == [
+        (Notification.Verb.ENTRY_REMOVED, Entry.Type.NOTE, ""),
+        (Notification.Verb.WORK_ITEM_DELETED, None, "intake"),
+    ]
+    assert all(n.recipient == tom and n.read_at is None for n in told)
