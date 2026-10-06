@@ -25,16 +25,21 @@ function setDocumentCookie(value: string) {
   document.cookie = value;
 }
 
-function renderHome() {
+function renderHome(path = "/") {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
-  const router = createMemoryRouter(routes, { initialEntries: ["/"] });
+  const router = createMemoryRouter(routes, { initialEntries: [path] });
   render(
     <QueryClientProvider client={queryClient}>
       <RouterProvider router={router} />
     </QueryClientProvider>,
   );
+  return router;
+}
+
+async function openSection(name: "Chantiers" | "Activité") {
+  await userEvent.click(await screen.findByRole("link", { name }));
 }
 
 function teamSeason(id: number, number: number, name: string) {
@@ -80,6 +85,36 @@ function workday(
     present,
     roster,
     advanced_work_items: advancedWorkItems,
+  });
+}
+
+function activity(path: string): Response {
+  const query = new URL(path, "https://fieldnotes.test").searchParams;
+  return json({
+    period: {
+      since: query.get("since"),
+      until: query.get("until"),
+    },
+    snapshot: {
+      work_items_by_status: [
+        { status: "open", count: 0 },
+        { status: "done", count: 0 },
+        { status: "dropped", count: 0 },
+      ],
+      work_items_by_step: [
+        { step: "brainstorming", count: 0 },
+        { step: "prototyping", count: 0 },
+        { step: "building", count: 0 },
+        { step: "dry_tests", count: 0 },
+        { step: "integration", count: 0 },
+        { step: "test_zero", count: 0 },
+        { step: "tuning", count: 0 },
+        { step: "repair", count: 0 },
+      ],
+      work_items_without_progress: 0,
+    },
+    activity_by_day: [],
+    members: [],
   });
 }
 
@@ -150,6 +185,7 @@ it("splits a team's work items and highlights its handover", async () => {
       name: "Équipe 1796 · Les Rouages",
     }),
   ).toBeTruthy();
+  await openSection("Chantiers");
   expect(await screen.findByRole("heading", { name: "Robot" })).toBeTruthy();
   expect(screen.getByRole("heading", { name: "Hors robot" })).toBeTruthy();
   expect(screen.getAllByText("1 chantier")).toHaveLength(2);
@@ -187,6 +223,54 @@ it("explains the empty state to a member without a team", async () => {
     }),
   ).toBeTruthy();
   expect(fetchMock).toHaveBeenCalledTimes(1);
+});
+
+it("opens a team section from the URL and only loads its own data", async () => {
+  const fetchMock = vi.fn(async (path: string) => {
+    if (path === "/api/auth/me/") {
+      return json(identity([teamSeason(7, 1796, "Les Rouages")]));
+    }
+    if (path.startsWith("/api/team-seasons/7/days/")) {
+      return workday(path);
+    }
+    if (path.startsWith("/api/team-seasons/7/analytics/activity/")) {
+      return activity(path);
+    }
+    if (path === "/api/team-seasons/7/work-items/") {
+      return json([]);
+    }
+    throw new Error(`Unexpected request: ${path}`);
+  });
+  vi.stubGlobal("fetch", fetchMock);
+  const router = renderHome("/?section=activity");
+
+  const activityLink = await screen.findByRole("link", { name: "Activité" });
+  expect(activityLink.getAttribute("aria-current")).toBe("page");
+  expect(
+    await screen.findByRole("heading", { name: "Activité de l'équipe" }),
+  ).toBeTruthy();
+  expect(screen.getByRole("heading", { name: "Aujourd'hui" })).toBeTruthy();
+  expect(router.state.location.search).toBe("?section=activity");
+  expect(
+    fetchMock.mock.calls.some(([path]) =>
+      path.startsWith("/api/team-seasons/7/analytics/activity/"),
+    ),
+  ).toBe(true);
+  expect(
+    fetchMock.mock.calls.some(
+      ([path]) => path === "/api/team-seasons/7/work-items/",
+    ),
+  ).toBe(false);
+
+  await openSection("Chantiers");
+
+  expect(router.state.location.search).toBe("?section=work-items");
+  expect(await screen.findByRole("heading", { name: "Robot" })).toBeTruthy();
+  expect(
+    fetchMock.mock.calls.some(
+      ([path]) => path === "/api/team-seasons/7/work-items/",
+    ),
+  ).toBe(true);
 });
 
 it("loads another team's work items when the selection changes", async () => {
@@ -230,6 +314,7 @@ it("loads another team's work items when the selection changes", async () => {
   vi.stubGlobal("fetch", fetchMock);
   renderHome();
 
+  await openSection("Chantiers");
   const selector = await screen.findByLabelText("Changer d'équipe");
   await userEvent.selectOptions(selector, "8");
 
@@ -278,6 +363,7 @@ it("shows every work item and filters them by status", async () => {
   vi.stubGlobal("fetch", fetchMock);
   renderHome();
 
+  await openSection("Chantiers");
   expect(await screen.findByText("Chantier 1")).toBeTruthy();
   expect(screen.getByText("Chantier 4")).toBeTruthy();
   expect(screen.queryByText("Chantier 2")).toBeNull();
@@ -415,6 +501,7 @@ function teamWithoutWorkItems(path: string): Response {
 }
 
 async function openNotebookExport() {
+  await openSection("Chantiers");
   const summary = await screen.findByText("Exporter le cahier");
   const panel = summary.closest("details");
   expect(panel?.open).toBe(false);

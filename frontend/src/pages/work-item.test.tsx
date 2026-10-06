@@ -412,9 +412,18 @@ it("adds to what was done and saves the changed handoff", async () => {
     "2026-09-28",
     "summary",
   ] as const;
+  const analyticsKey = [
+    "team-seasons",
+    7,
+    "analytics",
+    "activity",
+    "2026-09-01",
+    "2026-09-30",
+  ] as const;
   queryClient.setQueryData(homeWorkItemsKey, { cached: true });
   queryClient.setQueryData(todayKey, { cached: true });
   queryClient.setQueryData(daySummaryKey, { cached: true });
+  queryClient.setQueryData(analyticsKey, { cached: true });
 
   const addition = await screen.findByLabelText("Votre ajout");
   const handover = screen.getByLabelText("À faire la prochaine fois");
@@ -440,6 +449,7 @@ it("adds to what was done and saves the changed handoff", async () => {
     );
     expect(queryClient.getQueryState(todayKey)?.isInvalidated).toBe(true);
     expect(queryClient.getQueryState(daySummaryKey)?.isInvalidated).toBe(true);
+    expect(queryClient.getQueryState(analyticsKey)?.isInvalidated).toBe(true);
   });
   await waitFor(() => {
     expect(screen.getAllByText(/Courroie alignée\./).length).toBeGreaterThan(0);

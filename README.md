@@ -556,6 +556,17 @@ and counts items with no progress yet. The calculation lives in
 `club.analytics`, alongside the future match and trial analytics, so API
 views only validate access and input.
 
+The team home keeps a compact summary of today's workshop and its team notes
+above URL-backed work-item and activity sections, so a member can open the
+activity view directly without putting both screens into one long page. The
+activity section starts with the last 30 days and can show the whole
+September-to-August season or a custom inclusive period. Summary cards describe
+the current work, while the time chart and member table follow the selected
+period. Recharts is the frontend's single charting library; each visual chart
+has the same values in an accessible table, so colour and pointer interaction
+are never required. The member table keeps the API's neutral order and wording:
+it describes days, traces and distinct work items, without scores or rankings.
+
 The export is raw material for the portfolio, which students write elsewhere:
 the season's entries by category — building the robot (work items on the
 robot), outreach (off the robot), team life (no work item) — each work item

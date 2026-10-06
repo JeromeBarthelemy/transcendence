@@ -6,7 +6,7 @@ import {
 } from "@tanstack/react-query";
 import { type FormEvent, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 
 import type { Identity, TeamSeasonSummary } from "../api/auth";
 import { createTeamNote, getWorkday, type Workday } from "../api/workdays";
@@ -15,10 +15,14 @@ import { formatWorkdayDate, nameFormatter } from "../app/formatters";
 import { statusColors } from "../app/workItemStatus";
 import { RequestError } from "../components/ApiErrors";
 import { AvatarStack } from "../components/Avatar";
+import { TeamActivity } from "../components/TeamActivity";
 import { OpenWorkItemPanel } from "./OpenWorkItemPanel";
 
 type StatusFilter = "all" | WorkItem["status"];
+type TeamSection = "work-items" | "activity";
+
 const WORK_ITEM_STATUSES: WorkItem["status"][] = ["open", "done", "dropped"];
+const TEAM_SECTIONS: TeamSection[] = ["work-items", "activity"];
 
 const dateFormatter = new Intl.DateTimeFormat("fr-FR", {
   dateStyle: "long",
@@ -430,10 +434,46 @@ function teamLabel(teamSeason: TeamSeasonSummary) {
   return `${teamSeason.team.number} · ${teamSeason.team.name}`;
 }
 
+function TeamSectionNav({ section }: { section: TeamSection }) {
+  const { t } = useTranslation();
+
+  return (
+    <nav
+      aria-label={t("teamHome.sectionsLabel")}
+      className="mt-8 grid grid-cols-2 gap-1 rounded-2xl border border-primary/12 bg-white p-1 shadow-sm"
+    >
+      {TEAM_SECTIONS.map((item) => {
+        const isCurrent = item === section;
+        return (
+          <Link
+            key={item}
+            to={{ pathname: "/", search: `?section=${item}` }}
+            aria-current={isCurrent ? "page" : undefined}
+            className={`rounded-xl px-2 py-2.5 text-center text-sm font-semibold whitespace-nowrap transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lagoon sm:px-4 ${
+              isCurrent
+                ? "bg-primary text-white shadow-button"
+                : "text-ink hover:bg-tint"
+            }`}
+          >
+            {t(`teamHome.sections.${item}`)}
+          </Link>
+        );
+      })}
+    </nav>
+  );
+}
+
 export function TeamHomePage({ identity }: { identity: Identity }) {
   const { t } = useTranslation();
+  const [searchParams] = useSearchParams();
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("open");
+  const requestedSection = searchParams.get("section");
+  const section: TeamSection = TEAM_SECTIONS.includes(
+    requestedSection as TeamSection,
+  )
+    ? (requestedSection as TeamSection)
+    : "work-items";
   const selectedTeamSeason =
     identity.team_seasons.find((item) => item.id === selectedId) ??
     identity.team_seasons[0];
@@ -442,7 +482,7 @@ export function TeamHomePage({ identity }: { identity: Identity }) {
     queryKey: ["team-seasons", teamSeasonId, "work-items"],
     queryFn: () =>
       teamSeasonId === null ? Promise.resolve([]) : getWorkItems(teamSeasonId),
-    enabled: teamSeasonId !== null,
+    enabled: teamSeasonId !== null && section === "work-items",
   });
   const day = useQuery({
     queryKey: ["team-seasons", teamSeasonId, "days", "today"],
@@ -524,56 +564,71 @@ export function TeamHomePage({ identity }: { identity: Identity }) {
         day={day}
       />
 
-      {workItems.isPending ? (
-        <p role="status" className="mt-10 text-sm text-muted">
-          {t("teamHome.loading")}
-        </p>
-      ) : workItems.isError ? (
-        <RequestError error={workItems.error} />
-      ) : (
-        <div className="mt-10">
-          <OpenWorkItemPanel
-            key={selectedTeamSeason.id}
-            teamSeasonId={selectedTeamSeason.id}
-            workItems={workItems.data}
-          >
-            <label className="text-sm font-semibold text-ink">
-              {t("teamHome.filterByStatus")}
-              <select
-                className="mt-2 block w-full rounded-xl border border-primary/20 bg-white px-3 py-2 font-normal sm:w-auto"
-                value={statusFilter}
-                onChange={(event) =>
-                  setStatusFilter(event.target.value as StatusFilter)
-                }
-              >
-                <option value="all">{t("teamHome.allStatuses")}</option>
-                {WORK_ITEM_STATUSES.map((status) => (
-                  <option key={status} value={status}>
-                    {t(`teamHome.statuses.${status}`)}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </OpenWorkItemPanel>
+      <TeamSectionNav section={section} />
 
-          <div className="mt-8 space-y-10">
-            <WorkItemSection
-              id="robot-work-items"
-              title={t("teamHome.robot")}
-              items={robotItems}
-              currentWorkday={day.data?.day}
-            />
-            <WorkItemSection
-              id="off-robot-work-items"
-              title={t("teamHome.offRobot")}
-              items={offRobotItems}
-              currentWorkday={day.data?.day}
-            />
-          </div>
-        </div>
+      {section === "activity" && (
+        <TeamActivity
+          teamSeason={selectedTeamSeason}
+          currentWorkday={day.data?.day}
+        />
       )}
 
-      <NotebookExport teamSeasonId={selectedTeamSeason.id} />
+      {section === "work-items" && (
+        <div>
+          {workItems.isPending ? (
+            <p role="status" className="mt-10 text-sm text-muted">
+              {t("teamHome.loading")}
+            </p>
+          ) : workItems.isError ? (
+            <div className="mt-10">
+              <RequestError error={workItems.error} />
+            </div>
+          ) : (
+            <div className="mt-10">
+              <OpenWorkItemPanel
+                key={selectedTeamSeason.id}
+                teamSeasonId={selectedTeamSeason.id}
+                workItems={workItems.data}
+              >
+                <label className="text-sm font-semibold text-ink">
+                  {t("teamHome.filterByStatus")}
+                  <select
+                    className="mt-2 block w-full rounded-xl border border-primary/20 bg-white px-3 py-2 font-normal sm:w-auto"
+                    value={statusFilter}
+                    onChange={(event) =>
+                      setStatusFilter(event.target.value as StatusFilter)
+                    }
+                  >
+                    <option value="all">{t("teamHome.allStatuses")}</option>
+                    {WORK_ITEM_STATUSES.map((status) => (
+                      <option key={status} value={status}>
+                        {t(`teamHome.statuses.${status}`)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </OpenWorkItemPanel>
+
+              <div className="mt-8 space-y-10">
+                <WorkItemSection
+                  id="robot-work-items"
+                  title={t("teamHome.robot")}
+                  items={robotItems}
+                  currentWorkday={day.data?.day}
+                />
+                <WorkItemSection
+                  id="off-robot-work-items"
+                  title={t("teamHome.offRobot")}
+                  items={offRobotItems}
+                  currentWorkday={day.data?.day}
+                />
+              </div>
+            </div>
+          )}
+
+          <NotebookExport teamSeasonId={selectedTeamSeason.id} />
+        </div>
+      )}
     </main>
   );
 }
