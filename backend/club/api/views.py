@@ -605,6 +605,7 @@ class WorkItemDetailView(APIView):
             }
         )
 
+    @transaction.atomic
     def patch(self, request: Request, pk: int) -> Response:
         assert isinstance(request.user, User)
         item = _work_item_acted_on(request.user, pk)
@@ -638,13 +639,18 @@ class WorkItemDetailView(APIView):
 
 
 def _open_for_work(item: WorkItem | None) -> None:
+    """Called inside the transaction that writes: see `check_open`."""
     try:
         check_open(item)
     except WorkItemClosed as closed:
-        raise Conflict(
-            "Ce chantier est fermé : rouvrez-le pour le reprendre.",
-            code="work_item_closed",
-        ) from closed
+        raise _work_item_closed() from closed
+
+
+def _work_item_closed() -> Conflict:
+    return Conflict(
+        "Ce chantier est fermé : rouvrez-le pour le reprendre.",
+        code="work_item_closed",
+    )
 
 
 class TickView(APIView):
@@ -697,6 +703,7 @@ class EntryAttachmentsView(APIView):
     """Anyone on the team adds to any of its entries: an outing's photos come
     from everyone who was there, not from whoever wrote it up."""
 
+    @transaction.atomic
     def post(self, request: Request, pk: int) -> Response:
         user = request.user
         assert isinstance(user, User)
@@ -780,8 +787,8 @@ class EntryDetailView(APIView):
                 "Cette avancée a été modifiée pendant que vous écriviez.",
                 code="progress_changed",
             ) from changed
-        except WorkItemClosed:
-            _open_for_work(entry.work_item)
+        except WorkItemClosed as closed:
+            raise _work_item_closed() from closed
         broadcast(entry.team_season_id, entry.work_item_id)
         return Response(_entry(entry, user))
 
@@ -815,6 +822,7 @@ class EntryDetailView(APIView):
 
 
 class NoteCreateView(APIView):
+    @transaction.atomic
     def post(self, request: Request, team_season_id: int) -> Response:
         user = request.user
         assert isinstance(user, User)
@@ -830,6 +838,7 @@ class NoteCreateView(APIView):
 
 
 class DecisionCreateView(APIView):
+    @transaction.atomic
     def post(self, request: Request, team_season_id: int) -> Response:
         user = request.user
         assert isinstance(user, User)

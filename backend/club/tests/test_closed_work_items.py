@@ -1,11 +1,14 @@
 """A closed work item is read-only (#139): nothing moves it forward until
 someone reopens it on purpose, but its history can still be put right."""
 
+from unittest import mock
+
 import pytest
 from django.core.files.uploadedfile import SimpleUploadedFile
 
+from club.api.serializers import NoteSerializer
 from club.models import Entry, Membership, Season, Team, TeamSeason, User, WorkItem
-from club.progress import WorkItemClosed, record_progress
+from club.progress import WorkItemClosed, edit_progress, record_progress
 
 CLOSED = [WorkItem.Status.DONE, WorkItem.Status.DROPPED]
 
@@ -139,6 +142,64 @@ def test_a_closed_work_items_history_can_still_be_put_right(client, closed):
 
     assert corrected.status_code == 200
     assert left.status_code == 204
+
+
+# --- closed by someone else meanwhile: what counts is the database ---
+
+
+@pytest.fixture
+def open_item(db):
+    rouages = team_season()
+    lina = member_of(rouages)
+    outreach = WorkItem.objects.create(team_season=rouages, title="outreach")
+    return outreach, lina
+
+
+def close_in_the_database(item):
+    WorkItem.objects.filter(pk=item.pk).update(status=WorkItem.Status.DROPPED)
+
+
+def test_progress_on_a_work_item_closed_since_it_was_loaded_is_refused(open_item):
+    outreach, lina = open_item
+    close_in_the_database(outreach)
+
+    with pytest.raises(WorkItemClosed):
+        record_progress(outreach, lina, "Stand monté.")
+
+    assert not Entry.objects.exists()
+
+
+def test_an_edit_on_a_work_item_closed_since_it_was_loaded_is_refused(open_item):
+    outreach, lina = open_item
+    progress = record_progress(outreach, lina, "Stand monté.")
+    close_in_the_database(progress.work_item)
+
+    with pytest.raises(WorkItemClosed):
+        edit_progress(progress, lina, addition="Et démonté.")
+
+    progress.refresh_from_db()
+    assert progress.body == "Stand monté."
+
+
+def test_a_note_is_refused_when_its_work_item_closes_during_validation(
+    client, open_item
+):
+    outreach, lina = open_item
+    client.force_login(lina)
+
+    def closed_meanwhile(serializer, value):
+        close_in_the_database(value)
+        return value
+
+    with mock.patch.object(NoteSerializer, "validate_work_item", closed_meanwhile):
+        response = client.post(
+            f"/api/team-seasons/{outreach.team_season_id}/notes/",
+            {"body": "Une de plus.", "work_item": outreach.id},
+            content_type="application/json",
+        )
+
+    refused(response)
+    assert not Entry.objects.exists()
 
 
 # --- closing, with its reason, and reopening on purpose ---

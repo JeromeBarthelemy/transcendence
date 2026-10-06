@@ -33,8 +33,17 @@ class WorkItemClosed(Exception):
 
 def check_open(work_item: WorkItem | None) -> None:
     """Correcting, removing or leaving a trace is still allowed: it repairs
-    the record, it does not move the work forward."""
-    if work_item is not None and work_item.status != WorkItem.Status.OPEN:
+    the record, it does not move the work forward.
+
+    The status is read again from the database, since the instance may have
+    been loaded before someone closed it. Called inside the transaction that
+    writes: with SQLite in IMMEDIATE mode (settings.py), that transaction
+    holds the write lock, so no closing can come between the check and the
+    write."""
+    if work_item is None:
+        return
+    work_item.refresh_from_db(fields=["status"])
+    if work_item.status != WorkItem.Status.OPEN:
         raise WorkItemClosed
 
 
@@ -81,6 +90,7 @@ def join(entry: Entry, user: User) -> None:
     EntryParticipant.objects.create(entry=entry, user=user)
 
 
+@transaction.atomic
 def edit_progress(
     entry: Entry,
     user: User,
