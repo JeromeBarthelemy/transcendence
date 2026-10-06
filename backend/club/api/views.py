@@ -53,7 +53,14 @@ from club.progress import (
     record_progress,
 )
 from club.rag import ask, serialize
-from club.sources import CheckOutcome, accept_update, check_all, latest_documents
+from club.sources import (
+    CheckOutcome,
+    NoPassage,
+    accept_update,
+    add_source,
+    check_all,
+    latest_documents,
+)
 from club.workdays import (
     attendance,
     day_entries,
@@ -74,6 +81,7 @@ from .permissions import (
 )
 from .serializers import (
     AddMembershipSerializer,
+    AddSourceSerializer,
     AskSerializer,
     AttachmentSerializer,
     AvatarSerializer,
@@ -969,12 +977,37 @@ def _rule_sources(checks: list[CheckOutcome] | None = None) -> list[dict[str, An
 
 class RuleSourcesView(APIView):
     """What an administrator sees about the rulebook's sources: the copy the
-    RAG searches, when it was last checked, and the change waiting for them."""
+    RAG searches, when it was last checked, and the change waiting for them.
+    Posting a URL adds a copy from FIRST's own page, and the checks follow it."""
 
     permission_classes = [IsClubAdmin]
 
     def get(self, request: Request) -> Response:
         return Response(_rule_sources())
+
+    def post(self, request: Request) -> Response:
+        serializer = AddSourceSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        season = Season.objects.first()
+        if season is None:
+            raise DjangoValidationError(
+                "Aucune saison n'est ouverte.", code="no_season"
+            )
+        try:
+            add_source(
+                season=season,
+                source=serializer.validated_data["source"],
+                url=serializer.validated_data["url"],
+            )
+        except NoPassage as error:
+            raise DjangoValidationError(
+                "La page ne contient aucun passage à indexer.", code="no_passage"
+            ) from error
+        except (OSError, ValueError) as error:
+            raise DjangoValidationError(
+                "La page n'a pas pu être récupérée.", code="fetch_failed"
+            ) from error
+        return Response(_rule_sources(), status=status.HTTP_201_CREATED)
 
 
 class RuleSourcesCheckView(APIView):
