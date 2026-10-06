@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -11,6 +12,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, expect, it, vi } from "vitest";
 
 import type { TeamSeasonSummary } from "../api/auth";
+import { LiveBoard } from "../app/live";
 import "../i18n";
 import { TeamActivity } from "./TeamActivity";
 
@@ -88,7 +90,7 @@ function analytics(path: string, overrides: object = {}) {
   };
 }
 
-function renderActivity(fetchMock: ReturnType<typeof vi.fn>) {
+function renderActivity(fetchMock: ReturnType<typeof vi.fn>, live = false) {
   vi.stubGlobal("fetch", fetchMock);
   vi.stubGlobal(
     "ResizeObserver",
@@ -120,6 +122,7 @@ function renderActivity(fetchMock: ReturnType<typeof vi.fn>) {
   const firstTeam = teamSeason(7, 1796, "Les Rouages");
   const view = render(
     <QueryClientProvider client={queryClient}>
+      {live && <LiveBoard teamSeasonId={firstTeam.id} />}
       <TeamActivity teamSeason={firstTeam} currentWorkday="2026-10-05" />
     </QueryClientProvider>,
   );
@@ -146,6 +149,11 @@ it("requests 30 days and shows API values with accessible chart tables", async (
   });
 
   expect(screen.getByText("Ouvert").parentElement?.textContent).toContain("2");
+  const exportLink = screen.getByRole("link", { name: "Exporter en CSV" });
+  expect(exportLink.getAttribute("href")).toBe(
+    "/api/team-seasons/7/analytics/activity/?since=2026-09-06&until=2026-10-05&format=csv",
+  );
+  expect(exportLink.hasAttribute("download")).toBe(true);
   expect(screen.getByText("Sans avancée").parentElement?.textContent).toContain(
     "1",
   );
@@ -201,6 +209,13 @@ it("reloads the selected team and custom period", async () => {
           "/api/team-seasons/7/analytics/activity/?since=2026-09-12&until=2026-09-30",
       ),
     ).toBe(true);
+    expect(
+      screen
+        .getByRole("link", { name: "Exporter en CSV" })
+        .getAttribute("href"),
+    ).toBe(
+      "/api/team-seasons/7/analytics/activity/?since=2026-09-12&until=2026-09-30&format=csv",
+    );
   });
 
   rerender(
@@ -220,6 +235,13 @@ it("reloads the selected team and custom period", async () => {
           "/api/team-seasons/8/analytics/activity/?since=2026-09-12&until=2026-09-30",
       ),
     ).toBe(true);
+    expect(
+      screen
+        .getByRole("link", { name: "Exporter en CSV" })
+        .getAttribute("href"),
+    ).toBe(
+      "/api/team-seasons/8/analytics/activity/?since=2026-09-12&until=2026-09-30&format=csv",
+    );
   });
 });
 
@@ -246,4 +268,85 @@ it("shows API failures", async () => {
   expect(
     await screen.findByText("Une erreur inattendue est survenue."),
   ).toBeTruthy();
+  expect(screen.queryByRole("link", { name: "Exporter en CSV" })).toBeNull();
+});
+
+it("does not offer an export for an invalid period", async () => {
+  renderActivity(vi.fn(async (path: string) => json(analytics(path))));
+  await screen.findByRole("link", { name: "Exporter en CSV" });
+  await userEvent.selectOptions(
+    screen.getByRole("combobox", { name: "Période observée" }),
+    "custom",
+  );
+  fireEvent.change(screen.getByLabelText("Du"), {
+    target: { value: "2026-10-06" },
+  });
+
+  expect(screen.getByRole("alert").textContent).toBe(
+    "La date de début doit précéder la date de fin.",
+  );
+  expect(screen.queryByRole("link", { name: "Exporter en CSV" })).toBeNull();
+});
+
+it("reloads displayed activity for the selected period on a live board message", async () => {
+  const sockets: Socket[] = [];
+  class Socket {
+    static CONNECTING = 0;
+    static OPEN = 1;
+    readyState = Socket.OPEN;
+    onopen: (() => void) | null = null;
+    onmessage: ((event: { data: string }) => void) | null = null;
+    onclose: (() => void) | null = null;
+    constructor(readonly url: string) {
+      sockets.push(this);
+    }
+    close() {}
+  }
+  vi.stubGlobal("WebSocket", Socket);
+  let updated = false;
+  const fetchMock = vi.fn(async (path: string) => {
+    const data = analytics(path);
+    if (updated) {
+      data.members[0].progress_entries = 5;
+      data.activity_by_day[0].progress_entries = 6;
+    }
+    return json(data);
+  });
+  renderActivity(fetchMock, true);
+  const participation = await screen.findByRole("table", {
+    name: "Participation des membres",
+  });
+  expect(
+    within(participation).getByRole("row", { name: /Lina Martin 2 4 2/ }),
+  ).toBeTruthy();
+  expect(sockets[0].url).toBe("ws://localhost:5173/ws/team-seasons/7/");
+
+  await userEvent.selectOptions(
+    screen.getByRole("combobox", { name: "Période observée" }),
+    "custom",
+  );
+  fireEvent.change(screen.getByLabelText("Du"), {
+    target: { value: "2026-10-01" },
+  });
+  await screen.findByRole("link", { name: "Exporter en CSV" });
+  const before = fetchMock.mock.calls.length;
+  updated = true;
+  act(() =>
+    sockets[0].onmessage?.({ data: JSON.stringify({ work_item: 10 }) }),
+  );
+
+  await waitFor(() => {
+    expect(
+      within(
+        screen.getByRole("table", { name: "Participation des membres" }),
+      ).getByRole("row", { name: /Lina Martin 2 5 2/ }),
+    ).toBeTruthy();
+  });
+  expect(fetchMock.mock.calls.slice(before).map(([path]) => path)).toContain(
+    "/api/team-seasons/7/analytics/activity/?since=2026-10-01&until=2026-10-05",
+  );
+  const chartData = await screen.findByRole("table", {
+    name: "Données de l'activité dans le temps",
+  });
+  expect(within(chartData).getAllByRole("row")[1]?.textContent).toContain("6");
 });

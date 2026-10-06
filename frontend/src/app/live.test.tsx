@@ -57,6 +57,8 @@ function renderBoard() {
   const fresh = () => {
     for (const key of [
       ["team-seasons", 7, "work-items"],
+      ["team-seasons", 7, "analytics", "activity", "2026-09-01", "2026-10-05"],
+      ["team-seasons", 8, "analytics", "activity", "2026-09-01", "2026-10-05"],
       ["work-items", 10],
       ["work-items", 11],
     ]) {
@@ -94,6 +96,26 @@ it("reloads the team season and the work item a message names", () => {
   latest().receive({ work_item: 10 });
 
   expect(invalidated(["team-seasons", 7, "work-items"])).toBe(true);
+  expect(
+    invalidated([
+      "team-seasons",
+      7,
+      "analytics",
+      "activity",
+      "2026-09-01",
+      "2026-10-05",
+    ]),
+  ).toBe(true);
+  expect(
+    invalidated([
+      "team-seasons",
+      8,
+      "analytics",
+      "activity",
+      "2026-09-01",
+      "2026-10-05",
+    ]),
+  ).toBe(false);
   expect(invalidated(["work-items", 10])).toBe(true);
   expect(invalidated(["work-items", 11])).toBe(false);
 });
@@ -122,6 +144,16 @@ it("reconnects after a drop and reloads what it may have missed", () => {
   latest().open();
 
   expect(invalidated(["team-seasons", 7, "work-items"])).toBe(true);
+  expect(
+    invalidated([
+      "team-seasons",
+      7,
+      "analytics",
+      "activity",
+      "2026-09-01",
+      "2026-10-05",
+    ]),
+  ).toBe(true);
   expect(invalidated(["work-items", 11])).toBe(true);
 });
 

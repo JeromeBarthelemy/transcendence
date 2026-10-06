@@ -4,8 +4,10 @@ Nothing in this module is a score. It describes recorded participation and
 the current state of the work, without ranking members or judging output.
 """
 
+import csv
 from dataclasses import dataclass, field
 from datetime import date
+from io import StringIO
 from typing import TypedDict
 
 from django.db import models
@@ -65,6 +67,16 @@ class ActivityAnalytics(TypedDict):
     snapshot: Snapshot
     activity_by_day: list[DailyActivity]
     members: list[MemberActivity]
+
+
+def to_csv(days: list[DailyActivity]) -> str:
+    """The same daily values as the chart, with a header even if empty."""
+    output = StringIO(newline="")
+    writer = csv.writer(output)
+    writer.writerow(["day", "progress_entries", "active_members"])
+    for day in days:
+        writer.writerow([day["day"], day["progress_entries"], day["active_members"]])
+    return output.getvalue()
 
 
 @dataclass

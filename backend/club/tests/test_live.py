@@ -16,6 +16,7 @@ from django.test import Client
 
 from club.models import Entry, Membership, Season, Team, TeamSeason, User, WorkItem
 from club.progress import record_progress
+from club.workdays import workday
 
 
 def team_season(number=12345):
@@ -328,3 +329,30 @@ def test_ticking_again_changes_nothing_and_notifies_nobody(
 
     assert response.status_code == 200
     assert heard is None
+
+
+def test_another_members_progress_notifies_the_listener_and_updates_activity(
+    board, django_capture_on_commit_callbacks
+):
+    tom = member_of(board.team_season, "tom")
+    writer = Client()
+    writer.force_login(tom)
+    day = workday(board.progress.occurred_at)
+    analytics_url = (
+        f"/api/team-seasons/{board.team_season.id}/analytics/activity/"
+        f"?since={day}&until={day}"
+    )
+    before = board.client.get(analytics_url).json()["activity_by_day"]
+
+    response, heard = listen(
+        board.team_season,
+        board.lina,
+        lambda: writer.post(f"/api/work-items/{board.empty.id}/tick/", **as_json()),
+        django_capture_on_commit_callbacks,
+    )
+    after = board.client.get(analytics_url).json()["activity_by_day"]
+
+    assert response.status_code == 201
+    assert heard == {"work_item": board.empty.id}
+    assert before == [{"day": str(day), "progress_entries": 1, "active_members": 1}]
+    assert after == [{"day": str(day), "progress_entries": 2, "active_members": 2}]

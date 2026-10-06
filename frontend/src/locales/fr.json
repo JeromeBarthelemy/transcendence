@@ -111,6 +111,7 @@
     "last30Days": "30 derniers jours",
     "wholeSeason": "Toute la saison",
     "customPeriod": "Période personnalisée",
+    "exportCsv": "Exporter en CSV",
     "since": "Du",
     "until": "Au",
     "invalidPeriod": "La date de début doit précéder la date de fin.",

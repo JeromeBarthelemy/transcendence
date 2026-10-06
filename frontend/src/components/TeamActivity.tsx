@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 
 import {
   type ActivityPeriod,
+  activityAnalyticsCsvUrl,
   activityAnalyticsQueryKey,
   getActivityAnalytics,
   type MemberActivity,
@@ -201,20 +202,34 @@ export function TeamActivity({
           </p>
         </div>
 
-        <label className="text-sm font-semibold text-ink">
-          {t("activity.period")}
-          <select
-            className="mt-2 block w-full rounded-xl border border-primary/20 bg-white px-3 py-2 font-normal lg:w-auto"
-            value={periodChoice}
-            onChange={(event) =>
-              setPeriodChoice(event.target.value as PeriodChoice)
-            }
-          >
-            <option value="last30">{t("activity.last30Days")}</option>
-            <option value="season">{t("activity.wholeSeason")}</option>
-            <option value="custom">{t("activity.customPeriod")}</option>
-          </select>
-        </label>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+          <label className="text-sm font-semibold text-ink">
+            {t("activity.period")}
+            <select
+              className="mt-2 block w-full rounded-xl border border-primary/20 bg-white px-3 py-2 font-normal lg:w-auto"
+              value={periodChoice}
+              onChange={(event) =>
+                setPeriodChoice(event.target.value as PeriodChoice)
+              }
+            >
+              <option value="last30">{t("activity.last30Days")}</option>
+              <option value="season">{t("activity.wholeSeason")}</option>
+              <option value="custom">{t("activity.customPeriod")}</option>
+            </select>
+          </label>
+          {periodIsValid && analytics.isSuccess && (
+            <a
+              className="rounded-xl bg-primary px-4 py-2 text-center text-sm font-semibold text-white"
+              href={activityAnalyticsCsvUrl(
+                teamSeason.id,
+                analytics.data.period,
+              )}
+              download
+            >
+              {t("activity.exportCsv")}
+            </a>
+          )}
+        </div>
       </div>
 
       {periodChoice === "custom" && (

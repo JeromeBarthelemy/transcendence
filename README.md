@@ -543,6 +543,7 @@ anyone else gets a `403` with the code `not_a_member`.
 | `GET /api/team-seasons/{id}/days/{YYYY-MM-DD}/` | the day's entries, number of work items advanced, who was there, the roster they count against, and the `previous` and `next` days the team left a trace; `today` resolves the current 4 a.m.–4 a.m. workday on the server |
 | `GET /api/team-seasons/{id}/gaps/?since=&until=` | the workshop-slot days on which nothing moved forward |
 | `GET /api/team-seasons/{id}/analytics/activity/?since=&until=` | progress activity by workday and member over the inclusive period, plus a current work-item snapshot |
+| `GET /api/team-seasons/{id}/analytics/activity/?since=&until=&format=csv` | download the same daily activity values as CSV (`day`, `progress_entries`, `active_members`), with the same period validation and team access |
 | `GET /api/team-seasons/{id}/export/?format=markdown` | the season's notebook as a `.zip`, one Markdown file per category; `category` (`robot`, `outreach`, `team-life`) and `work_item` narrow it |
 
 A day runs from 4 a.m. to 4 a.m., in Paris time: a late session belongs to
@@ -582,6 +583,14 @@ period. Recharts is the frontend's single charting library; each visual chart
 has the same values in an accessible table, so colour and pointer interaction
 are never required. The member table keeps the API's neutral order and wording:
 it describes days, traces and distinct work items, without scores or rankings.
+
+"Exporter en CSV" downloads the selected team's daily activity for the period
+shown. The filename includes the team number and both dates; only days with
+recorded progress have rows, as in the chart, and an empty period still exports
+the header. JSON remains the default; `format=json` is also accepted, other
+formats are refused. The existing live board reloads this section's queries on
+every team change and on reconnection: progress recorded in another browser
+updates the charts and participation without a page reload or polling.
 
 The export is raw material for the portfolio, which students write elsewhere:
 the season's entries by category — building the robot (work items on the
