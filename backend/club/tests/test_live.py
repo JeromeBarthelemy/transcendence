@@ -146,6 +146,10 @@ WRITES = {
         b.client.post(f"/api/work-items/{b.empty.id}/tick/", **as_json()),
         lambda response: b.empty.id,
     ),
+    "leave today's progress": lambda b: (
+        b.client.delete(f"/api/work-items/{b.intake.id}/tick/"),
+        lambda response: b.intake.id,
+    ),
     "add to a progress": lambda b: (
         b.client.patch(
             f"/api/entries/{b.progress.id}/", **as_json(addition="Courroie tendue.")

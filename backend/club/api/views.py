@@ -652,7 +652,9 @@ class TickView(APIView):
         `leave_todays_progress`."""
         user = request.user
         assert isinstance(user, User)
-        leave_todays_progress(_work_item_acted_on(user, pk), user)
+        item = _work_item_acted_on(user, pk)
+        leave_todays_progress(item, user)
+        broadcast(item.team_season_id, item.id)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
