@@ -9,6 +9,7 @@ import {
   type Notice,
   notificationsQueryKey,
 } from "../api/notifications";
+import { RequestError } from "../components/ApiErrors";
 import { formatNoticeTime } from "./formatters";
 import { focusRing, type OpenMenu, useMenu } from "./menu";
 
@@ -85,7 +86,12 @@ export function NotificationsMenu({
           aria-label={t("notifications.title")}
           className="absolute top-full right-0 z-30 mt-2 w-80 max-w-[calc(100vw-2.5rem)] rounded-2xl border border-primary/10 bg-white p-2 shadow-panel"
         >
-          {items.length === 0 ? (
+          {notifications.isError && !notifications.data ? (
+            // Not "nothing new": the member would take it for an answer.
+            <div className="px-3 pb-2.5">
+              <RequestError error={notifications.error} />
+            </div>
+          ) : items.length === 0 ? (
             <p className="px-3 py-2.5 text-sm text-muted">
               {t("notifications.empty")}
             </p>

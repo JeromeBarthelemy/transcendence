@@ -217,6 +217,39 @@ it("forgets the member's notifications once they log out", async () => {
   expect(queryClient.getQueryData(["notifications"])).toBeUndefined();
 });
 
+it.each([
+  ["the server fails", () => json({ detail: "boom" }, 500)],
+  [
+    "the answer is not understood",
+    () => json({ unread: 1, items: [notice(1, { verb: "work_item_moved" })] }),
+  ],
+])("says the notifications could not be read when %s", async (_, answer) => {
+  const user = userEvent.setup();
+  const fetchMock = vi.fn(async (url: string) => {
+    if (url === "/api/auth/me/") {
+      return json(tom);
+    }
+    if (url === "/api/notifications/") {
+      return answer();
+    }
+    throw new Error(`Unexpected request: ${url}`);
+  });
+  vi.stubGlobal("fetch", fetchMock);
+  renderApp();
+
+  await user.click(
+    await screen.findByRole("button", {
+      name: "Notifications, aucune non lue",
+    }),
+  );
+
+  const panel = screen.getByRole("region", { name: "Notifications" });
+  expect((await within(panel).findByRole("alert")).textContent).toBe(
+    "Une erreur inattendue est survenue.",
+  );
+  expect(panel.textContent).not.toContain("Rien de nouveau.");
+});
+
 it("says so when there is nothing yet", async () => {
   const user = userEvent.setup();
   serve([]);
