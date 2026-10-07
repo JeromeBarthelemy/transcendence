@@ -9,6 +9,7 @@ import { ApiRequestError } from "../api/client";
 import logo from "../assets/logo.webp";
 import { RequestError } from "../components/ApiErrors";
 import { Avatar } from "../components/Avatar";
+import { IconLabel } from "../components/Icon";
 import { currentUserQueryKey, useCurrentUser } from "./useCurrentUser";
 
 const focusRing =
@@ -72,10 +73,14 @@ function AdminLinks({
   return (
     <>
       <Link to="/teams" className={linkClass} onClick={onNavigate}>
-        {t("nav.teams")}
+        <IconLabel icon="team" before>
+          {t("nav.teams")}
+        </IconLabel>
       </Link>
       <Link to="/users" className={linkClass} onClick={onNavigate}>
-        {t("nav.users")}
+        <IconLabel icon="user" before>
+          {t("nav.users")}
+        </IconLabel>
       </Link>
     </>
   );
@@ -150,7 +155,9 @@ function NavLinks({
   return (
     <>
       <Link to="/fieldbot" className={linkClass} onClick={onNavigate}>
-        {t("nav.fieldbot")}
+        <IconLabel icon="chat" before>
+          {t("nav.fieldbot")}
+        </IconLabel>
       </Link>
       {identity.is_club_admin && admin}
     </>

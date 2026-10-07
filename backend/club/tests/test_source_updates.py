@@ -1,4 +1,8 @@
+import threading
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.error import URLError
+
+import pytest
 
 from club.models import Chunk, Document, Season, SourceUpdate, User
 from club.rag import ingest_document
@@ -6,6 +10,7 @@ from club.sources import (
     accept_update,
     check_document,
     content_hash,
+    fetch_page,
     latest_documents,
     summarize,
 )
@@ -237,3 +242,140 @@ def test_a_failed_manual_check_is_reported_to_the_administrator(client, monkeypa
     assert manual["check"]["status"] == "error"
     assert "hors ligne" in manual["check"]["detail"]
     assert copy.pk in [document.pk for document in latest_documents()]
+
+
+def test_a_source_url_must_be_https_and_on_first_s_own_site(client):
+    season()
+    client.force_login(administrator())
+
+    plain = client.post(
+        "/api/rules/sources/",
+        {
+            "source": "game_manual",
+            "url": "http://ftc-resources.firstinspires.org/m.htm",
+        },
+        content_type="application/json",
+    )
+    elsewhere = client.post(
+        "/api/rules/sources/",
+        {"source": "game_manual", "url": "https://attacker.example/m.htm"},
+        content_type="application/json",
+    )
+
+    assert plain.status_code == 400
+    assert plain.json()["url"][0]["code"] == "source_not_allowed"
+    assert elsewhere.status_code == 400
+    assert elsewhere.json()["url"][0]["code"] == "source_not_allowed"
+    assert not Document.objects.exists()
+
+
+def test_a_member_cannot_add_a_source(client):
+    season()
+    client.force_login(User.objects.create_user("lina@club.fr", "Lina"))
+
+    response = client.post(
+        "/api/rules/sources/",
+        {
+            "source": "game_manual",
+            "url": "https://ftc-resources.firstinspires.org/ftc/game/cm-html/m.htm",
+        },
+        content_type="application/json",
+    )
+
+    assert response.status_code == 403
+
+
+def test_an_administrator_adds_the_manual_from_its_url_and_its_checks_follow(
+    client, monkeypatch
+):
+    the_season = season()
+    serve(monkeypatch, REAL_HTML_EXCERPT)
+    client.force_login(administrator())
+
+    response = client.post(
+        "/api/rules/sources/",
+        {
+            "source": "game_manual",
+            "url": "https://ftc-resources.firstinspires.org/ftc/game/cm-html/BIOBUZZ%20Competition%20Manual%20-%20TU03.htm",
+        },
+        content_type="application/json",
+    )
+
+    assert response.status_code == 201
+    copy = Document.objects.get(season=the_season)
+    assert copy.title == "BIOBUZZ Competition Manual - TU03"
+    assert copy.chunks.exists()
+    assert [document.pk for document in latest_documents()] == [copy.pk]
+    assert check_document(copy).status == "unchanged"
+
+
+def test_a_page_that_cannot_be_fetched_is_refused_by_name(client, monkeypatch):
+    season()
+    client.force_login(administrator())
+
+    def unreachable(url):
+        raise URLError("hors ligne")
+
+    monkeypatch.setattr("club.sources.fetch_page", unreachable)
+
+    response = client.post(
+        "/api/rules/sources/",
+        {
+            "source": "game_manual",
+            "url": "https://ftc-resources.firstinspires.org/ftc/game/cm-html/m.htm",
+        },
+        content_type="application/json",
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"]["code"] == "fetch_failed"
+    assert not Document.objects.exists()
+
+
+def test_a_page_with_no_passage_is_refused_and_nothing_is_written(client, monkeypatch):
+    season()
+    client.force_login(administrator())
+    serve(monkeypatch, "<html><body></body></html>")
+
+    response = client.post(
+        "/api/rules/sources/",
+        {
+            "source": "game_manual",
+            "url": "https://ftc-resources.firstinspires.org/ftc/game/cm-html/m.htm",
+        },
+        content_type="application/json",
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"]["code"] == "no_passage"
+    assert not Document.objects.exists()
+
+
+def test_a_redirect_off_first_s_site_is_refused_before_it_is_followed():
+    followed: list[str] = []
+
+    class Redirecting(BaseHTTPRequestHandler):
+        def do_GET(self):
+            if self.path == "/start":
+                self.send_response(302)
+                self.send_header("Location", f"http://127.0.0.1:{port}/secret")
+                self.end_headers()
+            else:
+                followed.append(self.path)
+                self.send_response(200)
+                self.end_headers()
+
+        def log_message(self, *args):
+            pass
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Redirecting)
+    port = server.server_address[1]
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    try:
+        with pytest.raises(ValueError):
+            fetch_page(f"http://127.0.0.1:{port}/start")
+    finally:
+        server.shutdown()
+        server.server_close()
+
+    assert followed == []

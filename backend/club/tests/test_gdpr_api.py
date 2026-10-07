@@ -6,10 +6,12 @@ from smtplib import SMTPException
 
 import pytest
 from django.core.files.base import ContentFile
+from django.utils import timezone
 
 from club.models import (
     Consent,
     Membership,
+    Notification,
     RuleQuery,
     Season,
     Team,
@@ -44,6 +46,20 @@ def admin(email="admin@club.fr", display_name="Admin", contact_email="admin@club
     )
 
 
+def told_of_a_work_item(recipient, actor, title="intake"):
+    """`recipient` is told `actor` dropped a work item of team Rouages."""
+    season, _ = Season.objects.get_or_create(start_year=2026, game_name="BioBuzz")
+    team, _ = Team.objects.get_or_create(number=12345, name="Rouages")
+    team_season, _ = TeamSeason.objects.get_or_create(team=team, season=season)
+    return Notification.objects.create(
+        recipient=recipient,
+        actor=actor,
+        team_season=team_season,
+        verb=Notification.Verb.WORK_ITEM_DROPPED,
+        work_item_title=title,
+    )
+
+
 def delete(client, password=PASSWORD):
     return client.delete(
         "/api/auth/me/", {"password": password}, content_type="application/json"
@@ -66,6 +82,16 @@ def test_a_member_receives_their_export_by_e_mail(client, mailoutbox):
     name, content, _mimetype = attachment
     assert name == "export.json"
     assert "Élève" in content
+
+
+def test_a_member_is_told_where_their_export_went(client, mailoutbox):
+    # A student may look in their own mailbox while it reached a guardian's.
+    lina = student(email="lina@club.fr", contact_email="parent.lina@club.fr")
+    client.force_login(lina)
+
+    response = client.post("/api/auth/me/export/")
+
+    assert response.json() == {"sent_to": "parent.lina@club.fr"}
 
 
 def test_the_export_never_goes_to_the_login_address(client, mailoutbox):
@@ -163,6 +189,27 @@ def test_the_export_carries_rulebook_questions(client, mailoutbox):
     assert "Quelle hauteur maximale en autonome" in content
 
 
+def test_the_export_carries_the_notifications_received_and_when_they_were_read(
+    client, mailoutbox
+):
+    lina = student(contact_email="parent.lina@club.fr")
+    tom = student("tom@club.fr", "Tom")
+    told_of_a_work_item(lina, tom, "intake")
+    told_of_a_work_item(tom, lina, "pince")
+    Notification.objects.filter(recipient=lina).update(read_at=timezone.now())
+    client.force_login(lina)
+
+    client.post("/api/auth/me/export/")
+
+    (mail,) = mailoutbox
+    (_, content, _) = mail.attachments[0]
+    assert "chantier abandonné" in content
+    assert "intake" in content
+    assert '"read_at": null' not in content
+    # Tom was told of Lina's change: his notice is his, not hers.
+    assert "pince" not in content
+
+
 def test_the_export_leaves_out_the_teams_notebook(client, mailoutbox):
     # Entries stay the team's history, attributed, after a member leaves —
     # the notebook export serves a different reader, the portfolio.
@@ -226,11 +273,20 @@ def test_a_member_deletes_their_own_account(client, mailoutbox):
 
     response = delete(client)
 
-    assert response.status_code == 204
+    assert response.status_code == 200
     lina.refresh_from_db()
     assert lina.is_active is False
     (mail,) = mailoutbox
     assert mail.to == ["parent.lina@club.fr"]
+
+
+def test_a_member_is_told_where_their_deletion_confirmation_went(client, mailoutbox):
+    lina = student(contact_email="parent.lina@club.fr")
+    client.force_login(lina)
+
+    response = delete(client)
+
+    assert response.json() == {"sent_to": "parent.lina@club.fr"}
 
 
 def test_deletion_anonymizes_the_display_name_and_login_address(client, mailoutbox):
@@ -288,6 +344,20 @@ def test_deletion_deletes_the_pending_verification_request(client, mailoutbox):
     delete(client)
 
     assert not VerificationRequest.objects.filter(user=lina).exists()
+
+
+def test_deletion_deletes_the_notifications_received_and_keeps_those_caused(
+    client, mailoutbox
+):
+    lina = student(contact_email="parent.lina@club.fr")
+    tom = student("tom@club.fr", "Tom")
+    told_of_a_work_item(lina, tom)
+    caused = told_of_a_work_item(tom, lina)
+    client.force_login(lina)
+
+    delete(client)
+
+    assert list(Notification.objects.all()) == [caused]
 
 
 def test_deletion_leaves_the_password_unusable(client, mailoutbox):
@@ -415,7 +485,7 @@ def test_an_admin_can_leave_if_another_one_remains(client, mailoutbox):
 
     response = delete(client)
 
-    assert response.status_code == 204
+    assert response.status_code == 200
     boss.refresh_from_db()
     assert boss.is_active is False
 

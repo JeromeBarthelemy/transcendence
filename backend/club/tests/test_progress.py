@@ -332,14 +332,15 @@ def test_a_member_leaves_todays_progress_and_the_others_stay_on_it():
     assert list(entry.participants.all()) == [marie]
 
 
-def test_the_last_to_leave_takes_the_progress_and_its_text_with_them():
+def test_the_last_to_leave_is_handed_the_progress_to_delete():
     intake = work_item()
-    marie = student()
-    record_progress(intake, marie, "Mauvais chantier.")
+    marie, tom = student(), student("tom")
+    entry = record_progress(intake, marie, "Mauvais chantier.")
+    join(entry, tom)
 
-    leave_todays_progress(intake, marie)
-
-    assert not intake.entries.exists()
+    assert leave_todays_progress(intake, tom) is None
+    assert leave_todays_progress(intake, marie) == entry
+    assert not entry.participants.exists()
 
 
 def test_a_progress_holding_a_file_stays_once_everyone_has_left(settings, tmp_path):
@@ -356,9 +357,7 @@ def test_a_progress_holding_a_file_stays_once_everyone_has_left(settings, tmp_pa
         people_recognisable=False,
     )
 
-    leave_todays_progress(intake, marie)
-
-    assert intake.entries.get() == entry
+    assert leave_todays_progress(intake, marie) is None
     assert not entry.participants.exists()
 
 

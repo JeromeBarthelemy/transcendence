@@ -27,6 +27,7 @@ from club import attachments, images
 from club.export import CATEGORY_KEYS
 from club.models import (
     Attachment,
+    Document,
     Entry,
     Membership,
     Season,
@@ -41,6 +42,7 @@ from club.models import (
     remove_after_commit,
 )
 from club.signup import reserved_email
+from club.sources import check_source_url
 
 
 def recheck(checks: dict[str, Callable[[], object]]) -> None:
@@ -658,5 +660,30 @@ class UserRoleSerializer(serializers.Serializer[User]):
         return instance
 
 
+class AddSourceSerializer(serializers.Serializer[None]):
+    # `source` is also a Field attribute in DRF; the typing clash is harmless here.
+    source = serializers.ChoiceField(choices=[Document.Source.GAME_MANUAL])  # type: ignore[assignment]
+    url = serializers.URLField(max_length=500)
+
+    def validate_url(self, value: str) -> str:
+        try:
+            return check_source_url(value)
+        except ValueError as error:
+            raise serializers.ValidationError(
+                str(error), code="source_not_allowed"
+            ) from error
+
+
 class AskSerializer(serializers.Serializer[None]):
     question = serializers.CharField(max_length=500)
+
+
+class ReadNotificationsSerializer(serializers.Serializer[None]):
+    """Without `ids`, every notification of the member's is read."""
+
+    # SQLite's integers stop at 2**63 - 1: past it, the query fails rather
+    # than finding nothing.
+    ids = serializers.ListField(
+        child=serializers.IntegerField(min_value=1, max_value=2**63 - 1),
+        required=False,
+    )

@@ -28,6 +28,7 @@ import { statusColors } from "../app/workItemStatus";
 import { fieldIssues, RequestError } from "../components/ApiErrors";
 import { AvatarStack } from "../components/Avatar";
 import { EntryActions } from "../components/EntryActions";
+import { IconLabel } from "../components/Icon";
 
 const dateFormatter = new Intl.DateTimeFormat("fr-FR", {
   dateStyle: "long",
@@ -441,7 +442,7 @@ function TodayPanel({
                 leavingDeletesText ? setIsConfirmingLeave(true) : leave.mutate()
               }
             >
-              {t("workItem.leave")}
+              <IconLabel icon="xmark">{t("workItem.leave")}</IconLabel>
             </button>
           ) : (
             !isClosed && (
@@ -489,7 +490,7 @@ function TodayPanel({
               disabled={leave.isPending}
               onClick={() => leave.mutate()}
             >
-              {t("workItem.confirmLeave")}
+              <IconLabel icon="xmark">{t("workItem.confirmLeave")}</IconLabel>
             </button>
           </div>
         </div>
@@ -531,7 +532,7 @@ function AttachmentRemoval({
         className="px-3 pb-3 text-xs font-semibold text-red-800 hover:underline"
         onClick={() => setIsConfirming(true)}
       >
-        {t("entryActions.remove")}
+        <IconLabel icon="xmark">{t("entryActions.remove")}</IconLabel>
       </button>
     );
   }
@@ -553,7 +554,7 @@ function AttachmentRemoval({
           disabled={remove.isPending}
           onClick={() => remove.mutate()}
         >
-          {t("entryActions.confirmRemove")}
+          <IconLabel icon="xmark">{t("entryActions.confirmRemove")}</IconLabel>
         </button>
       </div>
       {remove.isError && <RequestError error={remove.error} />}
@@ -696,7 +697,7 @@ function WorkItemNoteForm({ item }: { item: WorkItemDetail }) {
       className="rounded-3xl border border-primary/12 bg-white p-5 shadow-sm sm:p-7"
     >
       <h2 id="work-item-note-title" className="brand-title text-2xl text-ink">
-        {t("workItem.addNote")}
+        <IconLabel icon="pen-to-square">{t("workItem.addNote")}</IconLabel>
       </h2>
       <p className="mt-2 text-sm leading-6 text-muted">
         {t("workItem.noteHint")}
@@ -851,7 +852,14 @@ function WorkItemScreen({
         <div>
           <p className="text-sm font-bold tracking-[0.14em] text-accent uppercase">
             {item.on_robot ? t("teamHome.robot") : t("teamHome.offRobot")}
-            {team ? ` · ${team}` : ""}
+            {team && (
+              <>
+                {" · "}
+                <IconLabel icon="team" before>
+                  {team}
+                </IconLabel>
+              </>
+            )}
           </p>
           <h1 className="brand-title mt-2 text-4xl tracking-[-0.04em] text-ink sm:text-5xl">
             {item.title}
@@ -871,7 +879,7 @@ function WorkItemScreen({
               className="rounded-full border border-red-800/25 px-3 py-1 text-sm font-semibold text-red-800 hover:bg-red-50"
               onClick={() => setIsConfirmingDelete(true)}
             >
-              {t("workItem.delete")}
+              <IconLabel icon="xmark">{t("workItem.delete")}</IconLabel>
             </button>
           )}
           {isClosed ? (
@@ -960,7 +968,7 @@ function WorkItemScreen({
               disabled={remove.isPending}
               onClick={() => remove.mutate()}
             >
-              {t("workItem.confirmDelete")}
+              <IconLabel icon="xmark">{t("workItem.confirmDelete")}</IconLabel>
             </button>
           </div>
           {remove.isError && <RequestError error={remove.error} />}
@@ -1001,7 +1009,7 @@ function WorkItemScreen({
             {t("workItem.fromStart")}
           </p>
           <h2 id="history-title" className="brand-title mt-1 text-3xl text-ink">
-            {t("workItem.history")}
+            <IconLabel icon="scroll">{t("workItem.history")}</IconLabel>
           </h2>
           {item.thread.length > 0 ? (
             <ol className="mt-6">

@@ -39,8 +39,8 @@ def _contact_email(user: User) -> str:
 
 def export_data(user: User) -> dict[str, Any]:
     """The member's own identity and account-level decisions — exactly what
-    `anonymize` erases or already keeps — plus their memberships and the
-    questions they asked the rulebook. Not the club's notebook: entries
+    `anonymize` erases or already keeps — plus their memberships, the
+    questions they asked the rulebook, and the notifications they received. Not the club's notebook: entries
     and their attachments are the team's history, kept and still
     attributed after a member leaves, and the notebook export serves a
     different reader, the portfolio, for a request this is not."""
@@ -87,6 +87,19 @@ def export_data(user: User) -> dict[str, Any]:
             }
             for query in user.rule_queries.order_by("created_at")
         ],
+        "notifications": [
+            {
+                "change": notice.get_verb_display(),
+                "work_item": notice.work_item_title,
+                "team": notice.team_season.team.name,
+                "season": notice.team_season.season.label,
+                "created_at": notice.created_at.isoformat(),
+                "read_at": notice.read_at.isoformat() if notice.read_at else None,
+            }
+            for notice in user.notifications.order_by("created_at").select_related(
+                "team_season__team", "team_season__season"
+            )
+        ],
     }
 
 
@@ -104,11 +117,12 @@ def _send(message: EmailMessage) -> None:
         ) from None
 
 
-def send_export(user: User) -> None:
+def send_export(user: User) -> str:
     """Fails before anything is sent if there is nowhere to send it —
     checked first, same backstop-first spirit as everywhere else the club
     validates before acting. The avatar rides as a second attachment, the
-    only part of `export_data` that is not JSON-representable."""
+    only part of `export_data` that is not JSON-representable. Returns the
+    address it went to, for the member to know where to look."""
     to = _contact_email(user)
     payload = json.dumps(export_data(user), indent=2, ensure_ascii=False)
     attachments = [("export.json", payload, "application/json")]
@@ -134,6 +148,7 @@ def send_export(user: User) -> None:
             attachments=attachments,
         )
     )
+    return to
 
 
 def anonymize(user: User) -> None:
@@ -141,7 +156,8 @@ def anonymize(user: User) -> None:
     `EntryParticipant.user` are `PROTECT` on purpose, so what a member
     wrote stays in the team's notebook, attributed. What goes is the
     identity — name, address, birth date, AssoConnect id, avatar,
-    password, any pending verification request, and any admin rights,
+    password, any pending verification request, the notifications received
+    (those the member caused stay their recipients'), and any admin rights,
     which an unusable password leaves no way to exercise anyway. The
     consent log stays: it still decides whether past content may be
     published.
@@ -175,10 +191,11 @@ def anonymize(user: User) -> None:
     )
     remove_after_commit(user, previous_avatar)
     VerificationRequest.objects.filter(user=user).delete()
+    user.notifications.all().delete()
 
 
 @transaction.atomic
-def request_deletion(user: User, *, password: str | None) -> None:
+def request_deletion(user: User, *, password: str | None) -> str:
     """The right to erasure: confirmed by `password` (a session left open
     on a shared computer must not delete the account in one click), then
     anonymized. `password=None` skips that check — only the Django admin
@@ -189,7 +206,8 @@ def request_deletion(user: User, *, password: str | None) -> None:
     transaction rather than before it, so two admins leaving at once are
     ordered by the database's own write lock (`transaction_mode:
     "IMMEDIATE"`, config/settings.py) instead of a stale read —
-    `select_for_update()` would say the same thing but SQLite ignores it."""
+    `select_for_update()` would say the same thing but SQLite ignores it.
+    Returns the address the confirmation went to."""
     if password is not None and not user.check_password(password):
         raise ValidationError(
             "Mot de passe incorrect : le compte n'a pas été supprimé.",
@@ -212,3 +230,4 @@ def request_deletion(user: User, *, password: str | None) -> None:
             to=[to],
         )
     )
+    return to

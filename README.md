@@ -465,8 +465,8 @@ here as anywhere else.
 
 | route | answers |
 | --- | --- |
-| `POST /api/auth/me/export/` | `202` — a JSON copy of the account, plus the avatar, by e-mail |
-| `DELETE /api/auth/me/` | `204` — `password` confirms it; anonymizes the account, confirmed by e-mail |
+| `POST /api/auth/me/export/` | `202` with `sent_to` — a JSON copy of the account, plus the avatar, by e-mail to that address |
+| `DELETE /api/auth/me/` | `200` with `sent_to` — `password` confirms it; anonymizes the account, confirmed by e-mail to that address |
 
 Neither goes to the login address: it identifies an account without being
 assumed to deliver, and the youngest members have none that does. Both go to
@@ -483,7 +483,8 @@ computer must not delete the account in one click.
 `DELETE` anonymizes rather than deletes the row (`club/gdpr.py`,
 `anonymize`): `Entry.author` and `EntryParticipant.user` are `PROTECT`, so
 what a member wrote stays in the team's notebook, attributed — what goes is
-the identity (name, address, birth date, AssoConnect id, avatar, password).
+the identity (name, address, birth date, AssoConnect id, avatar, password),
+and the notifications the member received, which the export carries.
 The consent log stays, since it still decides whether past content may be
 published. The whole thing is one transaction, the confirmation e-mail last,
 so a failed send leaves the account exactly as it was rather than deleted
@@ -624,6 +625,36 @@ The channel layer lives in memory, which holds for the single Daphne process
 the stack runs. A second process would not see the first one's listeners: it
 would need Redis as the channel layer.
 
+### Notifications
+
+Each of those writes also tells the people it concerns, from one function
+(`club/notifications.py`, `record_change`) that every one of them calls and
+that sends the live message too: a write that forgot it would leave its
+screens stale as well, which shows at once. The write and its notices are
+one transaction: notices that fail take the write back, so the error the
+member sees is true, and trying again does not make the write twice.
+
+- **Who is told**: those who follow the work item — who took part in one of
+  its progress entries — or the whole team for a trace about no work item,
+  and for a work item opened or deleted, which nobody follows yet. Never the
+  member who made the change, never a deactivated account.
+- **What tells**: a trace added, updated (an addition, a step or handover, a
+  correction, a file added or removed) or removed; a work item opened, done,
+  dropped or deleted.
+- **What does not**: joining or leaving a progress. It still reloads the
+  open screens, but ten students ticking at the start of a session would
+  bury the notices that matter. The last to leave today's progress takes it
+  away, though, and that is a trace removed.
+
+A notice keeps the work item's title and the trace's type beside its links to
+them, so a deleted one is still named; its author stays a link to their
+account, so an anonymized member is shown as such.
+
+| Route | Answer |
+| --- | --- |
+| `GET /api/notifications/` | `{"unread", "items"}`: the member's own, newest first, the latest 20, each as `{"id", "verb", "actor", "team_season", "work_item", "entry", "created_at", "read"}` |
+| `POST /api/notifications/read/` | marks the member's own as read, all of them or those in `ids`; answers `{"unread"}`. Another member's id is ignored |
+
 ### Attachments
 
 Every entry comes with its `attachments`, each as `{"id", "name",
@@ -662,6 +693,7 @@ invented past what the source says.
 | --- | --- |
 | `POST /api/rules/ask/` | a question, answered with up to five cited passages from this season's ingested documents |
 | `GET /api/rules/sources/` | administrators only: per source, the copy searched, when it was checked, and any change waiting for acceptance with its summary |
+| `POST /api/rules/sources/` | administrators only: `source` (`game_manual`) and `url` on FIRST's own site (`https`, `ftc-resources.firstinspires.org`) — fetches the page, ingests it as the new copy, and the checks follow that URL from now on; `400` with `source_not_allowed`, `fetch_failed` (also when a redirect leaves FIRST's site) or `no_passage` (a page with nothing to index) otherwise |
 | `POST /api/rules/sources/check/` | administrators only: check the game manual against its page now, the same check the `sources-check` service runs every 24 hours (the Q&A is not checked yet) |
 | `POST /api/rules/sources/{source}/accept/` | administrators only: replace the searched copy with the fetched change; `404` when nothing is waiting |
 

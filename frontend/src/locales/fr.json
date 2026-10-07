@@ -397,7 +397,7 @@
     "exportDescription": "Une copie de votre compte dans un fichier lisible (JSON), et votre photo, envoyées par courriel.",
     "export": "Exporter",
     "exporting": "Envoi…",
-    "exported": "C'est envoyé : la copie de vos données arrive par courriel.",
+    "exported": "C'est envoyé à {{address}} : la copie de vos données arrive par courriel.",
     "deleteTitle": "Supprimer mon compte",
     "deleteDescription": "Votre nom, vos adresses, votre date de naissance, votre photo et votre mot de passe sont effacés. Ce que vous avez écrit reste dans le cahier de l'équipe, signé « Ancien membre ».",
     "delete": "Supprimer",
@@ -405,7 +405,7 @@
     "password": "Mot de passe",
     "confirmDelete": "Supprimer définitivement",
     "deleting": "Suppression…",
-    "deleted": "Votre compte a été supprimé. Une confirmation a été envoyée par courriel."
+    "deleted": "Votre compte a été supprimé. Une confirmation a été envoyée à {{address}}."
   },
   "fieldbot": {
     "title": "Des questions sur le règlement du club ?",

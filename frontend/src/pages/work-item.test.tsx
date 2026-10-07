@@ -136,7 +136,14 @@ it("shows the current progress, handover, participants and full history", async 
   expect(
     await screen.findByRole("heading", { name: "Intake", level: 1 }),
   ).toBeTruthy();
-  expect(screen.getByText(/Robot · 1796 · Les Rouages/)).toBeTruthy();
+  // The team name carries its icon in an element of its own.
+  expect(
+    screen.getByText(
+      (_, element) =>
+        element?.tagName === "P" &&
+        element.textContent === "Robot · 1796 · Les Rouages",
+    ),
+  ).toBeTruthy();
   expect(screen.getAllByText("Lina et Marie")).toHaveLength(2);
   expect(screen.getAllByText("Tester les galets à 12 V.")).toHaveLength(3);
   expect(screen.getAllByText("Galets montés.").length).toBeGreaterThan(0);

@@ -149,16 +149,18 @@ def edit_progress(
 
 
 @transaction.atomic
-def leave_todays_progress(work_item: WorkItem, user: User) -> None:
+def leave_todays_progress(work_item: WorkItem, user: User) -> Entry | None:
     """Undoes a tick made by mistake, for oneself only: nobody signs anybody
     up, nobody signs anybody out. Past days are corrected, not left.
 
     The last one leaving takes the progress with them, text included — a
     progress nobody did is no trace. One still holding a file stays: the
-    file is. Django looks for who is left before deleting, in two queries:
-    with SQLite in IMMEDIATE mode (settings.py), the transaction holds the
-    write lock across both, so a tick arriving meanwhile waits, then finds
-    the progress gone and opens a new one, instead of being deleted with it."""
+    file is. Returns the progress left empty, for the caller to tell its
+    followers while it still exists, then delete, in its own transaction:
+    with SQLite in IMMEDIATE mode (settings.py), that transaction holds the
+    write lock from the leaving to the deletion, so a tick arriving meanwhile
+    waits, then finds the progress gone and opens a new one, instead of being
+    deleted with it."""
     entry = progress_of_the_day(work_item, workday(timezone.now()))
     if entry is None or not entry.participants.filter(pk=user.pk).exists():
         raise ValidationError(
@@ -166,6 +168,6 @@ def leave_todays_progress(work_item: WorkItem, user: User) -> None:
             code="not_a_participant",
         )
     EntryParticipant.objects.filter(entry=entry, user=user).delete()
-    Entry.objects.filter(
-        pk=entry.pk, participants__isnull=True, attachments__isnull=True
-    ).delete()
+    if entry.participants.exists() or entry.attachments.exists():
+        return None
+    return entry

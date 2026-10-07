@@ -163,15 +163,28 @@ export async function deleteAvatar(): Promise<void> {
   await del("/api/auth/me/avatar/");
 }
 
+function isSentTo(value: unknown): value is { sent_to: string } {
+  return isRecord(value) && typeof value.sent_to === "string";
+}
+
 /** The right of access: a copy of the account, sent by e-mail to its contact
- * address — never shown on screen, since the confirmation is the point. */
-export async function requestDataExport(): Promise<void> {
-  await post("/api/auth/me/export/");
+ * address — never shown on screen, since the confirmation is the point.
+ * Returns that address: a guardian's, for a minor. */
+export async function requestDataExport(): Promise<string> {
+  const { body } = await post("/api/auth/me/export/");
+  if (!isSentTo(body)) {
+    throw new Error("The export response is invalid");
+  }
+  return body.sent_to;
 }
 
 /** The right to erasure. The account's own password confirms it; the server
  * then anonymizes the account, e-mails the confirmation and ends the
- * session. */
-export async function deleteAccount(password: string): Promise<void> {
-  await del("/api/auth/me/", { password });
+ * session. Returns the address the confirmation went to. */
+export async function deleteAccount(password: string): Promise<string> {
+  const { body } = await del("/api/auth/me/", { password });
+  if (!isSentTo(body)) {
+    throw new Error("The deletion response is invalid");
+  }
+  return body.sent_to;
 }

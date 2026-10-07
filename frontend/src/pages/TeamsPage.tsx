@@ -33,6 +33,7 @@ import {
   RequestError,
 } from "../components/ApiErrors";
 import { Avatar } from "../components/Avatar";
+import { IconLabel } from "../components/Icon";
 
 const teamsQueryKey = ["teams"] as const;
 const SEARCH_DELAY_MS = 250;
@@ -229,7 +230,7 @@ function MemberSearch({ team }: { team: ManagedTeam }) {
   return (
     <div className="relative">
       <label htmlFor={inputId} className="text-sm font-semibold text-ink">
-        {t("teams.addMember")}
+        <IconLabel icon="user-plus">{t("teams.addMember")}</IconLabel>
       </label>
       <input
         id={inputId}
@@ -340,7 +341,9 @@ function MemberRow({
         })}
         onClick={() => remove.mutate()}
       >
-        {remove.isPending ? t("teams.removing") : t("teams.removeMember")}
+        <IconLabel icon="xmark">
+          {remove.isPending ? t("teams.removing") : t("teams.removeMember")}
+        </IconLabel>
       </button>
       {remove.isError && (
         <div className="w-full">
@@ -436,7 +439,9 @@ function TeamCard({ team }: { team: ManagedTeam }) {
       ) : (
         <div className="flex flex-wrap items-start justify-between gap-3">
           <h2 id={titleId} className="brand-title text-2xl text-ink">
-            {label}
+            <IconLabel icon="team" before>
+              {label}
+            </IconLabel>
           </h2>
           <div className="flex gap-2">
             <button
@@ -448,7 +453,7 @@ function TeamCard({ team }: { team: ManagedTeam }) {
                 setIsConfirmingDelete(false);
               }}
             >
-              {t("teams.rename")}
+              <IconLabel icon="pen-to-square">{t("teams.rename")}</IconLabel>
             </button>
             <button
               type="button"
@@ -460,7 +465,7 @@ function TeamCard({ team }: { team: ManagedTeam }) {
                 setIsConfirmingDelete(true);
               }}
             >
-              {t("teams.delete")}
+              <IconLabel icon="xmark">{t("teams.delete")}</IconLabel>
             </button>
           </div>
         </div>
@@ -499,9 +504,11 @@ function TeamCard({ team }: { team: ManagedTeam }) {
               disabled={remove.isPending}
               onClick={() => remove.mutate()}
             >
-              {remove.isPending
-                ? t("teams.deleting")
-                : t("teams.confirmDelete")}
+              <IconLabel icon="xmark">
+                {remove.isPending
+                  ? t("teams.deleting")
+                  : t("teams.confirmDelete")}
+              </IconLabel>
             </button>
           </div>
           {remove.isError && <RequestError error={remove.error} />}

@@ -5,6 +5,7 @@ from django.core.management import call_command
 from django.core.management.base import CommandError
 
 from club.assoconnect.matching import CLOSE_NAME
+from club.models import User
 from club.tests.builders import MARIE, account, verified_account, write_export
 
 
@@ -83,6 +84,15 @@ def test_the_report_lists_the_members_absent_from_this_export(tmp_path):
     assert "gone@example.org" in printed
 
 
+def test_the_report_lists_the_accounts_no_line_ties(tmp_path):
+    User.objects.create_user("trial@example.org", "trial")
+
+    printed = report(tmp_path, [MARIE])
+
+    assert "Comptes non rattachés (1)" in printed
+    assert "trial@example.org" in printed
+
+
 def test_a_section_with_nothing_in_it_is_not_printed(tmp_path):
     account()
 
@@ -91,3 +101,4 @@ def test_a_section_with_nothing_in_it_is_not_printed(tmp_path):
     assert "À décider" not in printed
     assert "En attente" not in printed
     assert "Absents de cet export" not in printed
+    assert "Comptes non rattachés" not in printed
