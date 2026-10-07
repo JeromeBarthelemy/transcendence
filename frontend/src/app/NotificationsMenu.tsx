@@ -47,8 +47,8 @@ export function NotificationsMenu({
     if (!menu.isOpen) {
       const unreadIds = items.filter((item) => !item.read).map((i) => i.id);
       setFresh(unreadIds);
-      if (unreadIds.length > 0) {
-        markRead.mutate(unreadIds);
+      if (unread > 0) {
+        markRead.mutate();
       }
     }
     menu.toggle();

@@ -47,7 +47,8 @@ function notice(id: number, overrides: object = {}) {
   };
 }
 
-/** A server holding Tom's notifications, which marks them read as asked. */
+/** A server holding Tom's notifications, which lists the latest 20 and marks
+ * them read as asked: those in `ids`, or all of them. */
 function serve(items: ReturnType<typeof notice>[]) {
   const state = items.map((item) => ({ ...item }));
   const unread = () => state.filter((item) => !item.read).length;
@@ -56,12 +57,12 @@ function serve(items: ReturnType<typeof notice>[]) {
       return json(tom);
     }
     if (url === "/api/notifications/") {
-      return json({ unread: unread(), items: state });
+      return json({ unread: unread(), items: state.slice(0, 20) });
     }
     if (url === "/api/notifications/read/" && init?.method === "POST") {
-      const { ids } = JSON.parse(String(init.body)) as { ids: number[] };
+      const { ids } = JSON.parse(String(init.body)) as { ids?: number[] };
       for (const item of state) {
-        if (ids.includes(item.id)) item.read = true;
+        if (ids === undefined || ids.includes(item.id)) item.read = true;
       }
       return json({ unread: unread() });
     }
@@ -165,7 +166,7 @@ it("never links to a work item that was deleted", async () => {
   expect(within(deleted).queryByRole("link")).toBeNull();
 });
 
-it("marks what it shows as read on opening, and keeps it marked new meanwhile", async () => {
+it("marks all as read on opening, and keeps what it shows marked new meanwhile", async () => {
   const user = userEvent.setup();
   const fetchMock = serve([notice(2), notice(1)]);
   renderApp();
@@ -178,9 +179,21 @@ it("marks what it shows as read on opening, and keeps it marked new meanwhile", 
   const read = fetchMock.mock.calls.find(
     ([url]) => url === "/api/notifications/read/",
   );
-  expect(JSON.parse(String(read?.[1]?.body))).toEqual({ ids: [2, 1] });
+  expect(JSON.parse(String(read?.[1]?.body))).toEqual({});
   const panel = screen.getByRole("region", { name: "Notifications" });
   expect(within(panel).getAllByText("Nouveau")).toHaveLength(2);
+});
+
+it("clears the badge on opening, even with more unread than it shows", async () => {
+  const user = userEvent.setup();
+  serve(Array.from({ length: 25 }, (_, i) => notice(25 - i)));
+  renderApp();
+
+  await user.click(
+    await screen.findByRole("button", { name: "Notifications, 25 non lues" }),
+  );
+
+  await screen.findByRole("button", { name: "Notifications, aucune non lue" });
 });
 
 it("says so when there is nothing yet", async () => {

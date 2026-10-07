@@ -50,6 +50,7 @@ export async function getNotifications(): Promise<Notifications> {
   return result.data;
 }
 
-export async function markNotificationsRead(ids: number[]): Promise<void> {
-  await post("/api/notifications/read/", { ids });
+/** All of them: the panel shows only the latest, and the count is of all. */
+export async function markNotificationsRead(): Promise<void> {
+  await post("/api/notifications/read/", {});
 }
