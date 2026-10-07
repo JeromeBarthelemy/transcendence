@@ -18,6 +18,7 @@ import {
   fieldIssues,
   RequestError,
 } from "../components/ApiErrors";
+import { IconLabel } from "../components/Icon";
 
 const usersQueryKey = ["users", "list"] as const;
 const userQueryKey = (userId: number) => ["users", "detail", userId] as const;
@@ -159,7 +160,7 @@ function UserList({ identity }: { identity: Identity }) {
 
       <div className="mt-8 grid gap-4 sm:grid-cols-[1fr_auto_auto]">
         <label className="text-sm font-semibold text-ink">
-          {t("users.search")}
+          <IconLabel icon="search">{t("users.search")}</IconLabel>
           <input
             type="search"
             className={inputClass}
@@ -459,9 +460,11 @@ function DeleteSection({ user }: { user: ClubUser }) {
               disabled={remove.isPending}
               onClick={() => remove.mutate()}
             >
-              {remove.isPending
-                ? t("users.deleting")
-                : t("users.confirmDelete")}
+              <IconLabel icon="xmark">
+                {remove.isPending
+                  ? t("users.deleting")
+                  : t("users.confirmDelete")}
+              </IconLabel>
             </button>
           </div>
           {remove.isError && <RequestError error={remove.error} />}
@@ -473,7 +476,7 @@ function DeleteSection({ user }: { user: ClubUser }) {
             className="rounded-xl border border-red-800/25 px-4 py-2 text-sm font-semibold text-red-800 hover:bg-red-50"
             onClick={() => setIsConfirming(true)}
           >
-            {t("users.delete")}
+            <IconLabel icon="xmark">{t("users.delete")}</IconLabel>
           </button>
         </div>
       )}

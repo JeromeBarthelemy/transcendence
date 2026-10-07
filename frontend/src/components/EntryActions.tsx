@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 
 import { correctEntry, removeEntry } from "../api/workItems";
 import { fieldIssues, RequestError } from "./ApiErrors";
+import { IconLabel } from "./Icon";
 
 interface Trace {
   id: number;
@@ -146,7 +147,7 @@ export function EntryActions({
               className="font-semibold text-red-800 hover:underline"
               onClick={() => setIsConfirmingRemove(true)}
             >
-              {t("entryActions.remove")}
+              <IconLabel icon="xmark">{t("entryActions.remove")}</IconLabel>
             </button>
           )}
         </div>
@@ -178,7 +179,9 @@ export function EntryActions({
               disabled={remove.isPending}
               onClick={() => remove.mutate()}
             >
-              {t("entryActions.confirmRemove")}
+              <IconLabel icon="xmark">
+                {t("entryActions.confirmRemove")}
+              </IconLabel>
             </button>
           </div>
           {remove.isError && <RequestError error={remove.error} />}
