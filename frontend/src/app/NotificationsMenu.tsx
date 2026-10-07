@@ -56,7 +56,9 @@ export function NotificationsMenu({
   }
 
   return (
-    <div ref={menu.rootRef} className="relative shrink-0">
+    // On a phone, not positioned itself: the panel spans the header, since
+    // the bell sits too far left for a panel hanging from it to fit.
+    <div ref={menu.rootRef} className="shrink-0 md:relative">
       <button
         ref={menu.buttonRef}
         type="button"
@@ -84,7 +86,7 @@ export function NotificationsMenu({
         <section
           id={panelId}
           aria-label={t("notifications.title")}
-          className="absolute top-full right-0 z-30 mt-2 w-80 max-w-[calc(100vw-2.5rem)] rounded-2xl border border-primary/10 bg-white p-2 shadow-panel"
+          className="absolute inset-x-3 top-full z-30 mt-2 rounded-2xl border border-primary/10 bg-white p-2 shadow-panel md:inset-x-auto md:right-0 md:w-80"
         >
           {notifications.isError && !notifications.data ? (
             // Not "nothing new": the member would take it for an answer.
