@@ -914,6 +914,8 @@ function WorkItemScreen({
 
       {statusChange && (
         <StatusForm
+          // Another status is another question: its reason starts empty.
+          key={statusChange}
           status={statusChange}
           isPending={close.isPending}
           onCancel={() => setStatusChange(null)}

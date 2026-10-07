@@ -756,6 +756,27 @@ it("shows a closed work item read-only, and reopens it on purpose", async () => 
   expect(sent()).toEqual({ status: "open", reason: "Nouvelle idée de pince." });
 });
 
+it("forgets a reason typed for another status", async () => {
+  setDocumentCookie("csrftoken=test; path=/");
+  const sent = statusServer(workItem({ on_robot: false }));
+  renderWorkItem();
+
+  await userEvent.click(
+    await screen.findByRole("button", { name: "Abandonner" }),
+  );
+  await userEvent.type(
+    screen.getByLabelText("Pourquoi l'abandonner ?"),
+    "Plus de budget.",
+  );
+  await userEvent.click(screen.getByRole("button", { name: "Terminer" }));
+  await userEvent.click(
+    screen.getByRole("button", { name: "Terminer le chantier" }),
+  );
+
+  expect(await screen.findByText("Terminé")).toBeTruthy();
+  expect(sent()).toEqual({ status: "done" });
+});
+
 it("uploads a file with its image-right answer", async () => {
   setDocumentCookie("csrftoken=test; path=/");
 
