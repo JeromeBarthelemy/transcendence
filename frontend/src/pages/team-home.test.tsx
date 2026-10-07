@@ -144,6 +144,8 @@ it("splits a team's work items and highlights its handover", async () => {
           handover: {
             body: "Tester les galets verts à 12 V.",
             author: "Lina",
+            can_remove: false,
+            can_correct: false,
             step: "prototyping",
             occurred_at: twoWeeksAgo.toISOString(),
             day: twoWeeksAgoDay,
@@ -398,6 +400,8 @@ it("summarizes today and saves a team note", async () => {
       body: "Pensez à ranger les batteries.",
       occurred_at: occurredAt,
       author: "Lina",
+      can_remove: false,
+      can_correct: false,
     },
     {
       id: 43,
@@ -406,6 +410,8 @@ it("summarizes today and saves a team note", async () => {
       body: "Cette remarque appartient au chantier.",
       occurred_at: occurredAt,
       author: "Lina",
+      can_remove: false,
+      can_correct: false,
     },
   ];
 
@@ -448,6 +454,8 @@ it("summarizes today and saves a team note", async () => {
           body: "Foret de 4 cassé.",
           occurred_at: occurredAt,
           author: "Marie",
+          can_remove: false,
+          can_correct: false,
         };
         dayEntries = [savedNote, ...dayEntries];
         return json(savedNote, 201);
@@ -603,6 +611,8 @@ it("shows a note written today on a summary of today opened before", async () =>
           handover: "",
           occurred_at: new Date().toISOString(),
           author: "Marie",
+          can_remove: false,
+          can_correct: false,
           participants: [],
           attachments: [],
         };
@@ -645,4 +655,49 @@ it("shows a note written today on a summary of today opened before", async () =>
   );
   expect(await screen.findByText("Foret de 4 cassé.")).toBeTruthy();
   expect(screen.getByText("Remarque")).toBeTruthy();
+});
+
+it("removes a team note its author left by mistake", async () => {
+  setDocumentCookie("csrftoken=test; path=/");
+  let entries: object[] = [
+    {
+      id: 41,
+      type: "note",
+      body: "Réunion annulée.",
+      occurred_at: new Date().toISOString(),
+      author: "Marie",
+      can_remove: true,
+      can_correct: false,
+    },
+  ];
+  const fetchMock = vi.fn(
+    async (path: string, options?: RequestInit): Promise<Response> => {
+      if (path === "/api/auth/me/") {
+        return json(identity([teamSeason(7, 1796, "Les Rouages")]));
+      }
+      if (path === "/api/team-seasons/7/work-items/") {
+        return json([]);
+      }
+      if (path === "/api/team-seasons/7/days/today/") {
+        return workday(path, [], 12, entries);
+      }
+      if (path === "/api/entries/41/" && options?.method === "DELETE") {
+        entries = [];
+        return new Response(null, { status: 204 });
+      }
+      throw new Error(`Unexpected request: ${path}`);
+    },
+  );
+  vi.stubGlobal("fetch", fetchMock);
+  renderHome();
+
+  expect(await screen.findByText("Réunion annulée.")).toBeTruthy();
+  await userEvent.click(screen.getByRole("button", { name: "Retirer" }));
+  await userEvent.click(
+    screen.getByRole("button", { name: "Retirer définitivement" }),
+  );
+
+  await waitFor(() =>
+    expect(screen.queryByText("Réunion annulée.")).toBeNull(),
+  );
 });

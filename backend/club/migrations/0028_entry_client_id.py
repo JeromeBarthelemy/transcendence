@@ -5,7 +5,7 @@ from django.db import migrations, models
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("club", "0026_rulebook_source_updates"),
+        ("club", "0027_notification"),
     ]
 
     operations = [

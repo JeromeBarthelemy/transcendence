@@ -8,6 +8,7 @@ import { formatWorkdayDate, nameFormatter } from "../app/formatters";
 import { useCurrentUser } from "../app/useCurrentUser";
 import { RequestError } from "../components/ApiErrors";
 import { Avatar, AvatarStack } from "../components/Avatar";
+import { IconLabel } from "../components/Icon";
 
 function attachmentCounts(entry: SummaryEntry, t: TFunction) {
   const types = entry.attachments.map((file) => file.content_type);
@@ -147,10 +148,12 @@ export function DaySummaryPage() {
           </h1>
           {teamSeason && (
             <p className="mt-2 text-sm text-muted">
-              {t("teamHome.teamTitle", {
-                number: teamSeason.team.number,
-                name: teamSeason.team.name,
-              })}
+              <IconLabel icon="team" before>
+                {t("teamHome.teamTitle", {
+                  number: teamSeason.team.number,
+                  name: teamSeason.team.name,
+                })}
+              </IconLabel>
             </p>
           )}
         </div>

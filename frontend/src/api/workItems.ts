@@ -54,6 +54,7 @@ const attachmentSchema = z.object({
   url: z.string(),
   people_recognisable: z.boolean(),
   uploaded_by: z.string(),
+  can_remove: z.boolean(),
 });
 
 const entrySchema = z.object({
@@ -72,6 +73,8 @@ const entrySchema = z.object({
   author: z.string(),
   participants: z.array(memberSchema),
   attachments: z.array(attachmentSchema),
+  can_remove: z.boolean(),
+  can_correct: z.boolean(),
 });
 
 const workItemDetailSchema = z.extend(workItemSchema, {
@@ -149,7 +152,31 @@ export async function closeWorkItem(
   return result.data;
 }
 
+/** Leaves today's progress, for oneself only. The last one leaving a
+ * progress that holds no file deletes it, text included. */
+export async function leaveTodaysProgress(workItemId: number): Promise<void> {
+  await del(`/api/work-items/${workItemId}/tick/`);
+}
+
 /** Only a work item with no trace: the server refuses any other. */
+/** A note or a decision by its author, any trace by a mentor. */
+export async function removeEntry(entryId: number): Promise<void> {
+  await del(`/api/entries/${entryId}/`);
+}
+
+/** A mentor's correction: refused with `entry_changed` if the text is no
+ * longer `body_was`. */
+export async function correctEntry(
+  entryId: number,
+  input: { body: string; body_was: string },
+): Promise<void> {
+  await patch(`/api/entries/${entryId}/`, input);
+}
+
+export async function removeAttachment(attachmentId: number): Promise<void> {
+  await del(`/api/attachments/${attachmentId}/`);
+}
+
 export async function deleteWorkItem(id: number): Promise<void> {
   await del(`/api/work-items/${id}/`);
 }

@@ -9,11 +9,11 @@ export function HomePage() {
   const { t } = useTranslation();
   const currentUser = useCurrentUser();
   const location = useLocation();
-  // Set by the profile page once an account is gone: the session went with
-  // it, so this is where the member lands.
-  const accountDeleted =
-    (location.state as { accountDeleted?: boolean } | null)?.accountDeleted ===
-    true;
+  // Set by the profile page once an account is gone, to the address its
+  // confirmation went to: the session went with it, so this is where the
+  // member lands.
+  const accountDeleted = (location.state as { accountDeleted?: string } | null)
+    ?.accountDeleted;
 
   if (currentUser.data) {
     return <TeamHomePage identity={currentUser.data} />;
@@ -27,7 +27,7 @@ export function HomePage() {
             role="status"
             className="mb-8 rounded-2xl border border-success/30 bg-success-tint px-4 py-3 text-sm font-semibold text-success"
           >
-            {t("personalData.deleted")}
+            {t("personalData.deleted", { address: accountDeleted })}
           </p>
         )}
         <p className="mb-5 inline-flex items-center gap-2 rounded-full border border-azure/20 bg-tint px-4 py-2 text-xs font-bold tracking-[0.14em] text-accent uppercase">

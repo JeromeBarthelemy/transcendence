@@ -42,7 +42,7 @@ function stubApi(handler: Handler) {
   const fetchMock = vi.fn(async (path: string, init?: RequestInit) => {
     if (path === "/api/auth/me/" && init?.method === "DELETE") {
       const response = await handler(path, init);
-      if (response?.status === 204) {
+      if (response?.ok) {
         deleted = true;
       }
       if (response) return response;
@@ -91,7 +91,7 @@ it("sends the data export by e-mail and says so", async () => {
   const user = userEvent.setup();
   const fetchMock = stubApi((path, init) =>
     path === "/api/auth/me/export/" && init?.method === "POST"
-      ? new Response(null, { status: 202 })
+      ? json({ sent_to: "parent.marie@club.fr" }, 202)
       : undefined,
   );
 
@@ -100,7 +100,7 @@ it("sends the data export by e-mail and says so", async () => {
   await user.click(within(data).getByRole("button", { name: "Exporter" }));
 
   expect((await within(data).findByRole("status")).textContent).toBe(
-    "C'est envoyé : la copie de vos données arrive par courriel.",
+    "C'est envoyé à parent.marie@club.fr : la copie de vos données arrive par courriel.",
   );
   const [, init] =
     fetchMock.mock.calls.find(([path]) => path === "/api/auth/me/export/") ??
@@ -157,7 +157,7 @@ it("deletes the account with its password and lands on the home page", async () 
   const user = userEvent.setup();
   const fetchMock = stubApi((path, init) =>
     path === "/api/auth/me/" && init?.method === "DELETE"
-      ? new Response(null, { status: 204 })
+      ? json({ sent_to: "parent.marie@club.fr" })
       : undefined,
   );
 
@@ -175,7 +175,7 @@ it("deletes the account with its password and lands on the home page", async () 
   expect(
     (await screen.findByText(/Votre compte a été supprimé/)).textContent,
   ).toBe(
-    "Votre compte a été supprimé. Une confirmation a été envoyée par courriel.",
+    "Votre compte a été supprimé. Une confirmation a été envoyée à parent.marie@club.fr.",
   );
   expect(router.state.location.pathname).toBe("/");
   expect(screen.queryByText("Marie Durand")).toBeNull();

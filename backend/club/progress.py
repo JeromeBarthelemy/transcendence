@@ -10,6 +10,7 @@ from django.db.models.functions import Concat
 from django.utils import timezone
 
 from club.models import Entry, EntryParticipant, User, WorkItem
+from club.workdays import progress_of_the_day, workday
 
 
 class ProgressChanged(Exception):
@@ -127,3 +128,28 @@ def edit_progress(
     entry.refresh_from_db()
     if not saved:
         raise ProgressChanged
+
+
+@transaction.atomic
+def leave_todays_progress(work_item: WorkItem, user: User) -> Entry | None:
+    """Undoes a tick made by mistake, for oneself only: nobody signs anybody
+    up, nobody signs anybody out. Past days are corrected, not left.
+
+    The last one leaving takes the progress with them, text included — a
+    progress nobody did is no trace. One still holding a file stays: the
+    file is. Returns the progress left empty, for the caller to tell its
+    followers while it still exists, then delete, in its own transaction:
+    with SQLite in IMMEDIATE mode (settings.py), that transaction holds the
+    write lock from the leaving to the deletion, so a tick arriving meanwhile
+    waits, then finds the progress gone and opens a new one, instead of being
+    deleted with it."""
+    entry = progress_of_the_day(work_item, workday(timezone.now()))
+    if entry is None or not entry.participants.filter(pk=user.pk).exists():
+        raise ValidationError(
+            "Vous ne participez pas à l'avancée d'aujourd'hui sur ce chantier.",
+            code="not_a_participant",
+        )
+    EntryParticipant.objects.filter(entry=entry, user=user).delete()
+    if entry.participants.exists() or entry.attachments.exists():
+        return None
+    return entry

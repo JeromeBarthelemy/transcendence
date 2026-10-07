@@ -9,7 +9,9 @@ import {
   createWorkItemNote,
   deleteWorkItem,
   getWorkItem,
+  leaveTodaysProgress,
   type ProgressChanges,
+  removeAttachment,
   tickWorkItem,
   updateProgress,
   uploadAttachment,
@@ -19,10 +21,13 @@ import {
   workItemSteps,
 } from "../api/workItems";
 import { nameFormatter } from "../app/formatters";
+import { LiveBoard } from "../app/live";
 import { useCurrentUser } from "../app/useCurrentUser";
 import { statusColors } from "../app/workItemStatus";
 import { fieldIssues, RequestError } from "../components/ApiErrors";
 import { AvatarStack } from "../components/Avatar";
+import { EntryActions } from "../components/EntryActions";
+import { IconLabel } from "../components/Icon";
 
 const dateFormatter = new Intl.DateTimeFormat("fr-FR", {
   dateStyle: "long",
@@ -339,7 +344,22 @@ function TodayPanel({
       await invalidateWorkItem();
     },
   });
+  const [isConfirmingLeave, setIsConfirmingLeave] = useState(false);
+  const leave = useMutation({
+    mutationFn: () => leaveTodaysProgress(item.id),
+    onSuccess: async () => {
+      setIsConfirmingLeave(false);
+      await invalidateWorkItem();
+    },
+  });
   const progress = item.current_progress;
+  // The server deletes a progress its last participant leaves, unless it
+  // holds a file: worth a confirmation only when something written goes.
+  const leavingDeletesText =
+    progress !== null &&
+    progress.participants.length === 1 &&
+    progress.attachments.length === 0 &&
+    Boolean(progress.body || progress.handover);
   const selectedStepWasStarted = item.thread.some(
     (entry) => entry.type === "progress" && entry.step === selectedStep,
   );
@@ -411,7 +431,18 @@ function TodayPanel({
               {participants || t("workItem.noParticipants")}
             </p>
           </div>
-          {!item.current_user_participates && (
+          {item.current_user_participates ? (
+            <button
+              type="button"
+              className="rounded-xl border border-primary/25 px-4 py-2 text-sm font-semibold text-ink disabled:opacity-50"
+              disabled={leave.isPending || isConfirmingLeave}
+              onClick={() =>
+                leavingDeletesText ? setIsConfirmingLeave(true) : leave.mutate()
+              }
+            >
+              <IconLabel icon="xmark">{t("workItem.leave")}</IconLabel>
+            </button>
+          ) : (
             <button
               type="button"
               className="rounded-xl border border-primary/25 px-4 py-2 text-sm font-semibold text-ink disabled:opacity-50"
@@ -437,7 +468,31 @@ function TodayPanel({
         )
       )}
 
+      {isConfirmingLeave && (
+        <div className="mt-4 rounded-2xl border border-red-800/20 bg-red-50 p-4">
+          <p className="text-sm text-red-900">{t("workItem.leaveDeletes")}</p>
+          <div className="mt-3 flex flex-wrap gap-3">
+            <button
+              type="button"
+              className="rounded-xl border border-primary/20 bg-white px-4 py-2 text-sm font-semibold text-ink disabled:opacity-50"
+              disabled={leave.isPending}
+              onClick={() => setIsConfirmingLeave(false)}
+            >
+              {t("workItem.cancel")}
+            </button>
+            <button
+              type="button"
+              className="rounded-xl bg-red-800 px-4 py-2 text-sm font-semibold text-white hover:bg-red-900 disabled:opacity-50"
+              disabled={leave.isPending}
+              onClick={() => leave.mutate()}
+            >
+              <IconLabel icon="xmark">{t("workItem.confirmLeave")}</IconLabel>
+            </button>
+          </div>
+        </div>
+      )}
       {tick.isError && <RequestError error={tick.error} />}
+      {leave.isError && <RequestError error={leave.error} />}
       {canEdit && (
         <ProgressEditor key={progress.id} item={item} entry={progress} />
       )}
@@ -450,11 +505,82 @@ function TodayPanel({
   );
 }
 
-function HistoryEntry({ entry }: { entry: WorkItemEntry }) {
+function AttachmentRemoval({
+  item,
+  attachment,
+}: {
+  item: WorkItemDetail;
+  attachment: WorkItemEntry["attachments"][number];
+}) {
   const { t } = useTranslation();
+  const invalidateWorkItem = useInvalidateWorkItem(item);
+  const [isConfirming, setIsConfirming] = useState(false);
+  const remove = useMutation({
+    mutationFn: () => removeAttachment(attachment.id),
+    onSuccess: invalidateWorkItem,
+  });
+
+  if (!isConfirming) {
+    return (
+      <button
+        type="button"
+        aria-label={t("workItem.removeFile", { name: attachment.name })}
+        className="px-3 pb-3 text-xs font-semibold text-red-800 hover:underline"
+        onClick={() => setIsConfirming(true)}
+      >
+        <IconLabel icon="xmark">{t("entryActions.remove")}</IconLabel>
+      </button>
+    );
+  }
+  return (
+    <div className="mx-3 mb-3 rounded-xl border border-red-800/20 bg-red-50 p-3">
+      <p className="text-sm text-red-900">{t("entryActions.removeFile")}</p>
+      <div className="mt-2 flex flex-wrap gap-3">
+        <button
+          type="button"
+          className="rounded-xl border border-primary/20 bg-white px-3 py-1.5 text-sm font-semibold text-ink disabled:opacity-50"
+          disabled={remove.isPending}
+          onClick={() => setIsConfirming(false)}
+        >
+          {t("entryActions.cancel")}
+        </button>
+        <button
+          type="button"
+          className="rounded-xl bg-red-800 px-3 py-1.5 text-sm font-semibold text-white hover:bg-red-900 disabled:opacity-50"
+          disabled={remove.isPending}
+          onClick={() => remove.mutate()}
+        >
+          <IconLabel icon="xmark">{t("entryActions.confirmRemove")}</IconLabel>
+        </button>
+      </div>
+      {remove.isError && <RequestError error={remove.error} />}
+    </div>
+  );
+}
+
+function HistoryEntry({
+  item,
+  entry,
+}: {
+  item: WorkItemDetail;
+  entry: WorkItemEntry;
+}) {
+  const { t } = useTranslation();
+  const queryClient = useQueryClient();
+  const invalidateWorkItem = useInvalidateWorkItem(item);
   const participantNames = nameFormatter.format(
     entry.participants.map((participant) => participant.display_name),
   );
+
+  async function currentBody() {
+    const fresh = await queryClient.fetchQuery({
+      queryKey: ["work-items", item.id],
+      queryFn: () => getWorkItem(item.id),
+      // The cache is what the refusal says is out of date.
+      staleTime: 0,
+    });
+    return fresh.thread.find((other) => other.id === entry.id)?.body ?? null;
+  }
 
   return (
     <li className="relative border-l-2 border-lagoon/35 pb-8 pl-6 last:pb-0">
@@ -481,11 +607,17 @@ function HistoryEntry({ entry }: { entry: WorkItemEntry }) {
           )}
         </div>
 
-        {entry.body && (
-          <p className="mt-4 whitespace-pre-wrap leading-7 text-body">
-            {entry.body}
-          </p>
-        )}
+        <EntryActions
+          entry={entry}
+          onChanged={invalidateWorkItem}
+          currentBody={currentBody}
+        >
+          {entry.body && (
+            <p className="mt-4 whitespace-pre-wrap leading-7 text-body">
+              {entry.body}
+            </p>
+          )}
+        </EntryActions>
         {entry.handover && (
           <div className="mt-4 border-l-4 border-warning bg-warning-tint p-3 text-sm text-warning-ink">
             <p className="font-bold">{t("workItem.nextTime")}</p>
@@ -519,6 +651,9 @@ function HistoryEntry({ entry }: { entry: WorkItemEntry }) {
                     name: attachment.uploaded_by,
                   })}
                 </p>
+                {attachment.can_remove && (
+                  <AttachmentRemoval item={item} attachment={attachment} />
+                )}
               </li>
             ))}
           </ul>
@@ -558,7 +693,7 @@ function WorkItemNoteForm({ item }: { item: WorkItemDetail }) {
       className="rounded-3xl border border-primary/12 bg-white p-5 shadow-sm sm:p-7"
     >
       <h2 id="work-item-note-title" className="brand-title text-2xl text-ink">
-        {t("workItem.addNote")}
+        <IconLabel icon="pen-to-square">{t("workItem.addNote")}</IconLabel>
       </h2>
       <p className="mt-2 text-sm leading-6 text-muted">
         {t("workItem.noteHint")}
@@ -640,12 +775,20 @@ function WorkItemScreen({
       >
         ← {t("workItem.back")}
       </Link>
+      <LiveBoard teamSeasonId={item.team_season} />
 
       <header className="mt-7 flex flex-col justify-between gap-5 border-b border-primary/10 pb-7 sm:flex-row sm:items-end">
         <div>
           <p className="text-sm font-bold tracking-[0.14em] text-accent uppercase">
             {item.on_robot ? t("teamHome.robot") : t("teamHome.offRobot")}
-            {team ? ` · ${team}` : ""}
+            {team && (
+              <>
+                {" · "}
+                <IconLabel icon="team" before>
+                  {team}
+                </IconLabel>
+              </>
+            )}
           </p>
           <h1 className="brand-title mt-2 text-4xl tracking-[-0.04em] text-ink sm:text-5xl">
             {item.title}
@@ -665,7 +808,7 @@ function WorkItemScreen({
               className="rounded-full border border-red-800/25 px-3 py-1 text-sm font-semibold text-red-800 hover:bg-red-50"
               onClick={() => setIsConfirmingDelete(true)}
             >
-              {t("workItem.delete")}
+              <IconLabel icon="xmark">{t("workItem.delete")}</IconLabel>
             </button>
           )}
           {item.status === "open" && (
@@ -719,7 +862,7 @@ function WorkItemScreen({
               disabled={remove.isPending}
               onClick={() => remove.mutate()}
             >
-              {t("workItem.confirmDelete")}
+              <IconLabel icon="xmark">{t("workItem.confirmDelete")}</IconLabel>
             </button>
           </div>
           {remove.isError && <RequestError error={remove.error} />}
@@ -756,12 +899,12 @@ function WorkItemScreen({
             {t("workItem.fromStart")}
           </p>
           <h2 id="history-title" className="brand-title mt-1 text-3xl text-ink">
-            {t("workItem.history")}
+            <IconLabel icon="scroll">{t("workItem.history")}</IconLabel>
           </h2>
           {item.thread.length > 0 ? (
             <ol className="mt-6">
               {item.thread.map((entry) => (
-                <HistoryEntry key={entry.id} entry={entry} />
+                <HistoryEntry key={entry.id} item={item} entry={entry} />
               ))}
             </ol>
           ) : (

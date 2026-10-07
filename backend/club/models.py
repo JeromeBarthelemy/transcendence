@@ -910,3 +910,59 @@ class QueryCitation(models.Model):
 
     def __str__(self) -> str:
         return f"{self.query} — #{self.rank}"
+
+
+class Notification(models.Model):
+    """One member told of one change on their team's board (module 13): read
+    in the app, never sent by mail."""
+
+    class Verb(models.TextChoices):
+        WORK_ITEM_OPENED = "work_item_opened", "chantier ouvert"
+        WORK_ITEM_DONE = "work_item_done", "chantier terminé"
+        WORK_ITEM_DROPPED = "work_item_dropped", "chantier abandonné"
+        WORK_ITEM_DELETED = "work_item_deleted", "chantier supprimé"
+        ENTRY_ADDED = "entry_added", "trace ajoutée"
+        ENTRY_UPDATED = "entry_updated", "trace modifiée"
+        ENTRY_REMOVED = "entry_removed", "trace retirée"
+
+    recipient = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="notifications",
+        verbose_name="destinataire",
+    )
+    actor = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="+",
+        verbose_name="auteur du changement",
+    )
+    team_season = models.ForeignKey(
+        TeamSeason, on_delete=models.CASCADE, related_name="+"
+    )
+    verb = models.CharField("changement", max_length=20, choices=Verb.choices)
+    # Emptied when the work item or the trace goes, since the notice of its
+    # removal outlives it: hence the copies of what is shown of them.
+    work_item = models.ForeignKey(
+        WorkItem, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
+    work_item_title = models.CharField("titre du chantier", max_length=120, blank=True)
+    entry = models.ForeignKey(
+        Entry, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
+    entry_type = models.CharField(
+        "type de trace",
+        max_length=10,
+        choices=Entry.Type.choices,
+        null=True,
+        blank=True,
+    )
+    created_at = models.DateTimeField("créée le", auto_now_add=True)
+    read_at = models.DateTimeField("lue le", null=True, blank=True)
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
+        verbose_name = "notification"
+
+    def __str__(self) -> str:
+        return f"{self.get_verb_display()} — {self.recipient}"

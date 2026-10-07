@@ -1,6 +1,8 @@
 from datetime import date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
+import pytest
+from django.db import IntegrityError
 from django.test import Client
 
 from club.api.serializers import OpenWorkItemSerializer
@@ -180,7 +182,9 @@ def test_of_two_simultaneous_openings_of_one_title_the_second_is_refused(
     assert rival == [201]
     assert response.status_code == 400
     assert response.json()["title"][0]["code"] == "work_item_title_taken"
-    assert rouages.work_items.count() == 1
+    # Not the work items left: the rival ran inside this request's
+    # transaction, on its connection, so the refusal rolls the rival's back
+    # too, which two real connections would not.
 
 
 def test_a_student_cannot_open_a_work_item_in_another_team(client):
@@ -482,6 +486,59 @@ def test_ticking_at_another_step_opens_a_second_progress(client):
     assert intake.entries.count() == 2
 
 
+def untick(client, item):
+    return client.delete(f"/api/work-items/{item.id}/tick/")
+
+
+def test_a_member_leaves_todays_progress_they_ticked_by_mistake(client):
+    rouages = team_season()
+    intake = robot_work_item(rouages)
+    lina, tom = member_of(rouages), member_of(rouages, "tom")
+    client.force_login(lina)
+    tick(client, intake)
+    client.force_login(tom)
+    tick(client, intake)
+
+    response = untick(client, intake)
+
+    assert response.status_code == 204
+    progress = intake.entries.get()
+    assert list(progress.participants.all()) == [lina]
+
+
+def test_leaving_a_progress_one_is_not_on_is_refused_with_a_code(client):
+    rouages = team_season()
+    intake = robot_work_item(rouages)
+    client.force_login(member_of(rouages))
+    tick(client, intake)
+    client.force_login(member_of(rouages, "tom"))
+
+    response = untick(client, intake)
+
+    assert response.status_code == 400
+    assert response.json()["detail"]["code"] == "not_a_participant"
+
+
+def test_a_student_cannot_leave_another_teams_progress(client):
+    other = team_season(67890)
+    intake = robot_work_item(other)
+    client.force_login(member_of(team_season(12345)))
+
+    assert untick(client, intake).status_code == 403
+
+
+def test_once_its_mistaken_progress_is_left_a_work_item_can_be_deleted(client):
+    rouages = team_season()
+    pince = WorkItem.objects.create(team_season=rouages, title="pince")
+    client.force_login(member_of(rouages))
+    tick(client, pince)
+    untick(client, pince)
+
+    response = client.delete(f"/api/work-items/{pince.id}/")
+
+    assert response.status_code == 204
+
+
 def test_a_step_off_the_robot_is_refused_with_its_code(client):
     rouages = team_season()
     sponsoring = WorkItem.objects.create(team_season=rouages, title="sponsoring")
@@ -568,7 +625,7 @@ def test_a_progress_text_sent_whole_is_refused_rather_than_ignored(client):
     rouages = team_season()
     lina = member_of(rouages)
     entry = record_progress(robot_work_item(rouages), lina, "Galets montés.")
-    client.force_login(mentor())
+    client.force_login(lina)
 
     response = write(client, entry, body="Rien.")
 
@@ -880,6 +937,136 @@ def test_a_day_with_no_trace_before_or_after_points_nowhere(client):
     assert (day["previous"], day["next"]) == (None, None)
 
 
+# --- removing or correcting a trace ---
+
+
+def remove(client, entry):
+    return client.delete(f"/api/entries/{entry.id}/")
+
+
+def a_note(team, author, item=None):
+    return Entry.objects.create(
+        team_season=team,
+        author=author,
+        work_item=item,
+        type=Entry.Type.NOTE,
+        body="Perceuse HS.",
+    )
+
+
+def test_an_author_removes_their_note(client):
+    rouages = team_season()
+    lina = member_of(rouages)
+    mistake = a_note(rouages, lina)
+    client.force_login(lina)
+
+    assert remove(client, mistake).status_code == 204
+    assert not Entry.objects.filter(pk=mistake.pk).exists()
+
+
+def test_a_student_removing_someone_elses_note_is_refused_with_a_code(client):
+    rouages = team_season()
+    mistake = a_note(rouages, member_of(rouages))
+    client.force_login(member_of(rouages, "tom"))
+
+    response = remove(client, mistake)
+
+    assert response.status_code == 403
+    assert response.json()["detail"]["code"] == "remove_not_allowed"
+    assert Entry.objects.filter(pk=mistake.pk).exists()
+
+
+def test_a_mentor_removes_a_progress_with_its_participants(client):
+    rouages = team_season()
+    lina = member_of(rouages)
+    entry = record_progress(robot_work_item(rouages), lina, "Mauvais chantier.")
+    client.force_login(mentor())
+
+    assert remove(client, entry).status_code == 204
+    assert not EntryParticipant.objects.filter(entry_id=entry.id).exists()
+
+
+def test_nobody_removes_another_teams_trace(client):
+    other = team_season(67890)
+    mistake = a_note(other, member_of(other, "sam"))
+    client.force_login(member_of(team_season(12345)))
+
+    assert remove(client, mistake).status_code == 403
+
+
+def correction(client, entry, **body):
+    return client.patch(
+        f"/api/entries/{entry.id}/", body, content_type="application/json"
+    )
+
+
+def test_a_mentor_corrects_a_note(client):
+    rouages = team_season()
+    mistake = a_note(rouages, member_of(rouages))
+    client.force_login(mentor())
+
+    response = correction(
+        client, mistake, body="Perceuse à changer.", body_was="Perceuse HS."
+    )
+
+    assert response.status_code == 200
+    assert response.json()["body"] == "Perceuse à changer."
+
+
+def test_a_correction_over_a_newer_text_answers_entry_changed(client):
+    rouages = team_season()
+    mistake = a_note(rouages, member_of(rouages))
+    client.force_login(mentor())
+
+    response = correction(client, mistake, body="Perceuse.", body_was="Ancien.")
+
+    assert response.status_code == 409
+    assert response.json()["detail"]["code"] == "entry_changed"
+    mistake.refresh_from_db()
+    assert mistake.body == "Perceuse HS."
+
+
+def test_a_correction_must_say_what_it_started_from(client):
+    rouages = team_season()
+    mistake = a_note(rouages, member_of(rouages))
+    client.force_login(mentor())
+
+    response = correction(client, mistake, body="Perceuse.")
+
+    assert response.status_code == 400
+    assert response.json()["body_was"][0]["code"] == "required"
+
+
+def test_a_student_correcting_a_note_is_told_only_mentors_correct(client):
+    rouages = team_season()
+    lina = member_of(rouages)
+    mistake = a_note(rouages, lina)
+    client.force_login(lina)
+
+    response = correction(client, mistake, body="Rien.", body_was="Perceuse HS.")
+
+    assert response.status_code == 403
+    assert response.json()["detail"]["code"] == "correct_not_allowed"
+    mistake.refresh_from_db()
+    assert mistake.body == "Perceuse HS."
+
+
+def test_a_trace_says_what_its_reader_may_do_with_it(client):
+    rouages = team_season()
+    lina, tom = member_of(rouages), member_of(rouages, "tom")
+    intake = robot_work_item(rouages)
+    a_note(rouages, lina, item=intake)
+
+    def rights(user):
+        client.force_login(user)
+        (entry,) = client.get(detail(intake)).json()["thread"]
+        return entry["can_remove"], entry["can_correct"]
+
+    assert rights(lina) == (True, False)
+    assert rights(tom) == (False, False)
+    assert rights(mentor()) == (True, True)
+
+
 # --- replayed notes ---
 
 DEVICE_ID = "6f1f3c1e-2a4b-4c59-9d7e-0b8a1c2d3e4f"
@@ -946,3 +1133,19 @@ def test_a_malformed_client_id_is_refused(client):
 
     assert response.status_code == 400
     assert not Entry.objects.exists()
+
+
+def test_an_unrelated_integrity_error_is_not_mistaken_for_a_replay(client, monkeypatch):
+    # Nothing to replay without a client_id: a failure here must surface as
+    # itself, not be read as "this was already answered once" and queried
+    # for an existing (author, client_id) that was never given.
+    rouages = team_season()
+    client.force_login(member_of(rouages))
+
+    def broken_save(self, **kwargs):
+        raise IntegrityError("unrelated constraint")
+
+    monkeypatch.setattr("club.api.serializers.NoteSerializer.save", broken_save)
+
+    with pytest.raises(IntegrityError):
+        note(client, rouages, body="Une remarque.")

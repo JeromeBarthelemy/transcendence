@@ -133,6 +133,8 @@ hostname -I    # the laptop's address on the Wi-Fi: the first one
 ```
 
 Add `http://<address>:5173` to `DJANGO_DEV_ORIGINS` in `backend/.env`,
+keeping the two defaults the variable replaces
+(`http://localhost:5173,http://127.0.0.1:5173,http://<address>:5173`),
 recreate the backend, then open `http://<address>:5173` on the phone:
 
 ```sh
@@ -141,6 +143,10 @@ docker compose up -d --force-recreate backend
 
 - **`restart` is not enough**: Compose reads `env_file` only when it creates
   the container.
+- **The same line keeps the board live**: the WebSocket checks its `Origin`
+  against `ALLOWED_HOSTS` rather than the CSRF origins, so in development
+  `ALLOWED_HOSTS` also takes the addresses of `DJANGO_DEV_ORIGINS`. Without
+  it the phone signs in, then stays "Hors ligne".
 - **The Django admin isn't reachable from a phone**: it listens on port 8000,
   outside Vite's proxy. Use it from the laptop.
 - **`permission denied` on the Docker socket right after installing
@@ -389,6 +395,12 @@ sets the cookie too, which is what arms the login form. "Nobody" is an
 answer, not a refusal: a `403` on every visitor's first request would put a
 red line in their browser's console, which the subject forbids.
 
+Normal use leaves Chrome's console clean, on every screen and for every
+role. A refusal the member actually meets — a wrong password, a correction
+over a text changed meanwhile — is a `4xx`, and Chrome logs every `4xx`
+response as "Failed to load resource", whatever the page then does with it:
+that line is the refusal being reported, not the page failing.
+
 Sign-up and log-in say `csrf_protect` explicitly. `SessionAuthentication`
 enforces CSRF only once it has *found* a session, so the two routes that run
 without one — the routes that hand a session out — are precisely the ones it
@@ -453,8 +465,8 @@ here as anywhere else.
 
 | route | answers |
 | --- | --- |
-| `POST /api/auth/me/export/` | `202` — a JSON copy of the account, plus the avatar, by e-mail |
-| `DELETE /api/auth/me/` | `204` — `password` confirms it; anonymizes the account, confirmed by e-mail |
+| `POST /api/auth/me/export/` | `202` with `sent_to` — a JSON copy of the account, plus the avatar, by e-mail to that address |
+| `DELETE /api/auth/me/` | `200` with `sent_to` — `password` confirms it; anonymizes the account, confirmed by e-mail to that address |
 
 Neither goes to the login address: it identifies an account without being
 assumed to deliver, and the youngest members have none that does. Both go to
@@ -471,7 +483,8 @@ computer must not delete the account in one click.
 `DELETE` anonymizes rather than deletes the row (`club/gdpr.py`,
 `anonymize`): `Entry.author` and `EntryParticipant.user` are `PROTECT`, so
 what a member wrote stays in the team's notebook, attributed — what goes is
-the identity (name, address, birth date, AssoConnect id, avatar, password).
+the identity (name, address, birth date, AssoConnect id, avatar, password),
+and the notifications the member received, which the export carries.
 The consent log stays, since it still decides whether past content may be
 published. The whole thing is one transaction, the confirmation e-mail last,
 so a failed send leaves the account exactly as it was rather than deleted
@@ -520,7 +533,9 @@ anyone else gets a `403` with the code `not_a_member`.
 | `PATCH /api/work-items/{id}/` | close it, `done` or `dropped`; working on it again reopens it |
 | `DELETE /api/work-items/{id}/` | delete one opened by mistake: refused with `work_item_has_traces` (`409`) once it has any trace, even an empty progress — drop it instead |
 | `POST /api/work-items/{id}/tick/` | sign up to today's progress, created by the first to tick |
-| `PATCH /api/entries/{id}/` | add to a progress (`addition`, appended: nobody erases what another wrote) and change its step or handover, for its participants and mentors; a handover change sends `handover_was` and is refused with `progress_changed` (`409`) if the handover changed since; a `body` is refused with `use_addition` rather than ignored |
+| `DELETE /api/work-items/{id}/tick/` | leave today's progress ticked by mistake, oneself only (`not_a_participant` otherwise); the last one leaving takes it with them, text included, unless it holds a file |
+| `PATCH /api/entries/{id}/` | add to a progress (`addition`, appended: nobody erases what another wrote) and change its step or handover, for its participants and mentors; a handover change sends `handover_was` and is refused with `progress_changed` (`409`) if the handover changed since; a student's `body` is refused rather than ignored — `use_addition` on a progress, `correct_not_allowed` (`403`) on a note or a decision; a mentor corrects any trace's text with `body` and `body_was`, refused with `entry_changed` (`409`) if the text changed since |
+| `DELETE /api/entries/{id}/` | remove a trace — a note or a decision by its author, any trace by a mentor, with its participants and files; anyone else gets `remove_not_allowed`. A student leaves a progress rather than removing it |
 | `POST /api/entries/{id}/attachments/` | attach a file to any of the team's entries, as `multipart/form-data` fields `file` and `people_recognisable`, the latter always answered: left out, it is `required`, never read as no |
 | `GET /api/attachments/{id}/` | the file, to the team and mentors |
 | `DELETE /api/attachments/{id}/` | remove it — whoever attached it, or a mentor; anyone else gets `delete_not_uploader` |
@@ -537,7 +552,9 @@ progress, and the handover shown on a work item is the latest one left,
 with who left it, when, and at which step.
 
 Every entry names its work item, `{"id", "title"}`, or `null` for a note to
-the whole team. A day skips to the closest days with something in them: an
+the whole team. It also says what its reader may do with it — `can_remove`,
+`can_correct`, and `can_remove` on each file — computed by the rules the API
+applies (`club/corrections.py`), so a screen shows only the buttons that work. A day skips to the closest days with something in them: an
 empty day has nothing to read, and the slots on which nothing moved are what
 `gaps` lists.
 
@@ -590,6 +607,54 @@ The members a route lists — a progress's participants, who was there on a
 day — each come as `{"display_name", "avatar"}`, so the interface can put a
 face next to a name without asking again.
 
+### Live board
+
+A screen open on a team season listens on a WebSocket,
+`ws/team-seasons/{id}/`, through the same session as the API and only from
+the site's own pages (an origin outside `ALLOWED_HOSTS` is refused). A member
+hears their team, a mentor any of them; the socket only listens, every write
+still goes through the API. Each write on the board — opening, closing or
+deleting a work item, ticking, adding to a progress, a note, a decision, a
+file added or removed — sends, once committed, `{"work_item": id}` (or `null`
+for a note to the whole team) to that team season's listeners. The screens
+then reload what they show through the API: the message says what changed,
+never what it now holds, so nothing is serialized twice and a screen that
+reconnects only has to reload.
+
+The channel layer lives in memory, which holds for the single Daphne process
+the stack runs. A second process would not see the first one's listeners: it
+would need Redis as the channel layer.
+
+### Notifications
+
+Each of those writes also tells the people it concerns, from one function
+(`club/notifications.py`, `record_change`) that every one of them calls and
+that sends the live message too: a write that forgot it would leave its
+screens stale as well, which shows at once. The write and its notices are
+one transaction: notices that fail take the write back, so the error the
+member sees is true, and trying again does not make the write twice.
+
+- **Who is told**: those who follow the work item — who took part in one of
+  its progress entries — or the whole team for a trace about no work item,
+  and for a work item opened or deleted, which nobody follows yet. Never the
+  member who made the change, never a deactivated account.
+- **What tells**: a trace added, updated (an addition, a step or handover, a
+  correction, a file added or removed) or removed; a work item opened, done,
+  dropped or deleted.
+- **What does not**: joining or leaving a progress. It still reloads the
+  open screens, but ten students ticking at the start of a session would
+  bury the notices that matter. The last to leave today's progress takes it
+  away, though, and that is a trace removed.
+
+A notice keeps the work item's title and the trace's type beside its links to
+them, so a deleted one is still named; its author stays a link to their
+account, so an anonymized member is shown as such.
+
+| Route | Answer |
+| --- | --- |
+| `GET /api/notifications/` | `{"unread", "items"}`: the member's own, newest first, the latest 20, each as `{"id", "verb", "actor", "team_season", "work_item", "entry", "created_at", "read"}` |
+| `POST /api/notifications/read/` | marks the member's own as read, all of them or those in `ids`; answers `{"unread"}`. Another member's id is ignored |
+
 ### Attachments
 
 Every entry comes with its `attachments`, each as `{"id", "name",
@@ -628,6 +693,7 @@ invented past what the source says.
 | --- | --- |
 | `POST /api/rules/ask/` | a question, answered with up to five cited passages from this season's ingested documents |
 | `GET /api/rules/sources/` | administrators only: per source, the copy searched, when it was checked, and any change waiting for acceptance with its summary |
+| `POST /api/rules/sources/` | administrators only: `source` (`game_manual`) and `url` on FIRST's own site (`https`, `ftc-resources.firstinspires.org`) — fetches the page, ingests it as the new copy, and the checks follow that URL from now on; `400` with `source_not_allowed`, `fetch_failed` (also when a redirect leaves FIRST's site) or `no_passage` (a page with nothing to index) otherwise |
 | `POST /api/rules/sources/check/` | administrators only: check the game manual against its page now, the same check the `sources-check` service runs every 24 hours (the Q&A is not checked yet) |
 | `POST /api/rules/sources/{source}/accept/` | administrators only: replace the searched copy with the fetched change; `404` when nothing is waiting |
 

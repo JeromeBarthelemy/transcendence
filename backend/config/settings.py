@@ -10,6 +10,7 @@ on one machine, serving one club. No inbound traffic from outside that room.
 
 import os
 from pathlib import Path
+from urllib.parse import urlsplit
 
 from dotenv import load_dotenv
 
@@ -40,6 +41,11 @@ def env_list(name: str, default: str = "") -> list[str]:
     ]
 
 
+def hosts_of(origins: list[str]) -> list[str]:
+    """The addresses of origins such as `http://192.168.1.40:5173`."""
+    return [urlsplit(origin).hostname or "" for origin in origins]
+
+
 # ---------------------------------------------------------------------------
 # Core
 # ---------------------------------------------------------------------------
@@ -54,6 +60,8 @@ DEBUG = env_bool("DJANGO_DEBUG", False)
 ALLOWED_HOSTS = env_list("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1")
 
 INSTALLED_APPS = [
+    # First, so that runserver serves WebSockets too, through Daphne.
+    "daphne",
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
@@ -92,6 +100,10 @@ TEMPLATES = [
 ]
 
 ASGI_APPLICATION = "config.asgi.application"
+
+# In memory: production runs a single Daphne process. A second one would not
+# see the first one's groups, and would need Redis instead (README).
+CHANNEL_LAYERS = {"default": {"BACKEND": "channels.layers.InMemoryChannelLayer"}}
 WSGI_APPLICATION = "config.wsgi.application"
 
 
@@ -255,6 +267,11 @@ CSRF_TRUSTED_ORIGINS = env_list("DJANGO_CSRF_TRUSTED_ORIGINS")
 # match, and the CSRF check compares Origin against this list before the view
 # is ever reached.
 if DEBUG:
-    CSRF_TRUSTED_ORIGINS += env_list(
+    dev_origins = env_list(
         "DJANGO_DEV_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173"
     )
+    CSRF_TRUSTED_ORIGINS += dev_origins
+    # The live socket checks its Origin against ALLOWED_HOSTS instead
+    # (asgi.py): a phone trying the dev stack on the laptop's address would
+    # sign in, then stay "offline".
+    ALLOWED_HOSTS += hosts_of(dev_origins)

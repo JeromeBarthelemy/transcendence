@@ -43,12 +43,14 @@ class Reconciliation:
     to_decide: list[Doubt]
     waiting: list[ExportRow]
     departed: list[User]
+    untied: list[User]
 
 
 def reconcile(rows: list[ExportRow]) -> Reconciliation:
     """What the club's accounts become in the light of this export: which
     lines go home by themselves, which need the club admin, which wait for an
-    account to exist, and who this season no longer states."""
+    account to exist, who this season no longer states, and which accounts no
+    line reaches at all."""
     # The whole roster at once: a club counts its members in dozens, and the
     # names are compared in Python, where accents and hyphens can be ignored.
     requests = list(VerificationRequest.objects.select_related("user"))
@@ -94,6 +96,7 @@ def reconcile(rows: list[ExportRow]) -> Reconciliation:
         to_decide=to_decide,
         waiting=waiting,
         departed=_departed(rows),
+        untied=_untied(matched, to_decide),
     )
 
 
@@ -128,6 +131,17 @@ def _departed(rows: list[ExportRow]) -> list[User]:
         User.objects.exclude(assoconnect_id=None).exclude(
             assoconnect_id__in=[row.assoconnect_id for row in rows]
         )
+    )
+
+
+def _untied(matched: list[Match], to_decide: list[Doubt]) -> list[User]:
+    """Active accounts no member number ties and no line claims, even closely:
+    the club admin ties them by hand, lets them wait, or deactivates them."""
+    claimed = [match.account.pk for match in matched] + [
+        doubt.account.pk for doubt in to_decide
+    ]
+    return list(
+        User.objects.filter(assoconnect_id=None, is_active=True).exclude(pk__in=claimed)
     )
 
 

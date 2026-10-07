@@ -1,3 +1,5 @@
+import re
+import zipfile
 from datetime import date
 
 import pytest
@@ -96,3 +98,37 @@ def test_a_member_number_stored_as_a_number_reads_as_text(tmp_path):
     (member,) = read_export(path)
 
     assert member.assoconnect_id == "4521"
+
+
+def declaring_one_row(path):
+    """Rewrites the sheet's declared size to its header row only, as a real
+    AssoConnect export does whatever its length: openpyxl writes the right
+    size, so a built workbook would never show it otherwise."""
+    with zipfile.ZipFile(path) as source:
+        parts = {name: source.read(name) for name in source.namelist()}
+    sheet = "xl/worksheets/sheet1.xml"
+    parts[sheet] = re.sub(
+        rb'<dimension ref="[^"]*"', b'<dimension ref="A1:AL1"', parts[sheet]
+    )
+    with zipfile.ZipFile(path, "w") as target:
+        for name, content in parts.items():
+            target.writestr(name, content)
+    return path
+
+
+def test_every_member_is_read_whatever_size_the_file_declares(tmp_path):
+    other = MARIE | {"ID participant": "4522", "Prénom participant": "Paul"}
+    path = declaring_one_row(write_export(tmp_path, [MARIE, other]))
+
+    members = read_export(path)
+
+    assert [member.first_name for member in members] == ["Marie", "Paul"]
+
+
+def test_an_export_without_a_single_member_stops_the_import(tmp_path):
+    # An empty import is never what the club admin means: most likely a file
+    # read wrong, which must not pass for a season with nobody in it.
+    path = write_export(tmp_path, [])
+
+    with pytest.raises(ExportError, match="aucun membre"):
+        read_export(path)

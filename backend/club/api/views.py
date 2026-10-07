@@ -7,7 +7,7 @@ from typing import Any
 from django.contrib.auth import login, logout
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import IntegrityError, transaction
-from django.db.models import ProtectedError
+from django.db.models import ProtectedError, QuerySet
 from django.http import FileResponse, Http404, JsonResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -22,13 +22,22 @@ from rest_framework.views import APIView
 
 from club.analytics.activity import summarize_activity
 from club.attachments import DOWNLOAD_ONLY
+from club.corrections import (
+    EntryChanged,
+    can_correct,
+    can_remove,
+    can_remove_attachment,
+    correct,
+)
 from club.export import gather, to_markdown_zip
 from club.gdpr import request_deletion, send_export
+from club.live import broadcast
 from club.models import (
     Attachment,
     Document,
     Entry,
     Membership,
+    Notification,
     Season,
     SourceUpdate,
     Team,
@@ -37,9 +46,23 @@ from club.models import (
     WorkItem,
     remove_after_commit,
 )
-from club.progress import ProgressChanged, edit_progress, join, record_progress
+from club.notifications import record_change
+from club.progress import (
+    ProgressChanged,
+    edit_progress,
+    join,
+    leave_todays_progress,
+    record_progress,
+)
 from club.rag import ask, serialize
-from club.sources import CheckOutcome, accept_update, check_all, latest_documents
+from club.sources import (
+    CheckOutcome,
+    NoPassage,
+    accept_update,
+    add_source,
+    check_all,
+    latest_documents,
+)
 from club.workdays import (
     attendance,
     day_entries,
@@ -60,10 +83,12 @@ from .permissions import (
 )
 from .serializers import (
     AddMembershipSerializer,
+    AddSourceSerializer,
     AskSerializer,
     AttachmentSerializer,
     AvatarSerializer,
     CloseWorkItemSerializer,
+    CorrectionSerializer,
     CreateTeamSerializer,
     DaySerializer,
     DecisionSerializer,
@@ -73,6 +98,7 @@ from .serializers import (
     NoteSerializer,
     OpenWorkItemSerializer,
     PeriodSerializer,
+    ReadNotificationsSerializer,
     RenameTeamSerializer,
     SignUpSerializer,
     TickSerializer,
@@ -162,9 +188,9 @@ class MeView(APIView):
         assert isinstance(user, User)
         serializer = DeleteAccountSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        request_deletion(user, password=serializer.validated_data["password"])
+        sent_to = request_deletion(user, password=serializer.validated_data["password"])
         logout(request)
-        return Response(status=status.HTTP_204_NO_CONTENT)
+        return Response({"sent_to": sent_to})
 
 
 class MemberDataExportView(APIView):
@@ -174,8 +200,7 @@ class MemberDataExportView(APIView):
     def post(self, request: Request) -> Response:
         user = request.user
         assert isinstance(user, User)
-        send_export(user)
-        return Response(status=status.HTTP_202_ACCEPTED)
+        return Response({"sent_to": send_export(user)}, status=status.HTTP_202_ACCEPTED)
 
 
 def _identity(user: User) -> dict[str, object]:
@@ -510,6 +535,7 @@ class WorkItemListView(APIView):
         team_season = team_season_acted_on(request.user, team_season_id)
         return Response([_work_item(item) for item in team_season.work_items.all()])
 
+    @transaction.atomic
     def post(self, request: Request, team_season_id: int) -> Response:
         assert isinstance(request.user, User)
         team_season = team_season_acted_on(request.user, team_season_id)
@@ -517,10 +543,19 @@ class WorkItemListView(APIView):
             data=request.data, context={"team_season": team_season}
         )
         serializer.is_valid(raise_exception=True)
-        return Response(_work_item(serializer.save()), status=status.HTTP_201_CREATED)
+        item = serializer.save()
+        record_change(
+            request.user,
+            Notification.Verb.WORK_ITEM_OPENED,
+            team_season=team_season,
+            work_item=item,
+        )
+        return Response(_work_item(item), status=status.HTTP_201_CREATED)
 
 
-def _entry(entry: Entry) -> dict[str, object]:
+def _entry(entry: Entry, reader: User) -> dict[str, object]:
+    """`reader` is who asks: the rights it carries are theirs, from the same
+    rules the API applies (club/corrections.py)."""
     return {
         "id": entry.id,
         "work_item": {"id": entry.work_item.id, "title": entry.work_item.title}
@@ -533,11 +568,13 @@ def _entry(entry: Entry) -> dict[str, object]:
         "occurred_at": entry.occurred_at,
         "author": entry.author.display_name,
         "participants": [_member(user) for user in entry.participants.all()],
-        "attachments": [_attachment(file) for file in entry.attachments.all()],
+        "attachments": [_attachment(file, reader) for file in entry.attachments.all()],
+        "can_remove": can_remove(entry, reader),
+        "can_correct": can_correct(entry, reader),
     }
 
 
-def _attachment(attachment: Attachment) -> dict[str, object]:
+def _attachment(attachment: Attachment, reader: User) -> dict[str, object]:
     return {
         "id": attachment.id,
         "name": attachment.name,
@@ -545,6 +582,7 @@ def _attachment(attachment: Attachment) -> dict[str, object]:
         "url": f"/api/attachments/{attachment.id}/",
         "people_recognisable": attachment.people_recognisable,
         "uploaded_by": attachment.uploaded_by.display_name,
+        "can_remove": can_remove_attachment(attachment, reader),
     }
 
 
@@ -567,7 +605,7 @@ class WorkItemDetailView(APIView):
         return Response(
             {
                 **_work_item(item),
-                "current_progress": _entry(current_progress)
+                "current_progress": _entry(current_progress, request.user)
                 if current_progress
                 else None,
                 "current_user_participates": bool(
@@ -576,16 +614,26 @@ class WorkItemDetailView(APIView):
                         pk=request.user.pk
                     ).exists()
                 ),
-                "thread": [_entry(entry) for entry in thread],
+                "thread": [_entry(entry, request.user) for entry in thread],
             }
         )
 
+    @transaction.atomic
     def patch(self, request: Request, pk: int) -> Response:
         assert isinstance(request.user, User)
         item = _work_item_acted_on(request.user, pk)
         serializer = CloseWorkItemSerializer(item, data=request.data)
         serializer.is_valid(raise_exception=True)
-        return Response(_work_item(serializer.save()))
+        serializer.save()
+        record_change(
+            request.user,
+            Notification.Verb.WORK_ITEM_DONE
+            if item.status == WorkItem.Status.DONE
+            else Notification.Verb.WORK_ITEM_DROPPED,
+            team_season=item.team_season,
+            work_item=item,
+        )
+        return Response(_work_item(item))
 
     def delete(self, request: Request, pk: int) -> Response:
         """Only a work item opened by mistake: one with any trace is dropped
@@ -594,7 +642,16 @@ class WorkItemDetailView(APIView):
         assert isinstance(request.user, User)
         item = _work_item_acted_on(request.user, pk)
         try:
-            item.delete()
+            # Told while the work item still exists; a refused deletion
+            # takes its notices back with it.
+            with transaction.atomic():
+                record_change(
+                    request.user,
+                    Notification.Verb.WORK_ITEM_DELETED,
+                    team_season=item.team_season,
+                    work_item=item,
+                )
+                item.delete()
         except ProtectedError:
             raise Conflict(
                 "Ce chantier a déjà des traces : abandonnez-le plutôt.",
@@ -626,18 +683,55 @@ class TickView(APIView):
         if created:
             entry = record_progress(item, user, "", step=step)
         assert entry is not None
-        if not entry.participants.filter(pk=user.pk).exists():
+        joined = not entry.participants.filter(pk=user.pk).exists()
+        if joined:
             join(entry, user)
+        # Joining tells nobody, only the open screens: ten students ticking at
+        # the start of a session would bury the notices that matter. A tick
+        # made twice changes nothing at all.
+        if created:
+            record_change(
+                user,
+                Notification.Verb.ENTRY_ADDED,
+                team_season=item.team_season,
+                work_item=item,
+                entry=entry,
+            )
+        elif joined:
+            broadcast(item.team_season_id, item.id)
         return Response(
-            _entry(entry),
+            _entry(entry, user),
             status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
         )
+
+    @transaction.atomic
+    def delete(self, request: Request, pk: int) -> Response:
+        """Leaving today's progress, ticked by mistake: see
+        `leave_todays_progress`."""
+        user = request.user
+        assert isinstance(user, User)
+        item = _work_item_acted_on(user, pk)
+        emptied = leave_todays_progress(item, user)
+        if emptied is None:
+            # Like joining: the open screens only.
+            broadcast(item.team_season_id, item.id)
+        else:
+            record_change(
+                user,
+                Notification.Verb.ENTRY_REMOVED,
+                team_season=item.team_season,
+                work_item=item,
+                entry=emptied,
+            )
+            emptied.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class EntryAttachmentsView(APIView):
     """Anyone on the team adds to any of its entries: an outing's photos come
     from everyone who was there, not from whoever wrote it up."""
 
+    @transaction.atomic
     def post(self, request: Request, pk: int) -> Response:
         user = request.user
         assert isinstance(user, User)
@@ -647,7 +741,17 @@ class EntryAttachmentsView(APIView):
             data=request.data, context={"entry": entry, "user": user}
         )
         serializer.is_valid(raise_exception=True)
-        return Response(_attachment(serializer.save()), status=status.HTTP_201_CREATED)
+        # Told first: notices that fail roll back before the file is written,
+        # which a rollback would leave on disk.
+        record_change(
+            user,
+            Notification.Verb.ENTRY_UPDATED,
+            team_season=entry.team_season,
+            work_item=entry.work_item,
+            entry=entry,
+        )
+        attachment = serializer.save()
+        return Response(_attachment(attachment, user), status=status.HTTP_201_CREATED)
 
 
 class AttachmentView(APIView):
@@ -663,17 +767,25 @@ class AttachmentView(APIView):
             filename=attachment.name,
         )
 
+    @transaction.atomic
     def delete(self, request: Request, pk: int) -> Response:
         attachment = self._acted_on(request, pk)
         user = request.user
         assert isinstance(user, User)
-        is_mentor = user.club_role == User.ClubRole.MENTOR
-        if not is_mentor and attachment.uploaded_by_id != user.pk:
+        if not can_remove_attachment(attachment, user):
             raise PermissionDenied(
                 "Seuls la personne qui l'a déposé et les mentors retirent un fichier.",
                 code="delete_not_uploader",
             )
         attachment.delete()
+        entry = attachment.entry
+        record_change(
+            user,
+            Notification.Verb.ENTRY_UPDATED,
+            team_season=entry.team_season,
+            work_item=entry.work_item,
+            entry=entry,
+        )
         return Response(status=status.HTTP_204_NO_CONTENT)
 
     def _acted_on(self, request: Request, pk: int) -> Attachment:
@@ -686,11 +798,22 @@ class AttachmentView(APIView):
 
 
 class EntryDetailView(APIView):
+    @transaction.atomic
     def patch(self, request: Request, pk: int) -> Response:
         user = request.user
         assert isinstance(user, User)
         entry = get_object_or_404(Entry, pk=pk)
         team_season_acted_on(user, entry.team_season_id)
+        if "body" in request.data:
+            if can_correct(entry, user):
+                return self._correct(request, entry, user)
+            # A progress is added to, and its serializer says so; a note or a
+            # decision has nothing to add to.
+            if entry.type != Entry.Type.PROGRESS:
+                raise PermissionDenied(
+                    "Seuls les mentors corrigent une trace.",
+                    code="correct_not_allowed",
+                )
         serializer = WriteProgressSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
@@ -708,7 +831,56 @@ class EntryDetailView(APIView):
                 "Cette avancée a été modifiée pendant que vous écriviez.",
                 code="progress_changed",
             ) from changed
-        return Response(_entry(entry))
+        record_change(
+            user,
+            Notification.Verb.ENTRY_UPDATED,
+            team_season=entry.team_season,
+            work_item=entry.work_item,
+            entry=entry,
+        )
+        return Response(_entry(entry, user))
+
+    def _correct(self, request: Request, entry: Entry, user: User) -> Response:
+        serializer = CorrectionSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        try:
+            correct(entry, user, **serializer.validated_data)
+        except EntryChanged as changed:
+            raise Conflict(
+                "Ce texte a été modifié pendant que vous le corrigiez.",
+                code="entry_changed",
+            ) from changed
+        record_change(
+            user,
+            Notification.Verb.ENTRY_UPDATED,
+            team_season=entry.team_season,
+            work_item=entry.work_item,
+            entry=entry,
+        )
+        return Response(_entry(entry, user))
+
+    def delete(self, request: Request, pk: int) -> Response:
+        user = request.user
+        assert isinstance(user, User)
+        entry = get_object_or_404(Entry, pk=pk)
+        team_season_acted_on(user, entry.team_season_id)
+        if not can_remove(entry, user):
+            raise PermissionDenied(
+                "Seuls son auteur et les mentors retirent cette trace ; "
+                "d'une avancée, on se retire.",
+                code="remove_not_allowed",
+            )
+        # Told while the trace still exists, so its followers are still found.
+        with transaction.atomic():
+            record_change(
+                user,
+                Notification.Verb.ENTRY_REMOVED,
+                team_season=entry.team_season,
+                work_item=entry.work_item,
+                entry=entry,
+            )
+            entry.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class NoteCreateView(APIView):
@@ -716,6 +888,7 @@ class NoteCreateView(APIView):
     after reconnection) is stored once: the second answer is the first note,
     with 200 rather than 201."""
 
+    @transaction.atomic
     def post(self, request: Request, team_season_id: int) -> Response:
         user = request.user
         assert isinstance(user, User)
@@ -725,29 +898,42 @@ class NoteCreateView(APIView):
         )
         serializer.is_valid(raise_exception=True)
         client_id = serializer.validated_data.get("client_id")
-        if client_id is not None:
+        if client_id is None:
+            # Nothing to replay, so none of the collision handling below
+            # applies: a failure here is a real error, not a sign this
+            # request was already answered once.
+            entry = serializer.save()
+        else:
             existing = Entry.objects.filter(author=user, client_id=client_id).first()
             if existing is not None:
-                return _replayed_note(existing, team_season)
-        try:
-            with transaction.atomic():
-                entry = serializer.save()
-        except IntegrityError:
-            existing = Entry.objects.get(author=user, client_id=client_id)
-            return _replayed_note(existing, team_season)
-        return Response(_entry(entry), status=status.HTTP_201_CREATED)
+                return _replayed_note(existing, team_season, user)
+            try:
+                with transaction.atomic():
+                    entry = serializer.save()
+            except IntegrityError:
+                existing = Entry.objects.get(author=user, client_id=client_id)
+                return _replayed_note(existing, team_season, user)
+        record_change(
+            user,
+            Notification.Verb.ENTRY_ADDED,
+            team_season=team_season,
+            work_item=entry.work_item,
+            entry=entry,
+        )
+        return Response(_entry(entry, user), status=status.HTTP_201_CREATED)
 
 
-def _replayed_note(existing: Entry, team_season: TeamSeason) -> Response:
+def _replayed_note(existing: Entry, team_season: TeamSeason, reader: User) -> Response:
     if existing.team_season_id != team_season.id:
         raise Conflict(
             "Cet identifiant appartient déjà à une remarque d'une autre équipe.",
             code="client_id_taken",
         )
-    return Response(_entry(existing), status=status.HTTP_200_OK)
+    return Response(_entry(existing, reader), status=status.HTTP_200_OK)
 
 
 class DecisionCreateView(APIView):
+    @transaction.atomic
     def post(self, request: Request, team_season_id: int) -> Response:
         user = request.user
         assert isinstance(user, User)
@@ -756,7 +942,76 @@ class DecisionCreateView(APIView):
             data=request.data, context={"team_season": team_season, "author": user}
         )
         serializer.is_valid(raise_exception=True)
-        return Response(_entry(serializer.save()), status=status.HTTP_201_CREATED)
+        entry = serializer.save()
+        record_change(
+            user,
+            Notification.Verb.ENTRY_ADDED,
+            team_season=team_season,
+            work_item=entry.work_item,
+            entry=entry,
+        )
+        return Response(_entry(entry, user), status=status.HTTP_201_CREATED)
+
+
+def _notification(notice: Notification) -> dict[str, object]:
+    """What the header shows of one change. The work item's title and the
+    trace's type are the copies kept on the notice, so a deleted one is
+    still named."""
+    return {
+        "id": notice.id,
+        "verb": notice.verb,
+        "actor": _member(notice.actor),
+        "team_season": notice.team_season_id,
+        "work_item": {"id": notice.work_item_id, "title": notice.work_item_title}
+        if notice.work_item_title
+        else None,
+        "entry": {"id": notice.entry_id, "type": notice.entry_type}
+        if notice.entry_type
+        else None,
+        "created_at": notice.created_at,
+        "read": notice.read_at is not None,
+    }
+
+
+def _notifications_open_to(user: User) -> QuerySet[Notification]:
+    """A notification leads to its team: once the member may no longer open
+    it, it leaves their list and their unread count."""
+    return user.notifications.filter(team_season__in=team_seasons_open_to(user))
+
+
+class NotificationListView(APIView):
+    """The member's own, newest first: the unread count and the latest few,
+    for the header (#151)."""
+
+    LATEST = 20
+
+    def get(self, request: Request) -> Response:
+        user = request.user
+        assert isinstance(user, User)
+        mine = _notifications_open_to(user).select_related("actor")
+        return Response(
+            {
+                "unread": mine.filter(read_at=None).count(),
+                "items": [_notification(notice) for notice in mine[: self.LATEST]],
+            }
+        )
+
+
+class NotificationReadView(APIView):
+    """Marks the member's own as read — all, or those named by `ids`; another
+    member's id is ignored, not refused, since it reveals nothing either way."""
+
+    def post(self, request: Request) -> Response:
+        user = request.user
+        assert isinstance(user, User)
+        serializer = ReadNotificationsSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        unread = _notifications_open_to(user).filter(read_at=None)
+        ids = serializer.validated_data.get("ids")
+        (unread if ids is None else unread.filter(pk__in=ids)).update(
+            read_at=timezone.now()
+        )
+        return Response({"unread": unread.count()})
 
 
 class DayView(APIView):
@@ -782,7 +1037,7 @@ class DayView(APIView):
                 "day": the_day,
                 "previous": previous,
                 "next": following,
-                "entries": [_entry(entry) for entry in entries],
+                "entries": [_entry(entry, user) for entry in entries],
                 "advanced_work_items": len(
                     {
                         entry.work_item_id
@@ -908,12 +1163,37 @@ def _rule_sources(checks: list[CheckOutcome] | None = None) -> list[dict[str, An
 
 class RuleSourcesView(APIView):
     """What an administrator sees about the rulebook's sources: the copy the
-    RAG searches, when it was last checked, and the change waiting for them."""
+    RAG searches, when it was last checked, and the change waiting for them.
+    Posting a URL adds a copy from FIRST's own page, and the checks follow it."""
 
     permission_classes = [IsClubAdmin]
 
     def get(self, request: Request) -> Response:
         return Response(_rule_sources())
+
+    def post(self, request: Request) -> Response:
+        serializer = AddSourceSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        season = Season.objects.first()
+        if season is None:
+            raise DjangoValidationError(
+                "Aucune saison n'est ouverte.", code="no_season"
+            )
+        try:
+            add_source(
+                season=season,
+                source=serializer.validated_data["source"],
+                url=serializer.validated_data["url"],
+            )
+        except NoPassage as error:
+            raise DjangoValidationError(
+                "La page ne contient aucun passage à indexer.", code="no_passage"
+            ) from error
+        except (OSError, ValueError) as error:
+            raise DjangoValidationError(
+                "La page n'a pas pu être récupérée.", code="fetch_failed"
+            ) from error
+        return Response(_rule_sources(), status=status.HTTP_201_CREATED)
 
 
 class RuleSourcesCheckView(APIView):

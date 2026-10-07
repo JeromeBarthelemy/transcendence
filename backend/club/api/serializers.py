@@ -27,6 +27,7 @@ from club import attachments, images
 from club.export import CATEGORY_KEYS
 from club.models import (
     Attachment,
+    Document,
     Entry,
     Membership,
     Season,
@@ -41,6 +42,7 @@ from club.models import (
     remove_after_commit,
 )
 from club.signup import reserved_email
+from club.sources import check_source_url
 
 
 def recheck(checks: dict[str, Callable[[], object]]) -> None:
@@ -419,6 +421,13 @@ class WriteProgressSerializer(serializers.Serializer[Entry]):
         return attrs
 
 
+class CorrectionSerializer(serializers.Serializer[Entry]):
+    """A mentor's correction, with the text it was written over."""
+
+    body = serializers.CharField(allow_blank=True)
+    body_was = serializers.CharField(allow_blank=True)
+
+
 class NoteSerializer(serializers.Serializer[Entry]):
     body = serializers.CharField()
     work_item = serializers.PrimaryKeyRelatedField(
@@ -451,6 +460,14 @@ class DecisionSerializer(NoteSerializer):
     attendees = serializers.PrimaryKeyRelatedField(
         queryset=User.objects.all(), many=True, required=False
     )
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        # Replay is a note concept (NoteCreateView): offline decisions are
+        # not the problem #154 was about, and inheriting the field without
+        # inheriting that view's guards would let a decision collide with,
+        # or be mistaken for, a note sharing its (author, client_id).
+        super().__init__(*args, **kwargs)
+        del self.fields["client_id"]
 
     def validate_attendees(self, value: list[User]) -> list[User]:
         members = Membership.objects.filter(team_season=self.context["team_season"])
@@ -623,5 +640,30 @@ class UserRoleSerializer(serializers.Serializer[User]):
         return instance
 
 
+class AddSourceSerializer(serializers.Serializer[None]):
+    # `source` is also a Field attribute in DRF; the typing clash is harmless here.
+    source = serializers.ChoiceField(choices=[Document.Source.GAME_MANUAL])  # type: ignore[assignment]
+    url = serializers.URLField(max_length=500)
+
+    def validate_url(self, value: str) -> str:
+        try:
+            return check_source_url(value)
+        except ValueError as error:
+            raise serializers.ValidationError(
+                str(error), code="source_not_allowed"
+            ) from error
+
+
 class AskSerializer(serializers.Serializer[None]):
     question = serializers.CharField(max_length=500)
+
+
+class ReadNotificationsSerializer(serializers.Serializer[None]):
+    """Without `ids`, every notification of the member's is read."""
+
+    # SQLite's integers stop at 2**63 - 1: past it, the query fails rather
+    # than finding nothing.
+    ids = serializers.ListField(
+        child=serializers.IntegerField(min_value=1, max_value=2**63 - 1),
+        required=False,
+    )

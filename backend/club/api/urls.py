@@ -18,6 +18,8 @@ from .views import (
     MembershipDetailView,
     MeView,
     NoteCreateView,
+    NotificationListView,
+    NotificationReadView,
     RuleQuestionView,
     RuleSourceAcceptView,
     RuleSourcesCheckView,
@@ -61,6 +63,12 @@ urlpatterns = [
     ),
     path("work-items/<int:pk>/", WorkItemDetailView.as_view(), name="work-item-detail"),
     path("work-items/<int:pk>/tick/", TickView.as_view(), name="work-item-tick"),
+    path("notifications/", NotificationListView.as_view(), name="notifications"),
+    path(
+        "notifications/read/",
+        NotificationReadView.as_view(),
+        name="notifications-read",
+    ),
     path("entries/<int:pk>/", EntryDetailView.as_view(), name="entry-detail"),
     path(
         "entries/<int:pk>/attachments/",

@@ -2,11 +2,18 @@ from datetime import timedelta
 
 import pytest
 from django.core.exceptions import ValidationError
+from django.core.files.base import ContentFile
 from django.db import IntegrityError
 from django.utils import timezone
 
-from club.models import Entry, Season, Team, TeamSeason, User, WorkItem
-from club.progress import ProgressChanged, edit_progress, join, record_progress
+from club.models import Attachment, Entry, Season, Team, TeamSeason, User, WorkItem
+from club.progress import (
+    ProgressChanged,
+    edit_progress,
+    join,
+    leave_todays_progress,
+    record_progress,
+)
 
 Step = Entry.Step
 
@@ -326,3 +333,71 @@ def test_an_empty_save_leaves_the_progress_untouched():
     entry.refresh_from_db()
     assert entry.updated_by is None
     assert entry.updated_at is None
+
+
+# --- leaving today's progress ---
+
+
+def test_a_member_leaves_todays_progress_and_the_others_stay_on_it():
+    intake = work_item()
+    marie, tom = student(), student("tom")
+    entry = record_progress(intake, marie, "Rouleaux montés.")
+    join(entry, tom)
+
+    leave_todays_progress(intake, tom)
+
+    assert list(entry.participants.all()) == [marie]
+
+
+def test_the_last_to_leave_is_handed_the_progress_to_delete():
+    intake = work_item()
+    marie, tom = student(), student("tom")
+    entry = record_progress(intake, marie, "Mauvais chantier.")
+    join(entry, tom)
+
+    assert leave_todays_progress(intake, tom) is None
+    assert leave_todays_progress(intake, marie) == entry
+    assert not entry.participants.exists()
+
+
+def test_a_progress_holding_a_file_stays_once_everyone_has_left(settings, tmp_path):
+    settings.MEDIA_ROOT = tmp_path
+    intake = work_item()
+    marie = student()
+    entry = record_progress(intake, marie, "")
+    Attachment.objects.create(
+        entry=entry,
+        uploaded_by=marie,
+        file=ContentFile(b"%PDF-1.7", name="plan.pdf"),
+        name="plan.pdf",
+        content_type="application/pdf",
+        people_recognisable=False,
+    )
+
+    assert leave_todays_progress(intake, marie) is None
+    assert not entry.participants.exists()
+
+
+def test_nobody_leaves_a_progress_they_are_not_on():
+    intake = work_item()
+    record_progress(intake, student(), "Rouleaux montés.")
+
+    with pytest.raises(ValidationError) as refused:
+        leave_todays_progress(intake, student("tom"))
+
+    assert refused.value.code == "not_a_participant"
+
+
+def test_a_past_progress_is_not_left():
+    intake = work_item()
+    marie = student()
+    entry = record_progress(intake, marie, "Rouleaux montés.")
+    Entry.objects.filter(pk=entry.pk).update(
+        occurred_at=timezone.now() - timedelta(days=2)
+    )
+
+    with pytest.raises(ValidationError) as refused:
+        leave_todays_progress(intake, marie)
+
+    assert refused.value.code == "not_a_participant"
+    assert entry.participants.filter(pk=marie.pk).exists()

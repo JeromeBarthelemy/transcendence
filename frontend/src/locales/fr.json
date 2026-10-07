@@ -183,6 +183,9 @@
     "participants": "Participants",
     "noParticipants": "Personne pour le moment",
     "join": "Je participe",
+    "leave": "Me retirer",
+    "leaveDeletes": "Vous êtes le dernier participant : l'avancée et son texte seront supprimés.",
+    "confirmLeave": "Me retirer et supprimer l'avancée",
     "joinToWrite": "Rejoignez cette avancée pour pouvoir la compléter.",
     "sharedHint": "Un seul texte pour l'avancée, commun à tous les participants : ce que vous ajoutez s'écrit à la suite.",
     "doneToday": "Fait aujourd'hui",
@@ -215,6 +218,7 @@
     "history": "Historique",
     "emptyHistory": "Aucune avancée n'a encore été enregistrée.",
     "entryMeta": "{{author}} · {{date}}",
+    "removeFile": "Retirer {{name}}",
     "uploadedBy": "Ajouté par {{name}}",
     "entryTypes": {
       "progress": "Avancée",
@@ -355,6 +359,22 @@
     "avatarType": "Ce fichier n'a pas été envoyé : choisissez une photo JPEG, PNG, WebP ou HEIC.",
     "avatarSize": "Ce fichier n'a pas été envoyé : la photo dépasse 10 Mo."
   },
+  "live": {
+    "offline": "Hors ligne : les changements des autres arriveront à la reconnexion."
+  },
+  "entryActions": {
+    "correct": "Corriger",
+    "correctLabel": "Corriger le texte",
+    "save": "Enregistrer",
+    "cancel": "Annuler",
+    "changedMeanwhile": "Ce texte a changé pendant que vous le corrigiez :",
+    "remove": "Retirer",
+    "confirmRemove": "Retirer définitivement",
+    "removeNote": "Retirer cette remarque ?",
+    "removeDecision": "Retirer cette décision ?",
+    "removeProgress": "Retirer cette avancée, avec ses participants et ses fichiers ?",
+    "removeFile": "Retirer ce fichier ?"
+  },
   "personalData": {
     "title": "Données personnelles",
     "intro": "Vos données vous appartiennent. Chaque demande est confirmée par courriel à l'adresse de contact de votre compte — celle de votre responsable légal si vous êtes mineur.",
@@ -362,7 +382,7 @@
     "exportDescription": "Une copie de votre compte dans un fichier lisible (JSON), et votre photo, envoyées par courriel.",
     "export": "Exporter",
     "exporting": "Envoi…",
-    "exported": "C'est envoyé : la copie de vos données arrive par courriel.",
+    "exported": "C'est envoyé à {{address}} : la copie de vos données arrive par courriel.",
     "deleteTitle": "Supprimer mon compte",
     "deleteDescription": "Votre nom, vos adresses, votre date de naissance, votre photo et votre mot de passe sont effacés. Ce que vous avez écrit reste dans le cahier de l'équipe, signé « Ancien membre ».",
     "delete": "Supprimer",
@@ -370,7 +390,7 @@
     "password": "Mot de passe",
     "confirmDelete": "Supprimer définitivement",
     "deleting": "Suppression…",
-    "deleted": "Votre compte a été supprimé. Une confirmation a été envoyée par courriel."
+    "deleted": "Votre compte a été supprimé. Une confirmation a été envoyée à {{address}}."
   },
   "fieldbot": {
     "title": "Des questions sur le règlement du club ?",
@@ -485,6 +505,10 @@
     "cannot_target_superuser": "Ce compte a un accès superutilisateur ; seul un accès équivalent peut le modifier.",
     "admin_must_be_mentor": "Un administrateur doit être mentor.",
     "last_admin_cannot_leave": "Vous êtes le seul administrateur du club : vous ne pouvez pas supprimer votre compte.",
+    "not_a_participant": "Vous ne participez pas à l'avancée d'aujourd'hui sur ce chantier.",
+    "entry_changed": "Ce texte a été modifié pendant que vous le corrigiez.",
+    "correct_not_allowed": "Seuls les mentors corrigent une trace.",
+    "remove_not_allowed": "Seuls son auteur et les mentors retirent cette trace.",
     "no_contact_email": "Aucune adresse de contact n'est enregistrée pour ce compte : impossible d'envoyer la confirmation.",
     "mail_unavailable": "Le courriel ne peut pas être envoyé pour le moment : rien n'a été fait. Réessayez plus tard.",
     "wrong_password": "Mot de passe incorrect : le compte n'a pas été supprimé.",
