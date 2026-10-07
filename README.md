@@ -678,16 +678,29 @@ checkable and is not. `RAG_GENERATION_MODEL` (`backend/.env`) picks the
 model — swapping it for another one Ollama has pulled needs no code
 change.
 
+A smaller, faster model was tried and measured faster and just as clean by
+every automatic check — and, read by hand against what it actually
+retrieved, wrong often enough to drop: confidently answering from a
+passage that didn't address the question, never once saying "the passages
+given don't say". `qwen2.5:3b` hedges in exactly that case instead, which
+no citation check can tell apart from a model confidently wrong, so the
+choice rests on reading its answers, not just counting its citations.
+
 Measured on this machine, warm, against the real BioBuzz manual (364
-passages) over 100 questions: a full answer in 5.7 s at the median, 9.4 s
-for 95% of them, never over 10.4 s — down from 8.3 s/13.7 s/18.2 s before
-`TOP_K` was cut from 5 to 3 and a long answer learned to stop at its last
-full sentence instead of the token cap's cutoff. Still to be re-measured on
-the club's own laptop, which this machine's CPU is unlikely to match.
+passages, `TOP_K=10`) over 100 questions: a full answer in 6.3 s at the
+median, 10.0 s for 95% of them. `GENERATION_TIMEOUT_SECONDS` caps the rest
+at 10 s — past it, the question falls back to its citations alone the same
+way a bad citation already does, so no answer waits past ~11 s for the
+timeout itself to be noticed and acted on. 5 of the 100 questions fell
+back this way; none of the other 95 cited anything that wasn't actually
+retrieved. Flash attention and a quantized KV cache (`compose.yml`'s
+`ollama` service) cost nothing in accuracy and measurably shortened this —
+free to enable, not free to skip. Still to be re-measured on the club's
+own laptop, which this machine's CPU is unlikely to match.
 
 | route | does |
 | --- | --- |
-| `POST /api/rules/ask/` | a question, answered with a generated French answer and up to three cited passages from this season's ingested documents |
+| `POST /api/rules/ask/` | a question, answered with a generated French answer and up to ten cited passages from this season's ingested documents |
 | `GET /api/rules/sources/` | administrators only: per source, the copy searched, when it was checked, and any change waiting for acceptance with its summary |
 | `POST /api/rules/sources/` | administrators only: `source` (`game_manual`) and `url` on FIRST's own site (`https`, `ftc-resources.firstinspires.org`) — fetches the page, ingests it as the new copy, and the checks follow that URL from now on; `400` with `source_not_allowed`, `fetch_failed` (also when a redirect leaves FIRST's site) or `no_passage` (a page with nothing to index) otherwise |
 | `POST /api/rules/sources/check/` | administrators only: check the game manual against its page now, the same check the `sources-check` service runs every 24 hours (the Q&A is not checked yet) |

@@ -44,6 +44,11 @@ services:
   # GenerationError) instead of the whole stack waiting on a ~2 GB pull.
   ollama:
     image: ollama/ollama:latest
+    environment:
+      # No accuracy cost, measured on the real manual (#135's own review):
+      # same model, same answers, meaningfully faster prompt processing.
+      OLLAMA_FLASH_ATTENTION: "1"
+      OLLAMA_KV_CACHE_TYPE: q8_0
     volumes:
       - ollama_models:/root/.ollama
     ports:

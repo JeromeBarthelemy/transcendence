@@ -18,10 +18,27 @@ from django.conf import settings
 
 from .models import Chunk
 
-GENERATION_TIMEOUT_SECONDS = 60
+# The hard ceiling on how long a question may wait, enforced here rather
+# than hoped for: past this, urlopen's own timeout fires (a plain OSError,
+# already caught below) and the question falls back to its citations alone
+# — same path as a bad citation or an unreachable server. A smaller, faster
+# model answered within this reliably on #135's own 100-question review,
+# but also got the *content* wrong more often where qwen2.5:3b (the
+# default) did not — reference-citing is the only thing this module can
+# check mechanically, so the choice leans toward the model proven right by
+# hand, with this as its safety net against the rare slow outlier rather
+# than the everyday case.
+GENERATION_TIMEOUT_SECONDS = 10
 # Three sentences rarely need more; a cap keeps a rambling answer from
-# turning into the slowest part of the request.
-GENERATION_MAX_TOKENS = 200
+# running past the timeout above on its own.
+GENERATION_MAX_TOKENS = 120
+# A real manual's passage runs ~850 characters on average, some past 2000
+# (club/rag.py's docstring) — most of a rule's own substance is in its
+# first sentences, the rest mostly examples and edge cases. Cut well short
+# of that: the prompt this builds is what the model actually has to read
+# before writing anything, and it dominates generation time more than the
+# answer's own length does.
+GENERATION_MAX_PASSAGE_CHARS = 150
 
 SYSTEM_PROMPT = (
     "Tu es Fieldbot, l'assistant du cahier de bord d'un club de robotique "
@@ -61,8 +78,17 @@ def _complete_sentences(answer: str) -> str:
     return answer[: cut + 1]
 
 
+def _truncated(text: str) -> str:
+    if len(text) <= GENERATION_MAX_PASSAGE_CHARS:
+        return text
+    cut = text.rfind(" ", 0, GENERATION_MAX_PASSAGE_CHARS)
+    return text[: cut if cut > 0 else GENERATION_MAX_PASSAGE_CHARS] + "…"
+
+
 def _prompt(question: str, chunks: list[Chunk]) -> str:
-    passages = "\n\n".join(f"[{chunk.reference}] {chunk.text}" for chunk in chunks)
+    passages = "\n\n".join(
+        f"[{chunk.reference}] {_truncated(chunk.text)}" for chunk in chunks
+    )
     return f"Passages :\n{passages}\n\nQuestion : {question}"
 
 

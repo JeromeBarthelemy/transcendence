@@ -2,6 +2,7 @@ import json
 
 import pytest
 
+from club import generation
 from club.generation import GenerationError, generate_answer
 from club.models import Chunk, Document, Season
 
@@ -51,11 +52,33 @@ def test_generate_answer_reads_the_models_own_message(monkeypatch):
     assert captured["url"] == "http://ollama:11434/api/chat"
     assert captured["body"]["model"] == "qwen2.5:3b"
     assert captured["body"]["stream"] is False
-    assert captured["body"]["options"]["num_predict"] == 200
+    assert (
+        captured["body"]["options"]["num_predict"] == generation.GENERATION_MAX_TOKENS
+    )
     assert captured["body"]["messages"][0]["role"] == "system"
     user_message = captured["body"]["messages"][1]["content"]
     assert "[G102] Climbing on ARENA elements is prohibited." in user_message
     assert "Peut-on grimper sur le terrain ?" in user_message
+
+
+def test_generate_answer_truncates_a_passage_longer_than_the_cap(monkeypatch):
+    # A real passage runs past GENERATION_MAX_PASSAGE_CHARS more often than
+    # not (club/rag.py: ~850 characters on average) — the prompt the model
+    # actually reads is what this caps, not the citation shown underneath.
+    long_text = "Mot " * 100
+    captured = {}
+
+    def fake_urlopen(request, timeout):
+        captured["body"] = json.loads(request.data)
+        return FakeResponse(json.dumps({"message": {"content": "Oui."}}).encode())
+
+    monkeypatch.setattr("club.generation.urlopen", fake_urlopen)
+
+    generate_answer("Une question ?", [chunk(text=long_text)])
+
+    user_message = captured["body"]["messages"][1]["content"]
+    assert long_text not in user_message
+    assert len(user_message) < len(long_text)
 
 
 def test_generate_answer_refuses_when_the_server_cannot_be_reached(monkeypatch):
