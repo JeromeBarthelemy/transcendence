@@ -908,6 +908,7 @@ class Notification(models.Model):
         WORK_ITEM_OPENED = "work_item_opened", "chantier ouvert"
         WORK_ITEM_DONE = "work_item_done", "chantier terminé"
         WORK_ITEM_DROPPED = "work_item_dropped", "chantier abandonné"
+        WORK_ITEM_REOPENED = "work_item_reopened", "chantier rouvert"
         WORK_ITEM_DELETED = "work_item_deleted", "chantier supprimé"
         ENTRY_ADDED = "entry_added", "trace ajoutée"
         ENTRY_UPDATED = "entry_updated", "trace modifiée"

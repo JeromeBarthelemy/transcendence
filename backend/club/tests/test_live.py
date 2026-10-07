@@ -14,6 +14,7 @@ from config.asgi import application
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import OperationalError
 from django.test import Client
+from django.utils import timezone
 
 from club.models import (
     Attachment,
@@ -106,8 +107,9 @@ def test_a_connection_from_another_site_is_refused(db):
 @pytest.fixture
 def board(db, settings, tmp_path):
     """A team with a robot work item, today's progress and a file on it, a
-    note written twice, and an empty work item opened by mistake. Tom took
-    part in the progress, so he follows the robot work item."""
+    note written twice, an empty work item opened by mistake, and a dropped
+    one. Tom took part in a progress on the robot work item and on the
+    dropped one, so he follows both."""
     settings.MEDIA_ROOT = tmp_path
     rouages = team_season()
     lina = member_of(rouages)
@@ -123,6 +125,11 @@ def board(db, settings, tmp_path):
     )
     tom = member_of(rouages, "tom")
     join(progress, tom)
+    dropped = WorkItem.objects.create(team_season=rouages, title="treuil")
+    join(record_progress(dropped, lina, "Treuil essayé."), tom)
+    dropped.status = WorkItem.Status.DROPPED
+    dropped.closed_at = timezone.now()
+    dropped.save()
     client = Client()
     client.force_login(lina)
     attachment = client.post(
@@ -136,6 +143,7 @@ def board(db, settings, tmp_path):
         client=client,
         intake=intake,
         empty=empty,
+        dropped=dropped,
         progress=progress,
         duplicate=duplicate,
         attachment=attachment,
@@ -171,6 +179,10 @@ WRITES = {
             **as_json(status="dropped", reason="Trop lourd."),
         ),
         lambda response: b.intake.id,
+    ),
+    "reopen a work item": lambda b: (
+        b.client.patch(f"/api/work-items/{b.dropped.id}/", **as_json(status="open")),
+        lambda response: b.dropped.id,
     ),
     "delete a work item": lambda b: (
         b.client.delete(f"/api/work-items/{b.empty.id}/"),
@@ -359,6 +371,7 @@ def test_ticking_again_changes_nothing_and_notifies_nobody(
 TOLD_TO_TOM = {
     "open a work item": Notification.Verb.WORK_ITEM_OPENED,
     "close a work item": Notification.Verb.WORK_ITEM_DROPPED,
+    "reopen a work item": Notification.Verb.WORK_ITEM_REOPENED,
     "delete a work item": Notification.Verb.WORK_ITEM_DELETED,
     "tick": None,
     "tick at another step": Notification.Verb.ENTRY_ADDED,

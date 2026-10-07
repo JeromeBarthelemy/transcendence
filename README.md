@@ -640,7 +640,7 @@ member sees is true, and trying again does not make the write twice.
   member who made the change, never a deactivated account.
 - **What tells**: a trace added, updated (an addition, a step or handover, a
   correction, a file added or removed) or removed; a work item opened, done,
-  dropped or deleted.
+  dropped, reopened or deleted.
 - **What does not**: joining or leaving a progress. It still reloads the
   open screens, but ten students ticking at the start of a session would
   bury the notices that matter. The last to leave today's progress takes it

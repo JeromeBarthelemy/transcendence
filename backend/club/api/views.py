@@ -637,9 +637,11 @@ class WorkItemDetailView(APIView):
         serializer.save()
         record_change(
             request.user,
-            Notification.Verb.WORK_ITEM_DONE
-            if item.status == WorkItem.Status.DONE
-            else Notification.Verb.WORK_ITEM_DROPPED,
+            {
+                WorkItem.Status.OPEN: Notification.Verb.WORK_ITEM_REOPENED,
+                WorkItem.Status.DONE: Notification.Verb.WORK_ITEM_DONE,
+                WorkItem.Status.DROPPED: Notification.Verb.WORK_ITEM_DROPPED,
+            }[WorkItem.Status(item.status)],
             team_season=item.team_season,
             work_item=item,
         )
