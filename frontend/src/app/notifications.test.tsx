@@ -66,6 +66,9 @@ function serve(items: ReturnType<typeof notice>[]) {
       }
       return json({ unread: unread() });
     }
+    if (url === "/api/auth/logout/" && init?.method === "POST") {
+      return new Response(null, { status: 204 });
+    }
     throw new Error(`Unexpected request: ${url}`);
   });
   vi.stubGlobal("fetch", fetchMock);
@@ -82,7 +85,7 @@ function renderApp() {
       <RouterProvider router={router} />
     </QueryClientProvider>,
   );
-  return router;
+  return queryClient;
 }
 
 beforeEach(() => {
@@ -194,6 +197,24 @@ it("clears the badge on opening, even with more unread than it shows", async () 
   );
 
   await screen.findByRole("button", { name: "Notifications, aucune non lue" });
+});
+
+it("forgets the member's notifications once they log out", async () => {
+  const user = userEvent.setup();
+  serve([notice(1)]);
+  const queryClient = renderApp();
+
+  await screen.findByRole("button", { name: "Notifications, 1 non lue" });
+  await user.click(
+    screen.getByRole("button", { name: "Menu du compte (Tom)" }),
+  );
+  await user.click(screen.getByRole("button", { name: "Se déconnecter" }));
+
+  // On the club's shared laptop, the next member signs in on this same tab.
+  await waitFor(() =>
+    expect(screen.queryByRole("button", { name: /^Notifications/ })).toBeNull(),
+  );
+  expect(queryClient.getQueryData(["notifications"])).toBeUndefined();
 });
 
 it("says so when there is nothing yet", async () => {

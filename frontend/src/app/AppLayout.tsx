@@ -6,6 +6,7 @@ import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import type { Identity } from "../api/auth";
 import { logOut } from "../api/auth";
 import { ApiRequestError } from "../api/client";
+import { notificationsQueryKey } from "../api/notifications";
 import logo from "../assets/logo.webp";
 import { RequestError } from "../components/ApiErrors";
 import { Avatar } from "../components/Avatar";
@@ -306,6 +307,7 @@ export function AppLayout() {
     },
     onSuccess: () => {
       setOpen(null);
+      queryClient.removeQueries({ queryKey: notificationsQueryKey });
       queryClient.setQueryData(currentUserQueryKey, null);
       navigate("/", { replace: true });
     },
