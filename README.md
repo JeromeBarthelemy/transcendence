@@ -629,7 +629,9 @@ would need Redis as the channel layer.
 Each of those writes also tells the people it concerns, from one function
 (`club/notifications.py`, `record_change`) that every one of them calls and
 that sends the live message too: a write that forgot it would leave its
-screens stale as well, which shows at once.
+screens stale as well, which shows at once. The write and its notices are
+one transaction: notices that fail take the write back, so the error the
+member sees is true, and trying again does not make the write twice.
 
 - **Who is told**: those who follow the work item — who took part in one of
   its progress entries — or the whole team for a trace about no work item,

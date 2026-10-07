@@ -20,7 +20,10 @@ def record_change(
     work_item: WorkItem | None,
     entry: Entry | None = None,
 ) -> None:
-    """Called before a deletion, while what goes still has its id."""
+    """Called inside the write's transaction, so that notices failing take
+    the write back with them: the error answered is then true, and a retry
+    does not make the write twice. Before a deletion, while what goes still
+    has its id."""
     Notification.objects.bulk_create(
         Notification(
             recipient=recipient,

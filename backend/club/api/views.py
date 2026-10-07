@@ -535,6 +535,7 @@ class WorkItemListView(APIView):
         team_season = team_season_acted_on(request.user, team_season_id)
         return Response([_work_item(item) for item in team_season.work_items.all()])
 
+    @transaction.atomic
     def post(self, request: Request, team_season_id: int) -> Response:
         assert isinstance(request.user, User)
         team_season = team_season_acted_on(request.user, team_season_id)
@@ -617,6 +618,7 @@ class WorkItemDetailView(APIView):
             }
         )
 
+    @transaction.atomic
     def patch(self, request: Request, pk: int) -> Response:
         assert isinstance(request.user, User)
         item = _work_item_acted_on(request.user, pk)
@@ -729,6 +731,7 @@ class EntryAttachmentsView(APIView):
     """Anyone on the team adds to any of its entries: an outing's photos come
     from everyone who was there, not from whoever wrote it up."""
 
+    @transaction.atomic
     def post(self, request: Request, pk: int) -> Response:
         user = request.user
         assert isinstance(user, User)
@@ -738,7 +741,8 @@ class EntryAttachmentsView(APIView):
             data=request.data, context={"entry": entry, "user": user}
         )
         serializer.is_valid(raise_exception=True)
-        attachment = serializer.save()
+        # Told first: notices that fail roll back before the file is written,
+        # which a rollback would leave on disk.
         record_change(
             user,
             Notification.Verb.ENTRY_UPDATED,
@@ -746,6 +750,7 @@ class EntryAttachmentsView(APIView):
             work_item=entry.work_item,
             entry=entry,
         )
+        attachment = serializer.save()
         return Response(_attachment(attachment, user), status=status.HTTP_201_CREATED)
 
 
@@ -762,6 +767,7 @@ class AttachmentView(APIView):
             filename=attachment.name,
         )
 
+    @transaction.atomic
     def delete(self, request: Request, pk: int) -> Response:
         attachment = self._acted_on(request, pk)
         user = request.user
@@ -792,6 +798,7 @@ class AttachmentView(APIView):
 
 
 class EntryDetailView(APIView):
+    @transaction.atomic
     def patch(self, request: Request, pk: int) -> Response:
         user = request.user
         assert isinstance(user, User)
@@ -877,6 +884,7 @@ class EntryDetailView(APIView):
 
 
 class NoteCreateView(APIView):
+    @transaction.atomic
     def post(self, request: Request, team_season_id: int) -> Response:
         user = request.user
         assert isinstance(user, User)
@@ -897,6 +905,7 @@ class NoteCreateView(APIView):
 
 
 class DecisionCreateView(APIView):
+    @transaction.atomic
     def post(self, request: Request, team_season_id: int) -> Response:
         user = request.user
         assert isinstance(user, User)

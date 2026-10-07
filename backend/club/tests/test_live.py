@@ -12,10 +12,13 @@ from channels.layers import get_channel_layer
 from channels.testing import WebsocketCommunicator
 from config.asgi import application
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.db import OperationalError
 from django.test import Client
 
 from club.models import (
+    Attachment,
     Entry,
+    EntryParticipant,
     Membership,
     Notification,
     Season,
@@ -102,15 +105,22 @@ def test_a_connection_from_another_site_is_refused(db):
 
 @pytest.fixture
 def board(db, settings, tmp_path):
-    """A team with a robot work item, today's progress and a file on it, and
-    an empty work item opened by mistake. Tom took part in the progress, so
-    he follows the robot work item."""
+    """A team with a robot work item, today's progress and a file on it, a
+    note written twice, and an empty work item opened by mistake. Tom took
+    part in the progress, so he follows the robot work item."""
     settings.MEDIA_ROOT = tmp_path
     rouages = team_season()
     lina = member_of(rouages)
     intake = WorkItem.objects.create(team_season=rouages, title="intake", on_robot=True)
     empty = WorkItem.objects.create(team_season=rouages, title="pince")
     progress = record_progress(intake, lina, "Galets montés.", handover="Tester.")
+    duplicate = Entry.objects.create(
+        team_season=rouages,
+        author=lina,
+        type=Entry.Type.NOTE,
+        body="Doublon.",
+        work_item=intake,
+    )
     tom = member_of(rouages, "tom")
     join(progress, tom)
     client = Client()
@@ -127,6 +137,7 @@ def board(db, settings, tmp_path):
         intake=intake,
         empty=empty,
         progress=progress,
+        duplicate=duplicate,
         attachment=attachment,
     )
 
@@ -211,17 +222,7 @@ WRITES = {
         lambda response: b.intake.id,
     ),
     "remove a trace": lambda b: (
-        b.client.delete(
-            "/api/entries/{}/".format(
-                Entry.objects.create(
-                    team_season=b.team_season,
-                    author=b.lina,
-                    type=Entry.Type.NOTE,
-                    body="Doublon.",
-                    work_item=b.intake,
-                ).id
-            )
-        ),
+        b.client.delete(f"/api/entries/{b.duplicate.id}/"),
         lambda response: b.intake.id,
     ),
     "correct a trace": lambda b: (
@@ -381,3 +382,32 @@ def test_every_write_on_the_board_tells_those_who_follow_it(board, write):
     assert response.status_code < 300
     expected = TOLD_TO_TOM[write]
     assert [n.verb for n in told] == ([] if expected is None else [expected])
+
+
+def board_state(board, media_root):
+    return (
+        [
+            list(model.objects.order_by("pk").values())
+            for model in (WorkItem, Entry, EntryParticipant, Attachment)
+        ],
+        sorted(path.name for path in media_root.rglob("*") if path.is_file()),
+    )
+
+
+@pytest.mark.parametrize(
+    "write", [write for write, told in TOLD_TO_TOM.items() if told is not None]
+)
+def test_a_write_whose_notices_fail_is_not_kept(board, write, monkeypatch, tmp_path):
+    """The failure answers 500, so the write must not stand: a retry would
+    make it twice."""
+
+    def locked(*args, **kwargs):
+        raise OperationalError("database is locked")
+
+    monkeypatch.setattr(Notification.objects, "bulk_create", locked)
+    before = board_state(board, tmp_path)
+
+    with pytest.raises(OperationalError):
+        WRITES[write](board)
+
+    assert board_state(board, tmp_path) == before
