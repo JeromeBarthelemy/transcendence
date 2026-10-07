@@ -27,6 +27,7 @@ import {
   RequestError,
 } from "../components/ApiErrors";
 import { Avatar, photoChanged } from "../components/Avatar";
+import { IconLabel } from "../components/Icon";
 
 const primaryButtonClass =
   "rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-white hover:bg-primary disabled:opacity-50";
@@ -239,9 +240,11 @@ function PhotoForm({ identity }: { identity: Identity }) {
                       remove.mutate();
                     }}
                   >
-                    {remove.isPending
-                      ? t("profile.removing")
-                      : t("profile.remove")}
+                    <IconLabel icon="xmark">
+                      {remove.isPending
+                        ? t("profile.removing")
+                        : t("profile.remove")}
+                    </IconLabel>
                   </button>
                 )}
               </div>
@@ -371,7 +374,7 @@ function PersonalData() {
             className={`${dangerButtonClass} shrink-0`}
             onClick={() => setIsConfirming(true)}
           >
-            {t("personalData.delete")}
+            <IconLabel icon="xmark">{t("personalData.delete")}</IconLabel>
           </button>
         )}
       </div>
@@ -408,9 +411,11 @@ function PersonalData() {
               className="rounded-xl bg-red-800 px-4 py-2 text-sm font-semibold text-white hover:bg-red-900 disabled:opacity-50"
               disabled={!password || erase.isPending}
             >
-              {erase.isPending
-                ? t("personalData.deleting")
-                : t("personalData.confirmDelete")}
+              <IconLabel icon="xmark">
+                {erase.isPending
+                  ? t("personalData.deleting")
+                  : t("personalData.confirmDelete")}
+              </IconLabel>
             </button>
             <button
               type="button"

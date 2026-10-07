@@ -17,6 +17,7 @@ import { statusColors } from "../app/workItemStatus";
 import { RequestError } from "../components/ApiErrors";
 import { AvatarStack } from "../components/Avatar";
 import { EntryActions } from "../components/EntryActions";
+import { IconLabel, type IconName } from "../components/Icon";
 import { TeamActivity } from "../components/TeamActivity";
 import { OpenWorkItemPanel } from "./OpenWorkItemPanel";
 
@@ -25,6 +26,10 @@ type TeamSection = "work-items" | "activity";
 
 const WORK_ITEM_STATUSES: WorkItem["status"][] = ["open", "done", "dropped"];
 const TEAM_SECTIONS: TeamSection[] = ["work-items", "activity"];
+const SECTION_ICONS: Record<TeamSection, IconName> = {
+  "work-items": "wrench",
+  activity: "chart",
+};
 
 const dateFormatter = new Intl.DateTimeFormat("fr-FR", {
   dateStyle: "long",
@@ -136,11 +141,13 @@ function WorkItemCard({
 function WorkItemSection({
   id,
   title,
+  icon,
   items,
   currentWorkday,
 }: {
   id: string;
   title: string;
+  icon: IconName;
   items: WorkItem[];
   currentWorkday?: string;
 }) {
@@ -169,7 +176,7 @@ function WorkItemSection({
             >
               <path d="m6 3 5 5-5 5" />
             </svg>
-            {title}
+            <IconLabel icon={icon}>{title}</IconLabel>
           </button>
         </h2>
         <span className="text-sm text-muted">
@@ -475,7 +482,9 @@ function TeamSectionNav({ section }: { section: TeamSection }) {
                 : "text-ink hover:bg-tint"
             }`}
           >
-            {t(`teamHome.sections.${item}`)}
+            <IconLabel icon={SECTION_ICONS[item]} before>
+              {t(`teamHome.sections.${item}`)}
+            </IconLabel>
           </Link>
         );
       })}
@@ -517,7 +526,9 @@ export function TeamHomePage({ identity }: { identity: Identity }) {
     return (
       <main className="mx-auto w-full max-w-4xl flex-1 px-5 py-14 sm:px-8">
         <p className="text-sm font-bold tracking-[0.14em] text-accent uppercase">
-          {t("teamHome.welcome", { name: identity.display_name })}
+          <IconLabel icon="user">
+            {t("teamHome.welcome", { name: identity.display_name })}
+          </IconLabel>
         </p>
         <div className="mt-6 rounded-3xl border border-primary/15 bg-white p-8 shadow-sm">
           <h1 className="brand-title text-3xl text-ink">
@@ -540,17 +551,21 @@ export function TeamHomePage({ identity }: { identity: Identity }) {
   return (
     <main className="mx-auto w-full max-w-6xl flex-1 px-5 py-10 sm:px-8 sm:py-14">
       <p className="text-sm font-bold tracking-[0.14em] text-accent uppercase">
-        {t("teamHome.welcome", { name: identity.display_name })}
+        <IconLabel icon="user">
+          {t("teamHome.welcome", { name: identity.display_name })}
+        </IconLabel>
       </p>
       <LiveBoard teamSeasonId={selectedTeamSeason.id} />
 
       <div className="mt-3 flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
         <div>
           <h1 className="brand-title text-3xl tracking-[-0.035em] text-ink sm:text-4xl">
-            {t("teamHome.teamTitle", {
-              number: selectedTeamSeason.team.number,
-              name: selectedTeamSeason.team.name,
-            })}
+            <IconLabel icon="team" before>
+              {t("teamHome.teamTitle", {
+                number: selectedTeamSeason.team.number,
+                name: selectedTeamSeason.team.name,
+              })}
+            </IconLabel>
           </h1>
           <p className="mt-2 text-sm text-muted">
             {t("teamHome.season", {
@@ -634,12 +649,14 @@ export function TeamHomePage({ identity }: { identity: Identity }) {
                 <WorkItemSection
                   id="robot-work-items"
                   title={t("teamHome.robot")}
+                  icon="robot"
                   items={robotItems}
                   currentWorkday={day.data?.day}
                 />
                 <WorkItemSection
                   id="off-robot-work-items"
                   title={t("teamHome.offRobot")}
+                  icon="toolbox"
                   items={offRobotItems}
                   currentWorkday={day.data?.day}
                 />
