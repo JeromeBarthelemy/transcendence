@@ -341,6 +341,19 @@ def test_marking_some_as_read_leaves_the_others_and_never_someone_elses(client, 
     assert linas.read_at is None
 
 
+def test_an_id_past_what_the_database_holds_is_refused(client, db):
+    rouages = team_season()
+    client.force_login(member_of(rouages, "tom"))
+
+    response = client.post(
+        "/api/notifications/read/",
+        {"ids": [99999999999999999999]},
+        content_type="application/json",
+    )
+
+    assert response.status_code == 400
+
+
 def test_a_visitor_has_no_notifications(client, db):
     assert client.get("/api/notifications/").status_code == 403
     assert client.post("/api/notifications/read/").status_code == 403
