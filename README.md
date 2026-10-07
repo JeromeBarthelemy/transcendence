@@ -671,16 +671,23 @@ then by how well they answer it; a local model (`club/generation.py`, Ollama,
 those passages alone, naming the references it relies on. No passage above
 the retrieval threshold means no generation either — the system's own
 refusal stands instead, so nothing is ever invented past what the source
-says. A model that cannot be reached leaves the answer empty; the citations
-still stand on their own under it. `RAG_GENERATION_MODEL` (`backend/.env`)
-picks the model — swapping it for another one Ollama has pulled needs no
-code change. Measured on this machine, warm (the model already loaded):
-about 1.3 s for a full answer, the first word arriving in under 0.2 s — to
-be re-measured on the club's own laptop before relying on it.
+says. A citation the model gets wrong — shortened, misspelled, made up
+outright — is refused the same way a model that cannot be reached is: the
+citations stand on their own instead, rather than an answer that reads as
+checkable and is not. `RAG_GENERATION_MODEL` (`backend/.env`) picks the
+model — swapping it for another one Ollama has pulled needs no code
+change.
+
+Measured on this machine, warm, against the real BioBuzz manual (364
+passages) over 100 questions: a full answer in 5.7 s at the median, 9.4 s
+for 95% of them, never over 10.4 s — down from 8.3 s/13.7 s/18.2 s before
+`TOP_K` was cut from 5 to 3 and a long answer learned to stop at its last
+full sentence instead of the token cap's cutoff. Still to be re-measured on
+the club's own laptop, which this machine's CPU is unlikely to match.
 
 | route | does |
 | --- | --- |
-| `POST /api/rules/ask/` | a question, answered with a generated French answer and up to five cited passages from this season's ingested documents |
+| `POST /api/rules/ask/` | a question, answered with a generated French answer and up to three cited passages from this season's ingested documents |
 | `GET /api/rules/sources/` | administrators only: per source, the copy searched, when it was checked, and any change waiting for acceptance with its summary |
 | `POST /api/rules/sources/` | administrators only: `source` (`game_manual`) and `url` on FIRST's own site (`https`, `ftc-resources.firstinspires.org`) — fetches the page, ingests it as the new copy, and the checks follow that URL from now on; `400` with `source_not_allowed`, `fetch_failed` (also when a redirect leaves FIRST's site) or `no_passage` (a page with nothing to index) otherwise |
 | `POST /api/rules/sources/check/` | administrators only: check the game manual against its page now, the same check the `sources-check` service runs every 24 hours (the Q&A is not checked yet) |

@@ -74,8 +74,12 @@ if MODEL_NAME not in {m["model"] for m in TextEmbedding.list_supported_models()}
 # "downloaded once", the whole point of caching it at all.
 FASTEMBED_CACHE_DIR = str(Path(settings.BASE_DIR) / ".cache" / "fastembed")
 DIMENSIONS = 768
-# How many passages a question keeps.
-TOP_K = 5
+# How many passages a question keeps. Also the generation prompt's size:
+# measured on the real manual (#135's own review, 100 questions), 5 real
+# passages average ~4200 characters of context and an 8s median answer —
+# 3 is the most TOP_K can hold while keeping that prompt, and so the
+# answer, meaningfully shorter.
+TOP_K = 3
 # How weak a match may be and still count as one — cosine similarity
 # between two unit vectors, bounded in [-1, 1]. Calibrated against the
 # real BioBuzz manual, chunked by `chunk_manual` from FIRST's own HTML
