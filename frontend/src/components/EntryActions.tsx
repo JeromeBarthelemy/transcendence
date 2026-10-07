@@ -4,7 +4,9 @@ import { useTranslation } from "react-i18next";
 
 import { correctEntry, removeEntry } from "../api/workItems";
 import { fieldIssues, RequestError } from "./ApiErrors";
+import { Button, TextButton } from "./Button";
 import { IconLabel } from "./Icon";
+import { ConfirmPanel } from "./Notice";
 
 interface Trace {
   id: number;
@@ -110,20 +112,16 @@ export function EntryActions({
             <RequestError error={correct.error} />
           )}
           <div className="mt-3 flex flex-wrap gap-3">
-            <button
+            <Button
+              variant="primary"
               type="submit"
-              className="rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
               disabled={correct.isPending}
             >
               {t("entryActions.save")}
-            </button>
-            <button
-              type="button"
-              className="rounded-xl border border-primary/20 px-4 py-2 text-sm font-semibold text-ink"
-              onClick={() => setIsCorrecting(false)}
-            >
+            </Button>
+            <Button onClick={() => setIsCorrecting(false)}>
               {t("entryActions.cancel")}
-            </button>
+            </Button>
           </div>
         </form>
       ) : (
@@ -133,59 +131,35 @@ export function EntryActions({
       {!isCorrecting && !isConfirmingRemove && (
         <div className="mt-3 flex flex-wrap gap-4 text-sm">
           {entry.can_correct && (
-            <button
-              type="button"
-              className="font-semibold text-accent hover:underline"
-              onClick={openCorrection}
-            >
+            <TextButton onClick={openCorrection}>
               {t("entryActions.correct")}
-            </button>
+            </TextButton>
           )}
           {entry.can_remove && (
-            <button
-              type="button"
-              className="font-semibold text-red-800 hover:underline"
-              onClick={() => setIsConfirmingRemove(true)}
-            >
+            <TextButton danger onClick={() => setIsConfirmingRemove(true)}>
               <IconLabel icon="xmark">{t("entryActions.remove")}</IconLabel>
-            </button>
+            </TextButton>
           )}
         </div>
       )}
 
       {isConfirmingRemove && (
-        <div className="mt-3 rounded-xl border border-red-800/20 bg-red-50 p-3">
-          <p className="text-sm text-red-900">
-            {t(
-              entry.type === "progress"
-                ? "entryActions.removeProgress"
-                : entry.type === "decision"
-                  ? "entryActions.removeDecision"
-                  : "entryActions.removeNote",
-            )}
-          </p>
-          <div className="mt-3 flex flex-wrap gap-3">
-            <button
-              type="button"
-              className="rounded-xl border border-primary/20 bg-white px-4 py-2 text-sm font-semibold text-ink disabled:opacity-50"
-              disabled={remove.isPending}
-              onClick={() => setIsConfirmingRemove(false)}
-            >
-              {t("entryActions.cancel")}
-            </button>
-            <button
-              type="button"
-              className="rounded-xl bg-red-800 px-4 py-2 text-sm font-semibold text-white hover:bg-red-900 disabled:opacity-50"
-              disabled={remove.isPending}
-              onClick={() => remove.mutate()}
-            >
-              <IconLabel icon="xmark">
-                {t("entryActions.confirmRemove")}
-              </IconLabel>
-            </button>
-          </div>
-          {remove.isError && <RequestError error={remove.error} />}
-        </div>
+        <ConfirmPanel
+          className="mt-3"
+          message={t(
+            entry.type === "progress"
+              ? "entryActions.removeProgress"
+              : entry.type === "decision"
+                ? "entryActions.removeDecision"
+                : "entryActions.removeNote",
+          )}
+          cancelLabel={t("entryActions.cancel")}
+          confirmLabel={t("entryActions.confirmRemove")}
+          pending={remove.isPending}
+          error={remove.isError ? remove.error : undefined}
+          onCancel={() => setIsConfirmingRemove(false)}
+          onConfirm={() => remove.mutate()}
+        />
       )}
     </>
   );

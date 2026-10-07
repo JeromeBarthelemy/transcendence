@@ -11,6 +11,8 @@ import {
 import type { TeamSeasonSummary } from "../api/auth";
 import { RequestError } from "./ApiErrors";
 import { Avatar } from "./Avatar";
+import { EmptyState } from "./EmptyState";
+import { Panel } from "./Panel";
 
 type PeriodChoice = "last30" | "season" | "custom";
 
@@ -181,9 +183,11 @@ export function TeamActivity({
   const hasStartedWorkItems = stepData.some((item) => item.count > 0);
 
   return (
-    <section
+    <Panel
+      as="section"
+      padding="lg"
       aria-labelledby="team-activity-title"
-      className="mt-10 rounded-3xl border border-primary/12 bg-white p-5 shadow-panel sm:p-7"
+      className="mt-10"
     >
       <div className="flex flex-col justify-between gap-5 lg:flex-row lg:items-end">
         <div>
@@ -286,9 +290,9 @@ export function TeamActivity({
                 {t("activity.overTime")}
               </h3>
               {analytics.data.activity_by_day.length === 0 ? (
-                <p className="mt-4 rounded-2xl border border-dashed border-primary/20 p-5 text-sm text-muted">
+                <EmptyState className="mt-4">
                   {t("activity.noActivity")}
-                </p>
+                </EmptyState>
               ) : (
                 <Suspense
                   fallback={
@@ -316,9 +320,9 @@ export function TeamActivity({
                 {t("activity.byStep")}
               </h3>
               {!hasStartedWorkItems ? (
-                <p className="mt-4 rounded-2xl border border-dashed border-primary/20 p-5 text-sm text-muted">
+                <EmptyState className="mt-4">
                   {t("activity.noStartedWorkItems")}
-                </p>
+                </EmptyState>
               ) : (
                 <Suspense
                   fallback={
@@ -352,6 +356,6 @@ export function TeamActivity({
           </section>
         </div>
       )}
-    </section>
+    </Panel>
   );
 }

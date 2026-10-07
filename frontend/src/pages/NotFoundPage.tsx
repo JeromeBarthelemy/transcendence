@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { Link } from "react-router-dom";
+import { ButtonLink } from "../components/Button";
 
 export function NotFoundPage() {
   const { t } = useTranslation();
@@ -12,12 +12,9 @@ export function NotFoundPage() {
       <p className="mt-3 max-w-xl leading-7 text-muted">
         {t("notFound.description")}
       </p>
-      <Link
-        to="/"
-        className="mt-6 inline-block rounded-xl bg-ink px-4 py-2 text-sm font-semibold text-white hover:bg-accent"
-      >
+      <ButtonLink to="/" variant="dark" className="mt-6">
         {t("notFound.home")}
-      </Link>
+      </ButtonLink>
     </main>
   );
 }

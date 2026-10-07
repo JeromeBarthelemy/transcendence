@@ -23,11 +23,15 @@ import {
 import { nameFormatter } from "../app/formatters";
 import { LiveBoard } from "../app/live";
 import { useCurrentUser } from "../app/useCurrentUser";
-import { statusColors } from "../app/workItemStatus";
 import { fieldIssues, RequestError } from "../components/ApiErrors";
 import { AvatarStack } from "../components/Avatar";
+import { Button, TextButton } from "../components/Button";
+import { StatusChip } from "../components/Chip";
+import { EmptyState } from "../components/EmptyState";
 import { EntryActions } from "../components/EntryActions";
 import { IconLabel } from "../components/Icon";
+import { ConfirmPanel, Notice, SuccessMessage } from "../components/Notice";
+import { Panel } from "../components/Panel";
 
 const dateFormatter = new Intl.DateTimeFormat("fr-FR", {
   dateStyle: "long",
@@ -162,19 +166,19 @@ function AttachmentUploader({
         </div>
       )}
       {upload.isSuccess && (
-        <p role="status" className="mt-3 text-sm font-semibold text-success">
+        <SuccessMessage className="mt-3">
           {t("workItem.attachmentSaved")}
-        </p>
+        </SuccessMessage>
       )}
       {upload.isError && <RequestError error={upload.error} />}
 
-      <button
+      <Button
+        className="mt-4"
         type="submit"
-        className="mt-4 rounded-xl border border-primary/25 px-4 py-2 text-sm font-semibold text-ink disabled:opacity-50"
         disabled={upload.isPending || !file || !peopleAnswer}
       >
         {t("workItem.upload")}
-      </button>
+      </Button>
     </form>
   );
 }
@@ -306,18 +310,18 @@ function ProgressEditor({
 
         {save.isError && theirs === null && <RequestError error={save.error} />}
         {saved && (
-          <p role="status" className="mt-3 text-sm font-semibold text-success">
+          <SuccessMessage className="mt-3">
             {t("workItem.progressSaved")}
-          </p>
+          </SuccessMessage>
         )}
         <div className="mt-4 flex justify-end">
-          <button
+          <Button
+            variant="primary"
             type="submit"
-            className="rounded-xl bg-accent px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-50"
             disabled={save.isPending || nothingToSave}
           >
             {save.isPending ? t("workItem.saving") : t("workItem.save")}
-          </button>
+          </Button>
         </div>
       </form>
 
@@ -373,10 +377,7 @@ function TodayPanel({
     : "";
 
   return (
-    <section
-      aria-labelledby="today-title"
-      className="rounded-3xl border border-primary/12 bg-white p-5 shadow-sm sm:p-7"
-    >
+    <Panel as="section" padding="lg" aria-labelledby="today-title">
       <p className="text-xs font-bold tracking-[0.14em] text-accent uppercase">
         {t("workItem.today")}
       </p>
@@ -402,9 +403,8 @@ function TodayPanel({
               ))}
             </select>
           </label>
-          <button
-            type="button"
-            className="rounded-xl bg-ink px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+          <Button
+            variant="dark"
             disabled={
               tick.isPending ||
               (progress !== null && selectedStep === progress.step)
@@ -416,7 +416,7 @@ function TodayPanel({
               : selectedStepWasStarted
                 ? t("workItem.continueStep")
                 : t("workItem.startStep")}
-          </button>
+          </Button>
         </div>
       )}
 
@@ -432,64 +432,48 @@ function TodayPanel({
             </p>
           </div>
           {item.current_user_participates ? (
-            <button
-              type="button"
-              className="rounded-xl border border-primary/25 px-4 py-2 text-sm font-semibold text-ink disabled:opacity-50"
+            <Button
               disabled={leave.isPending || isConfirmingLeave}
               onClick={() =>
                 leavingDeletesText ? setIsConfirmingLeave(true) : leave.mutate()
               }
             >
               <IconLabel icon="xmark">{t("workItem.leave")}</IconLabel>
-            </button>
+            </Button>
           ) : (
-            <button
-              type="button"
-              className="rounded-xl border border-primary/25 px-4 py-2 text-sm font-semibold text-ink disabled:opacity-50"
+            <Button
               disabled={tick.isPending}
               onClick={() => tick.mutate(undefined)}
             >
               {t("workItem.join")}
-            </button>
+            </Button>
           )}
         </div>
       ) : (
         !item.on_robot && (
-          <button
-            type="button"
-            className="mt-5 rounded-xl bg-ink px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+          <Button
+            variant="dark"
+            className="mt-5"
             disabled={tick.isPending}
             onClick={() => tick.mutate(undefined)}
           >
             {item.last_progress
               ? t("workItem.continueToday")
               : t("workItem.startToday")}
-          </button>
+          </Button>
         )
       )}
 
       {isConfirmingLeave && (
-        <div className="mt-4 rounded-2xl border border-red-800/20 bg-red-50 p-4">
-          <p className="text-sm text-red-900">{t("workItem.leaveDeletes")}</p>
-          <div className="mt-3 flex flex-wrap gap-3">
-            <button
-              type="button"
-              className="rounded-xl border border-primary/20 bg-white px-4 py-2 text-sm font-semibold text-ink disabled:opacity-50"
-              disabled={leave.isPending}
-              onClick={() => setIsConfirmingLeave(false)}
-            >
-              {t("workItem.cancel")}
-            </button>
-            <button
-              type="button"
-              className="rounded-xl bg-red-800 px-4 py-2 text-sm font-semibold text-white hover:bg-red-900 disabled:opacity-50"
-              disabled={leave.isPending}
-              onClick={() => leave.mutate()}
-            >
-              <IconLabel icon="xmark">{t("workItem.confirmLeave")}</IconLabel>
-            </button>
-          </div>
-        </div>
+        <ConfirmPanel
+          className="mt-4"
+          message={t("workItem.leaveDeletes")}
+          cancelLabel={t("workItem.cancel")}
+          confirmLabel={t("workItem.confirmLeave")}
+          pending={leave.isPending}
+          onCancel={() => setIsConfirmingLeave(false)}
+          onConfirm={() => leave.mutate()}
+        />
       )}
       {tick.isError && <RequestError error={tick.error} />}
       {leave.isError && <RequestError error={leave.error} />}
@@ -497,11 +481,11 @@ function TodayPanel({
         <ProgressEditor key={progress.id} item={item} entry={progress} />
       )}
       {progress && !canEdit && (
-        <p className="mt-6 rounded-xl bg-warning-tint p-4 text-sm text-warning-ink">
+        <Notice as="p" tone="warning" className="mt-6">
           {t("workItem.joinToWrite")}
-        </p>
+        </Notice>
       )}
-    </section>
+    </Panel>
   );
 }
 
@@ -522,39 +506,27 @@ function AttachmentRemoval({
 
   if (!isConfirming) {
     return (
-      <button
-        type="button"
+      <TextButton
+        danger
         aria-label={t("workItem.removeFile", { name: attachment.name })}
-        className="px-3 pb-3 text-xs font-semibold text-red-800 hover:underline"
+        className="px-3 pb-3 text-xs"
         onClick={() => setIsConfirming(true)}
       >
         <IconLabel icon="xmark">{t("entryActions.remove")}</IconLabel>
-      </button>
+      </TextButton>
     );
   }
   return (
-    <div className="mx-3 mb-3 rounded-xl border border-red-800/20 bg-red-50 p-3">
-      <p className="text-sm text-red-900">{t("entryActions.removeFile")}</p>
-      <div className="mt-2 flex flex-wrap gap-3">
-        <button
-          type="button"
-          className="rounded-xl border border-primary/20 bg-white px-3 py-1.5 text-sm font-semibold text-ink disabled:opacity-50"
-          disabled={remove.isPending}
-          onClick={() => setIsConfirming(false)}
-        >
-          {t("entryActions.cancel")}
-        </button>
-        <button
-          type="button"
-          className="rounded-xl bg-red-800 px-3 py-1.5 text-sm font-semibold text-white hover:bg-red-900 disabled:opacity-50"
-          disabled={remove.isPending}
-          onClick={() => remove.mutate()}
-        >
-          <IconLabel icon="xmark">{t("entryActions.confirmRemove")}</IconLabel>
-        </button>
-      </div>
-      {remove.isError && <RequestError error={remove.error} />}
-    </div>
+    <ConfirmPanel
+      className="mx-3 mb-3"
+      message={t("entryActions.removeFile")}
+      cancelLabel={t("entryActions.cancel")}
+      confirmLabel={t("entryActions.confirmRemove")}
+      pending={remove.isPending}
+      error={remove.isError ? remove.error : undefined}
+      onCancel={() => setIsConfirming(false)}
+      onConfirm={() => remove.mutate()}
+    />
   );
 }
 
@@ -619,12 +591,12 @@ function HistoryEntry({
           )}
         </EntryActions>
         {entry.handover && (
-          <div className="mt-4 border-l-4 border-warning bg-warning-tint p-3 text-sm text-warning-ink">
+          <Notice tone="warning" callout className="mt-4">
             <p className="font-bold">{t("workItem.nextTime")}</p>
             <p className="mt-1 whitespace-pre-wrap leading-6">
               {entry.handover}
             </p>
-          </div>
+          </Notice>
         )}
         {entry.attachments.length > 0 && (
           <ul className="mt-4 grid gap-3 sm:grid-cols-2">
@@ -688,10 +660,7 @@ function WorkItemNoteForm({ item }: { item: WorkItemDetail }) {
   }
 
   return (
-    <section
-      aria-labelledby="work-item-note-title"
-      className="rounded-3xl border border-primary/12 bg-white p-5 shadow-sm sm:p-7"
-    >
+    <Panel as="section" padding="lg" aria-labelledby="work-item-note-title">
       <h2 id="work-item-note-title" className="brand-title text-2xl text-ink">
         <IconLabel icon="pen-to-square">{t("workItem.addNote")}</IconLabel>
       </h2>
@@ -717,21 +686,17 @@ function WorkItemNoteForm({ item }: { item: WorkItemDetail }) {
         />
         {note.isError && <RequestError error={note.error} />}
         {saved && (
-          <p role="status" className="mt-3 text-sm font-semibold text-success">
+          <SuccessMessage className="mt-3">
             {t("workItem.noteSaved")}
-          </p>
+          </SuccessMessage>
         )}
         <div className="mt-4 flex justify-end">
-          <button
-            type="submit"
-            className="rounded-xl border border-primary/25 px-4 py-2 text-sm font-semibold text-ink disabled:opacity-50"
-            disabled={note.isPending || !body.trim()}
-          >
+          <Button type="submit" disabled={note.isPending || !body.trim()}>
             {note.isPending ? t("workItem.noteSaving") : t("workItem.saveNote")}
-          </button>
+          </Button>
         </div>
       </form>
-    </section>
+    </Panel>
   );
 }
 
@@ -803,74 +768,67 @@ function WorkItemScreen({
         </div>
         <div className="flex items-center gap-3 self-start sm:self-auto">
           {item.thread.length === 0 && (
-            <button
-              type="button"
-              className="rounded-full border border-red-800/25 px-3 py-1 text-sm font-semibold text-red-800 hover:bg-red-50"
+            <Button
+              variant="danger"
+              size="sm"
+              pill
               onClick={() => setIsConfirmingDelete(true)}
             >
               <IconLabel icon="xmark">{t("workItem.delete")}</IconLabel>
-            </button>
+            </Button>
           )}
           {item.status === "open" && (
             <>
-              <button
-                type="button"
-                className="rounded-full border border-red-800/25 px-3 py-1 text-sm font-semibold text-red-800 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+              <Button
+                variant="danger"
+                size="sm"
+                pill
                 disabled={close.isPending}
                 onClick={() => close.mutate("dropped")}
               >
                 {t("workItem.drop")}
-              </button>
+              </Button>
               {!item.on_robot && (
-                <button
-                  type="button"
-                  className="rounded-full border border-success/30 px-3 py-1 text-sm font-semibold text-success hover:bg-success/10 disabled:cursor-not-allowed disabled:opacity-50"
+                <Button
+                  variant="success"
+                  size="sm"
+                  pill
                   disabled={close.isPending}
                   onClick={() => close.mutate("done")}
                 >
                   {t("workItem.finish")}
-                </button>
+                </Button>
               )}
             </>
           )}
-          <span
-            className={`rounded-full px-3 py-1 text-sm font-semibold ${statusColors[item.status]}`}
-          >
-            {close.isPending
-              ? t("workItem.closing")
-              : t(`teamHome.statuses.${item.status}`)}
-          </span>
+          <StatusChip status={item.status} size="md">
+            {close.isPending ? t("workItem.closing") : undefined}
+          </StatusChip>
         </div>
       </header>
 
       {close.isError && <RequestError error={close.error} />}
       {isConfirmingDelete && (
-        <div className="mt-6 rounded-2xl border border-red-800/20 bg-red-50 p-5">
-          <p className="text-sm text-red-900">{t("workItem.deleteConfirm")}</p>
-          <div className="mt-4 flex gap-3">
-            <button
-              type="button"
-              className="rounded-xl border border-primary/20 bg-white px-4 py-2 text-sm font-semibold text-ink disabled:opacity-50"
-              disabled={remove.isPending}
-              onClick={() => setIsConfirmingDelete(false)}
-            >
-              {t("workItem.cancel")}
-            </button>
-            <button
-              type="button"
-              className="rounded-xl bg-red-800 px-4 py-2 text-sm font-semibold text-white hover:bg-red-900 disabled:opacity-50"
-              disabled={remove.isPending}
-              onClick={() => remove.mutate()}
-            >
-              <IconLabel icon="xmark">{t("workItem.confirmDelete")}</IconLabel>
-            </button>
-          </div>
-          {remove.isError && <RequestError error={remove.error} />}
-        </div>
+        <ConfirmPanel
+          className="mt-6"
+          message={t("workItem.deleteConfirm")}
+          cancelLabel={t("workItem.cancel")}
+          confirmLabel={t("workItem.confirmDelete")}
+          pending={remove.isPending}
+          error={remove.isError ? remove.error : undefined}
+          onCancel={() => setIsConfirmingDelete(false)}
+          onConfirm={() => remove.mutate()}
+        />
       )}
 
       {item.handover && (
-        <section className="mt-8 border-l-4 border-warning bg-warning-tint p-5 text-warning-ink">
+        <Notice
+          as="section"
+          tone="warning"
+          callout
+          padding="lg"
+          className="mt-8"
+        >
           <h2 className="text-xs font-bold tracking-[0.14em] uppercase">
             {t("workItem.handover")}
           </h2>
@@ -885,7 +843,7 @@ function WorkItemScreen({
               ),
             })}
           </p>
-        </section>
+        </Notice>
       )}
 
       <div className="mt-8 grid items-start gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.9fr)]">
@@ -908,9 +866,9 @@ function WorkItemScreen({
               ))}
             </ol>
           ) : (
-            <p className="mt-5 rounded-2xl border border-dashed border-primary/20 p-5 text-sm text-muted">
+            <EmptyState className="mt-5">
               {t("workItem.emptyHistory")}
-            </p>
+            </EmptyState>
           )}
         </section>
       </div>

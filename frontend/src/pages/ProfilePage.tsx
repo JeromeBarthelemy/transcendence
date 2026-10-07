@@ -27,14 +27,10 @@ import {
   RequestError,
 } from "../components/ApiErrors";
 import { Avatar, photoChanged } from "../components/Avatar";
+import { Button, buttonClass } from "../components/Button";
 import { IconLabel } from "../components/Icon";
-
-const primaryButtonClass =
-  "rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-white hover:bg-primary disabled:opacity-50";
-const secondaryButtonClass =
-  "rounded-xl border border-primary/20 px-4 py-2 text-sm font-semibold text-ink hover:bg-tint disabled:opacity-50";
-const dangerButtonClass =
-  "rounded-xl border border-red-800/25 px-4 py-2 text-sm font-semibold text-red-800 hover:bg-red-50 disabled:opacity-50";
+import { SuccessMessage } from "../components/Notice";
+import { Panel } from "../components/Panel";
 
 const sizeFormatter = new Intl.NumberFormat("fr-FR", {
   maximumFractionDigits: 1,
@@ -121,9 +117,11 @@ function PhotoForm({ identity }: { identity: Identity }) {
   const percent = Math.round(progress * 100);
 
   return (
-    <section
+    <Panel
+      as="section"
+      padding="lg"
       aria-labelledby="photo-title"
-      className="mt-8 rounded-3xl border border-primary/12 bg-white p-5 shadow-sm sm:p-7"
+      className="mt-8"
     >
       <h2 id="photo-title" className="brand-title text-2xl text-ink">
         {t("profile.photo")}
@@ -177,22 +175,16 @@ function PhotoForm({ identity }: { identity: Identity }) {
                 {formatSize(file.size)}
               </p>
               <div className="mt-4 flex flex-wrap gap-3">
-                <button
-                  type="button"
-                  className={primaryButtonClass}
+                <Button
+                  variant="primary"
                   disabled={busy}
                   onClick={() => upload.mutate(file)}
                 >
                   {upload.isPending ? t("profile.sending") : t("profile.send")}
-                </button>
-                <button
-                  type="button"
-                  className={secondaryButtonClass}
-                  disabled={busy}
-                  onClick={cancel}
-                >
+                </Button>
+                <Button disabled={busy} onClick={cancel}>
                   {t("profile.cancel")}
-                </button>
+                </Button>
               </div>
               {upload.isPending && (
                 <div className="mt-4">
@@ -224,14 +216,13 @@ function PhotoForm({ identity }: { identity: Identity }) {
                 />
                 <label
                   htmlFor={inputId}
-                  className={`${primaryButtonClass} cursor-pointer peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-lagoon`}
+                  className={`${buttonClass({ variant: "primary" })} cursor-pointer peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-lagoon`}
                 >
                   {identity.avatar ? t("profile.change") : t("profile.choose")}
                 </label>
                 {identity.avatar && (
-                  <button
-                    type="button"
-                    className={dangerButtonClass}
+                  <Button
+                    variant="danger"
                     disabled={busy}
                     onClick={() => {
                       setRefusal(null);
@@ -245,7 +236,7 @@ function PhotoForm({ identity }: { identity: Identity }) {
                         ? t("profile.removing")
                         : t("profile.remove")}
                     </IconLabel>
-                  </button>
+                  </Button>
                 )}
               </div>
               <p id={`${inputId}-hint`} className="mt-3 text-xs text-muted">
@@ -268,13 +259,13 @@ function PhotoForm({ identity }: { identity: Identity }) {
           )}
           {remove.isError && <RequestError error={remove.error} />}
           {done && (
-            <p role="status" className="mt-4 text-sm text-success">
+            <SuccessMessage className="mt-4">
               {t(done === "uploaded" ? "profile.uploaded" : "profile.removed")}
-            </p>
+            </SuccessMessage>
           )}
         </div>
       </div>
-    </section>
+    </Panel>
   );
 }
 
@@ -321,9 +312,11 @@ function PersonalData() {
   }
 
   return (
-    <section
+    <Panel
+      as="section"
+      padding="lg"
       aria-labelledby="personal-data-title"
-      className="mt-8 rounded-3xl border border-primary/12 bg-white p-5 shadow-sm sm:p-7"
+      className="mt-8"
     >
       <h2 id="personal-data-title" className="brand-title text-2xl text-ink">
         {t("personalData.title")}
@@ -341,21 +334,21 @@ function PersonalData() {
             {t("personalData.exportDescription")}
           </p>
         </div>
-        <button
-          type="button"
-          className={`${primaryButtonClass} shrink-0`}
+        <Button
+          variant="primary"
+          className="shrink-0"
           disabled={exportData.isPending}
           onClick={() => exportData.mutate()}
         >
           {exportData.isPending
             ? t("personalData.exporting")
             : t("personalData.export")}
-        </button>
+        </Button>
       </div>
       {exportData.isSuccess && (
-        <p role="status" className="mt-3 text-sm text-success">
+        <SuccessMessage className="mt-3">
           {t("personalData.exported", { address: exportData.data })}
-        </p>
+        </SuccessMessage>
       )}
       {exportData.isError && <RequestError error={exportData.error} />}
 
@@ -369,13 +362,13 @@ function PersonalData() {
           </p>
         </div>
         {!isConfirming && (
-          <button
-            type="button"
-            className={`${dangerButtonClass} shrink-0`}
+          <Button
+            variant="danger"
+            className="shrink-0"
             onClick={() => setIsConfirming(true)}
           >
             <IconLabel icon="xmark">{t("personalData.delete")}</IconLabel>
-          </button>
+          </Button>
         )}
       </div>
 
@@ -406,9 +399,9 @@ function PersonalData() {
           />
           <RequestError error={erase.error} />
           <div className="mt-4 flex flex-wrap gap-3">
-            <button
+            <Button
+              variant="danger-solid"
               type="submit"
-              className="rounded-xl bg-red-800 px-4 py-2 text-sm font-semibold text-white hover:bg-red-900 disabled:opacity-50"
               disabled={!password || erase.isPending}
             >
               <IconLabel icon="xmark">
@@ -416,19 +409,14 @@ function PersonalData() {
                   ? t("personalData.deleting")
                   : t("personalData.confirmDelete")}
               </IconLabel>
-            </button>
-            <button
-              type="button"
-              className={secondaryButtonClass}
-              disabled={erase.isPending}
-              onClick={cancel}
-            >
+            </Button>
+            <Button disabled={erase.isPending} onClick={cancel}>
               {t("profile.cancel")}
-            </button>
+            </Button>
           </div>
         </form>
       )}
-    </section>
+    </Panel>
   );
 }
 

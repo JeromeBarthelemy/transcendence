@@ -7,6 +7,7 @@ import {
 import {
   type FormEvent,
   type KeyboardEvent,
+  type SyntheticEvent,
   useEffect,
   useId,
   useState,
@@ -33,7 +34,11 @@ import {
   RequestError,
 } from "../components/ApiErrors";
 import { Avatar } from "../components/Avatar";
+import { Button } from "../components/Button";
+import { EmptyState } from "../components/EmptyState";
 import { IconLabel } from "../components/Icon";
+import { ConfirmPanel } from "../components/Notice";
+import { Panel } from "../components/Panel";
 
 const teamsQueryKey = ["teams"] as const;
 const SEARCH_DELAY_MS = 250;
@@ -41,14 +46,8 @@ const nameCollator = new Intl.Collator("fr-FR", { sensitivity: "base" });
 
 const inputClass =
   "mt-2 block w-full rounded-xl border border-primary/20 bg-white px-3 py-2 font-normal text-body";
-const primaryButtonClass =
-  "rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-white hover:bg-primary disabled:opacity-50";
-const secondaryButtonClass =
-  "rounded-xl border border-primary/20 px-3 py-1.5 text-sm font-semibold text-ink hover:bg-tint disabled:opacity-50";
 const dropdownClass =
   "absolute z-10 mt-1 max-h-64 w-full overflow-y-auto rounded-xl border border-primary/15 bg-white py-2 shadow-lg";
-const dangerButtonClass =
-  "rounded-xl border border-red-800/25 px-3 py-1.5 text-sm font-semibold text-red-800 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50";
 
 /** Every change here can alter a mentor's `team_seasons` as well. */
 function useInvalidateTeams() {
@@ -89,17 +88,13 @@ function CreateTeamForm({ seasonYear }: { seasonYear: number }) {
     },
   });
 
-  function submit(event: FormEvent<HTMLFormElement>) {
+  function submit(event: SyntheticEvent) {
     event.preventDefault();
     create.mutate();
   }
 
   return (
-    <form
-      aria-labelledby="create-team-title"
-      className="rounded-2xl border border-primary/12 bg-white p-5 shadow-sm"
-      onSubmit={submit}
-    >
+    <Panel as="form" aria-labelledby="create-team-title" onSubmit={submit}>
       <h2
         id="create-team-title"
         className="text-xs font-bold tracking-[0.14em] text-accent uppercase"
@@ -139,15 +134,16 @@ function CreateTeamForm({ seasonYear }: { seasonYear: number }) {
             issues={fieldIssues(create.error, "name")}
           />
         </label>
-        <button
+        <Button
+          variant="primary"
+          className="sm:mt-7"
           type="submit"
-          className={`${primaryButtonClass} sm:mt-7`}
           disabled={
             create.isPending || number === "" || name.trim().length === 0
           }
         >
           {create.isPending ? t("teams.creating") : t("teams.create")}
-        </button>
+        </Button>
       </div>
       <FieldErrors
         id="create-team-season-errors"
@@ -159,7 +155,7 @@ function CreateTeamForm({ seasonYear }: { seasonYear: number }) {
           handledFields={["number", "name", "season"]}
         />
       )}
-    </form>
+    </Panel>
   );
 }
 
@@ -331,9 +327,8 @@ function MemberRow({
     <li className="flex flex-wrap items-center gap-3 py-2">
       <Avatar person={member} />
       <span className="flex-1 text-sm text-body">{member.display_name}</span>
-      <button
-        type="button"
-        className={secondaryButtonClass}
+      <Button
+        size="sm"
         disabled={remove.isPending}
         aria-label={t("teams.removeMemberLabel", {
           name: member.display_name,
@@ -344,7 +339,7 @@ function MemberRow({
         <IconLabel icon="xmark">
           {remove.isPending ? t("teams.removing") : t("teams.removeMember")}
         </IconLabel>
-      </button>
+      </Button>
       {remove.isError && (
         <div className="w-full">
           <RequestError error={remove.error} />
@@ -385,10 +380,7 @@ function TeamCard({ team }: { team: ManagedTeam }) {
   }
 
   return (
-    <article
-      aria-labelledby={titleId}
-      className="rounded-2xl border border-primary/12 bg-white p-5 shadow-sm"
-    >
+    <Panel as="article" aria-labelledby={titleId}>
       {isRenaming ? (
         <form onSubmit={submitRename}>
           <label className="text-sm font-semibold text-ink">
@@ -411,9 +403,8 @@ function TeamCard({ team }: { team: ManagedTeam }) {
             <RequestError error={rename.error} handledFields={["name"]} />
           )}
           <div className="mt-3 flex justify-end gap-3">
-            <button
-              type="button"
-              className={secondaryButtonClass}
+            <Button
+              size="sm"
               disabled={rename.isPending}
               onClick={() => {
                 setIsRenaming(false);
@@ -422,14 +413,14 @@ function TeamCard({ team }: { team: ManagedTeam }) {
               }}
             >
               {t("teams.cancel")}
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="primary"
               type="submit"
-              className={primaryButtonClass}
               disabled={rename.isPending || newName.trim().length === 0}
             >
               {rename.isPending ? t("teams.saving") : t("teams.save")}
-            </button>
+            </Button>
           </div>
           {/* Keeps the card labelled while its title is being edited. */}
           <h2 id={titleId} className="sr-only">
@@ -444,9 +435,8 @@ function TeamCard({ team }: { team: ManagedTeam }) {
             </IconLabel>
           </h2>
           <div className="flex gap-2">
-            <button
-              type="button"
-              className={secondaryButtonClass}
+            <Button
+              size="sm"
               onClick={() => {
                 setNewName(team.name);
                 setIsRenaming(true);
@@ -454,10 +444,10 @@ function TeamCard({ team }: { team: ManagedTeam }) {
               }}
             >
               <IconLabel icon="pen-to-square">{t("teams.rename")}</IconLabel>
-            </button>
-            <button
-              type="button"
-              className={dangerButtonClass}
+            </Button>
+            <Button
+              variant="danger"
+              size="sm"
               disabled={hasMembers || remove.isPending}
               aria-describedby={hasMembers ? deleteHintId : undefined}
               onClick={() => {
@@ -466,7 +456,7 @@ function TeamCard({ team }: { team: ManagedTeam }) {
               }}
             >
               <IconLabel icon="xmark">{t("teams.delete")}</IconLabel>
-            </button>
+            </Button>
           </div>
         </div>
       )}
@@ -478,41 +468,21 @@ function TeamCard({ team }: { team: ManagedTeam }) {
       )}
 
       {isConfirmingDelete && !hasMembers && (
-        <div
-          role="alertdialog"
-          aria-labelledby={`${titleId}-confirm`}
-          className="mt-4 rounded-xl border border-red-800/20 bg-red-50 p-4"
-        >
-          <p id={`${titleId}-confirm`} className="text-sm text-red-900">
-            {t("teams.deleteConfirm", { team: label })}
-          </p>
-          <div className="mt-3 flex justify-end gap-3">
-            <button
-              type="button"
-              className={secondaryButtonClass}
-              disabled={remove.isPending}
-              onClick={() => {
-                setIsConfirmingDelete(false);
-                remove.reset();
-              }}
-            >
-              {t("teams.cancel")}
-            </button>
-            <button
-              type="button"
-              className="rounded-xl bg-red-800 px-4 py-2 text-sm font-semibold text-white hover:bg-red-900 disabled:opacity-50"
-              disabled={remove.isPending}
-              onClick={() => remove.mutate()}
-            >
-              <IconLabel icon="xmark">
-                {remove.isPending
-                  ? t("teams.deleting")
-                  : t("teams.confirmDelete")}
-              </IconLabel>
-            </button>
-          </div>
-          {remove.isError && <RequestError error={remove.error} />}
-        </div>
+        <ConfirmPanel
+          className="mt-4"
+          message={t("teams.deleteConfirm", { team: label })}
+          cancelLabel={t("teams.cancel")}
+          confirmLabel={
+            remove.isPending ? t("teams.deleting") : t("teams.confirmDelete")
+          }
+          pending={remove.isPending}
+          error={remove.isError ? remove.error : undefined}
+          onCancel={() => {
+            setIsConfirmingDelete(false);
+            remove.reset();
+          }}
+          onConfirm={() => remove.mutate()}
+        />
       )}
 
       <section className="mt-5 border-t border-primary/10 pt-4">
@@ -536,7 +506,7 @@ function TeamCard({ team }: { team: ManagedTeam }) {
           <MemberSearch team={team} />
         </div>
       </section>
-    </article>
+    </Panel>
   );
 }
 
@@ -563,9 +533,7 @@ function TeamManagement() {
       ) : teams.isError ? (
         <RequestError error={teams.error} />
       ) : teams.data.season === null ? (
-        <p className="mt-8 rounded-2xl border border-dashed border-primary/20 p-5 text-sm text-muted">
-          {t("teams.noSeason")}
-        </p>
+        <EmptyState className="mt-8">{t("teams.noSeason")}</EmptyState>
       ) : (
         <>
           <p className="mt-2 text-sm text-muted">
@@ -578,9 +546,7 @@ function TeamManagement() {
           <div className="mt-8 space-y-6">
             <CreateTeamForm seasonYear={teams.data.season.start_year} />
             {teams.data.teams.length === 0 ? (
-              <p className="rounded-2xl border border-dashed border-primary/20 p-5 text-sm text-muted">
-                {t("teams.noTeams")}
-              </p>
+              <EmptyState>{t("teams.noTeams")}</EmptyState>
             ) : (
               teams.data.teams.map((team) => (
                 <TeamCard key={team.id} team={team} />

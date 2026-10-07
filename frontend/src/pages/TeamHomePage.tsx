@@ -13,11 +13,16 @@ import { createTeamNote, getWorkday, type Workday } from "../api/workdays";
 import { getWorkItems, type WorkItem } from "../api/workItems";
 import { formatWorkdayDate, nameFormatter } from "../app/formatters";
 import { LiveBoard } from "../app/live";
-import { statusColors } from "../app/workItemStatus";
 import { RequestError } from "../components/ApiErrors";
 import { AvatarStack } from "../components/Avatar";
+import { Button, buttonClass } from "../components/Button";
+import { StatusChip } from "../components/Chip";
+import { EmptyState } from "../components/EmptyState";
 import { EntryActions } from "../components/EntryActions";
 import { IconLabel, type IconName } from "../components/Icon";
+import { Notice, SuccessMessage } from "../components/Notice";
+import { Panel } from "../components/Panel";
+import { SectionTabs } from "../components/SectionTabs";
 import { TeamActivity } from "../components/TeamActivity";
 import { OpenWorkItemPanel } from "./OpenWorkItemPanel";
 
@@ -94,11 +99,7 @@ function WorkItemCard({
       >
         <div className="flex flex-wrap items-start justify-between gap-3">
           <h3 className="brand-title text-xl text-ink">{item.title}</h3>
-          <span
-            className={`rounded-full px-3 py-1 text-xs font-semibold ${statusColors[item.status]}`}
-          >
-            {t(`teamHome.statuses.${item.status}`)}
-          </span>
+          <StatusChip status={item.status} />
         </div>
 
         {item.current_step && (
@@ -120,7 +121,7 @@ function WorkItemCard({
         )}
 
         {item.handover && (
-          <div className="mt-3 border-l-4 border-warning bg-warning-tint py-2 pr-3 pl-3 text-warning-ink">
+          <Notice tone="warning" callout className="mt-3">
             <p className="text-xs font-bold tracking-[0.12em] uppercase">
               {t("teamHome.handover")}
             </p>
@@ -131,7 +132,7 @@ function WorkItemCard({
                 date: formatActivityDate(item.handover.day, currentWorkday),
               })}
             </p>
-          </div>
+          </Notice>
         )}
       </Link>
     </article>
@@ -185,7 +186,7 @@ function WorkItemSection({
       </div>
       <div id={contentId} hidden={!isOpen}>
         {items.length > 0 ? (
-          <div className="divide-y divide-primary/10 overflow-hidden rounded-2xl border border-primary/12 bg-white shadow-sm">
+          <Panel padding="none">
             {items.map((item) => (
               <WorkItemCard
                 key={item.id}
@@ -193,11 +194,9 @@ function WorkItemSection({
                 currentWorkday={currentWorkday}
               />
             ))}
-          </div>
+          </Panel>
         ) : (
-          <p className="rounded-2xl border border-dashed border-primary/20 p-5 text-sm text-muted">
-            {t("teamHome.noWorkItems")}
-          </p>
+          <EmptyState>{t("teamHome.noWorkItems")}</EmptyState>
         )}
       </div>
     </section>
@@ -259,10 +258,7 @@ function TodaySummary({
   }
 
   return (
-    <section
-      aria-labelledby="today-summary"
-      className="mt-10 rounded-2xl border border-primary/12 bg-white p-5 shadow-sm"
-    >
+    <Panel as="section" aria-labelledby="today-summary" className="mt-10">
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
         <div>
           <h2
@@ -315,21 +311,21 @@ function TodaySummary({
           )}
         </div>
 
-        <button
-          type="button"
-          className="self-start rounded-xl bg-ink px-4 py-2 text-sm font-semibold text-white hover:bg-accent sm:self-auto"
+        <Button
+          variant="dark"
+          className="self-start sm:self-auto"
           aria-expanded={isNoteOpen}
           aria-controls="team-note-form"
           onClick={toggleNote}
         >
           {t("teamHome.addNote")}
-        </button>
+        </Button>
       </div>
 
       {noteSaved && (
-        <p role="status" className="mt-4 text-sm font-semibold text-success">
+        <SuccessMessage className="mt-4">
           {t("teamHome.noteSaved")}
-        </p>
+        </SuccessMessage>
       )}
 
       {dayNotes.length > 0 && (
@@ -339,20 +335,24 @@ function TodaySummary({
           </h3>
           <ul className="mt-3 space-y-3">
             {dayNotes.map((entry) => (
-              <li key={entry.id} className="rounded-xl bg-mist px-4 py-3">
-                <EntryActions
-                  entry={entry}
-                  onChanged={reloadDays}
-                  currentBody={() => currentBody(entry.id)}
-                >
-                  <p className="text-sm text-body">{entry.body}</p>
-                </EntryActions>
-                <p className="mt-1 text-xs text-muted">
-                  {t("teamHome.noteMeta", {
-                    author: entry.author,
-                    time: noteTimeFormatter.format(new Date(entry.occurred_at)),
-                  })}
-                </p>
+              <li key={entry.id}>
+                <Notice tone="info">
+                  <EntryActions
+                    entry={entry}
+                    onChanged={reloadDays}
+                    currentBody={() => currentBody(entry.id)}
+                  >
+                    <p className="text-sm text-body">{entry.body}</p>
+                  </EntryActions>
+                  <p className="mt-1 text-xs text-muted">
+                    {t("teamHome.noteMeta", {
+                      author: entry.author,
+                      time: noteTimeFormatter.format(
+                        new Date(entry.occurred_at),
+                      ),
+                    })}
+                  </p>
+                </Notice>
               </li>
             ))}
           </ul>
@@ -383,9 +383,7 @@ function TodaySummary({
           {note.isError && <RequestError error={note.error} />}
 
           <div className="mt-3 flex justify-end gap-3">
-            <button
-              type="button"
-              className="rounded-xl border border-primary/20 px-4 py-2 text-sm font-semibold text-ink"
+            <Button
               disabled={note.isPending}
               onClick={() => {
                 setIsNoteOpen(false);
@@ -394,20 +392,20 @@ function TodaySummary({
               }}
             >
               {t("teamHome.cancelNote")}
-            </button>
-            <button
+            </Button>
+            <Button
               type="submit"
-              className="rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+              variant="primary"
               disabled={note.isPending || noteBody.trim().length === 0}
             >
               {note.isPending
                 ? t("teamHome.savingNote")
                 : t("teamHome.saveNote")}
-            </button>
+            </Button>
           </div>
         </form>
       )}
-    </section>
+    </Panel>
   );
 }
 
@@ -446,7 +444,7 @@ function NotebookExport({ teamSeasonId }: { teamSeasonId: number }) {
           </select>
         </label>
         <a
-          className="rounded-xl bg-primary px-4 py-2 text-center font-semibold text-white"
+          className={buttonClass({ variant: "primary" })}
           href={`/api/team-seasons/${teamSeasonId}/export/?${query}`}
           download
         >
@@ -459,37 +457,6 @@ function NotebookExport({ teamSeasonId }: { teamSeasonId: number }) {
 
 function teamLabel(teamSeason: TeamSeasonSummary) {
   return `${teamSeason.team.number} · ${teamSeason.team.name}`;
-}
-
-function TeamSectionNav({ section }: { section: TeamSection }) {
-  const { t } = useTranslation();
-
-  return (
-    <nav
-      aria-label={t("teamHome.sectionsLabel")}
-      className="mt-8 grid grid-cols-2 gap-1 rounded-2xl border border-primary/12 bg-white p-1 shadow-sm"
-    >
-      {TEAM_SECTIONS.map((item) => {
-        const isCurrent = item === section;
-        return (
-          <Link
-            key={item}
-            to={{ pathname: "/", search: `?section=${item}` }}
-            aria-current={isCurrent ? "page" : undefined}
-            className={`rounded-xl px-2 py-2.5 text-center text-sm font-semibold whitespace-nowrap transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lagoon sm:px-4 ${
-              isCurrent
-                ? "bg-primary text-white shadow-button"
-                : "text-ink hover:bg-tint"
-            }`}
-          >
-            <IconLabel icon={SECTION_ICONS[item]} before>
-              {t(`teamHome.sections.${item}`)}
-            </IconLabel>
-          </Link>
-        );
-      })}
-    </nav>
-  );
 }
 
 export function TeamHomePage({ identity }: { identity: Identity }) {
@@ -530,14 +497,14 @@ export function TeamHomePage({ identity }: { identity: Identity }) {
             {t("teamHome.welcome", { name: identity.display_name })}
           </IconLabel>
         </p>
-        <div className="mt-6 rounded-3xl border border-primary/15 bg-white p-8 shadow-sm">
+        <Panel padding="xl" className="mt-6">
           <h1 className="brand-title text-3xl text-ink">
             {t("teamHome.noTeamTitle")}
           </h1>
           <p className="mt-3 max-w-xl leading-7 text-muted">
             {t("teamHome.noTeamDescription")}
           </p>
-        </div>
+        </Panel>
       </main>
     );
   }
@@ -600,7 +567,17 @@ export function TeamHomePage({ identity }: { identity: Identity }) {
         day={day}
       />
 
-      <TeamSectionNav section={section} />
+      <SectionTabs
+        label={t("teamHome.sectionsLabel")}
+        className="mt-8"
+        current={section}
+        tabs={TEAM_SECTIONS.map((item) => ({
+          key: item,
+          label: t(`teamHome.sections.${item}`),
+          icon: SECTION_ICONS[item],
+          to: { pathname: "/", search: `?section=${item}` },
+        }))}
+      />
 
       {section === "activity" && (
         <TeamActivity

@@ -9,6 +9,8 @@ import {
   fieldIssues,
   RequestError,
 } from "../components/ApiErrors";
+import { Button } from "../components/Button";
+import { Panel } from "../components/Panel";
 import { SUGGESTIONS, sameTitle, suggestionsFor } from "./suggestions";
 
 const OTHER = ":other";
@@ -16,7 +18,7 @@ const OTHER = ":other";
 const inputClass =
   "mt-1 block w-full rounded-xl border border-primary/20 bg-white px-3 py-2 text-sm font-normal";
 
-function Panel({
+function OpenWorkItemForm({
   teamSeasonId,
   workItems,
 }: {
@@ -67,10 +69,7 @@ function Panel({
   }
 
   return (
-    <section
-      aria-labelledby={titleId}
-      className="mt-4 rounded-2xl border border-primary/12 bg-white p-5 shadow-sm"
-    >
+    <Panel as="section" aria-labelledby={titleId} className="mt-4">
       <h2
         id={titleId}
         className="text-xs font-bold tracking-[0.14em] text-accent uppercase"
@@ -170,18 +169,18 @@ function Panel({
           </>
         )}
 
-        <button
+        <Button
+          variant="primary"
           type="submit"
-          className="rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-white hover:bg-primary disabled:opacity-50"
           disabled={open.isPending || !ready}
         >
           {open.isPending
             ? t("openWorkItem.opening")
             : t("openWorkItem.submit")}
-        </button>
+        </Button>
         <RequestError error={open.error} handledFields={["title"]} />
       </form>
-    </section>
+    </Panel>
   );
 }
 
@@ -202,17 +201,19 @@ export function OpenWorkItemPanel({
   return (
     <div>
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <button
-          type="button"
-          className="self-start rounded-xl bg-ink px-4 py-2 text-sm font-semibold text-white hover:bg-accent sm:self-auto"
+        <Button
+          variant="dark"
+          className="self-start sm:self-auto"
           aria-expanded={isOpen}
           onClick={() => setIsOpen((open) => !open)}
         >
           {t("openWorkItem.action")}
-        </button>
+        </Button>
         {children}
       </div>
-      {isOpen && <Panel teamSeasonId={teamSeasonId} workItems={workItems} />}
+      {isOpen && (
+        <OpenWorkItemForm teamSeasonId={teamSeasonId} workItems={workItems} />
+      )}
     </div>
   );
 }

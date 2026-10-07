@@ -5,6 +5,7 @@ import { Navigate } from "react-router-dom";
 import type { Identity } from "../api/auth";
 import { useCurrentUser } from "../app/useCurrentUser";
 import { RequestError } from "./ApiErrors";
+import { Panel } from "./Panel";
 
 /** A screen for club admins only. The server refuses everyone else anyway;
  * this only spares them a page of refusals. */
@@ -38,14 +39,14 @@ export function AdminOnly({
   if (!currentUser.data.is_club_admin) {
     return (
       <main className="mx-auto w-full max-w-4xl flex-1 px-5 py-14 sm:px-8">
-        <div className="rounded-3xl border border-primary/15 bg-white p-8 shadow-sm">
+        <Panel padding="xl">
           <h1 className="brand-title text-3xl text-ink">
             {t("admin.forbiddenTitle")}
           </h1>
           <p className="mt-3 max-w-xl leading-7 text-muted">
             {t("admin.forbiddenDescription")}
           </p>
-        </div>
+        </Panel>
       </main>
     );
   }
