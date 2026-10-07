@@ -702,15 +702,26 @@ class TickView(APIView):
             status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
         )
 
+    @transaction.atomic
     def delete(self, request: Request, pk: int) -> Response:
         """Leaving today's progress, ticked by mistake: see
         `leave_todays_progress`."""
         user = request.user
         assert isinstance(user, User)
         item = _work_item_acted_on(user, pk)
-        leave_todays_progress(item, user)
-        # Like joining: the open screens only.
-        broadcast(item.team_season_id, item.id)
+        emptied = leave_todays_progress(item, user)
+        if emptied is None:
+            # Like joining: the open screens only.
+            broadcast(item.team_season_id, item.id)
+        else:
+            record_change(
+                user,
+                Notification.Verb.ENTRY_REMOVED,
+                team_season=item.team_season,
+                work_item=item,
+                entry=emptied,
+            )
+            emptied.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 

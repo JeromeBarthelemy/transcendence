@@ -2,6 +2,10 @@
 item, the whole team for what concerns no work item, never the one who made
 the change."""
 
+from datetime import timedelta
+
+from django.utils import timezone
+
 from club.models import (
     Entry,
     Membership,
@@ -194,6 +198,27 @@ def test_a_removal_is_still_told_once_the_trace_and_work_item_are_gone(db):
         (Notification.Verb.WORK_ITEM_DELETED, None, "intake"),
     ]
     assert all(n.recipient == tom and n.read_at is None for n in told)
+
+
+def test_the_last_to_leave_todays_progress_tells_its_followers_it_is_gone(client, db):
+    rouages = team_season()
+    lina, tom = member_of(rouages, "lina"), member_of(rouages, "tom")
+    intake = WorkItem.objects.create(team_season=rouages, title="intake")
+    earlier = record_progress(intake, tom, "Galets montés.")
+    Entry.objects.filter(pk=earlier.pk).update(
+        occurred_at=timezone.now() - timedelta(days=2)
+    )
+    client.force_login(lina)
+    client.post(f"/api/work-items/{intake.id}/tick/", {}, "application/json")
+
+    response = client.delete(f"/api/work-items/{intake.id}/tick/")
+
+    assert response.status_code == 204
+    told = Notification.objects.filter(recipient=tom).order_by("id")
+    assert [(n.verb, n.entry, n.entry_type) for n in told] == [
+        (Notification.Verb.ENTRY_ADDED, None, Entry.Type.PROGRESS),
+        (Notification.Verb.ENTRY_REMOVED, None, Entry.Type.PROGRESS),
+    ]
 
 
 # --- reading them ---

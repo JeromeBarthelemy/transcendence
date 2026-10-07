@@ -640,7 +640,8 @@ screens stale as well, which shows at once.
   dropped or deleted.
 - **What does not**: joining or leaving a progress. It still reloads the
   open screens, but ten students ticking at the start of a session would
-  bury the notices that matter.
+  bury the notices that matter. The last to leave today's progress takes it
+  away, though, and that is a trace removed.
 
 A notice keeps the work item's title and the trace's type beside its links to
 them, so a deleted one is still named; its author stays a link to their
