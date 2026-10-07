@@ -609,13 +609,15 @@ class WorkItemDetailView(APIView):
     def patch(self, request: Request, pk: int) -> Response:
         assert isinstance(request.user, User)
         item = _work_item_acted_on(request.user, pk)
+        # Only a reopening changes a closed work item; said before the reason
+        # is asked for, which would only lead to this refusal.
+        asked = request.data.get("status") if isinstance(request.data, dict) else None
+        if asked != WorkItem.Status.OPEN:
+            _open_for_work(item)
         serializer = WorkItemStatusSerializer(
             item, data=request.data, context={"author": request.user}
         )
         serializer.is_valid(raise_exception=True)
-        # Only a reopening changes a closed work item.
-        if serializer.validated_data["status"] != WorkItem.Status.OPEN:
-            _open_for_work(item)
         serializer.save()
         broadcast(item.team_season_id, item.id)
         return Response(_work_item(item))

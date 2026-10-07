@@ -311,6 +311,15 @@ def test_a_closed_work_item_is_reopened_before_it_is_closed_again(client, closed
     assert notes_on(outreach) == []
 
 
+@pytest.mark.parametrize("closed", CLOSED, indirect=True)
+def test_a_closed_work_item_says_so_before_asking_why(client, closed):
+    outreach, lina, _ = closed
+    client.force_login(lina)
+
+    # Typing a reason would only lead to the refusal.
+    refused(change(client, outreach, status="dropped"))
+
+
 def test_reopening_an_open_work_item_is_refused(client, db):
     rouages = team_season()
     client.force_login(member_of(rouages))

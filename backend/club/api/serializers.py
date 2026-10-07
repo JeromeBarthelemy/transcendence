@@ -365,10 +365,10 @@ class OpenWorkItemSerializer(serializers.Serializer[WorkItem]):
 
 
 class WorkItemStatusSerializer(serializers.Serializer[WorkItem]):
-    """Closing, and reopening on purpose: working on a closed work item no
-    longer reopens it (#139). Why it was dropped is asked, since that is what
-    the notebook would lose; finishing or reopening may say why too. The
-    reason becomes a note by whoever changed the status, written with it."""
+    """Closing, and reopening on purpose: a closed work item is read-only
+    until then. Why it was dropped is asked, since that is what the notebook
+    would lose; finishing or reopening may say why too. The reason becomes a
+    note by whoever changed the status, written with it."""
 
     status = serializers.ChoiceField(choices=WorkItem.Status.choices)
     reason = serializers.CharField(required=False, allow_blank=True)
