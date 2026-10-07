@@ -647,3 +647,14 @@ class AddSourceSerializer(serializers.Serializer[None]):
 
 class AskSerializer(serializers.Serializer[None]):
     question = serializers.CharField(max_length=500)
+
+
+class ReadNotificationsSerializer(serializers.Serializer[None]):
+    """Without `ids`, every notification of the member's is read."""
+
+    # SQLite's integers stop at 2**63 - 1: past it, the query fails rather
+    # than finding nothing.
+    ids = serializers.ListField(
+        child=serializers.IntegerField(min_value=1, max_value=2**63 - 1),
+        required=False,
+    )

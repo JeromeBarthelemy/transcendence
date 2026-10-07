@@ -6,10 +6,12 @@ from smtplib import SMTPException
 
 import pytest
 from django.core.files.base import ContentFile
+from django.utils import timezone
 
 from club.models import (
     Consent,
     Membership,
+    Notification,
     RuleQuery,
     Season,
     Team,
@@ -41,6 +43,20 @@ def admin(email="admin@club.fr", display_name="Admin", contact_email="admin@club
         PASSWORD,
         is_club_admin=True,
         contact_email=contact_email,
+    )
+
+
+def told_of_a_work_item(recipient, actor, title="intake"):
+    """`recipient` is told `actor` dropped a work item of team Rouages."""
+    season, _ = Season.objects.get_or_create(start_year=2026, game_name="BioBuzz")
+    team, _ = Team.objects.get_or_create(number=12345, name="Rouages")
+    team_season, _ = TeamSeason.objects.get_or_create(team=team, season=season)
+    return Notification.objects.create(
+        recipient=recipient,
+        actor=actor,
+        team_season=team_season,
+        verb=Notification.Verb.WORK_ITEM_DROPPED,
+        work_item_title=title,
     )
 
 
@@ -171,6 +187,27 @@ def test_the_export_carries_rulebook_questions(client, mailoutbox):
     (mail,) = mailoutbox
     (_, content, _) = mail.attachments[0]
     assert "Quelle hauteur maximale en autonome" in content
+
+
+def test_the_export_carries_the_notifications_received_and_when_they_were_read(
+    client, mailoutbox
+):
+    lina = student(contact_email="parent.lina@club.fr")
+    tom = student("tom@club.fr", "Tom")
+    told_of_a_work_item(lina, tom, "intake")
+    told_of_a_work_item(tom, lina, "pince")
+    Notification.objects.filter(recipient=lina).update(read_at=timezone.now())
+    client.force_login(lina)
+
+    client.post("/api/auth/me/export/")
+
+    (mail,) = mailoutbox
+    (_, content, _) = mail.attachments[0]
+    assert "chantier abandonné" in content
+    assert "intake" in content
+    assert '"read_at": null' not in content
+    # Tom was told of Lina's change: his notice is his, not hers.
+    assert "pince" not in content
 
 
 def test_the_export_leaves_out_the_teams_notebook(client, mailoutbox):
@@ -307,6 +344,20 @@ def test_deletion_deletes_the_pending_verification_request(client, mailoutbox):
     delete(client)
 
     assert not VerificationRequest.objects.filter(user=lina).exists()
+
+
+def test_deletion_deletes_the_notifications_received_and_keeps_those_caused(
+    client, mailoutbox
+):
+    lina = student(contact_email="parent.lina@club.fr")
+    tom = student("tom@club.fr", "Tom")
+    told_of_a_work_item(lina, tom)
+    caused = told_of_a_work_item(tom, lina)
+    client.force_login(lina)
+
+    delete(client)
+
+    assert list(Notification.objects.all()) == [caused]
 
 
 def test_deletion_leaves_the_password_unusable(client, mailoutbox):

@@ -180,7 +180,9 @@ def test_of_two_simultaneous_openings_of_one_title_the_second_is_refused(
     assert rival == [201]
     assert response.status_code == 400
     assert response.json()["title"][0]["code"] == "work_item_title_taken"
-    assert rouages.work_items.count() == 1
+    # Not the work items left: the rival ran inside this request's
+    # transaction, on its connection, so the refusal rolls the rival's back
+    # too, which two real connections would not.
 
 
 def test_a_student_cannot_open_a_work_item_in_another_team(client):
