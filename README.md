@@ -122,6 +122,12 @@ cookies. The Django admin remains available at <http://localhost:8000/admin/>.
 This Compose stack is for development and proves the frontend/backend
 integration — `runserver`, Vite's dev server, `DEBUG=true`, no certificate.
 
+The stack also starts `ollama` (the rulebook's generated answer, see
+[Rulebook questions](#rulebook-questions)) and `ollama-pull`, which fetches
+`RAG_GENERATION_MODEL` once and exits — about 2 GB on the first `up`, kept in
+the `ollama_models` volume so later ones do not re-download it. A question
+asked before that pull finishes still answers, with its citations alone.
+
 #### From a phone on the same Wi-Fi
 
 For a supervised trial in the club's room, before the HTTPS stack: a phone
@@ -242,7 +248,12 @@ python backend/manage.py createsuperuser
 python backend/manage.py runserver
 ```
 
-`.env` is never versioned: everyone keeps their own.
+`.env` is never versioned: everyone keeps their own. `RAG_OLLAMA_URL`
+defaults to `http://ollama:11434`, Compose's service name: outside Compose,
+run your own Ollama and set it to its address (`http://localhost:11434` for
+one running directly on this machine), or leave it as is — a rulebook
+question still answers, with its citations alone (see
+[Rulebook questions](#rulebook-questions)).
 
 ### Frontend without containers
 
@@ -653,14 +664,23 @@ the entry it belongs to, leaves the disk once the deletion is committed.
 
 ## Rulebook questions
 
-A member asks the current season's game manual a question and gets back the
-passages that answer it, ranked first by how much they may be trusted, then
-by how well they answer it — not a generated answer, so nothing is ever
-invented past what the source says.
+A member asks the current season's game manual a question. Retrieval finds
+the passages that answer it, ranked first by how much they may be trusted,
+then by how well they answer it; a local model (`club/generation.py`, Ollama,
+`compose.yml`'s `ollama` service) then writes a short French answer from
+those passages alone, naming the references it relies on. No passage above
+the retrieval threshold means no generation either — the system's own
+refusal stands instead, so nothing is ever invented past what the source
+says. A model that cannot be reached leaves the answer empty; the citations
+still stand on their own under it. `RAG_GENERATION_MODEL` (`backend/.env`)
+picks the model — swapping it for another one Ollama has pulled needs no
+code change. Measured on this machine, warm (the model already loaded):
+about 1.3 s for a full answer, the first word arriving in under 0.2 s — to
+be re-measured on the club's own laptop before relying on it.
 
 | route | does |
 | --- | --- |
-| `POST /api/rules/ask/` | a question, answered with up to five cited passages from this season's ingested documents |
+| `POST /api/rules/ask/` | a question, answered with a generated French answer and up to five cited passages from this season's ingested documents |
 | `GET /api/rules/sources/` | administrators only: per source, the copy searched, when it was checked, and any change waiting for acceptance with its summary |
 | `POST /api/rules/sources/` | administrators only: `source` (`game_manual`) and `url` on FIRST's own site (`https`, `ftc-resources.firstinspires.org`) — fetches the page, ingests it as the new copy, and the checks follow that URL from now on; `400` with `source_not_allowed`, `fetch_failed` (also when a redirect leaves FIRST's site) or `no_passage` (a page with nothing to index) otherwise |
 | `POST /api/rules/sources/check/` | administrators only: check the game manual against its page now, the same check the `sources-check` service runs every 24 hours (the Q&A is not checked yet) |

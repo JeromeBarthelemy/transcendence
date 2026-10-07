@@ -36,6 +36,7 @@ from django.utils import timezone
 from fastembed import TextEmbedding
 from fastembed.common.model_description import ModelSource, PoolingType
 
+from .generation import GenerationError, generate_answer
 from .models import Chunk, Document, QueryCitation, RuleQuery, Season, User
 
 # fastembed does not carry multilingual-e5-base in its own catalogue (only
@@ -409,10 +410,14 @@ _AUTHORITY_RANK: dict[str, int] = {
 def ask(question: str, season: Season, asker: User) -> RuleQuery:
     """The passages closest to the question, for this season only — the
     game changes every year, and a rule from last season's manual is not a
-    rule. `answer` stays empty when the citations speak for themselves, and
-    only ever says something when none of them cleared `MIN_SCORE` — with
-    only the manual and the Q&A left as sources, a citation existing at all
-    already means it came from one of the two.
+    rule — and a French answer written only from them. `answer` holds the
+    system's own refusal when none cleared `MIN_SCORE`, and nothing is
+    generated for that case: with only the manual and the Q&A left as
+    sources, a citation existing at all already means it came from one of
+    the two, but no citation means there is nothing to write from either.
+    A model that cannot be reached, or answers with nothing readable,
+    leaves `answer` empty instead of failing the question: the citations
+    still stand on their own under it.
 
     Only the latest `Document` per (season, source) is searched: FIRST
     republishes the manual with every Team Update (§1.7.3), and citing an
@@ -420,12 +425,13 @@ def ask(question: str, season: Season, asker: User) -> RuleQuery:
     student unsure which to trust — until proper versioning settles that,
     the old one is simply not searched.
 
-    Read and embedded before the transaction opens, not inside it: with
-    `transaction_mode: "IMMEDIATE"` (config/settings.py), an open
-    transaction holds SQLite's write lock for its whole duration, and
-    embedding the question — plus, on the first call, loading the model —
-    would hold that lock for every other save in the app to wait behind.
-    Only the two writes below need one.
+    Read, embedded and (when there is something to cite) generated before
+    the transaction opens, not inside it: with `transaction_mode:
+    "IMMEDIATE"` (config/settings.py), an open transaction holds SQLite's
+    write lock for its whole duration, and a generation call alone can run
+    into the tens of seconds — holding that lock for every other save in
+    the app to wait behind the length of an answer. Only the two writes
+    below need one.
 
     Every match above `MIN_SCORE` is kept and sorted by (authority, score)
     before being cut to `TOP_K` — never the reverse: cutting to the
@@ -466,10 +472,15 @@ def ask(question: str, season: Season, asker: User) -> RuleQuery:
             key=lambda pair: (_AUTHORITY_RANK[pair[1].document.authority], -pair[0]),
         )[:TOP_K]
 
+    answer = NO_ANSWER
+    if matches:
+        try:
+            answer = generate_answer(question, [chunk for _, chunk in matches])
+        except GenerationError:
+            answer = ""
+
     with transaction.atomic():
-        query = RuleQuery.objects.create(
-            asker=asker, question=question, answer="" if matches else NO_ANSWER
-        )
+        query = RuleQuery.objects.create(asker=asker, question=question, answer=answer)
         QueryCitation.objects.bulk_create(
             QueryCitation(query=query, chunk=chunk, rank=rank)
             for rank, (_, chunk) in enumerate(matches, start=1)

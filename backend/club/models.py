@@ -848,9 +848,11 @@ class Chunk(models.Model):
 
 
 class RuleQuery(models.Model):
-    """A question asked of the rulebook, and what came back. `answer` is
-    empty when the citations speak for themselves, and holds the refusal
-    sentence when none of them may be trusted to."""
+    """A question asked of the rulebook, and what came back. `answer` holds
+    the generated text grounded in the citations below, the system's own
+    refusal when none of them may be trusted to answer at all, or stays
+    empty when the model could not be reached — the citations alone are
+    then the answer."""
 
     # PROTECT, not CASCADE: an anonymized member's questions stay, pointing
     # to "Ancien membre" like the rest of what they left behind

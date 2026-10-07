@@ -1,7 +1,8 @@
 import pytest
 
+from club.generation import GenerationError
 from club.models import Document, Season, User
-from club.rag import ask, chunk_manual, chunk_qa, embed, ingest_document
+from club.rag import NO_ANSWER, ask, chunk_manual, chunk_qa, embed, ingest_document
 
 RULE = (
     "Le robot ne doit jamais dépasser dix-huit pouces de hauteur pendant "
@@ -294,6 +295,59 @@ def test_a_question_asked_with_none_of_the_passage_own_words_is_still_answered()
 
     assert query.answer == ""
     assert query.citations.exists()
+
+
+def test_a_matched_question_is_answered_from_the_generated_text(monkeypatch):
+    this_season = season()
+    document(this_season, source=Document.Source.GAME_MANUAL, text=RULE_HTML)
+    lina = asker()
+    monkeypatch.setattr(
+        "club.rag.generate_answer", lambda question, chunks: "Dix-huit pouces [G101]."
+    )
+
+    query = ask(
+        "Quelle est la hauteur maximale du robot en pouces pendant la phase autonome ?",
+        this_season,
+        lina,
+    )
+
+    assert query.answer == "Dix-huit pouces [G101]."
+    assert query.citations.exists()
+
+
+def test_a_generation_failure_leaves_the_citations_standing_alone(monkeypatch):
+    this_season = season()
+    document(this_season, source=Document.Source.GAME_MANUAL, text=RULE_HTML)
+    lina = asker()
+
+    def failing(question, chunks):
+        raise GenerationError("hors ligne")
+
+    monkeypatch.setattr("club.rag.generate_answer", failing)
+
+    query = ask(
+        "Quelle est la hauteur maximale du robot en pouces pendant la phase autonome ?",
+        this_season,
+        lina,
+    )
+
+    assert query.answer == ""
+    assert query.citations.exists()
+
+
+def test_an_unmatched_question_never_calls_the_model(monkeypatch):
+    this_season = season()
+    document(this_season, source=Document.Source.GAME_MANUAL, text=RULE_HTML)
+    lina = asker()
+    called = []
+    monkeypatch.setattr(
+        "club.rag.generate_answer", lambda question, chunks: called.append(1)
+    )
+
+    query = ask("Combien de membres dans le comité des sponsors ?", this_season, lina)
+
+    assert called == []
+    assert query.answer == NO_ANSWER
 
 
 def test_citations_are_ranked_by_authority_before_score():
