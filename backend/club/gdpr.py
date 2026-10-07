@@ -39,8 +39,8 @@ def _contact_email(user: User) -> str:
 
 def export_data(user: User) -> dict[str, Any]:
     """The member's own identity and account-level decisions — exactly what
-    `anonymize` erases or already keeps — plus their memberships and the
-    questions they asked the rulebook. Not the club's notebook: entries
+    `anonymize` erases or already keeps — plus their memberships, the
+    questions they asked the rulebook, and the notifications they received. Not the club's notebook: entries
     and their attachments are the team's history, kept and still
     attributed after a member leaves, and the notebook export serves a
     different reader, the portfolio, for a request this is not."""
@@ -86,6 +86,19 @@ def export_data(user: User) -> dict[str, Any]:
                 "created_at": query.created_at.isoformat(),
             }
             for query in user.rule_queries.order_by("created_at")
+        ],
+        "notifications": [
+            {
+                "change": notice.get_verb_display(),
+                "work_item": notice.work_item_title,
+                "team": notice.team_season.team.name,
+                "season": notice.team_season.season.label,
+                "created_at": notice.created_at.isoformat(),
+                "read_at": notice.read_at.isoformat() if notice.read_at else None,
+            }
+            for notice in user.notifications.order_by("created_at").select_related(
+                "team_season__team", "team_season__season"
+            )
         ],
     }
 
@@ -143,7 +156,8 @@ def anonymize(user: User) -> None:
     `EntryParticipant.user` are `PROTECT` on purpose, so what a member
     wrote stays in the team's notebook, attributed. What goes is the
     identity — name, address, birth date, AssoConnect id, avatar,
-    password, any pending verification request, and any admin rights,
+    password, any pending verification request, the notifications received
+    (those the member caused stay their recipients'), and any admin rights,
     which an unusable password leaves no way to exercise anyway. The
     consent log stays: it still decides whether past content may be
     published.
@@ -177,6 +191,7 @@ def anonymize(user: User) -> None:
     )
     remove_after_commit(user, previous_avatar)
     VerificationRequest.objects.filter(user=user).delete()
+    user.notifications.all().delete()
 
 
 @transaction.atomic

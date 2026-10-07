@@ -483,7 +483,8 @@ computer must not delete the account in one click.
 `DELETE` anonymizes rather than deletes the row (`club/gdpr.py`,
 `anonymize`): `Entry.author` and `EntryParticipant.user` are `PROTECT`, so
 what a member wrote stays in the team's notebook, attributed — what goes is
-the identity (name, address, birth date, AssoConnect id, avatar, password).
+the identity (name, address, birth date, AssoConnect id, avatar, password),
+and the notifications the member received, which the export carries.
 The consent log stays, since it still decides whether past content may be
 published. The whole thing is one transaction, the confirmation e-mail last,
 so a failed send leaves the account exactly as it was rather than deleted
