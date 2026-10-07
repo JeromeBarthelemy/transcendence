@@ -736,11 +736,14 @@ it("shows a closed work item read-only, and reopens it on purpose", async () => 
       "Chantier abandonné le 2 octobre 2026 — rouvrez-le pour le reprendre.",
     ),
   ).toBeTruthy();
-  for (const action of ["Abandonner", "Terminer", "Me retirer"]) {
+  for (const action of ["Abandonner", "Terminer", "Passer à cette étape"]) {
     expect(screen.queryByRole("button", { name: action })).toBeNull();
   }
-  expect(screen.queryByText("L'avancée d'aujourd'hui")).toBeNull();
-  expect(screen.queryByText("Ajouter une remarque")).toBeNull();
+  expect(screen.queryByLabelText("Étape")).toBeNull();
+  // Neither the progress's editor nor a note: nothing moves it forward.
+  expect(screen.queryAllByRole("textbox")).toHaveLength(0);
+  // A tick made by mistake the day it closed can still be undone.
+  expect(screen.getByRole("button", { name: "Me retirer" })).toBeTruthy();
   expect(screen.getByRole("heading", { name: "Historique" })).toBeTruthy();
 
   await userEvent.click(screen.getByRole("button", { name: "Rouvrir" }));
@@ -752,8 +755,25 @@ it("shows a closed work item read-only, and reopens it on purpose", async () => 
     screen.getByRole("button", { name: "Rouvrir le chantier" }),
   );
 
-  expect(await screen.findByText("L'avancée d'aujourd'hui")).toBeTruthy();
+  expect(await screen.findByLabelText("Étape")).toBeTruthy();
   expect(sent()).toEqual({ status: "open", reason: "Nouvelle idée de pince." });
+});
+
+it("shows no today panel on a closed work item nobody is on today", async () => {
+  setDocumentCookie("csrftoken=test; path=/");
+  statusServer(
+    workItem({
+      status: "dropped",
+      closed_at: "2026-10-02T09:00:00+02:00",
+      current_progress: null,
+      current_user_participates: false,
+    }),
+  );
+  renderWorkItem();
+
+  await screen.findByRole("button", { name: "Rouvrir" });
+  expect(screen.queryByText("Rien de commencé aujourd'hui")).toBeNull();
+  expect(screen.queryByRole("button", { name: /^Commencer/ })).toBeNull();
 });
 
 it("says a closed work item is closed even without knowing when", async () => {

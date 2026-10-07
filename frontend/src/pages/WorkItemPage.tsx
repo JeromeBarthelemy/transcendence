@@ -353,6 +353,7 @@ function TodayPanel({
     },
   });
   const progress = item.current_progress;
+  const isClosed = item.status !== "open";
   // The server deletes a progress its last participant leaves, unless it
   // holds a file: worth a confirmation only when something written goes.
   const leavingDeletesText =
@@ -384,7 +385,7 @@ function TodayPanel({
         {progress ? t("workItem.todayProgress") : t("workItem.noProgressToday")}
       </h2>
 
-      {item.on_robot && (
+      {item.on_robot && !isClosed && (
         <div className="mt-5 flex flex-col gap-3 rounded-2xl bg-mist p-4 sm:flex-row sm:items-end">
           <label className="flex-1 text-sm font-semibold text-ink">
             {t("workItem.currentStep")}
@@ -443,14 +444,16 @@ function TodayPanel({
               {t("workItem.leave")}
             </button>
           ) : (
-            <button
-              type="button"
-              className="rounded-xl border border-primary/25 px-4 py-2 text-sm font-semibold text-ink disabled:opacity-50"
-              disabled={tick.isPending}
-              onClick={() => tick.mutate(undefined)}
-            >
-              {t("workItem.join")}
-            </button>
+            !isClosed && (
+              <button
+                type="button"
+                className="rounded-xl border border-primary/25 px-4 py-2 text-sm font-semibold text-ink disabled:opacity-50"
+                disabled={tick.isPending}
+                onClick={() => tick.mutate(undefined)}
+              >
+                {t("workItem.join")}
+              </button>
+            )
           )}
         </div>
       ) : (
@@ -493,10 +496,10 @@ function TodayPanel({
       )}
       {tick.isError && <RequestError error={tick.error} />}
       {leave.isError && <RequestError error={leave.error} />}
-      {canEdit && (
+      {canEdit && !isClosed && (
         <ProgressEditor key={progress.id} item={item} entry={progress} />
       )}
-      {progress && !canEdit && (
+      {progress && !canEdit && !isClosed && (
         <p className="mt-6 rounded-xl bg-warning-tint p-4 text-sm text-warning-ink">
           {t("workItem.joinToWrite")}
         </p>
@@ -984,12 +987,12 @@ function WorkItemScreen({
       )}
 
       <div className="mt-8 grid items-start gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.9fr)]">
-        {/* Closed, nothing moves it forward until it is reopened (#139): only
-            its history stays, which can still be put right. */}
-        {!isClosed && (
+        {/* Closed, nothing moves it forward until it is reopened: its
+            history can still be put right, and today's tick undone. */}
+        {(!isClosed || item.current_progress) && (
           <div className="space-y-6">
             <TodayPanel item={item} identity={identity} />
-            <WorkItemNoteForm item={item} />
+            {!isClosed && <WorkItemNoteForm item={item} />}
           </div>
         )}
 
