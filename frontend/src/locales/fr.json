@@ -180,6 +180,8 @@
     },
     "closedDropped": "Chantier abandonné le {{date}} — rouvrez-le pour le reprendre.",
     "closedDone": "Chantier terminé le {{date}} — rouvrez-le pour le reprendre.",
+    "closedDroppedUndated": "Chantier abandonné — rouvrez-le pour le reprendre.",
+    "closedDoneUndated": "Chantier terminé — rouvrez-le pour le reprendre.",
     "closing": "Mise à jour…",
     "progressCount_one": "{{count}} avancée",
     "progressCount_other": "{{count}} avancées",

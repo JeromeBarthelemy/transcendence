@@ -756,6 +756,16 @@ it("shows a closed work item read-only, and reopens it on purpose", async () => 
   expect(sent()).toEqual({ status: "open", reason: "Nouvelle idée de pince." });
 });
 
+it("says a closed work item is closed even without knowing when", async () => {
+  setDocumentCookie("csrftoken=test; path=/");
+  statusServer(workItem({ status: "done", on_robot: false, closed_at: null }));
+  renderWorkItem();
+
+  expect(
+    await screen.findByText("Chantier terminé — rouvrez-le pour le reprendre."),
+  ).toBeTruthy();
+});
+
 it("forgets a reason typed for another status", async () => {
   setDocumentCookie("csrftoken=test; path=/");
   const sent = statusServer(workItem({ on_robot: false }));

@@ -925,16 +925,18 @@ function WorkItemScreen({
       {close.isError && <RequestError error={close.error} />}
       {isClosed && (
         <p className="mt-6 rounded-2xl border border-primary/15 bg-tint px-4 py-3 text-sm font-semibold text-ink">
-          {t(
-            item.status === "done"
-              ? "workItem.closedDone"
-              : "workItem.closedDropped",
-            {
-              date: item.closed_at
-                ? dateFormatter.format(new Date(item.closed_at))
-                : "",
-            },
-          )}
+          {item.closed_at
+            ? t(
+                item.status === "done"
+                  ? "workItem.closedDone"
+                  : "workItem.closedDropped",
+                { date: dateFormatter.format(new Date(item.closed_at)) },
+              )
+            : t(
+                item.status === "done"
+                  ? "workItem.closedDoneUndated"
+                  : "workItem.closedDroppedUndated",
+              )}
         </p>
       )}
       {isConfirmingDelete && (
