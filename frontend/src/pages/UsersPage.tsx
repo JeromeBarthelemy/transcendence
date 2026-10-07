@@ -21,9 +21,12 @@ import {
 import { Button } from "../components/Button";
 import { Chip } from "../components/Chip";
 import { EmptyState } from "../components/EmptyState";
+import { Label, Select, TextInput } from "../components/Field";
 import { IconLabel } from "../components/Icon";
 import { ConfirmPanel, Notice, SuccessMessage } from "../components/Notice";
+import { Page } from "../components/Page";
 import { Panel } from "../components/Panel";
+import { Eyebrow, Heading } from "../components/Typography";
 
 const usersQueryKey = ["users", "list"] as const;
 const userQueryKey = (userId: number) => ["users", "detail", userId] as const;
@@ -40,9 +43,6 @@ const STATUS_FILTERS: StatusFilter[] = [
 const ROLE_FILTERS: RoleFilter[] = ["all", "student", "mentor", "admin"];
 
 const nameCollator = new Intl.Collator("fr-FR", { sensitivity: "base" });
-
-const inputClass =
-  "mt-2 block w-full rounded-xl border border-primary/20 bg-white px-3 py-2 font-normal text-body";
 
 /** Case- and accent-blind, so « elo » finds Élodie. */
 function fold(text: string) {
@@ -137,13 +137,11 @@ function UserList({ identity }: { identity: Identity }) {
     .sort((a, b) => nameCollator.compare(a.display_name, b.display_name));
 
   return (
-    <main className="mx-auto w-full max-w-4xl flex-1 px-5 py-10 sm:px-8 sm:py-14">
-      <p className="text-sm font-bold tracking-[0.14em] text-accent uppercase">
-        {t("admin.eyebrow")}
-      </p>
-      <h1 className="brand-title mt-3 text-3xl tracking-[-0.035em] text-ink sm:text-4xl">
+    <Page>
+      <Eyebrow size="sm">{t("admin.eyebrow")}</Eyebrow>
+      <Heading size="page" className="mt-3">
         {t("users.title")}
-      </h1>
+      </Heading>
 
       {deletedName && (
         <SuccessMessage className="mt-4">
@@ -152,20 +150,18 @@ function UserList({ identity }: { identity: Identity }) {
       )}
 
       <div className="mt-8 grid gap-4 sm:grid-cols-[1fr_auto_auto]">
-        <label className="text-sm font-semibold text-ink">
+        <Label>
           <IconLabel icon="search">{t("users.search")}</IconLabel>
-          <input
+          <TextInput
             type="search"
-            className={inputClass}
             value={search}
             placeholder={t("users.searchPlaceholder")}
             onChange={(event) => setSearch(event.target.value)}
           />
-        </label>
-        <label className="text-sm font-semibold text-ink">
+        </Label>
+        <Label>
           {t("users.filterStatus")}
-          <select
-            className={inputClass}
+          <Select
             value={status}
             onChange={(event) => setStatus(event.target.value as StatusFilter)}
           >
@@ -174,12 +170,11 @@ function UserList({ identity }: { identity: Identity }) {
                 {t(`users.statusFilters.${filter}`)}
               </option>
             ))}
-          </select>
-        </label>
-        <label className="text-sm font-semibold text-ink">
+          </Select>
+        </Label>
+        <Label>
           {t("users.filterRole")}
-          <select
-            className={inputClass}
+          <Select
             value={role}
             onChange={(event) => setRole(event.target.value as RoleFilter)}
           >
@@ -188,8 +183,8 @@ function UserList({ identity }: { identity: Identity }) {
                 {t(`users.roleFilters.${filter}`)}
               </option>
             ))}
-          </select>
-        </label>
+          </Select>
+        </Label>
       </div>
 
       {users.isPending ? (
@@ -236,7 +231,7 @@ function UserList({ identity }: { identity: Identity }) {
           )}
         </section>
       )}
-    </main>
+    </Page>
   );
 }
 
@@ -285,12 +280,9 @@ function RoleForm({ user, locked }: { user: ClubUser; locked: boolean }) {
       className="mt-8"
       onSubmit={submit}
     >
-      <h2
-        id="role-form-title"
-        className="text-xs font-bold tracking-[0.14em] text-accent uppercase"
-      >
+      <Eyebrow as="h2" id="role-form-title">
         {t("users.rightsTitle")}
-      </h2>
+      </Eyebrow>
       <fieldset disabled={locked || save.isPending} className="mt-4 space-y-5">
         <fieldset>
           <legend className="text-sm font-semibold text-ink">
@@ -316,7 +308,7 @@ function RoleForm({ user, locked }: { user: ClubUser; locked: boolean }) {
         </fieldset>
 
         <div>
-          <label className="flex items-center gap-2 text-sm font-semibold text-ink">
+          <Label className="flex items-center gap-2">
             <input
               type="checkbox"
               checked={isClubAdmin}
@@ -328,7 +320,7 @@ function RoleForm({ user, locked }: { user: ClubUser; locked: boolean }) {
               }}
             />
             {t("users.isClubAdmin")}
-          </label>
+          </Label>
           <p id={adminHintId} className="mt-1 ml-6 text-xs text-muted">
             {t("users.isClubAdminHint")}
           </p>
@@ -339,7 +331,7 @@ function RoleForm({ user, locked }: { user: ClubUser; locked: boolean }) {
         </div>
 
         <div>
-          <label className="flex items-center gap-2 text-sm font-semibold text-ink">
+          <Label className="flex items-center gap-2">
             <input
               type="checkbox"
               checked={isActive}
@@ -350,7 +342,7 @@ function RoleForm({ user, locked }: { user: ClubUser; locked: boolean }) {
               }}
             />
             {t("users.isActive")}
-          </label>
+          </Label>
           <p id={activeHintId} className="mt-1 ml-6 text-xs text-muted">
             {t("users.isActiveHint")}
           </p>
@@ -414,12 +406,9 @@ function DeleteSection({ user }: { user: ClubUser }) {
       aria-labelledby="delete-user-title"
       className="mt-8"
     >
-      <h2
-        id="delete-user-title"
-        className="text-xs font-bold tracking-[0.14em] text-red-800 uppercase"
-      >
+      <Eyebrow tone="danger" as="h2" id="delete-user-title">
         {t("users.deleteTitle")}
-      </h2>
+      </Eyebrow>
       <p className="mt-3 text-sm leading-6 text-muted">
         {t("users.deleteExplanation")}
       </p>
@@ -460,7 +449,7 @@ function UserDetail({ identity }: { identity: Identity }) {
   });
 
   return (
-    <main className="mx-auto w-full max-w-3xl flex-1 px-5 py-10 sm:px-8 sm:py-14">
+    <Page width="3xl">
       <Link
         to="/users"
         className="text-sm font-semibold text-accent hover:underline"
@@ -483,9 +472,7 @@ function UserDetail({ identity }: { identity: Identity }) {
           <div className="mt-6 flex flex-wrap items-center gap-4">
             <Avatar user={user.data} size="size-16" />
             <div className="min-w-0 flex-1">
-              <h1 className="brand-title text-3xl tracking-[-0.035em] text-ink">
-                {user.data.display_name}
-              </h1>
+              <Heading size="page">{user.data.display_name}</Heading>
               <p className="mt-1 truncate text-sm text-muted">
                 {user.data.email}
               </p>
@@ -514,7 +501,7 @@ function UserDetail({ identity }: { identity: Identity }) {
           )}
         </>
       )}
-    </main>
+    </Page>
   );
 }
 

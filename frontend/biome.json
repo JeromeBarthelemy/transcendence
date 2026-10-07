@@ -9,6 +9,17 @@
   "linter": {
     "domains": {
       "react": "recommended"
+    },
+    "rules": {
+      "a11y": {
+        "noLabelWithoutControl": {
+          "level": "error",
+          "options": {
+            "inputComponents": ["TextInput", "TextArea", "Select"],
+            "labelComponents": ["Label"]
+          }
+        }
+      }
     }
   },
   "css": {

@@ -5,7 +5,9 @@ import { Navigate } from "react-router-dom";
 import type { Identity } from "../api/auth";
 import { useCurrentUser } from "../app/useCurrentUser";
 import { RequestError } from "./ApiErrors";
+import { Page } from "./Page";
 import { Panel } from "./Panel";
+import { Heading } from "./Typography";
 
 /** A screen for club admins only. The server refuses everyone else anyway;
  * this only spares them a page of refusals. */
@@ -19,18 +21,18 @@ export function AdminOnly({
 
   if (currentUser.isPending) {
     return (
-      <main className="mx-auto w-full max-w-4xl flex-1 px-5 py-14 sm:px-8">
+      <Page message>
         <p role="status" className="text-sm text-muted">
           {t("auth.checkingSession")}
         </p>
-      </main>
+      </Page>
     );
   }
   if (currentUser.isError) {
     return (
-      <main className="mx-auto w-full max-w-4xl flex-1 px-5 py-14 sm:px-8">
+      <Page message>
         <RequestError error={currentUser.error} />
-      </main>
+      </Page>
     );
   }
   if (!currentUser.data) {
@@ -38,16 +40,16 @@ export function AdminOnly({
   }
   if (!currentUser.data.is_club_admin) {
     return (
-      <main className="mx-auto w-full max-w-4xl flex-1 px-5 py-14 sm:px-8">
+      <Page message>
         <Panel padding="xl">
-          <h1 className="brand-title text-3xl text-ink">
+          <Heading size="large" as="h1">
             {t("admin.forbiddenTitle")}
-          </h1>
+          </Heading>
           <p className="mt-3 max-w-xl leading-7 text-muted">
             {t("admin.forbiddenDescription")}
           </p>
         </Panel>
-      </main>
+      </Page>
     );
   }
   return children(currentUser.data);

@@ -19,11 +19,14 @@ import { Button, buttonClass } from "../components/Button";
 import { StatusChip } from "../components/Chip";
 import { EmptyState } from "../components/EmptyState";
 import { EntryActions } from "../components/EntryActions";
+import { Label, Select, TextArea } from "../components/Field";
 import { IconLabel, type IconName } from "../components/Icon";
 import { Notice, SuccessMessage } from "../components/Notice";
+import { Page } from "../components/Page";
 import { Panel } from "../components/Panel";
 import { SectionTabs } from "../components/SectionTabs";
 import { TeamActivity } from "../components/TeamActivity";
+import { Eyebrow, Heading } from "../components/Typography";
 import { OpenWorkItemPanel } from "./OpenWorkItemPanel";
 
 type StatusFilter = "all" | WorkItem["status"];
@@ -98,7 +101,7 @@ function WorkItemCard({
         className="block p-4 transition hover:bg-mist focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-lagoon sm:p-5"
       >
         <div className="flex flex-wrap items-start justify-between gap-3">
-          <h3 className="brand-title text-xl text-ink">{item.title}</h3>
+          <Heading size="card">{item.title}</Heading>
           <StatusChip status={item.status} />
         </div>
 
@@ -159,7 +162,7 @@ function WorkItemSection({
   return (
     <section aria-labelledby={id}>
       <div className="mb-4 flex items-baseline justify-between gap-4">
-        <h2 id={id} className="brand-title text-2xl text-ink">
+        <Heading size="section" id={id}>
           <button
             type="button"
             className="flex items-center gap-2 text-left"
@@ -179,7 +182,7 @@ function WorkItemSection({
             </svg>
             <IconLabel icon={icon}>{title}</IconLabel>
           </button>
-        </h2>
+        </Heading>
         <span className="text-sm text-muted">
           {t("teamHome.workItemCount", { count: items.length })}
         </span>
@@ -261,12 +264,9 @@ function TodaySummary({
     <Panel as="section" aria-labelledby="today-summary" className="mt-10">
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
         <div>
-          <h2
-            id="today-summary"
-            className="text-xs font-bold tracking-[0.14em] text-accent uppercase"
-          >
+          <Eyebrow as="h2" id="today-summary">
             {t("teamHome.today")}
-          </h2>
+          </Eyebrow>
           {day.isPending ? (
             <p role="status" className="mt-2 text-sm text-muted">
               {t("teamHome.loadingDay")}
@@ -365,15 +365,10 @@ function TodaySummary({
           className="mt-5 border-t border-primary/10 pt-5"
           onSubmit={submitNote}
         >
-          <label
-            htmlFor="team-note-body"
-            className="text-sm font-semibold text-ink"
-          >
-            {t("teamHome.noteLabel")}
-          </label>
-          <textarea
+          <Label htmlFor="team-note-body">{t("teamHome.noteLabel")}</Label>
+          <TextArea
+            className="min-h-24"
             id="team-note-body"
-            className="mt-2 min-h-24 w-full rounded-xl border border-primary/20 px-3 py-2 text-body"
             value={noteBody}
             placeholder={t("teamHome.notePlaceholder")}
             required
@@ -428,10 +423,10 @@ function NotebookExport({ teamSeasonId }: { teamSeasonId: number }) {
         {t("teamHome.exportNotebook")}
       </summary>
       <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-end">
-        <label className="font-semibold text-ink">
+        <Label>
           {t("teamHome.exportCategory")}
-          <select
-            className="mt-2 block w-full rounded-xl border border-primary/20 bg-white px-3 py-2 font-normal sm:w-auto"
+          <Select
+            className="sm:w-auto"
             value={category}
             onChange={(event) => setCategory(event.target.value)}
           >
@@ -441,8 +436,8 @@ function NotebookExport({ teamSeasonId }: { teamSeasonId: number }) {
                 {t(`teamHome.exportCategories.${key}`)}
               </option>
             ))}
-          </select>
-        </label>
+          </Select>
+        </Label>
         <a
           className={buttonClass({ variant: "primary" })}
           href={`/api/team-seasons/${teamSeasonId}/export/?${query}`}
@@ -491,21 +486,21 @@ export function TeamHomePage({ identity }: { identity: Identity }) {
 
   if (!selectedTeamSeason) {
     return (
-      <main className="mx-auto w-full max-w-4xl flex-1 px-5 py-14 sm:px-8">
-        <p className="text-sm font-bold tracking-[0.14em] text-accent uppercase">
+      <Page message>
+        <Eyebrow size="sm">
           <IconLabel icon="user">
             {t("teamHome.welcome", { name: identity.display_name })}
           </IconLabel>
-        </p>
+        </Eyebrow>
         <Panel padding="xl" className="mt-6">
-          <h1 className="brand-title text-3xl text-ink">
+          <Heading size="large" as="h1">
             {t("teamHome.noTeamTitle")}
-          </h1>
+          </Heading>
           <p className="mt-3 max-w-xl leading-7 text-muted">
             {t("teamHome.noTeamDescription")}
           </p>
         </Panel>
-      </main>
+      </Page>
     );
   }
 
@@ -516,24 +511,24 @@ export function TeamHomePage({ identity }: { identity: Identity }) {
   const offRobotItems = visibleItems.filter((item) => !item.on_robot);
 
   return (
-    <main className="mx-auto w-full max-w-6xl flex-1 px-5 py-10 sm:px-8 sm:py-14">
-      <p className="text-sm font-bold tracking-[0.14em] text-accent uppercase">
+    <Page width="6xl">
+      <Eyebrow size="sm">
         <IconLabel icon="user">
           {t("teamHome.welcome", { name: identity.display_name })}
         </IconLabel>
-      </p>
+      </Eyebrow>
       <LiveBoard teamSeasonId={selectedTeamSeason.id} />
 
       <div className="mt-3 flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
         <div>
-          <h1 className="brand-title text-3xl tracking-[-0.035em] text-ink sm:text-4xl">
+          <Heading size="page">
             <IconLabel icon="team" before>
               {t("teamHome.teamTitle", {
                 number: selectedTeamSeason.team.number,
                 name: selectedTeamSeason.team.name,
               })}
             </IconLabel>
-          </h1>
+          </Heading>
           <p className="mt-2 text-sm text-muted">
             {t("teamHome.season", {
               start: selectedTeamSeason.season.start_year,
@@ -544,10 +539,10 @@ export function TeamHomePage({ identity }: { identity: Identity }) {
         </div>
 
         {identity.team_seasons.length > 1 && (
-          <label className="text-sm font-semibold text-ink">
+          <Label>
             {t("teamHome.chooseTeam")}
-            <select
-              className="mt-2 block w-full rounded-xl border border-primary/20 bg-white px-3 py-2 font-normal sm:w-auto"
+            <Select
+              className="sm:w-auto"
               value={selectedTeamSeason.id}
               onChange={(event) => setSelectedId(Number(event.target.value))}
             >
@@ -556,8 +551,8 @@ export function TeamHomePage({ identity }: { identity: Identity }) {
                   {teamLabel(teamSeason)}
                 </option>
               ))}
-            </select>
-          </label>
+            </Select>
+          </Label>
         )}
       </div>
 
@@ -603,10 +598,10 @@ export function TeamHomePage({ identity }: { identity: Identity }) {
                 teamSeasonId={selectedTeamSeason.id}
                 workItems={workItems.data}
               >
-                <label className="text-sm font-semibold text-ink">
+                <Label>
                   {t("teamHome.filterByStatus")}
-                  <select
-                    className="mt-2 block w-full rounded-xl border border-primary/20 bg-white px-3 py-2 font-normal sm:w-auto"
+                  <Select
+                    className="sm:w-auto"
                     value={statusFilter}
                     onChange={(event) =>
                       setStatusFilter(event.target.value as StatusFilter)
@@ -618,8 +613,8 @@ export function TeamHomePage({ identity }: { identity: Identity }) {
                         {t(`teamHome.statuses.${status}`)}
                       </option>
                     ))}
-                  </select>
-                </label>
+                  </Select>
+                </Label>
               </OpenWorkItemPanel>
 
               <div className="mt-8 space-y-10">
@@ -644,6 +639,6 @@ export function TeamHomePage({ identity }: { identity: Identity }) {
           <NotebookExport teamSeasonId={selectedTeamSeason.id} />
         </div>
       )}
-    </main>
+    </Page>
   );
 }

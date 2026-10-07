@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import { correctEntry, removeEntry } from "../api/workItems";
 import { fieldIssues, RequestError } from "./ApiErrors";
 import { Button, TextButton } from "./Button";
+import { Label, TextArea } from "./Field";
 import { IconLabel } from "./Icon";
 import { ConfirmPanel } from "./Notice";
 
@@ -86,12 +87,10 @@ export function EntryActions({
     <>
       {isCorrecting ? (
         <form className="mt-4" onSubmit={submit}>
-          <label htmlFor={textId} className="text-sm font-semibold text-ink">
-            {t("entryActions.correctLabel")}
-          </label>
-          <textarea
+          <Label htmlFor={textId}>{t("entryActions.correctLabel")}</Label>
+          <TextArea
+            className="min-h-28"
             id={textId}
-            className="mt-2 min-h-28 w-full rounded-xl border border-primary/20 px-3 py-2 text-body"
             value={body}
             aria-describedby={theirs !== null ? changedId : undefined}
             onChange={(event) => setBody(event.target.value)}

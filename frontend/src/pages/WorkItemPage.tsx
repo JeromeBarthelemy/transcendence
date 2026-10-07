@@ -29,9 +29,12 @@ import { Button, TextButton } from "../components/Button";
 import { StatusChip } from "../components/Chip";
 import { EmptyState } from "../components/EmptyState";
 import { EntryActions } from "../components/EntryActions";
+import { Label, Select, TextArea } from "../components/Field";
 import { IconLabel } from "../components/Icon";
 import { ConfirmPanel, Notice, SuccessMessage } from "../components/Notice";
+import { Page } from "../components/Page";
 import { Panel } from "../components/Panel";
+import { Eyebrow, Heading } from "../components/Typography";
 
 const dateFormatter = new Intl.DateTimeFormat("fr-FR", {
   dateStyle: "long",
@@ -106,12 +109,9 @@ function AttachmentUploader({
 
   return (
     <form className="mt-6 border-t border-primary/10 pt-5" onSubmit={submit}>
-      <label
-        htmlFor={`attachment-file-${entryId}`}
-        className="text-sm font-semibold text-ink"
-      >
+      <Label htmlFor={`attachment-file-${entryId}`}>
         {t("workItem.addAttachment")}
-      </label>
+      </Label>
       <p className="mt-1 text-xs leading-5 text-muted">
         {t("workItem.attachmentHint")}
       </p>
@@ -258,15 +258,12 @@ function ProgressEditor({
         ) : (
           <p className="mt-2 text-sm text-muted">{t("workItem.nothingYet")}</p>
         )}
-        <label
-          htmlFor={`progress-addition-${entry.id}`}
-          className="mt-5 block text-sm font-semibold text-ink"
-        >
+        <Label className="mt-5 block" htmlFor={`progress-addition-${entry.id}`}>
           {t("workItem.addition")}
-        </label>
-        <textarea
+        </Label>
+        <TextArea
+          className="min-h-28"
           id={`progress-addition-${entry.id}`}
-          className="mt-2 min-h-28 w-full rounded-xl border border-primary/20 px-3 py-2 text-body"
           value={addition}
           placeholder={t("workItem.additionPlaceholder")}
           onChange={(event) => {
@@ -275,15 +272,13 @@ function ProgressEditor({
           }}
         />
 
-        <label
-          htmlFor={`progress-handover-${entry.id}`}
-          className="mt-5 block text-sm font-semibold text-ink"
-        >
+        <Label className="mt-5 block" htmlFor={`progress-handover-${entry.id}`}>
           {t("workItem.nextTime")}
-        </label>
-        <textarea
+        </Label>
+        <TextArea
+          tone="warning"
+          className="min-h-24"
           id={`progress-handover-${entry.id}`}
-          className="mt-2 min-h-24 w-full rounded-xl border border-warning/35 bg-warning-wash px-3 py-2 text-body"
           value={handover}
           placeholder={t("workItem.nextTimePlaceholder")}
           aria-describedby={
@@ -378,19 +373,16 @@ function TodayPanel({
 
   return (
     <Panel as="section" padding="lg" aria-labelledby="today-title">
-      <p className="text-xs font-bold tracking-[0.14em] text-accent uppercase">
-        {t("workItem.today")}
-      </p>
-      <h2 id="today-title" className="brand-title mt-1 text-2xl text-ink">
+      <Eyebrow>{t("workItem.today")}</Eyebrow>
+      <Heading size="section" className="mt-1" id="today-title">
         {progress ? t("workItem.todayProgress") : t("workItem.noProgressToday")}
-      </h2>
+      </Heading>
 
       {item.on_robot && (
         <div className="mt-5 flex flex-col gap-3 rounded-2xl bg-mist p-4 sm:flex-row sm:items-end">
-          <label className="flex-1 text-sm font-semibold text-ink">
+          <Label className="flex-1">
             {t("workItem.currentStep")}
-            <select
-              className="mt-2 block w-full rounded-xl border border-primary/20 bg-white px-3 py-2 font-normal"
+            <Select
               value={selectedStep}
               onChange={(event) =>
                 setSelectedStep(event.target.value as WorkItemStep)
@@ -401,8 +393,8 @@ function TodayPanel({
                   {t(`teamHome.steps.${step}`)}
                 </option>
               ))}
-            </select>
-          </label>
+            </Select>
+          </Label>
           <Button
             variant="dark"
             disabled={
@@ -661,22 +653,19 @@ function WorkItemNoteForm({ item }: { item: WorkItemDetail }) {
 
   return (
     <Panel as="section" padding="lg" aria-labelledby="work-item-note-title">
-      <h2 id="work-item-note-title" className="brand-title text-2xl text-ink">
+      <Heading size="section" id="work-item-note-title">
         <IconLabel icon="pen-to-square">{t("workItem.addNote")}</IconLabel>
-      </h2>
+      </Heading>
       <p className="mt-2 text-sm leading-6 text-muted">
         {t("workItem.noteHint")}
       </p>
       <form className="mt-4" onSubmit={submit}>
-        <label
-          htmlFor={`work-item-note-${item.id}`}
-          className="text-sm font-semibold text-ink"
-        >
+        <Label htmlFor={`work-item-note-${item.id}`}>
           {t("workItem.noteLabel")}
-        </label>
-        <textarea
+        </Label>
+        <TextArea
+          className="min-h-24"
           id={`work-item-note-${item.id}`}
-          className="mt-2 min-h-24 w-full rounded-xl border border-primary/20 px-3 py-2 text-body"
           value={body}
           placeholder={t("workItem.notePlaceholder")}
           onChange={(event) => {
@@ -733,7 +722,7 @@ function WorkItemScreen({
   });
 
   return (
-    <main className="mx-auto w-full max-w-6xl flex-1 px-5 py-10 sm:px-8 sm:py-14">
+    <Page width="6xl">
       <Link
         to="/"
         className="text-sm font-semibold text-primary hover:underline"
@@ -744,7 +733,7 @@ function WorkItemScreen({
 
       <header className="mt-7 flex flex-col justify-between gap-5 border-b border-primary/10 pb-7 sm:flex-row sm:items-end">
         <div>
-          <p className="text-sm font-bold tracking-[0.14em] text-accent uppercase">
+          <Eyebrow size="sm">
             {item.on_robot ? t("teamHome.robot") : t("teamHome.offRobot")}
             {team && (
               <>
@@ -754,10 +743,10 @@ function WorkItemScreen({
                 </IconLabel>
               </>
             )}
-          </p>
-          <h1 className="brand-title mt-2 text-4xl tracking-[-0.04em] text-ink sm:text-5xl">
+          </Eyebrow>
+          <Heading size="display" className="mt-2">
             {item.title}
-          </h1>
+          </Heading>
           <p className="mt-3 text-sm text-muted">
             {t("workItem.openedOn", {
               date: dateFormatter.format(new Date(item.opened_at)),
@@ -829,9 +818,9 @@ function WorkItemScreen({
           padding="lg"
           className="mt-8"
         >
-          <h2 className="text-xs font-bold tracking-[0.14em] uppercase">
+          <Eyebrow tone="inherit" as="h2">
             {t("workItem.handover")}
-          </h2>
+          </Eyebrow>
           <p className="mt-2 whitespace-pre-wrap leading-7">
             {item.handover.body}
           </p>
@@ -853,12 +842,10 @@ function WorkItemScreen({
         </div>
 
         <section aria-labelledby="history-title">
-          <p className="text-xs font-bold tracking-[0.14em] text-accent uppercase">
-            {t("workItem.fromStart")}
-          </p>
-          <h2 id="history-title" className="brand-title mt-1 text-3xl text-ink">
+          <Eyebrow>{t("workItem.fromStart")}</Eyebrow>
+          <Heading size="large" className="mt-1" id="history-title">
             <IconLabel icon="scroll">{t("workItem.history")}</IconLabel>
-          </h2>
+          </Heading>
           {item.thread.length > 0 ? (
             <ol className="mt-6">
               {item.thread.map((entry) => (
@@ -872,7 +859,7 @@ function WorkItemScreen({
           )}
         </section>
       </div>
-    </main>
+    </Page>
   );
 }
 
@@ -891,11 +878,11 @@ export function WorkItemPage() {
 
   if (currentUser.isPending) {
     return (
-      <main className="mx-auto w-full max-w-6xl flex-1 px-5 py-14 sm:px-8">
+      <Page width="6xl" message>
         <p role="status" className="text-sm text-muted">
           {t("auth.checkingSession")}
         </p>
-      </main>
+      </Page>
     );
   }
   if (currentUser.isError) {
@@ -906,27 +893,27 @@ export function WorkItemPage() {
   }
   if (!validId) {
     return (
-      <main className="mx-auto w-full max-w-6xl flex-1 px-5 py-14 sm:px-8">
+      <Page width="6xl" message>
         <p role="alert" className="text-sm text-red-800">
           {t("workItem.invalid")}
         </p>
-      </main>
+      </Page>
     );
   }
   if (workItem.isPending) {
     return (
-      <main className="mx-auto w-full max-w-6xl flex-1 px-5 py-14 sm:px-8">
+      <Page width="6xl" message>
         <p role="status" className="text-sm text-muted">
           {t("workItem.loading")}
         </p>
-      </main>
+      </Page>
     );
   }
   if (workItem.isError) {
     return (
-      <main className="mx-auto w-full max-w-6xl flex-1 px-5 py-14 sm:px-8">
+      <Page width="6xl" message>
         <RequestError error={workItem.error} />
-      </main>
+      </Page>
     );
   }
 

@@ -36,16 +36,17 @@ import {
 import { Avatar } from "../components/Avatar";
 import { Button } from "../components/Button";
 import { EmptyState } from "../components/EmptyState";
+import { Label, TextInput } from "../components/Field";
 import { IconLabel } from "../components/Icon";
 import { ConfirmPanel } from "../components/Notice";
+import { Page } from "../components/Page";
 import { Panel } from "../components/Panel";
+import { Eyebrow, Heading } from "../components/Typography";
 
 const teamsQueryKey = ["teams"] as const;
 const SEARCH_DELAY_MS = 250;
 const nameCollator = new Intl.Collator("fr-FR", { sensitivity: "base" });
 
-const inputClass =
-  "mt-2 block w-full rounded-xl border border-primary/20 bg-white px-3 py-2 font-normal text-body";
 const dropdownClass =
   "absolute z-10 mt-1 max-h-64 w-full overflow-y-auto rounded-xl border border-primary/15 bg-white py-2 shadow-lg";
 
@@ -95,17 +96,13 @@ function CreateTeamForm({ seasonYear }: { seasonYear: number }) {
 
   return (
     <Panel as="form" aria-labelledby="create-team-title" onSubmit={submit}>
-      <h2
-        id="create-team-title"
-        className="text-xs font-bold tracking-[0.14em] text-accent uppercase"
-      >
+      <Eyebrow as="h2" id="create-team-title">
         {t("teams.createTitle")}
-      </h2>
+      </Eyebrow>
       <div className="mt-4 grid gap-4 sm:grid-cols-[10rem_1fr_auto] sm:items-start">
-        <label className="text-sm font-semibold text-ink">
+        <Label>
           {t("teams.number")}
-          <input
-            className={inputClass}
+          <TextInput
             type="number"
             min={1}
             inputMode="numeric"
@@ -118,11 +115,10 @@ function CreateTeamForm({ seasonYear }: { seasonYear: number }) {
             id="create-team-number-errors"
             issues={fieldIssues(create.error, "number")}
           />
-        </label>
-        <label className="text-sm font-semibold text-ink">
+        </Label>
+        <Label>
           {t("teams.name")}
-          <input
-            className={inputClass}
+          <TextInput
             required
             maxLength={120}
             value={name}
@@ -133,7 +129,7 @@ function CreateTeamForm({ seasonYear }: { seasonYear: number }) {
             id="create-team-name-errors"
             issues={fieldIssues(create.error, "name")}
           />
-        </label>
+        </Label>
         <Button
           variant="primary"
           className="sm:mt-7"
@@ -225,12 +221,11 @@ function MemberSearch({ team }: { team: ManagedTeam }) {
 
   return (
     <div className="relative">
-      <label htmlFor={inputId} className="text-sm font-semibold text-ink">
+      <Label htmlFor={inputId}>
         <IconLabel icon="user-plus">{t("teams.addMember")}</IconLabel>
-      </label>
-      <input
+      </Label>
+      <TextInput
         id={inputId}
-        className={inputClass}
         type="text"
         role="combobox"
         autoComplete="off"
@@ -383,18 +378,17 @@ function TeamCard({ team }: { team: ManagedTeam }) {
     <Panel as="article" aria-labelledby={titleId}>
       {isRenaming ? (
         <form onSubmit={submitRename}>
-          <label className="text-sm font-semibold text-ink">
+          <Label>
             {t("teams.renameLabel", { number: team.number })}
-            <input
-              className={inputClass}
+            <TextInput
               required
               maxLength={120}
               value={newName}
-              // biome-ignore lint/a11y/noAutofocus: the field the button just opened.
+              // Autofocus: the field the button just opened.
               autoFocus
               onChange={(event) => setNewName(event.target.value)}
             />
-          </label>
+          </Label>
           <FieldErrors
             id={`${titleId}-rename-errors`}
             issues={fieldIssues(rename.error, "name")}
@@ -429,11 +423,11 @@ function TeamCard({ team }: { team: ManagedTeam }) {
         </form>
       ) : (
         <div className="flex flex-wrap items-start justify-between gap-3">
-          <h2 id={titleId} className="brand-title text-2xl text-ink">
+          <Heading size="section" id={titleId}>
             <IconLabel icon="team" before>
               {label}
             </IconLabel>
-          </h2>
+          </Heading>
           <div className="flex gap-2">
             <Button
               size="sm"
@@ -518,13 +512,11 @@ function TeamManagement() {
   });
 
   return (
-    <main className="mx-auto w-full max-w-4xl flex-1 px-5 py-10 sm:px-8 sm:py-14">
-      <p className="text-sm font-bold tracking-[0.14em] text-accent uppercase">
-        {t("teams.eyebrow")}
-      </p>
-      <h1 className="brand-title mt-3 text-3xl tracking-[-0.035em] text-ink sm:text-4xl">
+    <Page>
+      <Eyebrow size="sm">{t("teams.eyebrow")}</Eyebrow>
+      <Heading size="page" className="mt-3">
         {t("teams.title")}
-      </h1>
+      </Heading>
 
       {teams.isPending ? (
         <p role="status" className="mt-8 text-sm text-muted">
@@ -555,7 +547,7 @@ function TeamManagement() {
           </div>
         </>
       )}
-    </main>
+    </Page>
   );
 }
 

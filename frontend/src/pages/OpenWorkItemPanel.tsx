@@ -10,13 +10,12 @@ import {
   RequestError,
 } from "../components/ApiErrors";
 import { Button } from "../components/Button";
+import { Label, Select, TextInput } from "../components/Field";
 import { Panel } from "../components/Panel";
+import { Eyebrow } from "../components/Typography";
 import { SUGGESTIONS, sameTitle, suggestionsFor } from "./suggestions";
 
 const OTHER = ":other";
-
-const inputClass =
-  "mt-1 block w-full rounded-xl border border-primary/20 bg-white px-3 py-2 text-sm font-normal";
 
 function OpenWorkItemForm({
   teamSeasonId,
@@ -70,20 +69,15 @@ function OpenWorkItemForm({
 
   return (
     <Panel as="section" aria-labelledby={titleId} className="mt-4">
-      <h2
-        id={titleId}
-        className="text-xs font-bold tracking-[0.14em] text-accent uppercase"
-      >
+      <Eyebrow as="h2" id={titleId}>
         {t("openWorkItem.title")}
-      </h2>
+      </Eyebrow>
       <form className="mt-4 space-y-4" onSubmit={submit}>
         <div>
-          <label htmlFor={choiceId} className="text-sm font-semibold text-ink">
-            {t("openWorkItem.choice")}
-          </label>
-          <select
+          <Label htmlFor={choiceId}>{t("openWorkItem.choice")}</Label>
+          <Select
+            className="mt-1 text-sm"
             id={choiceId}
-            className={inputClass}
             value={choice}
             onChange={(event) => setChoice(event.target.value)}
           >
@@ -112,21 +106,16 @@ function OpenWorkItemForm({
               );
             })}
             <option value={OTHER}>{t("openWorkItem.other")}</option>
-          </select>
+          </Select>
         </div>
 
         {other && (
           <>
             <div>
-              <label
-                htmlFor={inputId}
-                className="text-sm font-semibold text-ink"
-              >
-                {t("openWorkItem.name")}
-              </label>
-              <input
+              <Label htmlFor={inputId}>{t("openWorkItem.name")}</Label>
+              <TextInput
+                className="mt-1 text-sm"
                 id={inputId}
-                className={inputClass}
                 value={name}
                 maxLength={120}
                 placeholder={t("openWorkItem.namePlaceholder")}

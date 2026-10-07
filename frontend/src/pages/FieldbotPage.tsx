@@ -25,6 +25,7 @@ import {
 } from "../components/ApiErrors";
 import { Avatar } from "../components/Avatar";
 import { Chip } from "../components/Chip";
+import { Page } from "../components/Page";
 
 /** Past this many characters, the box says how many are left. */
 const COUNTER_FROM = QUESTION_MAX_LENGTH - 100;
@@ -303,18 +304,18 @@ export function FieldbotPage() {
 
   if (currentUser.isPending) {
     return (
-      <main className="mx-auto w-full max-w-3xl flex-1 px-5 py-14 sm:px-8">
+      <Page width="3xl" message>
         <p role="status" className="text-sm text-muted">
           {t("auth.checkingSession")}
         </p>
-      </main>
+      </Page>
     );
   }
   if (currentUser.isError) {
     return (
-      <main className="mx-auto w-full max-w-3xl flex-1 px-5 py-14 sm:px-8">
+      <Page width="3xl" message>
         <RequestError error={currentUser.error} />
-      </main>
+      </Page>
     );
   }
   if (!currentUser.data) {
