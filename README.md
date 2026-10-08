@@ -601,6 +601,15 @@ has the same values in an accessible table, so colour and pointer interaction
 are never required. The member table keeps the API's neutral order and wording:
 it describes days, traces and distinct work items, without scores or rankings.
 
+The day-summary screen keeps the previous/next recorded-session links and
+adds a permanent Today action and a native date picker. Selecting a date
+opens its URL, including empty days. Today opens `/days/today` and is marked
+beside the heading; an explicit date matching today is marked too. The
+server's `today` response resolves the club's 4 a.m. workday rather than the
+browser's clock or time zone. Its query is shared with the displayed summary
+when viewing today; dated summaries also read today through the query cache.
+This is direct date navigation, not the monthly activity calendar.
+
 The export is raw material for the portfolio, which students write elsewhere:
 the season's entries by category — building the robot (work items on the
 robot), outreach (off the robot), team life (no work item) — each work item

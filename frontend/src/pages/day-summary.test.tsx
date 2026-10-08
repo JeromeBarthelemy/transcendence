@@ -1,5 +1,13 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, render, screen, within } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { createMemoryRouter, RouterProvider } from "react-router-dom";
 import { afterEach, expect, it, vi } from "vitest";
 
@@ -74,13 +82,31 @@ function day(fields: object = {}) {
   };
 }
 
-function renderSummary(workday: object, me: Response = json(identity)) {
+function renderSummary(
+  workday: object,
+  me: Response = json(identity),
+  options: {
+    initialDay?: string;
+    today?: object;
+    days?: Record<string, object>;
+  } = {},
+) {
+  const initialDay = options.initialDay ?? "2026-09-30";
   const fetchMock = vi.fn(async (path: string) => {
     if (path === "/api/auth/me/") {
       return me;
     }
-    if (path === "/api/team-seasons/7/days/2026-09-30/") {
+    if (path === `/api/team-seasons/7/days/${initialDay}/`) {
       return json(workday);
+    }
+    if (path === "/api/team-seasons/7/days/today/") {
+      return json(options.today ?? day({ day: "2026-10-08" }));
+    }
+    const selectedDay = path.match(
+      /^\/api\/team-seasons\/7\/days\/(\d{4}-\d{2}-\d{2})\/$/,
+    )?.[1];
+    if (selectedDay && options.days?.[selectedDay]) {
+      return json(options.days[selectedDay]);
     }
     throw new Error(`Unexpected request: ${path}`);
   });
@@ -89,14 +115,14 @@ function renderSummary(workday: object, me: Response = json(identity)) {
     defaultOptions: { queries: { retry: false } },
   });
   const router = createMemoryRouter(routes, {
-    initialEntries: ["/team-seasons/7/days/2026-09-30"],
+    initialEntries: [`/team-seasons/7/days/${initialDay}`],
   });
   render(
     <QueryClientProvider client={queryClient}>
       <RouterProvider router={router} />
     </QueryClientProvider>,
   );
-  return fetchMock;
+  return { fetchMock, router };
 }
 
 function listItemWith(text: string | RegExp): HTMLElement {
@@ -110,6 +136,7 @@ function listItemWith(text: string | RegExp): HTMLElement {
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
+  vi.useRealTimers();
 });
 
 it("heads the page with the weekday of the day it shows", async () => {
@@ -207,7 +234,7 @@ it("names the work item a note was left on", async () => {
 });
 
 it("sends a visitor who is not signed in to the login page", async () => {
-  const fetchMock = renderSummary(day(), json(null));
+  const { fetchMock } = renderSummary(day(), json(null));
 
   expect(await screen.findByLabelText("Mot de passe")).toBeTruthy();
   expect(
@@ -242,4 +269,153 @@ it("says so when nothing was written that day", async () => {
   expect(
     await screen.findByText("Rien n'a été écrit ce jour-là."),
   ).toBeTruthy();
+});
+
+it("returns to the server's current workday even when the latest session has no next link", async () => {
+  const user = userEvent.setup();
+  const { fetchMock, router } = renderSummary(day({ next: null }), undefined, {
+    today: day({ day: "2026-10-08" }),
+  });
+
+  const today = await screen.findByRole("link", { name: "Aujourd'hui" });
+  expect(today.getAttribute("href")).toBe("/team-seasons/7/days/today");
+  await user.click(today);
+
+  expect(
+    await screen.findByRole("heading", { name: "Jeudi 8 octobre" }),
+  ).toBeTruthy();
+  expect(router.state.location.pathname).toBe("/team-seasons/7/days/today");
+  expect(
+    screen
+      .getByRole("link", { name: "Aujourd'hui" })
+      .getAttribute("aria-current"),
+  ).toBe("date");
+  expect(
+    (screen.getByLabelText("Choisir une date") as HTMLInputElement).value,
+  ).toBe("2026-10-08");
+  expect(
+    fetchMock.mock.calls.some(
+      ([path]) => path === "/api/team-seasons/7/days/today/",
+    ),
+  ).toBe(true);
+});
+
+it("clearly identifies today and deduplicates its summary request", async () => {
+  const { fetchMock } = renderSummary(day({ day: "2026-10-08" }), undefined, {
+    initialDay: "today",
+  });
+
+  const heading = await screen.findByRole("heading", {
+    name: "Jeudi 8 octobre",
+  });
+  expect(
+    within(heading.parentElement as HTMLElement).getByText("Aujourd'hui"),
+  ).toBeTruthy();
+  expect(
+    fetchMock.mock.calls.filter(
+      ([path]) => path === "/api/team-seasons/7/days/today/",
+    ),
+  ).toHaveLength(1);
+});
+
+it("also identifies an explicit date matching the server's workday, not the browser clock", async () => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  // At 01:30 in Paris the server still considers this the previous workday.
+  vi.setSystemTime(new Date("2026-09-30T23:30:00Z"));
+  renderSummary(day(), undefined, { today: day() });
+
+  await waitFor(() => {
+    expect(
+      screen
+        .getByRole("link", { name: "Aujourd'hui" })
+        .getAttribute("aria-current"),
+    ).toBe("date");
+  });
+  expect(screen.getAllByText("Aujourd'hui")).toHaveLength(2);
+});
+
+it("does not mark a past date as today", async () => {
+  renderSummary(day());
+
+  const today = await screen.findByRole("link", { name: "Aujourd'hui" });
+  expect(today.hasAttribute("aria-current")).toBe(false);
+  expect(screen.getAllByText("Aujourd'hui")).toHaveLength(1);
+  expect(
+    (screen.getByLabelText("Choisir une date") as HTMLInputElement).value,
+  ).toBe("2026-09-30");
+});
+
+it("opens an arbitrary selected date and preserves its empty state", async () => {
+  const { fetchMock, router } = renderSummary(day(), undefined, {
+    days: { "2026-09-28": day({ day: "2026-09-28" }) },
+  });
+
+  fireEvent.change(await screen.findByLabelText("Choisir une date"), {
+    target: { value: "2026-09-28" },
+  });
+
+  expect(
+    await screen.findByRole("heading", { name: "Lundi 28 septembre" }),
+  ).toBeTruthy();
+  expect(router.state.location.pathname).toBe(
+    "/team-seasons/7/days/2026-09-28",
+  );
+  expect(screen.getByText("Rien n'a été écrit ce jour-là.")).toBeTruthy();
+  expect(
+    (screen.getByLabelText("Choisir une date") as HTMLInputElement).value,
+  ).toBe("2026-09-28");
+  expect(
+    fetchMock.mock.calls.some(
+      ([path]) => path === "/api/team-seasons/7/days/2026-09-28/",
+    ),
+  ).toBe(true);
+});
+
+it("does not navigate when the date picker is cleared", async () => {
+  const { fetchMock, router } = renderSummary(day());
+  const picker = await screen.findByLabelText("Choisir une date");
+  const requests = fetchMock.mock.calls.length;
+
+  fireEvent.change(picker, { target: { value: "" } });
+
+  expect(router.state.location.pathname).toBe(
+    "/team-seasons/7/days/2026-09-30",
+  );
+  expect(fetchMock.mock.calls).toHaveLength(requests);
+});
+
+it("still navigates between recorded sessions and updates the date picker", async () => {
+  const user = userEvent.setup();
+  const { router } = renderSummary(
+    day({ previous: "2026-09-26", next: "2026-10-02" }),
+    undefined,
+    {
+      days: {
+        "2026-09-26": day({ day: "2026-09-26", next: "2026-09-30" }),
+        "2026-10-02": day({ day: "2026-10-02", previous: "2026-09-30" }),
+      },
+    },
+  );
+
+  await user.click(
+    await screen.findByRole("link", { name: /samedi 26 septembre/ }),
+  );
+  await screen.findByRole("heading", { name: "Samedi 26 septembre" });
+  expect(router.state.location.pathname).toBe(
+    "/team-seasons/7/days/2026-09-26",
+  );
+  expect(
+    (screen.getByLabelText("Choisir une date") as HTMLInputElement).value,
+  ).toBe("2026-09-26");
+
+  await user.click(screen.getByRole("link", { name: /mercredi 30 septembre/ }));
+  await screen.findByRole("heading", { name: "Mercredi 30 septembre" });
+  await user.click(screen.getByRole("link", { name: /vendredi 2 octobre/ }));
+  await screen.findByRole("heading", { name: "Vendredi 2 octobre" });
+  expect(router.state.location.pathname).toBe(
+    "/team-seasons/7/days/2026-10-02",
+  );
+  expect(
+    (screen.getByLabelText("Choisir une date") as HTMLInputElement).value,
+  ).toBe("2026-10-02");
 });

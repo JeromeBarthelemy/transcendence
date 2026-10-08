@@ -471,6 +471,11 @@
   },
   "daySummary": {
     "loading": "Chargement de la journée…",
+    "today": "Aujourd'hui",
+    "chooseDate": "Choisir une date",
+    "recordedSessions": "Séances précédentes et suivantes",
+    "previousSession": "Séance précédente : {{date}}",
+    "nextSession": "Séance suivante : {{date}}",
     "produced": "Ce que la journée a produit",
     "empty": "Rien n'a été écrit ce jour-là.",
     "decision": "Décision",
