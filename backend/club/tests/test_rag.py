@@ -2,7 +2,15 @@ import pytest
 
 from club.generation import GenerationError
 from club.models import Document, Season, User
-from club.rag import NO_ANSWER, ask, chunk_manual, chunk_qa, embed, ingest_document
+from club.rag import (
+    GENERATION_UNAVAILABLE,
+    NO_ANSWER,
+    ask,
+    chunk_manual,
+    chunk_qa,
+    embed,
+    ingest_document,
+)
 
 RULE = (
     "Le robot ne doit jamais dépasser dix-huit pouces de hauteur pendant "
@@ -331,8 +339,34 @@ def test_a_generation_failure_leaves_the_citations_standing_alone(monkeypatch):
         lina,
     )
 
-    assert query.answer == ""
+    # #207's own review: previously silent (""), indistinguishable on
+    # screen from a question simply having no sentence worth writing.
+    assert query.answer == GENERATION_UNAVAILABLE
     assert query.citations.exists()
+
+
+def test_a_generation_failure_logs_its_cause(monkeypatch, caplog):
+    # #207's own review: GenerationError was swallowed without a trace,
+    # so "the model is busy", "the timeout fired" and "a bad citation"
+    # all looked identical from the outside.
+    this_season = season()
+    document(this_season, source=Document.Source.GAME_MANUAL, text=RULE_HTML)
+    lina = asker()
+
+    def failing(question, chunks):
+        raise GenerationError("hors ligne")
+
+    monkeypatch.setattr("club.rag.generate_answer", failing)
+
+    with caplog.at_level("WARNING"):
+        ask(
+            "Quelle est la hauteur maximale du robot en pouces pendant la "
+            "phase autonome ?",
+            this_season,
+            lina,
+        )
+
+    assert "hors ligne" in caplog.text
 
 
 def test_an_unmatched_question_never_calls_the_model(monkeypatch):

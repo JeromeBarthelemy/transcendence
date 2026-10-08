@@ -22,6 +22,7 @@ offline after its one-time download — nothing about the club's "tout
 tourne en local" posture changes, only what `embed()` does inside.
 """
 
+import logging
 import re
 import struct
 from collections.abc import Callable
@@ -114,6 +115,19 @@ NO_ANSWER = (
     "Le manuel et le Q&A officiel ne disent rien d'assez sûr sur cette "
     "question. Consultez le Q&A officiel de FIRST pour une réponse engageante."
 )
+
+# Read when something *did* clear MIN_SCORE but generate_answer still
+# couldn't produce a sentence (#207's own review: previously a silent ""
+# with nothing on screen explaining it, next to citations that look
+# unexplained without it). The passages below answer either way; this
+# only says why no sentence sits above them this time, same as NO_ANSWER
+# does for the no-passage case.
+GENERATION_UNAVAILABLE = (
+    "La réponse rédigée n'a pas pu être produite cette fois. Les passages "
+    "ci-dessous répondent tout de même à la question."
+)
+
+logger = logging.getLogger(__name__)
 
 _model: TextEmbedding | None = None
 
@@ -424,8 +438,12 @@ def ask(question: str, season: Season, asker: User) -> RuleQuery:
     sources, a citation existing at all already means it came from one of
     the two, but no citation means there is nothing to write from either.
     A model that cannot be reached, or answers with nothing readable,
-    leaves `answer` empty instead of failing the question: the citations
-    still stand on their own under it.
+    leaves `answer` as `GENERATION_UNAVAILABLE` instead of failing the
+    question: the citations still stand on their own under it, with a
+    sentence saying why no generated one sits above them this time
+    (#207's own review: previously silent, which a student reading only
+    citations with no sentence couldn't tell apart from the question
+    simply having a less certain source).
 
     Only the latest `Document` per (season, source) is searched: FIRST
     republishes the manual with every Team Update (§1.7.3), and citing an
@@ -484,8 +502,9 @@ def ask(question: str, season: Season, asker: User) -> RuleQuery:
     if matches:
         try:
             answer = generate_answer(question, [chunk for _, chunk in matches])
-        except GenerationError:
-            answer = ""
+        except GenerationError as error:
+            logger.warning("rulebook generation failed: %s", error)
+            answer = GENERATION_UNAVAILABLE
 
     with transaction.atomic():
         query = RuleQuery.objects.create(asker=asker, question=question, answer=answer)
