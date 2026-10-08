@@ -156,17 +156,23 @@ def test_generate_answer_refuses_a_citation_that_was_never_retrieved(monkeypatch
         generate_answer("Une question ?", [chunk()])
 
 
+def _content(text, done_reason="stop"):
+    return FakeResponse(
+        json.dumps({"message": {"content": text}, "done_reason": done_reason}).encode()
+    )
+
+
 def test_generate_answer_trims_a_token_cut_answer_to_its_last_full_sentence(
     monkeypatch,
 ):
     # GENERATION_MAX_TOKENS can stop the model mid-word; the answer still
     # reads as finished once trimmed back to the sentence before the cut.
+    # Ollama's own done_reason ("length") is what says a cut actually
+    # happened — without it, trimming never runs at all.
     monkeypatch.setattr(
         "club.generation.urlopen",
-        lambda request, timeout: FakeResponse(
-            json.dumps(
-                {"message": {"content": "Interdit, selon [G102]. Autre chose non ter"}}
-            ).encode()
+        lambda request, timeout: _content(
+            "Interdit, selon [G102]. Autre chose non ter", done_reason="length"
         ),
     )
 
@@ -176,24 +182,107 @@ def test_generate_answer_trims_a_token_cut_answer_to_its_last_full_sentence(
 def test_generate_answer_refuses_an_answer_cut_before_any_full_sentence(monkeypatch):
     monkeypatch.setattr(
         "club.generation.urlopen",
-        lambda request, timeout: FakeResponse(
-            json.dumps(
-                {"message": {"content": "Selon [G102], il est permis de"}}
-            ).encode()
+        lambda request, timeout: _content(
+            "Selon [G102], il est permis de", done_reason="length"
         ),
     )
 
     with pytest.raises(GenerationError):
         generate_answer("Une question ?", [chunk()])
+
+
+def test_generate_answer_does_not_trim_an_answer_that_finished_on_its_own(monkeypatch):
+    # #207's own review: a model ending right on its citation, with no
+    # final full stop, is a common and legitimate way to finish — not a
+    # sign of a cut. done_reason "stop" (or anything but "length") must
+    # leave it alone rather than go looking for a sentence to "complete".
+    monkeypatch.setattr(
+        "club.generation.urlopen",
+        lambda request, timeout: _content(
+            "AUTO dure 30 secondes [6.1.2]", done_reason="stop"
+        ),
+    )
+
+    assert (
+        generate_answer("Une question ?", [chunk(reference="6.1.2")])
+        == "AUTO dure 30 secondes [6.1.2]"
+    )
+
+
+def test_generate_answer_trims_without_mistaking_a_dotted_reference_for_the_cut(
+    monkeypatch,
+):
+    # #207's own review: the old cut-at-the-last-dot logic found the dots
+    # inside [11.3.4] itself and sliced the citation in half. The real
+    # sentence boundary is the one after "Vrai.", not inside a reference.
+    monkeypatch.setattr(
+        "club.generation.urlopen",
+        lambda request, timeout: _content(
+            "Vrai. Selon la règle [11.3.4] les robo", done_reason="length"
+        ),
+    )
+
+    assert generate_answer("Une question ?", [chunk(reference="11.3.4")]) == "Vrai."
 
 
 def test_generate_answer_refuses_a_citation_shortened_to_its_bare_number(monkeypatch):
     monkeypatch.setattr(
         "club.generation.urlopen",
-        lambda request, timeout: FakeResponse(
-            json.dumps({"message": {"content": "Interdit, selon [102]."}}).encode()
-        ),
+        lambda request, timeout: _content("Interdit, selon [102]."),
     )
 
     with pytest.raises(GenerationError):
         generate_answer("Une question ?", [chunk()])
+
+
+def test_generate_answer_refuses_several_references_packed_in_one_bracket(
+    monkeypatch,
+):
+    # [chunk()] only retrieved G102: a model allowed to list several
+    # references per bracket could smuggle an invented one past a check
+    # that only reads the first token in each pair of brackets.
+    monkeypatch.setattr(
+        "club.generation.urlopen",
+        lambda request, timeout: _content("Selon [G102, 9.9.9]."),
+    )
+
+    with pytest.raises(GenerationError):
+        generate_answer("Une question ?", [chunk()])
+
+
+def test_generate_answer_refuses_a_reference_cited_in_parentheses(monkeypatch):
+    # The system prompt asks for [brackets]; a model that drifts to
+    # (parentheses) instead must not get a free pass for it.
+    monkeypatch.setattr(
+        "club.generation.urlopen",
+        lambda request, timeout: _content("Selon la (règle 9.9.9)."),
+    )
+
+    with pytest.raises(GenerationError):
+        generate_answer("Une question ?", [chunk()])
+
+
+def test_generate_answer_refuses_a_hyphenated_reference_not_retrieved(monkeypatch):
+    monkeypatch.setattr(
+        "club.generation.urlopen",
+        lambda request, timeout: _content("Interdit, selon [G-102]."),
+    )
+
+    with pytest.raises(GenerationError):
+        generate_answer("Une question ?", [chunk()])
+
+
+def test_generate_answer_does_not_mistake_an_ordinary_parenthetical_for_a_citation(
+    monkeypatch,
+):
+    # No digit, no reference: an aside in parentheses must not be read as
+    # an attempted citation and refused for failing to match one.
+    monkeypatch.setattr(
+        "club.generation.urlopen",
+        lambda request, timeout: _content("Interdit (sauf exception), selon [G102]."),
+    )
+
+    assert (
+        generate_answer("Une question ?", [chunk()])
+        == "Interdit (sauf exception), selon [G102]."
+    )

@@ -32,12 +32,18 @@ GENERATION_TIMEOUT_SECONDS = 10
 # Three sentences rarely need more; a cap keeps a rambling answer from
 # running past the timeout above on its own.
 GENERATION_MAX_TOKENS = 120
-# A real manual's passage runs ~850 characters on average, some past 2000
-# (club/rag.py's docstring) — most of a rule's own substance is in its
-# first sentences, the rest mostly examples and edge cases. Cut well short
-# of that: the prompt this builds is what the model actually has to read
-# before writing anything, and it dominates generation time more than the
-# answer's own length does.
+# A real passage runs 653 characters at the median, some past 2000; this
+# cuts 87% of them to roughly their first 25 words — short enough that
+# the model is often writing from a fragment of a passage rather than the
+# passage, the same wrong-content risk TOP_K went to 10 to avoid in the
+# first place (#207's own review). Raising it was tried and measured back
+# out: at TOP_K=10 the prompt is up to ten passages long, so each added
+# character here is paid ten times over, and a real sweep against this
+# manual (150 → 220 chars) already pushed the median past the 6-7s this
+# model was chosen to hold and p95 past GENERATION_TIMEOUT_SECONDS. Fewer,
+# more complete passages reaching the model — generation reading less of
+# `ask`'s own TOP_K than it cites — would need its own measurement, not a
+# number changed here on the strength of this alone.
 GENERATION_MAX_PASSAGE_CHARS = 150
 
 SYSTEM_PROMPT = (
@@ -53,10 +59,22 @@ SYSTEM_PROMPT = (
     "d'inventer une réponse."
 )
 
-# A citation is only ever trusted when it names a reference `ask` actually
-# retrieved — never the model's word for it (see `generate_answer`).
-_CITATION_RE = re.compile(r"\[([A-Za-z0-9.]+)\]")
-_SENTENCE_ENDS = (".", "!", "?")
+# The system prompt asks for a reference inside [brackets] and nothing
+# else, so any token found inside one is trusted to be an attempted
+# citation — same as the old, narrower check. (parentheses), unasked for,
+# get a model's ordinary French aside as often as a drifted citation; only
+# a token carrying a digit is trusted there (every real reference in this
+# manual does — G102, 11.3.4, Q45 — a bare word never does), which is what
+# keeps "(sauf exception)" from being misread as one. A citation is only
+# ever trusted when it names a reference `ask` actually retrieved — never
+# the model's word for it (see `generate_answer`).
+_BRACKET_GROUP_RE = re.compile(r"\[([^\]]*)\]")
+_PAREN_GROUP_RE = re.compile(r"\(([^)]*)\)")
+_TOKEN_RE = re.compile(r"[A-Za-z0-9](?:[A-Za-z0-9.\-]*[A-Za-z0-9])?")
+# A sentence ends on its own line, or `.`/`!`/`?` followed by whitespace or
+# the end of the text — not just the character anywhere, which a dotted
+# reference like [6.1.2] would otherwise be mistaken for mid-citation.
+_SENTENCE_END_RE = re.compile(r"[.!?](?=\s|$)")
 
 
 class GenerationError(Exception):
@@ -65,17 +83,30 @@ class GenerationError(Exception):
     alone — never to inventing a sentence to fill the gap."""
 
 
+def _cited_references(answer: str) -> set[str]:
+    cited = set()
+    for group in _BRACKET_GROUP_RE.finditer(answer):
+        cited.update(_TOKEN_RE.findall(group.group(1)))
+    for group in _PAREN_GROUP_RE.finditer(answer):
+        for token in _TOKEN_RE.findall(group.group(1)):
+            if any(char.isdigit() for char in token):
+                cited.add(token)
+    return cited
+
+
 def _complete_sentences(answer: str) -> str:
-    """`GENERATION_MAX_TOKENS` can cut the model off mid-word: trimmed back
-    to its last full sentence, a shorter answer still reads as finished
-    rather than broken. No sentence at all — the cap bit before the model
-    said anything worth keeping — refuses rather than show a fragment."""
-    if answer.endswith(_SENTENCE_ENDS):
-        return answer
-    cut = max(answer.rfind(end) for end in _SENTENCE_ENDS)
-    if cut == -1:
+    """Only called when Ollama's own `done_reason` says `num_predict` cut
+    the model off, never on an answer that finished on its own — otherwise
+    a complete answer ending right on a citation, with no sentence-ending
+    punctuation after it, would lose that citation to this trying to
+    "finish" something that was not broken. Trimmed back to its last full
+    sentence, a shorter answer still reads as finished rather than broken.
+    No sentence at all — the cap bit before the model said anything worth
+    keeping — refuses rather than show a fragment."""
+    matches = list(_SENTENCE_END_RE.finditer(answer))
+    if not matches:
         raise GenerationError("réponse coupée avant la moindre phrase complète")
-    return answer[: cut + 1]
+    return answer[: matches[-1].end()]
 
 
 def _truncated(text: str) -> str:
@@ -136,10 +167,12 @@ def generate_answer(question: str, chunks: list[Chunk]) -> str:
         raise GenerationError("réponse du modèle illisible") from error
     if not isinstance(answer, str) or not answer.strip():
         raise GenerationError("réponse du modèle vide")
-    answer = _complete_sentences(answer.strip())
+    answer = answer.strip()
+    if payload.get("done_reason") == "length":
+        answer = _complete_sentences(answer)
 
     known = {chunk.reference for chunk in chunks if chunk.reference}
-    stray = set(_CITATION_RE.findall(answer)) - known
+    stray = _cited_references(answer) - known
     if stray:
         raise GenerationError(
             f"référence non retrouvée citée : {', '.join(sorted(stray))}"

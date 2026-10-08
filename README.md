@@ -125,8 +125,11 @@ integration — `runserver`, Vite's dev server, `DEBUG=true`, no certificate.
 The stack also starts `ollama` (the rulebook's generated answer, see
 [Rulebook questions](#rulebook-questions)) and `ollama-pull`, which fetches
 `RAG_GENERATION_MODEL` once and exits — about 2 GB on the first `up`, kept in
-the `ollama_models` volume so later ones do not re-download it. A question
-asked before that pull finishes still answers, with its citations alone.
+the `ollama_models` volume so later ones do not re-download it. It then asks
+the model an empty question of its own, so loading it into memory is already
+paid for by the time a member asks a real one — otherwise that load competes
+with `GENERATION_TIMEOUT_SECONDS` on whoever asks first. A question asked
+before the pull itself finishes still answers, with its citations alone.
 
 #### From a phone on the same Wi-Fi
 
@@ -698,6 +701,12 @@ retrieved. Flash attention and a quantized KV cache (`compose.yml`'s
 free to enable, not free to skip. Still to be re-measured on the club's
 own laptop, which this machine's CPU is unlikely to match.
 
+Memory is the other real constraint, not just CPU: `qwen2.5:3b` resident
+in Ollama measures about 2.1 GB on this machine, and the embedding
+model's own cache on disk is another 1.1 GB — before Django, an ingest,
+or anything else running alongside. Comfortable here; likely tight on a
+laptop nearer the lower end of what the club has.
+
 | route | does |
 | --- | --- |
 | `POST /api/rules/ask/` | a question, answered with a generated French answer and up to ten cited passages from this season's ingested documents |
@@ -736,7 +745,7 @@ its own, so a typo can't file the Q&A as binding. Citations are ordered by
 authority first, score second: the manual is explicit that it takes
 precedence over the Q&A, so a `binding` passage is always quoted ahead of a
 `ruling` one that merely scored higher, and every match above the threshold
-is considered for this ordering before being cut to the five kept — cutting
+is considered for this ordering before being cut to the ten kept — cutting
 by score first could otherwise drop a `binding` passage that a handful of
 `ruling` ones outscored. A question is answered plainly when anything clears
 the threshold; otherwise the response carries a refusal instead of a guess,

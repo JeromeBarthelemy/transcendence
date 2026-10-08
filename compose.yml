@@ -43,7 +43,9 @@ services:
   # downloading degrades to citations alone (club/generation.py,
   # GenerationError) instead of the whole stack waiting on a ~2 GB pull.
   ollama:
-    image: ollama/ollama:latest
+    # Pinned rather than :latest, so a pull on one machine can't hand
+    # another a different model server mid-review.
+    image: ollama/ollama:0.40.0
     environment:
       # No accuracy cost, measured on the real manual (#135's own review):
       # same model, same answers, meaningfully faster prompt processing.
@@ -52,7 +54,11 @@ services:
     volumes:
       - ollama_models:/root/.ollama
     ports:
-      - "11434:11434"
+      # Bound to the host alone: Ollama's API carries no auth, and the
+      # README already has phones joining this stack over the club's
+      # Wi-Fi — an unqualified host port would hand the whole LAN a free
+      # model server.
+      - "127.0.0.1:11434:11434"
     healthcheck:
       test: ["CMD", "ollama", "list"]
       interval: 3s
@@ -63,7 +69,7 @@ services:
   # Reruns on every `up`, but `ollama pull` is a no-op once the model is
   # already there.
   ollama-pull:
-    image: ollama/ollama:latest
+    image: ollama/ollama:0.40.0
     env_file: ./backend/.env
     environment:
       OLLAMA_HOST: http://ollama:11434
@@ -75,6 +81,11 @@ services:
       - |
         set -e
         ollama pull "$${RAG_GENERATION_MODEL:-qwen2.5:3b}"
+        # Loads the model into memory now rather than leaving that cost
+        # for the first real question — a cold load can run past
+        # GENERATION_TIMEOUT_SECONDS on its own, generation.py's sole
+        # safety net meant for a slow answer, not a slow load.
+        ollama run "$${RAG_GENERATION_MODEL:-qwen2.5:3b}" "" || true
 
 volumes:
   frontend_node_modules:
