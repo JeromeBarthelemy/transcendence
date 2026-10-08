@@ -3,6 +3,8 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Notice } from "../components/Notice";
 
+import { notificationsQueryKey } from "../api/notifications";
+
 // Waits between reconnections, the last one repeated: quick after a blip,
 // patient when the network is gone for a while.
 const RECONNECT_AFTER = [1000, 2000, 5000, 10_000];
@@ -65,6 +67,8 @@ function useLiveBoard(teamSeasonId: number): boolean {
         queryClient.invalidateQueries({
           queryKey: ["team-seasons", teamSeasonId],
         });
+        // The change may concern this member: their bell reads them again.
+        queryClient.invalidateQueries({ queryKey: notificationsQueryKey });
         if (work_item !== null) {
           queryClient.invalidateQueries({
             queryKey: ["work-items", work_item],
