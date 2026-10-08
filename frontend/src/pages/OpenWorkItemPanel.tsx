@@ -58,6 +58,8 @@ function Panel({
     ? workItems.find((item) => title && sameTitle(item.title, title))
     : undefined;
   const ready = Boolean(title) && side !== null && !existing;
+  // The server's refusal goes under whichever field the title came from.
+  const choiceInvalid = !other && issues.length > 0;
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -86,6 +88,8 @@ function Panel({
             id={choiceId}
             className={inputClass}
             value={choice}
+            aria-invalid={choiceInvalid}
+            aria-describedby={choiceInvalid ? `${choiceId}-errors` : undefined}
             onChange={(event) => setChoice(event.target.value)}
           >
             <option value="">{t("openWorkItem.choose")}</option>
@@ -114,6 +118,7 @@ function Panel({
             })}
             <option value={OTHER}>{t("openWorkItem.other")}</option>
           </select>
+          {!other && <FieldErrors id={`${choiceId}-errors`} issues={issues} />}
         </div>
 
         {other && (
