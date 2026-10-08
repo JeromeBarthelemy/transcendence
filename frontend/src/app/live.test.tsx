@@ -59,6 +59,7 @@ function renderBoard() {
       ["team-seasons", 7, "work-items"],
       ["work-items", 10],
       ["work-items", 11],
+      ["notifications"],
     ]) {
       queryClient.setQueryData(key, { cached: true });
     }
@@ -108,6 +109,16 @@ it("reloads on its first connection what changed while it was connecting", () =>
 
   expect(invalidated(["team-seasons", 7, "work-items"])).toBe(true);
   expect(invalidated(["work-items", 11])).toBe(true);
+});
+
+it("reloads the member's notifications on any message, since a change may concern them", () => {
+  const { invalidated, fresh } = renderBoard();
+  latest().open();
+  fresh();
+
+  latest().receive({ work_item: 10 });
+
+  expect(invalidated(["notifications"])).toBe(true);
 });
 
 it("reconnects after a drop and reloads what it may have missed", () => {

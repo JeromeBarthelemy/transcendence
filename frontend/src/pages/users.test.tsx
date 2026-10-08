@@ -117,7 +117,11 @@ afterEach(() => {
 });
 
 it("keeps the screen from a mentor who is not a club admin", async () => {
-  const fetchMock = vi.fn(async () => json(identity(false)));
+  const fetchMock = vi.fn(async (path: string) =>
+    path === "/api/notifications/"
+      ? json({ unread: 0, items: [] })
+      : json(identity(false)),
+  );
   vi.stubGlobal("fetch", fetchMock);
 
   renderAt("/users");
@@ -125,7 +129,9 @@ it("keeps the screen from a mentor who is not a club admin", async () => {
   expect(
     await screen.findByRole("heading", { name: "Accès réservé" }),
   ).toBeTruthy();
-  expect(fetchMock).toHaveBeenCalledTimes(1);
+  expect(fetchMock.mock.calls.map(([path]) => path)).not.toContain(
+    "/api/users/",
+  );
 });
 
 it("lists the members, finds one without accents, and hides deleted accounts", async () => {
