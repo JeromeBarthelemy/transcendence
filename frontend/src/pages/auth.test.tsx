@@ -279,6 +279,36 @@ it("stops mismatched passwords before sending an account request", async () => {
   expect(fetchMock).toHaveBeenCalledTimes(1);
 });
 
+it("shows the server's lockout explanation on the login form", async () => {
+  const message =
+    "Compte temporairement verrouillé après plusieurs tentatives infructueuses. Réessayez dans quelques minutes.";
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (path: string) => {
+      if (path === "/api/auth/me/") {
+        setDocumentCookie("csrftoken=first-token; path=/");
+        return json(null, 200);
+      }
+      if (path === "/api/auth/login/")
+        return json(
+          { non_field_errors: [issue("account_locked", message)] },
+          400,
+        );
+      throw new Error(`Unexpected request: ${path}`);
+    }),
+  );
+  renderAt("/login");
+  const user = userEvent.setup();
+  await user.type(
+    await screen.findByLabelText("E-mail ou nom d'affichage"),
+    "Marie",
+  );
+  await user.type(screen.getByLabelText("Mot de passe"), marie.password);
+  await user.click(screen.getByRole("button", { name: "Se connecter" }));
+  expect(await screen.findByText(message)).toBeTruthy();
+  expect(screen.queryByText("Une erreur inattendue est survenue.")).toBeNull();
+});
+
 it("shows one login error for bad credentials", async () => {
   const fetchMock = vi.fn(async (path: string) => {
     if (path === "/api/auth/me/") {

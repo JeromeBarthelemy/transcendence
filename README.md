@@ -964,7 +964,8 @@ make check
 
 Runs, from the activated virtual environment, Ruff (lint and formatting),
 mypy, a check that no model change is missing its migration, the frontend
-TypeScript check, and Biome (frontend lint and formatting). It must pass before
+TypeScript check, Biome (frontend lint and formatting), and the API error-code
+catalogue check. It must pass before
 every commit. It only reports; `make format` applies the formatting on both
 sides, for you to review before committing. CI runs `make check` on every pull
 request, followed by the frontend production build:
@@ -976,6 +977,26 @@ npm --prefix frontend run build
 `build` repeats the type check and creates the optimized assets in
 `frontend/dist/`; a failure here that `make check` missed is a bundling
 problem, not a type error.
+
+### API refusal messages
+
+The frontend prefers `errors.<code>` from `frontend/src/locales/fr.json` when
+present. Otherwise it displays the server's `issue.message` as plain text,
+including errors for fields a form does not handle itself (e.g. an upload's
+`file`). A missing or blank sentence still uses the generic error; network
+failures retain their separate message. Handled field errors are not repeated
+in the request-level error block.
+
+`make check-error-codes` runs `backend/check_error_codes.py`, also included in
+`make check` and therefore CI. Without importing the application, it reads Python
+syntax for repo-defined literal `code=`, `violation_error_code=` and
+`default_code` declarations, excluding tests and migrations. Each code must have
+a non-empty French catalogue entry or a reason in
+`frontend/src/locales/server-error-fallbacks.json` explaining why the server's
+sentence is deliberately used. The check also rejects stale fallback entries
+and entries that now have translations. Codes forwarded dynamically from
+Django/DRF are not statically enumerated by this check; the runtime fallback
+still handles them.
 
 ## Testing
 

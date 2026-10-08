@@ -829,6 +829,53 @@ it("uploads a file with its image-right answer", async () => {
   ).toBe("photo.png");
 });
 
+it.each([
+  ["attachment_type_refused", "Ce fichier n'est pas une photo lisible."],
+  ["attachment_too_large", "Ce fichier dépasse la taille autorisée (10 Mo)."],
+  ["attachment_too_many_pixels", "Cette photo compte trop de pixels."],
+])(
+  "shows the server's upload refusal for %s, even though file has no dedicated error component",
+  async (code, message) => {
+    setDocumentCookie("csrftoken=test; path=/");
+    class RefusedUpload {
+      status = 400;
+      responseText = JSON.stringify({ file: [{ code, message }] });
+      upload = { onprogress: null as ((event: ProgressEvent) => void) | null };
+      onerror: (() => void) | null = null;
+      onload: (() => void) | null = null;
+      open() {}
+      setRequestHeader() {}
+      send() {
+        this.onload?.();
+      }
+    }
+    vi.stubGlobal("XMLHttpRequest", RefusedUpload);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (path: string) => {
+        if (path === "/api/auth/me/") return json(identity());
+        if (path === "/api/work-items/10/") return json(workItem());
+        throw new Error(`Unexpected request: ${path}`);
+      }),
+    );
+    renderWorkItem();
+    const input = await screen.findByLabelText("Photo, mesure ou fichier");
+    await userEvent.upload(
+      input,
+      new File(["image"], "photo.png", { type: "image/png" }),
+    );
+    await userEvent.click(screen.getByRole("radio", { name: "Non" }));
+    await userEvent.click(
+      screen.getByRole("button", { name: "Ajouter le fichier" }),
+    );
+    expect(await screen.findByText(message)).toBeTruthy();
+    expect(
+      screen.queryByText("Une erreur inattendue est survenue."),
+    ).toBeNull();
+    expect(screen.queryByText("Fichier ajouté.")).toBeNull();
+  },
+);
+
 // --- deleting a work item opened by mistake ---
 
 function untouched() {
