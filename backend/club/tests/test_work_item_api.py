@@ -6,6 +6,7 @@ from django.db import IntegrityError
 from django.test import Client
 
 from club.api.serializers import OpenWorkItemSerializer
+from club.gdpr import anonymize
 from club.models import (
     Entry,
     EntryParticipant,
@@ -767,6 +768,23 @@ def test_a_day_shows_its_entries_and_who_was_there_out_of_the_roster(client):
     # The roster counts students: mentors supervise, they are not the team.
     assert day["roster"] == 3
     assert day["advanced_work_items"] == 1
+
+
+def test_the_days_roster_leaves_out_suspended_and_anonymized_students(client):
+    rouages = team_season()
+    lina = member_of(rouages, "lina")
+    member_of(rouages, "tom")
+    member_of(rouages, "sam")
+    suspended = member_of(rouages, "noe")
+    suspended.is_active = False
+    suspended.save()
+    anonymize(member_of(rouages, "yann"))
+    member_of(rouages, "paul", User.ClubRole.MENTOR)
+    client.force_login(lina)
+
+    day = client.get(f"/api/team-seasons/{rouages.id}/days/2026-09-09/").json()
+
+    assert day["roster"] == 3
 
 
 def test_today_means_the_current_club_workday(client, monkeypatch):

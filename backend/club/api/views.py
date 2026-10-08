@@ -1028,9 +1028,7 @@ class DayView(APIView):
         entries = list(
             day_entries(team_season, the_day).select_related("author", "work_item")
         )
-        # The roster the attendance is counted against: students, as mentors
-        # are never counted present.
-        roster = team_season.memberships.filter(user__club_role=User.ClubRole.STUDENT)
+        roster = team_season.memberships.roster()
         previous, following = neighbours(team_season, the_day)
         return Response(
             {
