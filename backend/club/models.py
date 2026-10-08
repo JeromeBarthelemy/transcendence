@@ -373,6 +373,13 @@ class TeamSeason(models.Model):
         return f"{self.team.number} - {self.season.game_name}"
 
 
+class MembershipQuerySet(models.QuerySet["Membership"]):
+    def roster(self) -> "MembershipQuerySet":
+        """The students a team counts on: mentors supervise, and a suspended
+        or anonymized account (anonymizing also deactivates) is not there."""
+        return self.filter(user__club_role=User.ClubRole.STUDENT, user__is_active=True)
+
+
 class Membership(models.Model):
     """Belonging to a team for a season; it carries no role. An explicit model
     rather than a ManyToManyField, so a column can be added without converting
@@ -384,6 +391,8 @@ class Membership(models.Model):
     team_season = models.ForeignKey(
         TeamSeason, on_delete=models.CASCADE, related_name="memberships"
     )
+
+    objects = MembershipQuerySet.as_manager()
 
     class Meta:
         # Not « adhésion »: in the club that means joining the association in

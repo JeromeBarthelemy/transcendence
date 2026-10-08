@@ -564,8 +564,10 @@ same 4 a.m.–4 a.m. workday as the day screen. One progress shared by several
 participants counts once for the team and once for each student participant;
 mentors, notes and decision attendees do not count. Per-student `active_days`,
 `progress_entries`, distinct `work_items`, and `last_progress_day` describe
-recorded participation, not productivity. Former or anonymized participants
-remain in the history with `is_current_member: false`.
+recorded participation, not productivity. Former, suspended or anonymized
+participants remain in the history with `is_current_member: false`: the
+current members are the team's roster, the same students the day screen
+counts attendance against (`Membership.objects.roster()`).
 
 The `snapshot` is deliberately current rather than historical: it groups all
 of the team's work items by their present status and latest progress step,
