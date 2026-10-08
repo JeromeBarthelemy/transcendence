@@ -101,12 +101,13 @@ function BotReply({ exchange }: { exchange: Exchange }) {
       </p>
     );
   }
-  // The server only writes a sentence when it has nothing to cite.
   if (answer.citations.length === 0) {
     return <p className="leading-7 text-body">{answer.answer}</p>;
   }
   return (
     <>
+      {/* Blank only if an answer predating #207 is read back; the server
+          now always writes a sentence here, generated or a refusal. */}
       {answer.answer && <p className="leading-7 text-body">{answer.answer}</p>}
       <p className="text-sm text-muted">{t("fieldbot.citationsIntro")}</p>
       <ol aria-label={t("fieldbot.citations")} className="mt-3 space-y-3">

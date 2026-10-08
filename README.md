@@ -122,6 +122,15 @@ cookies. The Django admin remains available at <http://localhost:8000/admin/>.
 This Compose stack is for development and proves the frontend/backend
 integration — `runserver`, Vite's dev server, `DEBUG=true`, no certificate.
 
+The stack also starts `ollama` (the rulebook's generated answer, see
+[Rulebook questions](#rulebook-questions)) and `ollama-pull`, which fetches
+`RAG_GENERATION_MODEL` once and exits — about 2 GB on the first `up`, kept in
+the `ollama_models` volume so later ones do not re-download it. It then asks
+the model an empty question of its own, so loading it into memory is already
+paid for by the time a member asks a real one — otherwise that load competes
+with `GENERATION_TIMEOUT_SECONDS` on whoever asks first. A question asked
+before the pull itself finishes still answers, with its citations alone.
+
 #### From a phone on the same Wi-Fi
 
 For a supervised trial in the club's room, before the HTTPS stack: a phone
@@ -242,7 +251,12 @@ python backend/manage.py createsuperuser
 python backend/manage.py runserver
 ```
 
-`.env` is never versioned: everyone keeps their own.
+`.env` is never versioned: everyone keeps their own. `RAG_OLLAMA_URL`
+defaults to `http://ollama:11434`, Compose's service name: outside Compose,
+run your own Ollama and set it to its address (`http://localhost:11434` for
+one running directly on this machine), or leave it as is — a rulebook
+question still answers, with its citations alone (see
+[Rulebook questions](#rulebook-questions)).
 
 ### Frontend without containers
 
@@ -686,14 +700,65 @@ the entry it belongs to, leaves the disk once the deletion is committed.
 
 ## Rulebook questions
 
-A member asks the current season's game manual a question and gets back the
-passages that answer it, ranked first by how much they may be trusted, then
-by how well they answer it — not a generated answer, so nothing is ever
-invented past what the source says.
+A member asks the current season's game manual a question. Retrieval finds
+the passages that answer it, ranked first by how much they may be trusted,
+then by how well they answer it; a local model (`club/generation.py`, Ollama,
+`compose.yml`'s `ollama` service) then writes a short French answer from
+those passages alone, naming the references it relies on. No passage above
+the retrieval threshold means no generation either — the system's own
+refusal stands instead, so nothing is ever invented past what the source
+says. A citation the model gets wrong — shortened, misspelled, made up
+outright — is refused the same way a model that cannot be reached is: the
+citations stand on their own instead, rather than an answer that reads as
+checkable and is not. `RAG_GENERATION_MODEL` (`backend/.env`) picks the
+model — swapping it for another one Ollama has pulled needs no code
+change.
+
+A smaller, faster model was tried and measured faster and just as clean by
+every automatic check — and, read by hand against what it actually
+retrieved, wrong often enough to drop: confidently answering from a
+passage that didn't address the question, never once saying "the passages
+given don't say". `qwen2.5:3b` hedges in exactly that case instead, which
+no citation check can tell apart from a model confidently wrong, so the
+choice rests on reading its answers, not just counting its citations.
+
+Reading real answers by hand (#207's own review, both Jerome's and a
+sweep of my own) found two more ways of being wrong no citation check
+alone catches: answering in English because the retrieved passage was,
+and citing nothing at all. Both now refuse the same way a wrong
+reference does (`generation.py`), and the model is asked again —
+sampled fresh, not deterministic — rather than settling for one bad
+draft, now that correctness matters more than how long an answer takes
+to arrive. Passages reach the model whole; `GENERATION_TIMEOUT_SECONDS`
+is 90 s per attempt, up to `GENERATION_MAX_ATTEMPTS` (3) attempts, so a
+hard failure (the model unreachable) is bounded at 90 s but three bad
+samples in a row can take several minutes. Read by hand against the
+real manual, this reliably turned confidently wrong answers (a real
+citation next to the wrong meaning, or a different rule entirely cited
+with the model's own text admitting it doesn't fit) into either a
+correct one on a later sample or a safe refusal — never, in this
+reading, a wrong one reaching the screen. Flash attention and a
+quantized KV cache (`compose.yml`'s `ollama` service) still cost nothing
+in accuracy and still help, just no longer the main lever.
+
+Retrieval itself still runs on the question as asked, in whatever
+language that is — translating it to English first measurably finds
+the right passage more often for some question categories and less
+often for others (read against this same manual), and does not reach
+far enough into `MIN_SCORE`'s own calibration (364 passages, 90 real
+questions against 10 off-topic controls, French throughout) to change
+it on the strength of what was measured here alone. Left as French in,
+French out; the lead is open, not closed.
+
+Memory is the other real constraint, not just CPU: `qwen2.5:3b` resident
+in Ollama measures about 2.1 GB on this machine, and the embedding
+model's own cache on disk is another 1.1 GB — before Django, an ingest,
+or anything else running alongside. Comfortable here; likely tight on a
+laptop nearer the lower end of what the club has.
 
 | route | does |
 | --- | --- |
-| `POST /api/rules/ask/` | a question, answered with up to five cited passages from this season's ingested documents |
+| `POST /api/rules/ask/` | a question, answered with a generated French answer and up to ten cited passages from this season's ingested documents |
 | `GET /api/rules/sources/` | administrators only: per source, the copy searched, when it was checked, and any change waiting for acceptance with its summary |
 | `POST /api/rules/sources/` | administrators only: `source` (`game_manual`) and `url` on FIRST's own site (`https`, `ftc-resources.firstinspires.org`) — fetches the page, ingests it as the new copy, and the checks follow that URL from now on; `400` with `source_not_allowed`, `fetch_failed` (also when a redirect leaves FIRST's site) or `no_passage` (a page with nothing to index) otherwise |
 | `POST /api/rules/sources/check/` | administrators only: check the game manual against its page now, the same check the `sources-check` service runs every 24 hours (the Q&A is not checked yet) |
@@ -729,7 +794,7 @@ its own, so a typo can't file the Q&A as binding. Citations are ordered by
 authority first, score second: the manual is explicit that it takes
 precedence over the Q&A, so a `binding` passage is always quoted ahead of a
 `ruling` one that merely scored higher, and every match above the threshold
-is considered for this ordering before being cut to the five kept — cutting
+is considered for this ordering before being cut to the ten kept — cutting
 by score first could otherwise drop a `binding` passage that a handful of
 `ruling` ones outscored. A question is answered plainly when anything clears
 the threshold; otherwise the response carries a refusal instead of a guess,
