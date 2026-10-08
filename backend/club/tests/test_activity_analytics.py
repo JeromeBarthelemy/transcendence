@@ -266,6 +266,24 @@ def test_current_former_and_anonymized_participants_remain_distinguishable(clien
     assert members[f"Ancien membre {anonymous.id}"]["progress_entries"] == 1
 
 
+def test_a_suspended_student_is_no_longer_a_current_member(client):
+    rouages = team_season()
+    current = member_of(rouages, "alice")
+    suspended = member_of(rouages, "noe")
+    item = WorkItem.objects.create(team_season=rouages, title="intake")
+    progress(rouages, item, at(WEDNESDAY, 14), suspended, suspended)
+    suspended.is_active = False
+    suspended.save()
+    client.force_login(current)
+
+    members = {
+        row["display_name"]: row for row in client.get(url(rouages)).json()["members"]
+    }
+
+    assert members["noe"]["is_current_member"] is False
+    assert members["noe"]["progress_entries"] == 1
+
+
 def test_activity_calculation_uses_a_fixed_number_of_queries(
     django_assert_num_queries,
 ):

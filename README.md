@@ -565,8 +565,10 @@ same 4 a.m.–4 a.m. workday as the day screen. One progress shared by several
 participants counts once for the team and once for each student participant;
 mentors, notes and decision attendees do not count. Per-student `active_days`,
 `progress_entries`, distinct `work_items`, and `last_progress_day` describe
-recorded participation, not productivity. Former or anonymized participants
-remain in the history with `is_current_member: false`.
+recorded participation, not productivity. Former, suspended or anonymized
+participants remain in the history with `is_current_member: false`: the
+current members are the team's roster, the same students the day screen
+counts attendance against (`Membership.objects.roster()`).
 
 The `snapshot` is deliberately current rather than historical: it groups all
 of the team's work items by their present status and latest progress step,
@@ -807,6 +809,88 @@ it changes or disappears, ingestion either fails outright or silently
 answers from a different model than the one `MIN_SCORE` above was
 calibrated on.
 
+## Design system
+
+Every screen is built from one set of tokens and components, in
+`frontend/src/`, rather than from class strings written out page by page: a
+color, a size or a button changes in one place and changes everywhere.
+
+### Palette
+
+The palette is named once, in `styles.css`'s `@theme`, and Tailwind turns
+each name into its utilities (`text-ink`, `bg-tint`, `border-primary/20`): no
+page writes a hex value.
+
+| Role | Tokens |
+| --- | --- |
+| Blues, darkest to lightest | `ink` `#041894`, `primary` `#004fc5`, `accent` `#0078dd`, `azure` `#009edf`, `lagoon` `#00c2d0` (focus rings), `mint` `#00e4bc` |
+| Text | `body` `#13294b`, `muted` `#506784`, `faint` `#7f93ad` |
+| Surfaces and lines | `canvas` (the page), `tint`, `mist`, `fog`, `line` |
+| States | `success` and `success-tint`; `warning`, `warning-tint`, `warning-wash`, `warning-ink`, `warning-muted` — a pending handover, never to be missed; `danger` |
+| Shadows | `shadow-button`, `shadow-panel`, `shadow-hero` |
+
+A color always doubles a word, never replaces it: a status chip says
+"Terminé" in green, it is not only green. Red is kept for what deletes,
+amber for the handover; a work item's statuses use neither
+(`components/chip.test.tsx`).
+
+### Typography
+
+Two fonts, self-hosted in `assets/inter/` and `assets/poppins/` with their
+SIL Open Font License, and only the faces the screens draw: Inter for text
+(400, 400 italic, 600, 700), Poppins for headings and titles (400, 600, 700).
+
+`components/Typography.tsx` holds the scale. `Heading` takes a `size` —
+`display` (a chantier's name), `page` (a screen's title), `large`, `section`,
+`card`, `small` — each with its default level, `h1` to `h3`, and `as` when
+the outline needs another. `Eyebrow` is the short line in capitals above a
+title or naming a block ("Aujourd'hui", "Administration du club"), accent
+blue, red over a danger, or the color of the box it heads.
+
+Every field is 16 px whatever surrounds it (`fieldClass`): iOS zooms the page
+into any smaller one.
+
+### Icons
+
+`assets/icons/` holds the SVG files — Font Awesome Free, CC BY 4.0, the
+attribution kept in each file — and stays their source: replacing a file
+changes the icon everywhere, adding one takes an import line in
+`components/Icon.tsx`. `Icon` keeps only a file's shape and draws it in
+`currentColor`, one em square: it takes the color of its text, through hover
+and focus, and grows with its font. It is decorative and hidden from screen
+readers; the words beside it say what it means.
+
+`IconLabel` pairs an icon with its label: after it by default (`xmark` on a
+removal, `pen-to-square` on renaming), `before` it where the icon leads —
+the header's links, the home tabs, a team's name.
+
+### Components
+
+All in `components/`, each with a comment saying when to use it.
+
+| Component | Use it for |
+| --- | --- |
+| `Page` | a screen's main column: `width` (`2xl` to `6xl`), `message` for a screen that only says one thing |
+| `Heading`, `Eyebrow` | titles and the line above them (above) |
+| `Panel` | a white card or section: `padding` `sm` to `xl`, `none` for a list whose rows draw their own, `danger` for an irreversible action's section |
+| `Button`, `ButtonLink`, `buttonClass` | an action, or a link that looks like one: `primary` (the screen's main action), `secondary` (the rest, every "Annuler"), `dark` (starting work), `danger` (opens a removal), `danger-solid` (the removal itself), `success` (closing a work item as done); `sm`/`md`; `pill` |
+| `TextButton` | an action that reads as a word: correcting or removing one entry among many |
+| `TextInput`, `TextArea`, `Select`, `Label` | the working screens' fields; `tone` `warning` for the handover, `danger` for a password before a deletion. The account forms keep their larger `form-input` from `styles.css` |
+| `Chip`, `StatusChip` | a short label on a colored ground: a role, a step, a source; `StatusChip` for a work item's status |
+| `Notice`, `SuccessMessage` | something the screen tells: `info`, `neutral`, `success`, `warning`, `danger`; `callout` for the handover's left rule; `textSize="inherit"` for a message read in full |
+| `ConfirmPanel` | the step before any removal: what will go, "Annuler", then the removal. An `alertdialog` named by its question; the focus moves to "Annuler" as it opens, so a screen reader announces it and a second Enter removes nothing |
+| `EmptyState` | where a list would be, said in words |
+| `SectionTabs` | a screen's sections side by side, each a link with its own address |
+| `Avatar`, `AvatarStack` | a member's photo or initials, alone or overlapping in a list |
+| `FieldErrors`, `RequestError` | a refusal from the API, by field or for the whole form, in French from its code |
+| `AdminOnly` | a screen for club admins only |
+| `EntryActions` | correcting or removing a trace in place |
+| `ActivityOverTimeChart`, `WorkItemsByStepChart` | the team's activity, in Recharts, each with its data as a table |
+| `AuthPageFrame` | the sign-up and log-in pages' frame |
+
+Biome knows the fields and `Label` (`biome.json`, `noLabelWithoutControl`), so
+its accessibility check reads them like native fields and labels.
+
 ## Checking
 
 ```sh
@@ -913,6 +997,8 @@ requests — stays English.
   `@theme` names every color the pages use (`text-muted`, `bg-tint`,
   `border-primary/20`), so no page writes a hex value, and the two fonts:
   Inter for text, Poppins for headings and titles.
+- `frontend/src/components/` — the design system's components, and
+  `frontend/src/assets/icons/` its icons (see [Design system](#design-system)).
 - `compose.yml` — the complete development stack in one command.
 - `compose.prod.yml`, `deploy/` — the HTTPS production stack: Caddy
   (`deploy/Dockerfile`, `deploy/Caddyfile`) in front of Django on Daphne.

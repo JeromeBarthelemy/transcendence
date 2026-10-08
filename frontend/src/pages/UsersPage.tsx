@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { type FormEvent, useId, useState } from "react";
+import { type SyntheticEvent, useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 
@@ -18,7 +18,15 @@ import {
   fieldIssues,
   RequestError,
 } from "../components/ApiErrors";
+import { Button } from "../components/Button";
+import { Chip } from "../components/Chip";
+import { EmptyState } from "../components/EmptyState";
+import { Label, Select, TextInput } from "../components/Field";
 import { IconLabel } from "../components/Icon";
+import { ConfirmPanel, Notice, SuccessMessage } from "../components/Notice";
+import { Page } from "../components/Page";
+import { Panel } from "../components/Panel";
+import { Eyebrow, Heading } from "../components/Typography";
 
 const usersQueryKey = ["users", "list"] as const;
 const userQueryKey = (userId: number) => ["users", "detail", userId] as const;
@@ -35,13 +43,6 @@ const STATUS_FILTERS: StatusFilter[] = [
 const ROLE_FILTERS: RoleFilter[] = ["all", "student", "mentor", "admin"];
 
 const nameCollator = new Intl.Collator("fr-FR", { sensitivity: "base" });
-
-const inputClass =
-  "mt-2 block w-full rounded-xl border border-primary/20 bg-white px-3 py-2 font-normal text-body";
-const primaryButtonClass =
-  "rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-white hover:bg-primary disabled:opacity-50";
-const secondaryButtonClass =
-  "rounded-xl border border-primary/20 px-4 py-2 text-sm font-semibold text-ink hover:bg-tint disabled:opacity-50";
 
 /** Case- and accent-blind, so « elo » finds Élodie. */
 function fold(text: string) {
@@ -99,24 +100,16 @@ function Badges({ user }: { user: ClubUser }) {
   const status = userStatus(user);
   return (
     <span className="flex flex-wrap gap-1.5">
-      <span className="rounded-full bg-tint px-2.5 py-0.5 text-xs font-semibold text-accent">
-        {t(`users.roles.${user.club_role}`)}
-      </span>
+      <Chip size="xs">{t(`users.roles.${user.club_role}`)}</Chip>
       {user.is_club_admin && (
-        <span className="rounded-full bg-ink px-2.5 py-0.5 text-xs font-semibold text-white">
+        <Chip size="xs" tone="ink">
           {t("users.admin")}
-        </span>
+        </Chip>
       )}
       {status !== "active" && (
-        <span
-          className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-            status === "suspended"
-              ? "bg-warning-tint text-warning-ink"
-              : "bg-fog text-muted"
-          }`}
-        >
+        <Chip size="xs" tone={status === "suspended" ? "warning" : "neutral"}>
           {t(`users.statuses.${status}`)}
-        </span>
+        </Chip>
       )}
     </span>
   );
@@ -144,35 +137,31 @@ function UserList({ identity }: { identity: Identity }) {
     .sort((a, b) => nameCollator.compare(a.display_name, b.display_name));
 
   return (
-    <main className="mx-auto w-full max-w-4xl flex-1 px-5 py-10 sm:px-8 sm:py-14">
-      <p className="text-sm font-bold tracking-[0.14em] text-accent uppercase">
-        {t("admin.eyebrow")}
-      </p>
-      <h1 className="brand-title mt-3 text-3xl tracking-[-0.035em] text-ink sm:text-4xl">
+    <Page>
+      <Eyebrow size="sm">{t("admin.eyebrow")}</Eyebrow>
+      <Heading size="page" className="mt-3">
         {t("users.title")}
-      </h1>
+      </Heading>
 
       {deletedName && (
-        <p role="status" className="mt-4 text-sm font-semibold text-success">
+        <SuccessMessage className="mt-4">
           {t("users.deleted", { name: deletedName })}
-        </p>
+        </SuccessMessage>
       )}
 
       <div className="mt-8 grid gap-4 sm:grid-cols-[1fr_auto_auto]">
-        <label className="text-sm font-semibold text-ink">
+        <Label>
           <IconLabel icon="search">{t("users.search")}</IconLabel>
-          <input
+          <TextInput
             type="search"
-            className={inputClass}
             value={search}
             placeholder={t("users.searchPlaceholder")}
             onChange={(event) => setSearch(event.target.value)}
           />
-        </label>
-        <label className="text-sm font-semibold text-ink">
+        </Label>
+        <Label>
           {t("users.filterStatus")}
-          <select
-            className={inputClass}
+          <Select
             value={status}
             onChange={(event) => setStatus(event.target.value as StatusFilter)}
           >
@@ -181,12 +170,11 @@ function UserList({ identity }: { identity: Identity }) {
                 {t(`users.statusFilters.${filter}`)}
               </option>
             ))}
-          </select>
-        </label>
-        <label className="text-sm font-semibold text-ink">
+          </Select>
+        </Label>
+        <Label>
           {t("users.filterRole")}
-          <select
-            className={inputClass}
+          <Select
             value={role}
             onChange={(event) => setRole(event.target.value as RoleFilter)}
           >
@@ -195,8 +183,8 @@ function UserList({ identity }: { identity: Identity }) {
                 {t(`users.roleFilters.${filter}`)}
               </option>
             ))}
-          </select>
-        </label>
+          </Select>
+        </Label>
       </div>
 
       {users.isPending ? (
@@ -211,7 +199,7 @@ function UserList({ identity }: { identity: Identity }) {
             {t("users.count", { count: visible.length })}
           </h2>
           {visible.length > 0 ? (
-            <ul className="mt-3 divide-y divide-primary/10 overflow-hidden rounded-2xl border border-primary/12 bg-white shadow-sm">
+            <Panel as="ul" padding="none" className="mt-3">
               {visible.map((user) => (
                 <li key={user.id}>
                   <Link
@@ -237,15 +225,13 @@ function UserList({ identity }: { identity: Identity }) {
                   </Link>
                 </li>
               ))}
-            </ul>
+            </Panel>
           ) : (
-            <p className="mt-3 rounded-2xl border border-dashed border-primary/20 p-5 text-sm text-muted">
-              {t("users.noMatch")}
-            </p>
+            <EmptyState className="mt-3">{t("users.noMatch")}</EmptyState>
           )}
         </section>
       )}
-    </main>
+    </Page>
   );
 }
 
@@ -274,7 +260,7 @@ function RoleForm({ user, locked }: { user: ClubUser; locked: boolean }) {
     },
   });
 
-  function submit(event: FormEvent<HTMLFormElement>) {
+  function submit(event: SyntheticEvent) {
     event.preventDefault();
     setSaved(false);
     save.mutate();
@@ -288,17 +274,15 @@ function RoleForm({ user, locked }: { user: ClubUser; locked: boolean }) {
   }
 
   return (
-    <form
+    <Panel
+      as="form"
       aria-labelledby="role-form-title"
-      className="mt-8 rounded-2xl border border-primary/12 bg-white p-5 shadow-sm"
+      className="mt-8"
       onSubmit={submit}
     >
-      <h2
-        id="role-form-title"
-        className="text-xs font-bold tracking-[0.14em] text-accent uppercase"
-      >
+      <Eyebrow as="h2" id="role-form-title">
         {t("users.rightsTitle")}
-      </h2>
+      </Eyebrow>
       <fieldset disabled={locked || save.isPending} className="mt-4 space-y-5">
         <fieldset>
           <legend className="text-sm font-semibold text-ink">
@@ -324,7 +308,7 @@ function RoleForm({ user, locked }: { user: ClubUser; locked: boolean }) {
         </fieldset>
 
         <div>
-          <label className="flex items-center gap-2 text-sm font-semibold text-ink">
+          <Label className="flex items-center gap-2">
             <input
               type="checkbox"
               checked={isClubAdmin}
@@ -336,7 +320,7 @@ function RoleForm({ user, locked }: { user: ClubUser; locked: boolean }) {
               }}
             />
             {t("users.isClubAdmin")}
-          </label>
+          </Label>
           <p id={adminHintId} className="mt-1 ml-6 text-xs text-muted">
             {t("users.isClubAdminHint")}
           </p>
@@ -347,7 +331,7 @@ function RoleForm({ user, locked }: { user: ClubUser; locked: boolean }) {
         </div>
 
         <div>
-          <label className="flex items-center gap-2 text-sm font-semibold text-ink">
+          <Label className="flex items-center gap-2">
             <input
               type="checkbox"
               checked={isActive}
@@ -358,7 +342,7 @@ function RoleForm({ user, locked }: { user: ClubUser; locked: boolean }) {
               }}
             />
             {t("users.isActive")}
-          </label>
+          </Label>
           <p id={activeHintId} className="mt-1 ml-6 text-xs text-muted">
             {t("users.isActiveHint")}
           </p>
@@ -369,16 +353,12 @@ function RoleForm({ user, locked }: { user: ClubUser; locked: boolean }) {
         <RequestError error={save.error} handledFields={["is_club_admin"]} />
       )}
       {saved && !isDirty && (
-        <p role="status" className="mt-4 text-sm font-semibold text-success">
-          {t("users.saved")}
-        </p>
+        <SuccessMessage className="mt-4">{t("users.saved")}</SuccessMessage>
       )}
 
       {!locked && (
         <div className="mt-5 flex justify-end gap-3">
-          <button
-            type="button"
-            className={secondaryButtonClass}
+          <Button
             disabled={!isDirty || save.isPending}
             onClick={() => {
               setClubRole(user.club_role);
@@ -388,17 +368,17 @@ function RoleForm({ user, locked }: { user: ClubUser; locked: boolean }) {
             }}
           >
             {t("users.reset")}
-          </button>
-          <button
+          </Button>
+          <Button
+            variant="primary"
             type="submit"
-            className={primaryButtonClass}
             disabled={!isDirty || save.isPending}
           >
             {save.isPending ? t("users.saving") : t("users.save")}
-          </button>
+          </Button>
         </div>
       )}
-    </form>
+    </Panel>
   );
 }
 
@@ -420,67 +400,42 @@ function DeleteSection({ user }: { user: ClubUser }) {
   });
 
   return (
-    <section
+    <Panel
+      as="section"
+      danger
       aria-labelledby="delete-user-title"
-      className="mt-8 rounded-2xl border border-red-800/20 bg-white p-5 shadow-sm"
+      className="mt-8"
     >
-      <h2
-        id="delete-user-title"
-        className="text-xs font-bold tracking-[0.14em] text-red-800 uppercase"
-      >
+      <Eyebrow tone="danger" as="h2" id="delete-user-title">
         {t("users.deleteTitle")}
-      </h2>
+      </Eyebrow>
       <p className="mt-3 text-sm leading-6 text-muted">
         {t("users.deleteExplanation")}
       </p>
       {isConfirming ? (
-        <div
-          role="alertdialog"
-          aria-labelledby="delete-user-confirm"
-          className="mt-4 rounded-xl border border-red-800/20 bg-red-50 p-4"
-        >
-          <p id="delete-user-confirm" className="text-sm text-red-900">
-            {t("users.deleteConfirm", { name: user.display_name })}
-          </p>
-          <div className="mt-3 flex justify-end gap-3">
-            <button
-              type="button"
-              className={secondaryButtonClass}
-              disabled={remove.isPending}
-              onClick={() => {
-                setIsConfirming(false);
-                remove.reset();
-              }}
-            >
-              {t("users.cancel")}
-            </button>
-            <button
-              type="button"
-              className="rounded-xl bg-red-800 px-4 py-2 text-sm font-semibold text-white hover:bg-red-900 disabled:opacity-50"
-              disabled={remove.isPending}
-              onClick={() => remove.mutate()}
-            >
-              <IconLabel icon="xmark">
-                {remove.isPending
-                  ? t("users.deleting")
-                  : t("users.confirmDelete")}
-              </IconLabel>
-            </button>
-          </div>
-          {remove.isError && <RequestError error={remove.error} />}
-        </div>
+        <ConfirmPanel
+          className="mt-4"
+          message={t("users.deleteConfirm", { name: user.display_name })}
+          cancelLabel={t("users.cancel")}
+          confirmLabel={
+            remove.isPending ? t("users.deleting") : t("users.confirmDelete")
+          }
+          pending={remove.isPending}
+          error={remove.isError ? remove.error : undefined}
+          onCancel={() => {
+            setIsConfirming(false);
+            remove.reset();
+          }}
+          onConfirm={() => remove.mutate()}
+        />
       ) : (
         <div className="mt-4 flex justify-end">
-          <button
-            type="button"
-            className="rounded-xl border border-red-800/25 px-4 py-2 text-sm font-semibold text-red-800 hover:bg-red-50"
-            onClick={() => setIsConfirming(true)}
-          >
+          <Button variant="danger" onClick={() => setIsConfirming(true)}>
             <IconLabel icon="xmark">{t("users.delete")}</IconLabel>
-          </button>
+          </Button>
         </div>
       )}
-    </section>
+    </Panel>
   );
 }
 
@@ -494,7 +449,7 @@ function UserDetail({ identity }: { identity: Identity }) {
   });
 
   return (
-    <main className="mx-auto w-full max-w-3xl flex-1 px-5 py-10 sm:px-8 sm:py-14">
+    <Page width="3xl">
       <Link
         to="/users"
         className="text-sm font-semibold text-accent hover:underline"
@@ -517,9 +472,7 @@ function UserDetail({ identity }: { identity: Identity }) {
           <div className="mt-6 flex flex-wrap items-center gap-4">
             <Avatar user={user.data} size="size-16" />
             <div className="min-w-0 flex-1">
-              <h1 className="brand-title text-3xl tracking-[-0.035em] text-ink">
-                {user.data.display_name}
-              </h1>
+              <Heading size="page">{user.data.display_name}</Heading>
               <p className="mt-1 truncate text-sm text-muted">
                 {user.data.email}
               </p>
@@ -528,14 +481,14 @@ function UserDetail({ identity }: { identity: Identity }) {
           </div>
 
           {isSelf(user.data, identity) && (
-            <p className="mt-6 rounded-xl bg-mist px-4 py-3 text-sm text-body">
+            <Notice as="p" className="mt-6">
               {t("users.selfNotice")}
-            </p>
+            </Notice>
           )}
           {user.data.is_anonymized && (
-            <p className="mt-6 rounded-xl bg-fog px-4 py-3 text-sm text-body">
+            <Notice as="p" tone="neutral" className="mt-6">
               {t("users.anonymizedNotice")}
-            </p>
+            </Notice>
           )}
 
           <RoleForm
@@ -548,7 +501,7 @@ function UserDetail({ identity }: { identity: Identity }) {
           )}
         </>
       )}
-    </main>
+    </Page>
   );
 }
 

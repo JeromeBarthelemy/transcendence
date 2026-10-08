@@ -24,6 +24,8 @@ import {
   RequestError,
 } from "../components/ApiErrors";
 import { Avatar } from "../components/Avatar";
+import { Chip } from "../components/Chip";
+import { Page } from "../components/Page";
 
 /** Past this many characters, the box says how many are left. */
 const COUNTER_FROM = QUESTION_MAX_LENGTH - 100;
@@ -64,14 +66,10 @@ function CitationCard({ citation }: { citation: Citation }) {
             {citation.reference}
           </span>
         )}
-        <span
-          className={`rounded-full px-2 py-0.5 font-semibold ${
-            binding ? "bg-tint text-primary" : "bg-mint-tint text-mint-deep"
-          }`}
-        >
+        <Chip size="xs" tone={binding ? "blue" : "mint"}>
           {t(`fieldbot.sources.${citation.source}`)} ·{" "}
           {t(`fieldbot.authorities.${citation.authority}`)}
-        </span>
+        </Chip>
         <span className="text-muted">{citation.document_title}</span>
       </div>
       <p className="mt-2 text-sm leading-6 whitespace-pre-line text-body">
@@ -306,18 +304,18 @@ export function FieldbotPage() {
 
   if (currentUser.isPending) {
     return (
-      <main className="mx-auto w-full max-w-3xl flex-1 px-5 py-14 sm:px-8">
+      <Page width="3xl" message>
         <p role="status" className="text-sm text-muted">
           {t("auth.checkingSession")}
         </p>
-      </main>
+      </Page>
     );
   }
   if (currentUser.isError) {
     return (
-      <main className="mx-auto w-full max-w-3xl flex-1 px-5 py-14 sm:px-8">
+      <Page width="3xl" message>
         <RequestError error={currentUser.error} />
-      </main>
+      </Page>
     );
   }
   if (!currentUser.data) {
