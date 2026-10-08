@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -89,6 +90,7 @@ function renderSummary(
     initialDay?: string;
     today?: object;
     days?: Record<string, object>;
+    calendars?: Record<string, object | Response>;
   } = {},
 ) {
   const initialDay = options.initialDay ?? "2026-09-30";
@@ -102,6 +104,15 @@ function renderSummary(
     if (path === "/api/team-seasons/7/days/today/") {
       return json(options.today ?? day({ day: "2026-10-08" }));
     }
+    const month = path.match(
+      /^\/api\/team-seasons\/7\/calendar\/\?month=(\d{4}-\d{2})$/,
+    )?.[1];
+    if (month) {
+      const response = options.calendars?.[month];
+      return response instanceof Response
+        ? response
+        : json(response ?? { month, today: "2026-10-08", days: [] });
+    }
     const selectedDay = path.match(
       /^\/api\/team-seasons\/7\/days\/(\d{4}-\d{2}-\d{2})\/$/,
     )?.[1];
@@ -112,7 +123,7 @@ function renderSummary(
   });
   vi.stubGlobal("fetch", fetchMock);
   const queryClient = new QueryClient({
-    defaultOptions: { queries: { retry: false } },
+    defaultOptions: { queries: { retry: false, staleTime: 30_000 } },
   });
   const router = createMemoryRouter(routes, {
     initialEntries: [`/team-seasons/7/days/${initialDay}`],
@@ -256,7 +267,7 @@ it("leafs to the previous and next workdays, and hides a missing one", async () 
   renderSummary(day({ previous: "2026-09-26", next: null }));
 
   const previous = await screen.findByRole("link", {
-    name: /samedi 26 septembre/,
+    name: /Séance précédente : samedi 26 septembre/,
   });
   expect(previous.getAttribute("href")).toBe("/team-seasons/7/days/2026-09-26");
   const days = within(screen.getByRole("main")).getByRole("navigation");
@@ -331,7 +342,12 @@ it("also identifies an explicit date matching the server's workday, not the brow
         .getAttribute("aria-current"),
     ).toBe("date");
   });
-  expect(screen.getAllByText("Aujourd'hui")).toHaveLength(2);
+  const heading = screen.getByRole("heading", {
+    name: "Mercredi 30 septembre",
+  });
+  expect(
+    within(heading.parentElement as HTMLElement).getByText("Aujourd'hui"),
+  ).toBeTruthy();
 });
 
 it("does not mark a past date as today", async () => {
@@ -339,7 +355,12 @@ it("does not mark a past date as today", async () => {
 
   const today = await screen.findByRole("link", { name: "Aujourd'hui" });
   expect(today.hasAttribute("aria-current")).toBe(false);
-  expect(screen.getAllByText("Aujourd'hui")).toHaveLength(1);
+  const heading = screen.getByRole("heading", {
+    name: "Mercredi 30 septembre",
+  });
+  expect(
+    within(heading.parentElement as HTMLElement).queryByText("Aujourd'hui"),
+  ).toBeNull();
   expect(
     (screen.getByLabelText("Choisir une date") as HTMLInputElement).value,
   ).toBe("2026-09-30");
@@ -398,7 +419,9 @@ it("still navigates between recorded sessions and updates the date picker", asyn
   );
 
   await user.click(
-    await screen.findByRole("link", { name: /samedi 26 septembre/ }),
+    await screen.findByRole("link", {
+      name: /Séance précédente : samedi 26 septembre/,
+    }),
   );
   await screen.findByRole("heading", { name: "Samedi 26 septembre" });
   expect(router.state.location.pathname).toBe(
@@ -408,9 +431,15 @@ it("still navigates between recorded sessions and updates the date picker", asyn
     (screen.getByLabelText("Choisir une date") as HTMLInputElement).value,
   ).toBe("2026-09-26");
 
-  await user.click(screen.getByRole("link", { name: /mercredi 30 septembre/ }));
+  await user.click(
+    screen.getByRole("link", {
+      name: /Séance suivante : mercredi 30 septembre/,
+    }),
+  );
   await screen.findByRole("heading", { name: "Mercredi 30 septembre" });
-  await user.click(screen.getByRole("link", { name: /vendredi 2 octobre/ }));
+  await user.click(
+    screen.getByRole("link", { name: /Séance suivante : vendredi 2 octobre/ }),
+  );
   await screen.findByRole("heading", { name: "Vendredi 2 octobre" });
   expect(router.state.location.pathname).toBe(
     "/team-seasons/7/days/2026-10-02",
@@ -418,4 +447,261 @@ it("still navigates between recorded sessions and updates the date picker", asyn
   expect(
     (screen.getByLabelText("Choisir une date") as HTMLInputElement).value,
   ).toBe("2026-10-02");
+});
+
+it("marks progress, notes and decisions with one aggregated request, not one request per day", async () => {
+  const { fetchMock } = renderSummary(day(), undefined, {
+    calendars: {
+      "2026-09": {
+        month: "2026-09",
+        today: "2026-09-30",
+        days: [
+          { day: "2026-09-02", progress: 2, notes: 0, decisions: 0 },
+          { day: "2026-09-03", progress: 0, notes: 1, decisions: 0 },
+          { day: "2026-09-04", progress: 0, notes: 0, decisions: 1 },
+        ],
+      },
+    },
+  });
+  const calendar = await screen.findByRole("region", {
+    name: "Calendrier des séances",
+  });
+  const dates = await within(calendar).findByRole("list", {
+    name: "Jours du mois",
+  });
+
+  expect(within(dates).getAllByRole("link")).toHaveLength(30);
+  expect(
+    within(dates)
+      .getByRole("link", { name: /mercredi 2 septembre, 2 avancée/ })
+      .querySelector("[aria-hidden]"),
+  ).toBeTruthy();
+  expect(
+    within(dates)
+      .getByRole("link", {
+        name: /jeudi 3 septembre, 0 avancée\(s\), 1 remarque/,
+      })
+      .querySelector("[aria-hidden]"),
+  ).toBeTruthy();
+  expect(
+    within(dates)
+      .getByRole("link", { name: /vendredi 4 septembre, .*1 décision/ })
+      .querySelector("[aria-hidden]"),
+  ).toBeTruthy();
+  expect(
+    within(dates)
+      .getByRole("link", { name: /samedi 5 septembre, Sans activité/ })
+      .querySelector("[aria-hidden]"),
+  ).toBeNull();
+  const selected = within(dates).getByRole("link", {
+    name: /mercredi 30 septembre, Aujourd'hui, Jour affiché/,
+  });
+  expect(selected.className).toContain("bg-accent");
+  expect(selected.className).toContain("ring-mint-deep");
+  expect(selected.getAttribute("aria-current")).toBe("date");
+  expect(
+    fetchMock.mock.calls.filter(([path]) => path.includes("/calendar/")),
+  ).toHaveLength(1);
+  expect(
+    fetchMock.mock.calls
+      .filter(([path]) => path.includes("/days/"))
+      .map(([path]) => path)
+      .sort(),
+  ).toEqual([
+    "/api/team-seasons/7/days/2026-09-30/",
+    "/api/team-seasons/7/days/today/",
+  ]);
+});
+
+it("shows every date of an empty leap month in Monday-first order", async () => {
+  renderSummary(day({ day: "2024-02-15" }), undefined, {
+    initialDay: "2024-02-15",
+  });
+  const calendar = await screen.findByRole("region", {
+    name: "Calendrier des séances",
+  });
+  const dates = await within(calendar).findByRole("list", {
+    name: "Jours du mois",
+  });
+
+  expect(
+    within(calendar).getByRole("heading", { name: "février 2024" }),
+  ).toBeTruthy();
+  expect(within(dates).getAllByRole("link")).toHaveLength(29);
+  expect(
+    within(dates)
+      .getByRole("link", { name: /jeudi 29 février, Sans activité/ })
+      .getAttribute("href"),
+  ).toBe("/team-seasons/7/days/2024-02-29");
+  expect(dates.children[0].getAttribute("aria-hidden")).toBe("true");
+  expect(dates.children[1].getAttribute("aria-hidden")).toBe("true");
+  expect(dates.children[2].getAttribute("aria-hidden")).toBe("true");
+  expect(dates.children[3].textContent).toBe("1");
+  expect(
+    within(calendar).getByText("Aucune activité enregistrée ce mois-ci."),
+  ).toBeTruthy();
+});
+
+it("distinguishes today from the selected date even in an empty month", async () => {
+  renderSummary(day({ day: "2026-10-20" }), undefined, {
+    initialDay: "2026-10-20",
+  });
+  const calendar = await screen.findByRole("region", {
+    name: "Calendrier des séances",
+  });
+  const dates = await within(calendar).findByRole("list", {
+    name: "Jours du mois",
+  });
+  const today = within(dates).getByRole("link", {
+    name: /jeudi 8 octobre, Aujourd'hui, Sans activité/,
+  });
+  const selected = within(dates).getByRole("link", {
+    name: /mardi 20 octobre, Jour affiché, Sans activité/,
+  });
+
+  expect(today.getAttribute("aria-current")).toBe("date");
+  expect(today.className).toContain("ring-mint-deep");
+  expect(selected.hasAttribute("aria-current")).toBe(false);
+  expect(selected.className).toContain("bg-accent");
+});
+
+it("browses months across a year boundary without changing the displayed summary", async () => {
+  const user = userEvent.setup();
+  const { fetchMock, router } = renderSummary(
+    day({ day: "2026-12-15" }),
+    undefined,
+    { initialDay: "2026-12-15" },
+  );
+  const calendar = await screen.findByRole("region", {
+    name: "Calendrier des séances",
+  });
+  await within(calendar).findByRole("list", { name: "Jours du mois" });
+
+  await user.click(
+    within(calendar).getByRole("button", { name: "Mois suivant" }),
+  );
+  await within(calendar).findByRole("heading", { name: "janvier 2027" });
+  await within(calendar).findByRole("list", { name: "Jours du mois" });
+  expect(router.state.location.pathname).toBe(
+    "/team-seasons/7/days/2026-12-15",
+  );
+  expect(
+    screen.getByRole("heading", { name: "Mardi 15 décembre" }),
+  ).toBeTruthy();
+
+  await user.click(
+    within(calendar).getByRole("button", { name: "Mois précédent" }),
+  );
+  await within(calendar).findByRole("heading", { name: "décembre 2026" });
+  await user.click(
+    within(calendar).getByRole("button", { name: "Mois précédent" }),
+  );
+  await within(calendar).findByRole("heading", { name: "novembre 2026" });
+  await within(calendar).findByRole("list", { name: "Jours du mois" });
+  expect(
+    fetchMock.mock.calls
+      .filter(([path]) => path.includes("/calendar/"))
+      .map(([path]) => path),
+  ).toEqual([
+    "/api/team-seasons/7/calendar/?month=2026-12",
+    "/api/team-seasons/7/calendar/?month=2027-01",
+    "/api/team-seasons/7/calendar/?month=2026-11",
+  ]);
+});
+
+it("opens an empty day selected in another month and keeps its month visible", async () => {
+  const user = userEvent.setup();
+  const { router } = renderSummary(day(), undefined, {
+    days: { "2026-10-05": day({ day: "2026-10-05" }) },
+  });
+  const calendar = await screen.findByRole("region", {
+    name: "Calendrier des séances",
+  });
+  await within(calendar).findByRole("list", { name: "Jours du mois" });
+  await user.click(
+    within(calendar).getByRole("button", { name: "Mois suivant" }),
+  );
+  const selected = await within(calendar).findByRole("link", {
+    name: /lundi 5 octobre, Sans activité/,
+  });
+  await user.click(selected);
+
+  expect(
+    await screen.findByRole("heading", { name: "Lundi 5 octobre" }),
+  ).toBeTruthy();
+  expect(router.state.location.pathname).toBe(
+    "/team-seasons/7/days/2026-10-05",
+  );
+  const newCalendar = screen.getByRole("region", {
+    name: "Calendrier des séances",
+  });
+  expect(
+    await within(newCalendar).findByRole("link", {
+      name: /lundi 5 octobre, Jour affiché/,
+    }),
+  ).toBeTruthy();
+  expect(
+    within(newCalendar).getByRole("heading", { name: "octobre 2026" }),
+  ).toBeTruthy();
+  expect(screen.getByText("Rien n'a été écrit ce jour-là.")).toBeTruthy();
+  expect(
+    (screen.getByLabelText("Choisir une date") as HTMLInputElement).value,
+  ).toBe("2026-10-05");
+
+  await act(() => router.navigate(-1));
+  expect(
+    await screen.findByRole("heading", { name: "Mercredi 30 septembre" }),
+  ).toBeTruthy();
+  const previousCalendar = screen.getByRole("region", {
+    name: "Calendrier des séances",
+  });
+  expect(
+    within(previousCalendar).getByRole("heading", { name: "septembre 2026" }),
+  ).toBeTruthy();
+  expect(
+    await within(previousCalendar).findByRole("link", {
+      name: /mercredi 30 septembre, Jour affiché/,
+    }),
+  ).toBeTruthy();
+});
+
+it("keeps the summary usable after a calendar failure and offers a retry", async () => {
+  const user = userEvent.setup();
+  const calendars: Record<string, object | Response> = {
+    "2026-09": json({}, 503),
+  };
+  const { fetchMock } = renderSummary(day(), undefined, { calendars });
+  const calendar = await screen.findByRole("region", {
+    name: "Calendrier des séances",
+  });
+  expect(await within(calendar).findByRole("alert")).toBeTruthy();
+  expect(
+    screen.getByRole("heading", { name: "Mercredi 30 septembre" }),
+  ).toBeTruthy();
+  expect(screen.getByRole("link", { name: "Aujourd'hui" })).toBeTruthy();
+
+  calendars["2026-09"] = { month: "2026-09", today: "2026-10-08", days: [] };
+  await user.click(within(calendar).getByRole("button", { name: "Réessayer" }));
+  expect(
+    await within(calendar).findByRole("list", { name: "Jours du mois" }),
+  ).toBeTruthy();
+  expect(
+    fetchMock.mock.calls.filter(([path]) => path.includes("/calendar/")),
+  ).toHaveLength(2);
+});
+
+it("does not silently display a response for the wrong month", async () => {
+  renderSummary(day(), undefined, {
+    calendars: {
+      "2026-09": { month: "2026-08", today: "2026-10-08", days: [] },
+    },
+  });
+  const calendar = await screen.findByRole("region", {
+    name: "Calendrier des séances",
+  });
+
+  expect(await within(calendar).findByRole("alert")).toBeTruthy();
+  expect(
+    within(calendar).queryByRole("list", { name: "Jours du mois" }),
+  ).toBeNull();
 });

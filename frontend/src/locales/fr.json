@@ -489,6 +489,28 @@
     "present": "Présents · {{count}} sur {{roster}}",
     "presentFrom": "déduits des chantiers"
   },
+  "calendar": {
+    "title": "Calendrier des séances",
+    "previousMonth": "Mois précédent",
+    "nextMonth": "Mois suivant",
+    "loading": "Chargement du calendrier…",
+    "retry": "Réessayer",
+    "days": "Jours du mois",
+    "withActivity": "Avec activité",
+    "selected": "Jour affiché",
+    "noActivity": "Sans activité enregistrée",
+    "empty": "Aucune activité enregistrée ce mois-ci.",
+    "traces": "{{progress}} avancée(s), {{notes}} remarque(s), {{decisions}} décision(s)",
+    "weekdays": {
+      "monday": "Lun",
+      "tuesday": "Mar",
+      "wednesday": "Mer",
+      "thursday": "Jeu",
+      "friday": "Ven",
+      "saturday": "Sam",
+      "sunday": "Dim"
+    }
+  },
   "validation": {
     "required": "Ce champ est obligatoire.",
     "email": "Saisissez une adresse e-mail valide.",

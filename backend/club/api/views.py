@@ -67,6 +67,7 @@ from club.workdays import (
     attendance,
     day_entries,
     gaps,
+    month_activity,
     neighbours,
     progress_of_the_day,
     workday,
@@ -95,6 +96,7 @@ from .serializers import (
     DeleteAccountSerializer,
     ExportSerializer,
     LoginSerializer,
+    MonthSerializer,
     NoteSerializer,
     OpenWorkItemSerializer,
     PeriodSerializer,
@@ -1012,6 +1014,23 @@ class NotificationReadView(APIView):
             read_at=timezone.now()
         )
         return Response({"unread": unread.count()})
+
+
+class ActivityCalendarView(APIView):
+    def get(self, request: Request, team_season_id: int) -> Response:
+        user = request.user
+        assert isinstance(user, User)
+        team_season = team_season_acted_on(user, team_season_id)
+        serializer = MonthSerializer(data=request.query_params)
+        serializer.is_valid(raise_exception=True)
+        month = serializer.validated_data["month"]
+        return Response(
+            {
+                "month": f"{month.year:04d}-{month.month:02d}",
+                "today": workday(timezone.now()),
+                "days": month_activity(team_season, month),
+            }
+        )
 
 
 class DayView(APIView):

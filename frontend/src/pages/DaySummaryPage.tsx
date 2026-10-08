@@ -6,6 +6,7 @@ import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
 import { getDaySummary, type SummaryEntry } from "../api/workdays";
 import { formatWorkdayDate, nameFormatter } from "../app/formatters";
 import { useCurrentUser } from "../app/useCurrentUser";
+import { ActivityCalendar } from "../components/ActivityCalendar";
 import { RequestError } from "../components/ApiErrors";
 import { Avatar, AvatarStack } from "../components/Avatar";
 import { ButtonLink } from "../components/Button";
@@ -221,6 +222,12 @@ export function DaySummaryPage() {
           </nav>
         </div>
       </div>
+
+      <ActivityCalendar
+        key={`${teamSeasonId}:${summary.data.day}`}
+        teamSeasonId={teamSeasonId}
+        day={summary.data.day}
+      />
 
       <section aria-labelledby="day-produced" className="mt-10">
         <Eyebrow as="h2" id="day-produced">

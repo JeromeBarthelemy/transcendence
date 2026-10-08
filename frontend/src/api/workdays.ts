@@ -57,6 +57,35 @@ const daySummarySchema = z.extend(workdaySchema, {
   entries: z.array(summaryEntrySchema),
 });
 
+const activityCalendarSchema = z.object({
+  month: z.string(),
+  today: z.string(),
+  days: z.array(
+    z.object({
+      day: z.string(),
+      progress: z.int().check(z.nonnegative()),
+      notes: z.int().check(z.nonnegative()),
+      decisions: z.int().check(z.nonnegative()),
+    }),
+  ),
+});
+
+export type ActivityCalendarData = z.infer<typeof activityCalendarSchema>;
+
+export async function getActivityCalendar(
+  teamSeasonId: number,
+  month: string,
+): Promise<ActivityCalendarData> {
+  const { body } = await get(
+    `/api/team-seasons/${teamSeasonId}/calendar/?month=${encodeURIComponent(month)}`,
+  );
+  const result = activityCalendarSchema.safeParse(body);
+  if (!result.success || result.data.month !== month) {
+    throw new Error("The activity calendar response is invalid");
+  }
+  return result.data;
+}
+
 export type Workday = z.infer<typeof workdaySchema>;
 export type DaySummary = z.infer<typeof daySummarySchema>;
 export type SummaryEntry = z.infer<typeof summaryEntrySchema>;
