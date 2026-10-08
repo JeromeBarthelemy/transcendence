@@ -1,6 +1,10 @@
+import csv
 from datetime import date, datetime, time
+from io import StringIO
 from typing import Any
 from zoneinfo import ZoneInfo
+
+import pytest
 
 from club.analytics.activity import summarize_activity
 from club.gdpr import anonymize
@@ -63,9 +67,15 @@ def progress(
     return entry
 
 
-def url(team: TeamSeason, since: str = "2026-11-18", until: str = "2026-11-18") -> str:
+def url(
+    team: TeamSeason,
+    since: str = "2026-11-18",
+    until: str = "2026-11-18",
+    representation: str | None = None,
+) -> str:
     return (
         f"/api/team-seasons/{team.id}/analytics/activity/?since={since}&until={until}"
+        + (f"&format={representation}" if representation else "")
     )
 
 
@@ -73,31 +83,47 @@ def by_value(rows: list[dict[str, Any]], key: str) -> dict[str, int]:
     return {str(row[key]): int(row["count"]) for row in rows}
 
 
-def test_only_a_team_member_or_mentor_may_read_activity(client):
+@pytest.mark.parametrize("representation", [None, "csv"])
+def test_only_a_team_member_or_mentor_may_read_activity(client, representation):
     rouages = team_season()
     lina = member_of(rouages, "lina")
 
-    assert client.get(url(rouages)).status_code == 403
+    path = url(rouages, representation=representation)
+    assert client.get(path).status_code == 403
 
     client.force_login(member_of(team_season(67890), "tom"))
-    response = client.get(url(rouages))
+    response = client.get(path)
     assert response.status_code == 403
     assert response.json()["detail"]["code"] == "not_a_member"
 
     client.force_login(lina)
-    assert client.get(url(rouages)).status_code == 200
+    assert client.get(path).status_code == 200
 
     client.force_login(user("paul", User.ClubRole.MENTOR))
-    assert client.get(url(rouages)).status_code == 200
+    assert client.get(path).status_code == 200
 
 
-def test_the_period_is_required_valid_and_ordered(client):
+@pytest.mark.parametrize("representation", [None, "csv"])
+def test_the_period_is_required_valid_and_ordered(client, representation):
     rouages = team_season()
     client.force_login(member_of(rouages, "lina"))
 
-    assert client.get(url(rouages).split("?")[0]).status_code == 400
-    assert client.get(url(rouages, since="not-a-day")).status_code == 400
-    response = client.get(url(rouages, since="2026-11-19", until="2026-11-18"))
+    query = f"?format={representation}" if representation else ""
+    assert client.get(url(rouages).split("?")[0] + query).status_code == 400
+    assert (
+        client.get(
+            url(rouages, since="not-a-day", representation=representation)
+        ).status_code
+        == 400
+    )
+    response = client.get(
+        url(
+            rouages,
+            since="2026-11-19",
+            until="2026-11-18",
+            representation=representation,
+        )
+    )
 
     assert response.status_code == 400
     assert response.json()["non_field_errors"][0]["code"] == "period_reversed"
@@ -298,3 +324,66 @@ def test_activity_calculation_uses_a_fixed_number_of_queries(
         data = summarize_activity(rouages, WEDNESDAY, WEDNESDAY)
 
     assert len(data["members"]) == len(people)
+
+
+def test_csv_download_matches_the_json_chart_and_workday_boundaries(client):
+    rouages = team_season()
+    lina = member_of(rouages, "lina")
+    tom = member_of(rouages, "tom")
+    item = WorkItem.objects.create(team_season=rouages, title="intake")
+    progress(rouages, item, at(WEDNESDAY, 3, 59), lina, lina)
+    progress(rouages, item, at(WEDNESDAY, 14), lina, lina, tom)
+    progress(rouages, item, at(date(2026, 11, 19), 3, 59), lina, lina)
+    progress(rouages, item, at(date(2026, 11, 19), 14), lina, tom)
+    progress(rouages, item, at(date(2026, 11, 20), 4), lina, lina)
+    other = team_season(67890)
+    progress(
+        other,
+        WorkItem.objects.create(team_season=other, title="bras"),
+        at(WEDNESDAY, 14),
+        tom,
+        tom,
+    )
+    client.force_login(lina)
+
+    json_data = client.get(url(rouages, until="2026-11-19")).json()
+    response = client.get(url(rouages, until="2026-11-19", representation="csv"))
+    rows = list(csv.DictReader(StringIO(response.content.decode("utf-8"))))
+
+    assert response.status_code == 200
+    assert response["Content-Type"] == "text/csv; charset=utf-8"
+    assert response["Content-Disposition"] == (
+        'attachment; filename="activite-12345-2026-11-18-2026-11-19.csv"'
+    )
+    assert rows == [
+        {"day": "2026-11-18", "progress_entries": "2", "active_members": "2"},
+        {"day": "2026-11-19", "progress_entries": "1", "active_members": "1"},
+    ]
+    assert rows == [
+        {key: str(value) for key, value in day.items()}
+        for day in json_data["activity_by_day"]
+    ]
+
+
+def test_an_empty_period_exports_only_the_csv_header(client):
+    rouages = team_season()
+    client.force_login(member_of(rouages, "lina"))
+
+    response = client.get(url(rouages, representation="csv"))
+
+    assert response.status_code == 200
+    assert response.content == b"day,progress_entries,active_members\r\n"
+
+
+def test_json_remains_available_and_unknown_export_formats_are_refused(client):
+    rouages = team_season()
+    client.force_login(member_of(rouages, "lina"))
+
+    assert (
+        client.get(url(rouages, representation="json")).json()
+        == client.get(url(rouages)).json()
+    )
+    refused = client.get(url(rouages, representation="pdf"))
+
+    assert refused.status_code == 400
+    assert refused.json()["format"][0]["code"] == "invalid_choice"

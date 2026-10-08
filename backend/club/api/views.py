@@ -8,7 +8,7 @@ from django.contrib.auth import login, logout
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import IntegrityError, transaction
 from django.db.models import ProtectedError, QuerySet
-from django.http import FileResponse, Http404, JsonResponse
+from django.http import FileResponse, Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from django.utils.decorators import method_decorator
@@ -20,7 +20,7 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from club.analytics.activity import summarize_activity
+from club.analytics.activity import summarize_activity, to_csv
 from club.attachments import DOWNLOAD_ONLY
 from club.corrections import (
     EntryChanged,
@@ -82,6 +82,7 @@ from .permissions import (
     team_seasons_open_to,
 )
 from .serializers import (
+    ActivityAnalyticsSerializer,
     AddMembershipSerializer,
     AddSourceSerializer,
     AskSerializer,
@@ -1062,18 +1063,27 @@ class GapsView(APIView):
 
 
 class ActivityAnalyticsView(APIView):
-    """Participation over a period, plus the work's current snapshot."""
+    """Participation over a period: JSON, or the chart's daily values as CSV."""
 
-    def get(self, request: Request, team_season_id: int) -> Response:
+    def get(self, request: Request, team_season_id: int) -> Response | HttpResponse:
         user = request.user
         assert isinstance(user, User)
         team_season = team_season_acted_on(user, team_season_id)
-        serializer = PeriodSerializer(data=request.query_params)
+        serializer = ActivityAnalyticsSerializer(data=request.query_params)
         serializer.is_valid(raise_exception=True)
         period = serializer.validated_data
-        return Response(
-            summarize_activity(team_season, period["since"], period["until"])
-        )
+        data = summarize_activity(team_season, period["since"], period["until"])
+        if period["format"] == "csv":
+            response = HttpResponse(
+                to_csv(data["activity_by_day"]), content_type="text/csv; charset=utf-8"
+            )
+            name = (
+                f"activite-{team_season.team.number}-"
+                f"{period['since']}-{period['until']}.csv"
+            )
+            response["Content-Disposition"] = f'attachment; filename="{name}"'
+            return response
+        return Response(data)
 
 
 class ExportView(APIView):

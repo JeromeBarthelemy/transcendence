@@ -67,14 +67,32 @@ export function activityAnalyticsQueryKey(
   ] as const;
 }
 
+function activityAnalyticsUrl(
+  teamSeasonId: number,
+  period: ActivityPeriod,
+  format?: "csv",
+): string {
+  const query = new URLSearchParams(period);
+  if (format) {
+    query.set("format", format);
+  }
+  return `/api/team-seasons/${teamSeasonId}/analytics/activity/?${query}`;
+}
+
+/** A same-origin download: the browser sends the session cookie and the
+ * server provides the filename. No copy of the CSV is held in React. */
+export function activityAnalyticsCsvUrl(
+  teamSeasonId: number,
+  period: ActivityPeriod,
+): string {
+  return activityAnalyticsUrl(teamSeasonId, period, "csv");
+}
+
 export async function getActivityAnalytics(
   teamSeasonId: number,
   period: ActivityPeriod,
 ): Promise<ActivityAnalytics> {
-  const query = new URLSearchParams(period);
-  const { body } = await get(
-    `/api/team-seasons/${teamSeasonId}/analytics/activity/?${query}`,
-  );
+  const { body } = await get(activityAnalyticsUrl(teamSeasonId, period));
   const result = activityAnalyticsSchema.safeParse(body);
   if (!result.success) {
     throw new Error("The activity analytics response is invalid");
