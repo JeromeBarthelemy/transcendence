@@ -1,9 +1,8 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Notice } from "../components/Notice";
-
 import { notificationsQueryKey } from "../api/notifications";
+import { Notice } from "../components/Notice";
 
 // Waits between reconnections, the last one repeated: quick after a blip,
 // patient when the network is gone for a while.
