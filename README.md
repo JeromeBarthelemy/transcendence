@@ -566,6 +566,12 @@ the day it started. Ticking at another step than today's opens a second
 progress, and the handover shown on a work item is the latest one left,
 with who left it, when, and at which step.
 
+On the work-item screen, the step selector follows live updates until the member
+chooses a different step. That draft survives background updates and a refused
+tick; following resumes after a successful step tick and detail refresh, or when
+the member selects the server's current step again. Joining without a step does
+not discard a draft, and a draft never carries over to another work item.
+
 Every entry names its work item, `{"id", "title"}`, or `null` for a note to
 the whole team. It also says what its reader may do with it — `can_remove`,
 `can_correct`, and `can_remove` on each file — computed by the rules the API
