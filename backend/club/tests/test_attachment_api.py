@@ -2,7 +2,9 @@
 added them or a mentor, served to the team and its mentors only, and checked
 on what they contain rather than on their name."""
 
+import json
 import struct
+import subprocess
 from io import BytesIO
 
 import pytest
@@ -69,8 +71,37 @@ def iso_media(brand, name):
     return SimpleUploadedFile(name, box + b"\x00" * 64)
 
 
-def webm():
-    return SimpleUploadedFile("essai.webm", b"\x1a\x45\xdf\xa3" + b"\x00" * 64)
+LOCATION = "+48.8566+002.3522/"
+CODECS = {
+    "mov": ["-c:v", "mpeg4", "-c:a", "aac"],
+    "mp4": ["-c:v", "mpeg4", "-c:a", "aac"],
+    "webm": ["-c:v", "libvpx", "-c:a", "libopus"],
+}
+
+
+def video(tmp_path, extension, *metadata):
+    """One second of a test pattern with sound, filmed by ffmpeg itself and
+    tagged with `metadata` the way a phone would."""
+    path = tmp_path / f"essai.{extension}"
+    command = [
+        "ffmpeg", "-nostdin", "-v", "error",
+        "-f", "lavfi", "-i", "testsrc=size=64x48:duration=1",
+        "-f", "lavfi", "-i", "sine=duration=1",
+        *CODECS[extension], *metadata, str(path),
+    ]  # fmt: skip
+    subprocess.run(command, check=True)
+    return SimpleUploadedFile(path.name, path.read_bytes())
+
+
+def probe(tmp_path, data):
+    path = tmp_path / "probed"
+    path.write_bytes(data)
+    command = [
+        "ffprobe", "-v", "error", "-of", "json",
+        "-show_format", "-show_streams", str(path),
+    ]  # fmt: skip
+    result = subprocess.run(command, check=True, capture_output=True)
+    return json.loads(result.stdout)
 
 
 def step():
@@ -342,28 +373,82 @@ def test_an_iphone_photo_in_heic_loses_its_metadata(client):
     assert not Image.open(BytesIO(content(response))).getexif()
 
 
+def test_a_document_is_kept_as_sent_and_shown_in_the_browser(client):
+    response = upload_and_fetch(client, pdf())
+
+    assert response["Content-Type"] == "application/pdf"
+    assert response["Content-Disposition"].startswith("inline")
+    assert content(response) == pdf().read()
+
+
 @pytest.mark.parametrize(
-    ("file", "content_type"),
+    ("extension", "metadata"),
     [
-        (lambda: pdf(), "application/pdf"),
-        (lambda: iso_media(b"mp42", "essai.mp4"), "video/mp4"),
-        (lambda: iso_media(b"qt  ", "essai.mov"), "video/quicktime"),
-        (lambda: webm(), "video/webm"),
+        (
+            "mov",
+            [
+                "-movflags",
+                "use_metadata_tags",
+                "-metadata",
+                f"com.apple.quicktime.location.ISO6709={LOCATION}",
+            ],
+        ),
+        # Android writes it as text under `©xyz`, which ffmpeg's own MP4
+        # writer would turn into a binary `loci`.
+        (
+            "mp4",
+            ["-f", "mov", "-brand", "mp42", "-metadata", f"location={LOCATION}"],
+        ),
+        ("webm", ["-metadata", f"location={LOCATION}"]),
     ],
-    ids=["pdf", "android video", "iphone video", "webm video"],
+    ids=["iphone", "android", "webm"],
 )
-def test_documents_and_videos_are_kept_as_sent_and_shown_in_the_browser(
-    client, file, content_type
+def test_a_video_is_stored_without_where_it_was_filmed(
+    client, tmp_path, extension, metadata
 ):
-    sent = file()
-    original = sent.read()
+    sent = video(tmp_path, extension, *metadata)
+    assert LOCATION.encode() in sent.read()
     sent.seek(0)
 
     response = upload_and_fetch(client, sent)
 
+    assert LOCATION.encode() not in content(response)
+
+
+def test_a_video_loses_the_metadata_of_each_of_its_tracks(client, tmp_path):
+    sent = video(tmp_path, "mov", "-metadata:s:v:0", "title=Essai de Lina")
+    assert b"Essai de Lina" in sent.read()
+    sent.seek(0)
+
+    response = upload_and_fetch(client, sent)
+
+    assert b"Essai de Lina" not in content(response)
+
+
+@pytest.mark.parametrize(
+    ("extension", "content_type"),
+    [("mov", "video/quicktime"), ("mp4", "video/mp4"), ("webm", "video/webm")],
+)
+def test_a_video_keeps_its_picture_and_sound_and_is_shown_in_the_browser(
+    client, tmp_path, extension, content_type
+):
+    sent = video(tmp_path, extension)
+    before = probe(tmp_path, sent.read())
+    sent.seek(0)
+
+    response = upload_and_fetch(client, sent)
+
+    after = probe(tmp_path, content(response))
     assert response["Content-Type"] == content_type
     assert response["Content-Disposition"].startswith("inline")
-    assert content(response) == original
+    picture = [
+        (s["codec_type"], s["codec_name"], s.get("width"), s.get("height"))
+        for s in before["streams"]
+    ]
+    assert [
+        (s["codec_type"], s["codec_name"], s.get("width"), s.get("height"))
+        for s in after["streams"]
+    ] == picture
 
 
 @pytest.mark.parametrize(
@@ -429,6 +514,12 @@ def test_a_file_that_claims_to_be_a_photo_but_does_not_decode_is_refused(client)
     broken = SimpleUploadedFile("photo.png", b"\x89PNG\r\n\x1a\n" + b"\x00" * 64)
 
     assert refused(client, broken) == "attachment_type_refused"
+
+
+def test_a_video_that_cannot_be_read_is_refused(client):
+    unreadable = iso_media(b"qt  ", "essai.mov")
+
+    assert refused(client, unreadable) == "attachment_type_refused"
 
 
 def test_a_small_photo_decoding_to_too_many_pixels_is_refused(client, monkeypatch):
