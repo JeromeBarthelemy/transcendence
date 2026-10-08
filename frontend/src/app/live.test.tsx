@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, cleanup, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { activityAnalyticsQueryKey } from "../api/activityAnalytics";
 
 import "../i18n";
 import { LiveBoard, liveUrl } from "./live";
@@ -59,6 +60,18 @@ function renderBoard() {
       ["team-seasons", 7, "work-items"],
       ["team-seasons", 7, "analytics", "activity", "2026-09-01", "2026-10-05"],
       ["team-seasons", 8, "analytics", "activity", "2026-09-01", "2026-10-05"],
+      ...[7, 8].flatMap((team) =>
+        ["all", "robot", "off_robot"].map((scope) =>
+          activityAnalyticsQueryKey(
+            team,
+            {
+              since: "2026-09-01",
+              until: "2026-10-05",
+            },
+            scope as "all" | "robot" | "off_robot",
+          ),
+        ),
+      ),
       ["work-items", 10],
       ["work-items", 11],
       ["notifications"],
@@ -79,6 +92,39 @@ function renderBoard() {
 
 const offline =
   "Hors ligne : les changements des autres arriveront à la reconnexion.";
+
+it("invalidates every work filter on messages and reconnection, but not another team", () => {
+  const { invalidated, fresh } = renderBoard();
+  latest().open();
+  fresh();
+
+  function expectFilteredInvalidation() {
+    for (const scope of ["all", "robot", "off_robot"] as const) {
+      for (const team of [7, 8]) {
+        expect(
+          invalidated([
+            ...activityAnalyticsQueryKey(
+              team,
+              {
+                since: "2026-09-01",
+                until: "2026-10-05",
+              },
+              scope,
+            ),
+          ]),
+        ).toBe(team === 7);
+      }
+    }
+  }
+
+  latest().receive({ work_item: 10 });
+  expectFilteredInvalidation();
+  fresh();
+  latest().drop();
+  act(() => vi.advanceTimersByTime(1000));
+  latest().open();
+  expectFilteredInvalidation();
+});
 
 it("listens on its team season's socket, secure under https", () => {
   expect(liveUrl(7, { protocol: "http:", host: "localhost:5173" })).toBe(

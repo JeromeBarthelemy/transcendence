@@ -20,7 +20,7 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from club.analytics.activity import summarize_activity, to_csv
+from club.analytics.activity import summarize_activity, to_csv, to_report_csv
 from club.attachments import DOWNLOAD_ONLY
 from club.corrections import (
     EntryChanged,
@@ -1063,23 +1063,34 @@ class GapsView(APIView):
 
 
 class ActivityAnalyticsView(APIView):
-    """Participation over a period: JSON, or the chart's daily values as CSV."""
+    """Period analytics as JSON, daily CSV or a complete CSV report."""
 
     def get(self, request: Request, team_season_id: int) -> Response | HttpResponse:
         user = request.user
         assert isinstance(user, User)
         team_season = team_season_acted_on(user, team_season_id)
-        serializer = ActivityAnalyticsSerializer(data=request.query_params)
+        # A missing query filter is not an unchecked HTML checkbox (False).
+        serializer = ActivityAnalyticsSerializer(data=request.query_params.dict())
         serializer.is_valid(raise_exception=True)
         period = serializer.validated_data
-        data = summarize_activity(team_season, period["since"], period["until"])
+        on_robot = period.get("on_robot")
+        data = summarize_activity(
+            team_season, period["since"], period["until"], on_robot=on_robot
+        )
         if period["format"] == "csv":
+            full_report = period["report"] == "full"
             response = HttpResponse(
-                to_csv(data["activity_by_day"]), content_type="text/csv; charset=utf-8"
+                to_report_csv(data, on_robot)
+                if full_report
+                else to_csv(data["activity_by_day"]),
+                content_type="text/csv; charset=utf-8",
             )
+            suffix = "" if on_robot is None else "-robot" if on_robot else "-hors-robot"
+            if full_report:
+                suffix += "-complet"
             name = (
                 f"activite-{team_season.team.number}-"
-                f"{period['since']}-{period['until']}.csv"
+                f"{period['since']}-{period['until']}{suffix}.csv"
             )
             response["Content-Disposition"] = f'attachment; filename="{name}"'
             return response

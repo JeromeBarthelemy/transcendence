@@ -4,12 +4,14 @@ import { useTranslation } from "react-i18next";
 
 import {
   type ActivityPeriod,
+  type ActivityScope,
   activityAnalyticsCsvUrl,
   activityAnalyticsQueryKey,
   getActivityAnalytics,
   type MemberActivity,
 } from "../api/activityAnalytics";
 import type { TeamSeasonSummary } from "../api/auth";
+import { ActivityWorkItems } from "./ActivityWorkItems";
 import { RequestError } from "./ApiErrors";
 import { Avatar } from "./Avatar";
 import { buttonClass } from "./Button";
@@ -27,6 +29,14 @@ const ActivityOverTimeChart = lazy(async () => {
 const WorkItemsByStepChart = lazy(async () => {
   const charts = await import("./ActivityCharts");
   return { default: charts.WorkItemsByStepChart };
+});
+const WeeklyActivityChart = lazy(async () => {
+  const charts = await import("./ActivityCharts");
+  return { default: charts.WeeklyActivityChart };
+});
+const ActivityByCategoryChart = lazy(async () => {
+  const charts = await import("./ActivityCharts");
+  return { default: charts.ActivityByCategoryChart };
 });
 
 const fullDateFormatter = new Intl.DateTimeFormat("fr-FR", {
@@ -150,6 +160,7 @@ export function TeamActivity({
     [today],
   );
   const [periodChoice, setPeriodChoice] = useState<PeriodChoice>("last30");
+  const [scope, setScope] = useState<ActivityScope>("all");
   const [customSince, setCustomSince] = useState(defaultPeriod.since);
   const [customUntil, setCustomUntil] = useState(defaultPeriod.until);
   const period =
@@ -161,8 +172,8 @@ export function TeamActivity({
   const periodIsValid =
     Boolean(period.since && period.until) && period.since <= period.until;
   const analytics = useQuery({
-    queryKey: activityAnalyticsQueryKey(teamSeason.id, period),
-    queryFn: () => getActivityAnalytics(teamSeason.id, period),
+    queryKey: activityAnalyticsQueryKey(teamSeason.id, period, scope),
+    queryFn: () => getActivityAnalytics(teamSeason.id, period, scope),
     enabled: periodIsValid,
   });
 
@@ -204,7 +215,7 @@ export function TeamActivity({
           </p>
         </div>
 
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
           <Label>
             {t("activity.period")}
             <Select
@@ -219,12 +230,27 @@ export function TeamActivity({
               <option value="custom">{t("activity.customPeriod")}</option>
             </Select>
           </Label>
+          <Label>
+            {t("activity.scope")}
+            <Select
+              className="lg:w-auto"
+              value={scope}
+              onChange={(event) =>
+                setScope(event.target.value as ActivityScope)
+              }
+            >
+              <option value="all">{t("activity.allWorkItems")}</option>
+              <option value="robot">{t("teamHome.robot")}</option>
+              <option value="off_robot">{t("teamHome.offRobot")}</option>
+            </Select>
+          </Label>
           {periodIsValid && analytics.isSuccess && (
             <a
               className={buttonClass({ variant: "primary" })}
               href={activityAnalyticsCsvUrl(
                 teamSeason.id,
                 analytics.data.period,
+                scope,
               )}
               download
             >
@@ -233,6 +259,8 @@ export function TeamActivity({
           )}
         </div>
       </div>
+
+      <p className="mt-3 text-sm text-muted">{t("activity.filterHint")}</p>
 
       {periodChoice === "custom" && (
         <div className="mt-5 grid gap-4 rounded-2xl bg-mist p-4 sm:grid-cols-2">
@@ -269,8 +297,96 @@ export function TeamActivity({
         </div>
       ) : (
         <div className="mt-7 space-y-9">
-          <div>
-            <Heading size="card">{t("activity.currentSnapshot")}</Heading>
+          <section aria-labelledby="activity-period-summary-title">
+            <Heading size="card" id="activity-period-summary-title">
+              {t("activity.periodSummary")}
+            </Heading>
+            <p className="mt-1 text-sm text-muted">
+              {t("activity.periodSummaryHint")}
+            </p>
+            <dl className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              {(
+                [
+                  ["progress_entries", "periodProgress"],
+                  ["active_days", "recordedDays"],
+                  ["active_members", "uniqueParticipants"],
+                  ["work_items", "workedItems"],
+                ] as const
+              ).map(([key, label]) => (
+                <div key={key} className="rounded-2xl bg-primary/5 p-4">
+                  <dt className="text-sm text-muted">
+                    {t(`activity.${label}`)}
+                  </dt>
+                  <dd className="brand-title mt-1 text-3xl text-ink">
+                    {analytics.data.summary[key]}
+                  </dd>
+                </div>
+              ))}
+            </dl>
+          </section>
+
+          <div className="grid gap-8 xl:grid-cols-2">
+            <section aria-labelledby="activity-weekly-title">
+              <Heading size="card" id="activity-weekly-title">
+                {t("activity.byWeek")}
+              </Heading>
+              <p className="mt-1 text-sm text-muted">
+                {t("activity.byWeekHint")}
+              </p>
+              {analytics.data.activity_by_week.length === 0 ? (
+                <EmptyState className="mt-4">
+                  {t("activity.noWeeklyActivity")}
+                </EmptyState>
+              ) : (
+                <Suspense
+                  fallback={<p role="status">{t("activity.loadingChart")}</p>}
+                >
+                  <WeeklyActivityChart
+                    data={analytics.data.activity_by_week}
+                    title={t("activity.byWeekData")}
+                    weekLabel={t("activity.week")}
+                    progressLabel={t("activity.progressEntries")}
+                    membersLabel={t("activity.uniqueParticipants")}
+                    daysLabel={t("activity.recordedDays")}
+                  />
+                </Suspense>
+              )}
+            </section>
+            <section aria-labelledby="activity-category-title">
+              <Heading size="card" id="activity-category-title">
+                {t("activity.byCategory")}
+              </Heading>
+              <p className="mt-1 text-sm text-muted">
+                {t("activity.byCategoryHint")}
+              </p>
+              {analytics.data.summary.progress_entries === 0 ? (
+                <EmptyState className="mt-4">
+                  {t("activity.noCategoryActivity")}
+                </EmptyState>
+              ) : (
+                <Suspense
+                  fallback={<p role="status">{t("activity.loadingChart")}</p>}
+                >
+                  <ActivityByCategoryChart
+                    data={analytics.data.activity_by_category.map((item) => ({
+                      ...item,
+                      label: t(
+                        item.on_robot ? "teamHome.robot" : "teamHome.offRobot",
+                      ),
+                    }))}
+                    title={t("activity.byCategoryData")}
+                    categoryLabel={t("activity.scope")}
+                    progressLabel={t("activity.progressEntries")}
+                  />
+                </Suspense>
+              )}
+            </section>
+          </div>
+
+          <section aria-labelledby="activity-snapshot-title">
+            <Heading size="card" id="activity-snapshot-title">
+              {t("activity.currentSnapshot")}
+            </Heading>
             <p className="mt-1 text-sm text-muted">
               {t("activity.currentSnapshotHint")}
             </p>
@@ -288,7 +404,7 @@ export function TeamActivity({
                 </div>
               ))}
             </dl>
-          </div>
+          </section>
 
           <div className="grid gap-8 xl:grid-cols-2">
             <section aria-labelledby="activity-over-time-title">
@@ -344,6 +460,16 @@ export function TeamActivity({
               )}
             </section>
           </div>
+
+          <section aria-labelledby="activity-work-items-title">
+            <Heading size="card" id="activity-work-items-title">
+              {t("activity.byWorkItem")}
+            </Heading>
+            <p className="mt-1 text-sm text-muted">
+              {t("activity.byWorkItemHint")}
+            </p>
+            <ActivityWorkItems items={analytics.data.work_items} />
+          </section>
 
           <section aria-labelledby="activity-participation-title">
             <Heading size="card" id="activity-participation-title">

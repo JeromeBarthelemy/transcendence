@@ -222,7 +222,15 @@ le scouting, qui auraient donné d'autres courbes, viendront après la soutenanc
 d'ici là, un résultat d'essai s'écrit dans le texte de l'avancée.
 
 **Démo (3 min)** — changer la plage de dates, voir les courbes bouger. Enregistrer
-une avancée dans un autre onglet, la voir arriver. Exporter en CSV.
+une avancée dans un autre onglet, la voir arriver. Filtrer Robot / Hors robot :
+les graphiques et les compteurs des membres suivent le même filtre. Exporter
+en CSV et retrouver les valeurs de la période et du filtre affichés : résumé,
+jours, semaines, Robot / Hors robot, chantiers et participations, avec une colonne
+`section` pour distinguer les vues (ne pas additionner leurs totaux entre elles).
+Les barres hebdomadaires comptent chaque élève une fois par semaine ; les cartes
+de période le comptent une fois sur toute la période. Le tableau des chantiers
+garde ceux sans activité à zéro, avec un lien vers leur détail. Les statuts et
+étapes restent explicitement actuels, contrairement aux compteurs de période.
 
 ---
 

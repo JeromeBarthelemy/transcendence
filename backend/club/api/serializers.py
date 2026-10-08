@@ -515,6 +515,8 @@ class PeriodSerializer(serializers.Serializer[None]):
 
 class ActivityAnalyticsSerializer(PeriodSerializer):
     format = serializers.ChoiceField(choices=["json", "csv"], default="json")
+    on_robot = serializers.BooleanField(required=False)
+    report = serializers.ChoiceField(choices=["daily", "full"], default="daily")
 
 
 class ExportSerializer(serializers.Serializer[None]):
