@@ -7,7 +7,7 @@ import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { z } from "zod";
 
 import { logIn } from "../api/auth";
-import { currentUserQueryKey, useCurrentUser } from "../app/useCurrentUser";
+import { resetSession, useCurrentUser } from "../app/useCurrentUser";
 import {
   FieldErrors,
   fieldIssues,
@@ -58,7 +58,7 @@ export function LoginPage() {
   const login = useMutation({
     mutationFn: logIn,
     onSuccess: (identity) => {
-      queryClient.setQueryData(currentUserQueryKey, identity);
+      resetSession(queryClient, identity);
       navigate("/", { replace: true });
     },
   });

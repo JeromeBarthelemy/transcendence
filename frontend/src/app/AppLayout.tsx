@@ -6,14 +6,13 @@ import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import type { Identity } from "../api/auth";
 import { logOut } from "../api/auth";
 import { ApiRequestError } from "../api/client";
-import { notificationsQueryKey } from "../api/notifications";
 import logo from "../assets/logo.webp";
 import { RequestError } from "../components/ApiErrors";
 import { Avatar } from "../components/Avatar";
 import { IconLabel } from "../components/Icon";
 import { focusRing, type OpenMenu, useMenu } from "./menu";
 import { NotificationsMenu } from "./NotificationsMenu";
-import { currentUserQueryKey, useCurrentUser } from "./useCurrentUser";
+import { resetSession, useCurrentUser } from "./useCurrentUser";
 
 const navLinkClass = `rounded-full px-3 py-2 text-sm font-semibold whitespace-nowrap text-ink transition hover:bg-tint ${focusRing}`;
 const panelLinkClass =
@@ -307,8 +306,7 @@ export function AppLayout() {
     },
     onSuccess: () => {
       setOpen(null);
-      queryClient.removeQueries({ queryKey: notificationsQueryKey });
-      queryClient.setQueryData(currentUserQueryKey, null);
+      resetSession(queryClient, null);
       navigate("/", { replace: true });
     },
   });
