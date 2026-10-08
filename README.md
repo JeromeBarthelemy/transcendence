@@ -231,6 +231,7 @@ worth not losing.
 ### Backend without containers
 
 ```sh
+sudo apt install ffmpeg   # videos are stored without their metadata
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r backend/requirements-dev.txt
 
@@ -668,7 +669,7 @@ opened it:
 | --- | --- | --- | --- |
 | photo | JPEG, PNG, WebP | 20 MB | same size and format, upright, without its metadata |
 | iPhone photo | HEIC | 20 MB | the same, as a JPEG named after it — only Safari shows HEIC |
-| video | MP4 (Android), MOV (iPhone), WebM | 200 MB | as sent |
+| video | MP4 (Android), MOV (iPhone), WebM | 200 MB | same picture and sound, without its metadata |
 | document | PDF | 20 MB | as sent |
 | CAD | STEP, STL | 50 MB | as sent, downloaded rather than shown |
 
@@ -677,6 +678,18 @@ with `attachment_too_large`, a photo decoding to too many pixels with
 `attachment_too_many_pixels`. HEIC is read through `pillow-heif`, registered
 when the application starts; `libheif` applies the rotation an iPhone stores
 in the file itself, so the photo comes out upright.
+
+A phone video records where it was filmed, like a photo, and most members are
+minors. `ffmpeg` copies its picture and sound without re-encoding them, and
+leaves behind every metadata tag, the tracks' own and any data track (an
+iPhone may record its position in one). It is the one system dependency of
+the backend, installed in its image: one tool for MP4, MOV and WebM, and for
+whatever format phones film in next, where a parser of our own would cover
+one format at a time. Its reader is forced to the format already recognised,
+never guessed — left to guess, `ffmpeg` also reads playlists that open other
+files or addresses. A video it cannot copy is refused with
+`attachment_type_refused`: one that might still carry a position is never
+kept.
 
 Files live under `backend/media/`, beside the database, and a backup takes
 both: the database only records where each file is. A removed attachment, or
