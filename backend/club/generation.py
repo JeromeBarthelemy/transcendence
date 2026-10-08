@@ -11,6 +11,7 @@ code change.
 
 import json
 import re
+import unicodedata
 from urllib.error import URLError
 from urllib.request import Request, urlopen
 
@@ -54,17 +55,21 @@ GENERATION_MAX_ATTEMPTS = 3
 SYSTEM_PROMPT = (
     "Tu es Fieldbot, l'assistant du cahier de bord d'un club de robotique "
     "FIRST. Réponds uniquement à partir des passages du règlement fournis "
-    "ci-dessous, en français, en trois phrases maximum. N'écris jamais en "
-    "anglais, même si les passages fournis le sont : traduis-les en "
-    "français dans ta réponse, ne les recopie pas tels quels. Chaque "
-    "passage commence par sa référence entre crochets : reproduis-la à "
-    "l'identique quand tu t'appuies dessus, lettres et points compris "
-    "(par exemple [G102] ou [11.3.4]) — jamais raccourcie à son seul "
-    "numéro, jamais approximée, jamais inventée, et jamais omise : chaque "
-    "phrase doit citer le passage dont elle vient. En cas de "
-    "contradiction, le manuel de jeu fait autorité sur le Q&A officiel. "
-    "Si les passages fournis ne permettent pas de répondre avec "
-    "certitude, dis-le clairement au lieu d'inventer une réponse."
+    "ci-dessous, en trois phrases maximum. Pour chaque affirmation que tu "
+    "fais, cite d'abord la référence exacte du passage (reproduis-la à "
+    "l'identique, par exemple [G102] ou [11.3.4] — jamais raccourcie, "
+    "jamais approximée, jamais inventée, et jamais omise), puis "
+    "l'extrait exact du passage qui la justifie, sans le traduire ni le "
+    "modifier, entre guillemets anglais ; explique-le ensuite en "
+    'français. Exemple : [G102] "exact quote copied word for word from '
+    "the passage\" — explication en français. N'invente jamais un "
+    "extrait : s'il n'y a pas de passage qui justifie une affirmation, "
+    "ne fais pas cette affirmation. Ton explication en français ne doit "
+    "contenir aucun chiffre, condition ou exception qui n'apparaît pas "
+    "déjà dans l'extrait cité juste avant. En cas de contradiction, le "
+    "manuel de jeu fait autorité sur le Q&A officiel. Si les passages "
+    "fournis ne permettent pas de répondre avec certitude, dis-le "
+    "clairement au lieu d'inventer une réponse."
 )
 
 # The system prompt asks for a reference inside [brackets] and nothing
@@ -74,8 +79,9 @@ SYSTEM_PROMPT = (
 # a token carrying a digit is trusted there (every real reference in this
 # manual does — G102, 11.3.4, Q45 — a bare word never does), which is what
 # keeps "(sauf exception)" from being misread as one. A citation is only
-# ever trusted when it names a reference `ask` actually retrieved — never
-# the model's word for it (see `generate_answer`).
+# ever trusted when it names a reference `ask` actually retrieved *and*
+# carries a verbatim excerpt that checks out against it (`_QUOTE_RE`
+# below) — never the model's word for either (see `generate_answer`).
 _BRACKET_GROUP_RE = re.compile(r"\[([^\]]*)\]")
 _PAREN_GROUP_RE = re.compile(r"\(([^)]*)\)")
 _TOKEN_RE = re.compile(r"[A-Za-z0-9](?:[A-Za-z0-9.\-]*[A-Za-z0-9])?")
@@ -106,6 +112,27 @@ _ENGLISH_WORD_RE = re.compile(
     r"\b(?:the|and|with|from|is|are|this|that|must|shall|not|of|to)\b",
     re.IGNORECASE,
 )
+# A citation's own reference check can only ever confirm the reference is
+# real; it has no way to tell a genuine quote from an invented one
+# attached to it. Asking for a verbatim excerpt alongside each citation
+# — checked below against the actual retrieved text, not trusted on the
+# model's word — closes that: a real quote that doesn't exist in the
+# passage is exactly as refusable as a reference that doesn't. Doesn't
+# catch an invented detail in the French explanation *around* a genuine
+# quote (a number or exception the quote itself doesn't carry) — the
+# system prompt asks the model not to add one, but nothing here verifies
+# that it didn't.
+_QUOTE_RE = re.compile(r'\[([A-Za-z0-9.\-]+)\]\s*["“]([^"“”]{15,})["”]')
+_QUOTE_CHARS = str.maketrans({"“": '"', "”": '"', "‘": "'", "’": "'"})
+
+
+def _normalized(text: str) -> str:
+    """Case, accents and smart quotes aside, this is the same excerpt or
+    it isn't — none of those make a quote any less verbatim."""
+    text = text.translate(_QUOTE_CHARS)
+    text = unicodedata.normalize("NFKD", text)
+    text = "".join(char for char in text if not unicodedata.combining(char))
+    return re.sub(r"\s+", " ", text.lower()).strip()
 
 
 class GenerationError(Exception):
@@ -195,28 +222,43 @@ def _sample(question: str, chunks: list[Chunk]) -> str:
 
 
 def _checked(answer: str, chunks: list[Chunk]) -> str:
-    """The three ways of being wrong that reading real answers by hand
-    found (#207's own review), none of which a reference-only check
-    could ever catch on its own: answering in English because the
-    source passage was, answering with no citation at all — not a wrong
-    one, just none — and a citation the model gets wrong — shortened,
-    misspelled, made up outright. Measured on the real manual (100
-    questions, #135's own review): about one matched answer in five
-    cited something that was not in `chunks`. A looser check on that
-    last one (fuzzy match, drop the bad reference and keep the rest)
-    would still let a wrong one through sometimes; refusing outright is
-    the only guarantee strict enough for a rule a robot could be
-    disqualified over."""
-    if _ENGLISH_WORD_RE.search(answer) and not _FRENCH_WORD_RE.search(answer):
+    """The ways of being wrong that reading real answers by hand found
+    (#207's own review), none of which a check on the reference alone
+    could ever catch: answering in English because the source passage
+    was, answering with no citation at all — not a wrong one, just none
+    — a citation the model gets wrong — shortened, misspelled, made up
+    outright — and, the one a bare reference can never rule out, a
+    citation that's real sitting next to a quote that isn't. Measured
+    on the real manual (100 questions, #135's own review): about one
+    matched answer in five cited something that was not in `chunks`. A
+    looser check (fuzzy match, drop the bad reference and keep the
+    rest) would still let a wrong one through sometimes; refusing
+    outright is the only guarantee strict enough for a rule a robot
+    could be disqualified over."""
+    explanation = _QUOTE_RE.sub(" ", answer)
+    if _ENGLISH_WORD_RE.search(explanation) and not _FRENCH_WORD_RE.search(explanation):
         raise GenerationError("réponse qui ne semble pas être en français")
+
     cited = _cited_references(answer)
     if not cited:
         raise GenerationError("réponse sans aucune référence citée")
-    known = {chunk.reference for chunk in chunks if chunk.reference}
-    stray = cited - known
+    known = {chunk.reference: chunk for chunk in chunks if chunk.reference}
+    stray = cited - known.keys()
     if stray:
         raise GenerationError(
             f"référence non retrouvée citée : {', '.join(sorted(stray))}"
+        )
+
+    quoted_refs = set()
+    for ref, quote in _QUOTE_RE.findall(answer):
+        chunk = known.get(ref)
+        if chunk is None or _normalized(quote) not in _normalized(chunk.text):
+            raise GenerationError(f"extrait non retrouvé tel quel pour [{ref}]")
+        quoted_refs.add(ref)
+    unquoted = cited - quoted_refs
+    if unquoted:
+        raise GenerationError(
+            f"référence citée sans extrait à l'appui : {', '.join(sorted(unquoted))}"
         )
     return answer
 

@@ -6,8 +6,10 @@ from club import generation
 from club.generation import GenerationError, generate_answer
 from club.models import Chunk, Document, Season
 
+CHUNK_TEXT = "Climbing on ARENA elements is prohibited."
 
-def chunk(reference="G102", text="Climbing on ARENA elements is prohibited."):
+
+def chunk(reference="G102", text=CHUNK_TEXT):
     document = Document.objects.create(
         season=Season.objects.create(start_year=2026, game_name="BioBuzz"),
         source=Document.Source.GAME_MANUAL,
@@ -17,6 +19,10 @@ def chunk(reference="G102", text="Climbing on ARENA elements is prohibited."):
     return Chunk.objects.create(
         document=document, ordinal=1, reference=reference, text=text
     )
+
+
+def cited(ref="G102", quote=CHUNK_TEXT, explanation="Interdit."):
+    return f'[{ref}] "{quote}" — {explanation}'
 
 
 class FakeResponse:
@@ -33,22 +39,27 @@ class FakeResponse:
         return False
 
 
+def _content(text, done_reason="stop"):
+    return FakeResponse(
+        json.dumps({"message": {"content": text}, "done_reason": done_reason}).encode()
+    )
+
+
 def test_generate_answer_reads_the_models_own_message(monkeypatch):
     captured = {}
+    answer_text = f"  {cited(explanation='Oui, interdit.')}  "
 
     def fake_urlopen(request, timeout):
         captured["url"] = request.full_url
         captured["body"] = json.loads(request.data)
         captured["timeout"] = timeout
-        return FakeResponse(
-            json.dumps({"message": {"content": "  Oui, selon [G102].  "}}).encode()
-        )
+        return FakeResponse(json.dumps({"message": {"content": answer_text}}).encode())
 
     monkeypatch.setattr("club.generation.urlopen", fake_urlopen)
 
     answer = generate_answer("Peut-on grimper sur le terrain ?", [chunk()])
 
-    assert answer == "Oui, selon [G102]."
+    assert answer == answer_text.strip()
     assert captured["url"] == "http://ollama:11434/api/chat"
     assert captured["body"]["model"] == "qwen2.5:3b"
     assert captured["body"]["stream"] is False
@@ -57,7 +68,7 @@ def test_generate_answer_reads_the_models_own_message(monkeypatch):
     )
     assert captured["body"]["messages"][0]["role"] == "system"
     user_message = captured["body"]["messages"][1]["content"]
-    assert "[G102] Climbing on ARENA elements is prohibited." in user_message
+    assert f"[G102] {CHUNK_TEXT}" in user_message
     assert "Peut-on grimper sur le terrain ?" in user_message
 
 
@@ -71,7 +82,9 @@ def test_generate_answer_truncates_a_passage_longer_than_the_cap(monkeypatch):
     def fake_urlopen(request, timeout):
         captured["body"] = json.loads(request.data)
         return FakeResponse(
-            json.dumps({"message": {"content": "Interdit, selon [G102]."}}).encode()
+            json.dumps(
+                {"message": {"content": cited(quote="Mot Mot Mot Mot")}}
+            ).encode()
         )
 
     monkeypatch.setattr("club.generation.urlopen", fake_urlopen)
@@ -127,15 +140,14 @@ def test_generate_answer_refuses_a_blank_answer(monkeypatch):
         generate_answer("Une question ?", [chunk()])
 
 
-def test_generate_answer_accepts_a_citation_that_was_actually_retrieved(monkeypatch):
+def test_generate_answer_accepts_a_citation_backed_by_a_real_quote(monkeypatch):
+    answer_text = cited()
     monkeypatch.setattr(
         "club.generation.urlopen",
-        lambda request, timeout: FakeResponse(
-            json.dumps({"message": {"content": "Interdit, selon [G102]."}}).encode()
-        ),
+        lambda request, timeout: _content(answer_text),
     )
 
-    assert generate_answer("Une question ?", [chunk()]) == "Interdit, selon [G102]."
+    assert generate_answer("Une question ?", [chunk()]) == answer_text
 
 
 def test_generate_answer_refuses_a_citation_that_was_never_retrieved(monkeypatch):
@@ -147,21 +159,28 @@ def test_generate_answer_refuses_a_citation_that_was_never_retrieved(monkeypatch
     # refused rather than trusting it with one bad reference quietly kept.
     monkeypatch.setattr(
         "club.generation.urlopen",
-        lambda request, timeout: FakeResponse(
-            json.dumps(
-                {"message": {"content": "Interdit, selon [G102] et [UNDISCLOSED]."}}
-            ).encode()
-        ),
+        lambda request, timeout: _content(cited() + ' [UNDISCLOSED] "made up"'),
     )
 
     with pytest.raises(GenerationError):
         generate_answer("Une question ?", [chunk()])
 
 
-def _content(text, done_reason="stop"):
-    return FakeResponse(
-        json.dumps({"message": {"content": text}, "done_reason": done_reason}).encode()
+def test_generate_answer_refuses_a_citation_with_an_invented_quote(monkeypatch):
+    # #207's own review, reading real answers against the real manual: a
+    # citation can be entirely real and retrieved while the "quote" next
+    # to it is not — the model attributing an invented detail to a real
+    # reference. A reference check alone cannot tell this apart from a
+    # genuine one; checking the quote against the actual chunk text can.
+    monkeypatch.setattr(
+        "club.generation.urlopen",
+        lambda request, timeout: _content(
+            cited(quote="This was never in the passage at all, obviously.")
+        ),
     )
+
+    with pytest.raises(GenerationError):
+        generate_answer("Une question ?", [chunk()])
 
 
 def test_generate_answer_trims_a_token_cut_answer_to_its_last_full_sentence(
@@ -174,18 +193,18 @@ def test_generate_answer_trims_a_token_cut_answer_to_its_last_full_sentence(
     monkeypatch.setattr(
         "club.generation.urlopen",
         lambda request, timeout: _content(
-            "Interdit, selon [G102]. Autre chose non ter", done_reason="length"
+            cited() + " Autre chose non ter", done_reason="length"
         ),
     )
 
-    assert generate_answer("Une question ?", [chunk()]) == "Interdit, selon [G102]."
+    assert generate_answer("Une question ?", [chunk()]) == cited()
 
 
 def test_generate_answer_refuses_an_answer_cut_before_any_full_sentence(monkeypatch):
     monkeypatch.setattr(
         "club.generation.urlopen",
         lambda request, timeout: _content(
-            "Selon [G102], il est permis de", done_reason="length"
+            f'[G102] "{CHUNK_TEXT}" — il est permis de', done_reason="length"
         ),
     )
 
@@ -198,16 +217,16 @@ def test_generate_answer_does_not_trim_an_answer_that_finished_on_its_own(monkey
     # final full stop, is a common and legitimate way to finish — not a
     # sign of a cut. done_reason "stop" (or anything but "length") must
     # leave it alone rather than go looking for a sentence to "complete".
+    rule_text = "AUTO dure 30 secondes"
+    answer_text = f'[6.1.2] "{rule_text}"'
     monkeypatch.setattr(
         "club.generation.urlopen",
-        lambda request, timeout: _content(
-            "AUTO dure 30 secondes [6.1.2]", done_reason="stop"
-        ),
+        lambda request, timeout: _content(answer_text, done_reason="stop"),
     )
 
     assert (
-        generate_answer("Une question ?", [chunk(reference="6.1.2")])
-        == "AUTO dure 30 secondes [6.1.2]"
+        generate_answer("Une question ?", [chunk(reference="6.1.2", text=rule_text)])
+        == answer_text
     )
 
 
@@ -216,26 +235,27 @@ def test_generate_answer_trims_without_mistaking_a_dotted_reference_for_the_cut(
 ):
     # #207's own review: the old cut-at-the-last-dot logic found the dots
     # inside [11.3.4] itself and sliced the citation in half. The real
-    # sentence boundary is the one after "[11.3.4].", not inside the
-    # reference's own dots.
+    # sentence boundary is the one after the closing quote, not inside
+    # the reference's own dots.
+    rule_text = "Les robots doivent rester dans la zone."
+    kept = f'Vrai, selon [11.3.4] "{rule_text}".'
     monkeypatch.setattr(
         "club.generation.urlopen",
         lambda request, timeout: _content(
-            "Vrai, selon la règle [11.3.4]. Autre chose non complète apre",
-            done_reason="length",
+            kept + " Autre chose non complète apre", done_reason="length"
         ),
     )
 
     assert (
-        generate_answer("Une question ?", [chunk(reference="11.3.4")])
-        == "Vrai, selon la règle [11.3.4]."
+        generate_answer("Une question ?", [chunk(reference="11.3.4", text=rule_text)])
+        == kept
     )
 
 
 def test_generate_answer_refuses_a_citation_shortened_to_its_bare_number(monkeypatch):
     monkeypatch.setattr(
         "club.generation.urlopen",
-        lambda request, timeout: _content("Interdit, selon [102]."),
+        lambda request, timeout: _content(cited(ref="102")),
     )
 
     with pytest.raises(GenerationError):
@@ -250,7 +270,7 @@ def test_generate_answer_refuses_several_references_packed_in_one_bracket(
     # that only reads the first token in each pair of brackets.
     monkeypatch.setattr(
         "club.generation.urlopen",
-        lambda request, timeout: _content("Selon [G102, 9.9.9]."),
+        lambda request, timeout: _content(f'[G102, 9.9.9] "{CHUNK_TEXT}"'),
     )
 
     with pytest.raises(GenerationError):
@@ -262,7 +282,7 @@ def test_generate_answer_refuses_a_reference_cited_in_parentheses(monkeypatch):
     # (parentheses) instead must not get a free pass for it.
     monkeypatch.setattr(
         "club.generation.urlopen",
-        lambda request, timeout: _content("Selon la (règle 9.9.9)."),
+        lambda request, timeout: _content(cited() + " (règle 9.9.9)"),
     )
 
     with pytest.raises(GenerationError):
@@ -272,7 +292,7 @@ def test_generate_answer_refuses_a_reference_cited_in_parentheses(monkeypatch):
 def test_generate_answer_refuses_a_hyphenated_reference_not_retrieved(monkeypatch):
     monkeypatch.setattr(
         "club.generation.urlopen",
-        lambda request, timeout: _content("Interdit, selon [G-102]."),
+        lambda request, timeout: _content(cited(ref="G-102")),
     )
 
     with pytest.raises(GenerationError):
@@ -284,15 +304,13 @@ def test_generate_answer_does_not_mistake_an_ordinary_parenthetical_for_a_citati
 ):
     # No digit, no reference: an aside in parentheses must not be read as
     # an attempted citation and refused for failing to match one.
+    answer_text = f"{cited()} (sauf exception)"
     monkeypatch.setattr(
         "club.generation.urlopen",
-        lambda request, timeout: _content("Interdit (sauf exception), selon [G102]."),
+        lambda request, timeout: _content(answer_text),
     )
 
-    assert (
-        generate_answer("Une question ?", [chunk()])
-        == "Interdit (sauf exception), selon [G102]."
-    )
+    assert generate_answer("Une question ?", [chunk()]) == answer_text
 
 
 def test_generate_answer_refuses_an_answer_with_no_citation_at_all(monkeypatch):
@@ -309,14 +327,29 @@ def test_generate_answer_refuses_an_answer_with_no_citation_at_all(monkeypatch):
         generate_answer("Une question ?", [chunk()])
 
 
+def test_generate_answer_refuses_a_citation_with_no_quote_at_all(monkeypatch):
+    # #207's own review: a model can cite a real, retrieved reference
+    # and simply never back it with an excerpt — the system prompt asks
+    # for one every time, so a bare bracket is treated the same as a
+    # bracket with an invented quote.
+    monkeypatch.setattr(
+        "club.generation.urlopen",
+        lambda request, timeout: _content("C'est interdit selon [G102]."),
+    )
+
+    with pytest.raises(GenerationError):
+        generate_answer("Une question ?", [chunk()])
+
+
 def test_generate_answer_refuses_an_english_copy_of_the_passage(monkeypatch):
     # #207's own review, reading real answers against the real manual:
     # a 3B model asked for French sometimes copies the English passage
-    # verbatim instead — not a typo, the whole thing.
+    # verbatim instead — not a typo, the whole thing, and not inside a
+    # properly quoted excerpt either.
     monkeypatch.setattr(
         "club.generation.urlopen",
         lambda request, timeout: _content(
-            "[G102] Climbing on ARENA elements is prohibited and not allowed."
+            f"[G102] {CHUNK_TEXT} and this is not allowed at all."
         ),
     )
 
@@ -327,17 +360,20 @@ def test_generate_answer_refuses_an_english_copy_of_the_passage(monkeypatch):
 def test_generate_answer_does_not_mistake_a_terse_french_answer_for_english(
     monkeypatch,
 ):
-    # A short, jargon-heavy answer ("AUTO", "ROBOT") can lack every common
+    # A short, jargon-heavy explanation ("AUTO") can lack every common
     # French function word without being English — only answers that
     # also carry a positive sign of English (a word like "the" or "and")
-    # are refused for it.
+    # *outside* the quoted excerpt are refused for it.
+    rule_text = "AUTO lasts 30 seconds"
+    answer_text = f'AUTO dure 30 secondes [6.1.2] "{rule_text}"'
     monkeypatch.setattr(
         "club.generation.urlopen",
-        lambda request, timeout: _content("AUTO dure 30 secondes [G102]."),
+        lambda request, timeout: _content(answer_text),
     )
 
     assert (
-        generate_answer("Une question ?", [chunk()]) == "AUTO dure 30 secondes [G102]."
+        generate_answer("Une question ?", [chunk(reference="6.1.2", text=rule_text)])
+        == answer_text
     )
 
 
@@ -371,12 +407,12 @@ def test_generate_answer_trims_a_cut_off_list_back_to_the_sentence_before_it(
     monkeypatch.setattr(
         "club.generation.urlopen",
         lambda request, timeout: _content(
-            "Interdit, selon [G102]. Précisément : A. grimper, B. pendre, D.",
+            cited() + " Précisément : A. grimper, B. pendre, D.",
             done_reason="length",
         ),
     )
 
-    assert generate_answer("Une question ?", [chunk()]) == "Interdit, selon [G102]."
+    assert generate_answer("Une question ?", [chunk()]) == cited()
 
 
 def test_generate_answer_retries_after_a_bad_sample(monkeypatch):
@@ -388,15 +424,13 @@ def test_generate_answer_retries_after_a_bad_sample(monkeypatch):
     def fake_urlopen(request, timeout):
         attempts.append(1)
         content = (
-            "Interdit, selon [UNDISCLOSED]."
-            if len(attempts) == 1
-            else "Interdit, selon [G102]."
+            cited(ref="UNDISCLOSED", quote="made up") if len(attempts) == 1 else cited()
         )
         return _content(content)
 
     monkeypatch.setattr("club.generation.urlopen", fake_urlopen)
 
-    assert generate_answer("Une question ?", [chunk()]) == "Interdit, selon [G102]."
+    assert generate_answer("Une question ?", [chunk()]) == cited()
     assert len(attempts) == 2
 
 
@@ -405,7 +439,7 @@ def test_generate_answer_gives_up_after_every_attempt_fails(monkeypatch):
 
     def fake_urlopen(request, timeout):
         attempts.append(1)
-        return _content("Interdit, selon [UNDISCLOSED].")
+        return _content(cited(ref="UNDISCLOSED", quote="made up"))
 
     monkeypatch.setattr("club.generation.urlopen", fake_urlopen)
 
