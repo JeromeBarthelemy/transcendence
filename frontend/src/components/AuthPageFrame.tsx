@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 
+/** The sign-up and log-in pages: the form beside the club's own words. */
 export function AuthPageFrame({
   eyebrow,
   title,
