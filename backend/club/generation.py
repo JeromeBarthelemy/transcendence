@@ -11,7 +11,6 @@ code change.
 
 import json
 import re
-import unicodedata
 from urllib.error import URLError
 from urllib.request import Request, urlopen
 
@@ -50,26 +49,24 @@ GENERATION_MAX_PASSAGE_CHARS = 3000
 # confidently wrong citation to a correct one on a second sample, same
 # inputs both times). One bad sample used to mean a refusal; now it
 # means another sample, since nothing here is checking a clock anymore.
-GENERATION_MAX_ATTEMPTS = 3
+# 3 was the first value tried; `_relevant` alone measured a 75% false-
+# refusal rate on one real, longer passage (G401, read by hand against
+# this manual) against 25% on a shorter one (G410) — at 75%, 3 attempts
+# clear it only 58% of the time, 5 clear it 76% of the time.
+GENERATION_MAX_ATTEMPTS = 5
 
 SYSTEM_PROMPT = (
     "Tu es Fieldbot, l'assistant du cahier de bord d'un club de robotique "
     "FIRST. Réponds uniquement à partir des passages du règlement fournis "
-    "ci-dessous, en trois phrases maximum. Pour chaque affirmation que tu "
-    "fais, cite d'abord la référence exacte du passage (reproduis-la à "
-    "l'identique, par exemple [G102] ou [11.3.4] — jamais raccourcie, "
-    "jamais approximée, jamais inventée, et jamais omise), puis "
-    "l'extrait exact du passage qui la justifie, sans le traduire ni le "
-    "modifier, entre guillemets anglais ; explique-le ensuite en "
-    'français. Exemple : [G102] "exact quote copied word for word from '
-    "the passage\" — explication en français. N'invente jamais un "
-    "extrait : s'il n'y a pas de passage qui justifie une affirmation, "
-    "ne fais pas cette affirmation. Ton explication en français ne doit "
-    "contenir aucun chiffre, condition ou exception qui n'apparaît pas "
-    "déjà dans l'extrait cité juste avant. En cas de contradiction, le "
-    "manuel de jeu fait autorité sur le Q&A officiel. Si les passages "
-    "fournis ne permettent pas de répondre avec certitude, dis-le "
-    "clairement au lieu d'inventer une réponse."
+    "ci-dessous, en français, en trois phrases maximum. Pour chaque "
+    "affirmation que tu fais, cite la référence exacte du passage qui la "
+    "justifie (reproduis-la à l'identique, par exemple [G102] ou "
+    "[11.3.4] — jamais raccourcie, jamais approximée, jamais inventée, "
+    "et jamais omise). N'ajoute aucun chiffre, condition ou exception "
+    "que le passage cité ne mentionne pas lui-même. En cas de "
+    "contradiction, le manuel de jeu fait autorité sur le Q&A officiel. "
+    "Si les passages fournis ne permettent pas de répondre avec "
+    "certitude, dis-le clairement au lieu d'inventer une réponse."
 )
 
 # The system prompt asks for a reference inside [brackets] and nothing
@@ -80,8 +77,8 @@ SYSTEM_PROMPT = (
 # manual does — G102, 11.3.4, Q45 — a bare word never does), which is what
 # keeps "(sauf exception)" from being misread as one. A citation is only
 # ever trusted when it names a reference `ask` actually retrieved *and*
-# carries a verbatim excerpt that checks out against it (`_QUOTE_RE`
-# below) — never the model's word for either (see `generate_answer`).
+# clears `_relevant` against that reference's own stored text below —
+# never the model's word for either (see `generate_answer`).
 _BRACKET_GROUP_RE = re.compile(r"\[([^\]]*)\]")
 _PAREN_GROUP_RE = re.compile(r"\(([^)]*)\)")
 _TOKEN_RE = re.compile(r"[A-Za-z0-9](?:[A-Za-z0-9.\-]*[A-Za-z0-9])?")
@@ -112,27 +109,29 @@ _ENGLISH_WORD_RE = re.compile(
     r"\b(?:the|and|with|from|is|are|this|that|must|shall|not|of|to)\b",
     re.IGNORECASE,
 )
-# A citation's own reference check can only ever confirm the reference is
-# real; it has no way to tell a genuine quote from an invented one
-# attached to it. Asking for a verbatim excerpt alongside each citation
-# — checked below against the actual retrieved text, not trusted on the
-# model's word — closes that: a real quote that doesn't exist in the
-# passage is exactly as refusable as a reference that doesn't. Doesn't
-# catch an invented detail in the French explanation *around* a genuine
-# quote (a number or exception the quote itself doesn't carry) — the
-# system prompt asks the model not to add one, but nothing here verifies
-# that it didn't.
-_QUOTE_RE = re.compile(r'\[([A-Za-z0-9.\-]+)\]\s*["“]([^"“”]{15,})["”]')
-_QUOTE_CHARS = str.maketrans({"“": '"', "”": '"', "‘": "'", "’": "'"})
-
-
-def _normalized(text: str) -> str:
-    """Case, accents and smart quotes aside, this is the same excerpt or
-    it isn't — none of those make a quote any less verbatim."""
-    text = text.translate(_QUOTE_CHARS)
-    text = unicodedata.normalize("NFKD", text)
-    text = "".join(char for char in text if not unicodedata.combining(char))
-    return re.sub(r"\s+", " ", text.lower()).strip()
+# Asking the model to reproduce the passage verbatim (an earlier version
+# of this check) measurably caught a real citation with a fabricated
+# quote attached — but also measurably refused good answers over a
+# formatting slip rather than a wrong one: read by hand, the NECTAR
+# rule's own multi-sentence text was one the model kept paraphrasing
+# rather than copying exactly, failing a check that had nothing to do
+# with whether the answer was right. The citations panel already shows
+# this season's own stored text for every reference regardless of what
+# the model writes, so a visitor reading it gets the real passage either
+# way — checking relevance against *that* stored text instead of asking
+# the model to reproduce it drops the formatting failure without losing
+# the check it was guarding against: measured against the known "cited
+# a real but wrong passage" failure (NECTAR -> a passage about match
+# timing instead), a plain yes/no call to the model never once passed
+# the wrong passage (0/8) and passed the right one often but not always
+# (6/8) — short of reliable alone, which is why `generate_answer`'s
+# retry absorbs the miss rather than this blocking on one sample of it.
+_RELEVANCE_PROMPT = (
+    "Tu es un vérificateur strict. Question : {question}\n\n"
+    'Passage de règlement : "{passage}"\n\n'
+    "Est-ce que ce passage répond à la question ? Réponds par un seul "
+    "mot, OUI ou NON."
+)
 
 
 class GenerationError(Exception):
@@ -221,22 +220,62 @@ def _sample(question: str, chunks: list[Chunk]) -> str:
     return answer
 
 
-def _checked(answer: str, chunks: list[Chunk]) -> str:
+def _relevant(question: str, passage: str) -> bool:
+    """A fresh, separate call, out of the context that chose this
+    citation in the first place — asking the same model that just cited
+    a passage whether it stands by it, inside the same generation, would
+    just read back its own pick. Checked against the passage's own
+    stored text, not anything the model wrote, so a model that cites the
+    right reference but garbles its own summary of it is judged on what
+    the passage actually says. Fails open (treated as relevant) on
+    anything but a clear "OUI"/"NON": a server error here is not grounds
+    to refuse an otherwise-real citation on its own."""
+    body = json.dumps(
+        {
+            "model": settings.RAG_GENERATION_MODEL,
+            "messages": [
+                {
+                    "role": "user",
+                    "content": _RELEVANCE_PROMPT.format(
+                        question=question, passage=passage
+                    ),
+                }
+            ],
+            "stream": False,
+            "options": {"num_predict": 10},
+        }
+    ).encode("utf-8")
+    request = Request(
+        f"{settings.RAG_OLLAMA_URL}/api/chat",
+        data=body,
+        headers={"Content-Type": "application/json"},
+    )
+    try:
+        with urlopen(request, timeout=GENERATION_TIMEOUT_SECONDS) as response:
+            payload = json.loads(response.read())
+        verdict = payload["message"]["content"]
+    except (URLError, OSError, ValueError, KeyError, TypeError):
+        return True
+    if not isinstance(verdict, str):
+        return True
+    return "non" not in verdict.strip().lower()
+
+
+def _checked(question: str, answer: str, chunks: list[Chunk]) -> str:
     """The ways of being wrong that reading real answers by hand found
     (#207's own review), none of which a check on the reference alone
-    could ever catch: answering in English because the source passage
+    could ever catch: answering in English because a retrieved passage
     was, answering with no citation at all — not a wrong one, just none
     — a citation the model gets wrong — shortened, misspelled, made up
-    outright — and, the one a bare reference can never rule out, a
-    citation that's real sitting next to a quote that isn't. Measured
-    on the real manual (100 questions, #135's own review): about one
-    matched answer in five cited something that was not in `chunks`. A
-    looser check (fuzzy match, drop the bad reference and keep the
-    rest) would still let a wrong one through sometimes; refusing
-    outright is the only guarantee strict enough for a rule a robot
-    could be disqualified over."""
-    explanation = _QUOTE_RE.sub(" ", answer)
-    if _ENGLISH_WORD_RE.search(explanation) and not _FRENCH_WORD_RE.search(explanation):
+    outright — and, the one even a real reference cannot rule out on its
+    own, a citation that's entirely genuine and simply not an answer to
+    the question asked. Measured on the real manual (100 questions,
+    #135's own review): about one matched answer in five cited something
+    that was not in `chunks`. A looser check (fuzzy match, drop the bad
+    reference and keep the rest) would still let a wrong one through
+    sometimes; refusing outright is the only guarantee strict enough for
+    a rule a robot could be disqualified over."""
+    if _ENGLISH_WORD_RE.search(answer) and not _FRENCH_WORD_RE.search(answer):
         raise GenerationError("réponse qui ne semble pas être en français")
 
     cited = _cited_references(answer)
@@ -249,17 +288,9 @@ def _checked(answer: str, chunks: list[Chunk]) -> str:
             f"référence non retrouvée citée : {', '.join(sorted(stray))}"
         )
 
-    quoted_refs = set()
-    for ref, quote in _QUOTE_RE.findall(answer):
-        chunk = known.get(ref)
-        if chunk is None or _normalized(quote) not in _normalized(chunk.text):
-            raise GenerationError(f"extrait non retrouvé tel quel pour [{ref}]")
-        quoted_refs.add(ref)
-    unquoted = cited - quoted_refs
-    if unquoted:
-        raise GenerationError(
-            f"référence citée sans extrait à l'appui : {', '.join(sorted(unquoted))}"
-        )
+    for ref in cited:
+        if not _relevant(question, known[ref].text):
+            raise GenerationError(f"passage sans rapport avec la question : [{ref}]")
     return answer
 
 
@@ -280,7 +311,7 @@ def generate_answer(question: str, chunks: list[Chunk]) -> str:
     for _ in range(GENERATION_MAX_ATTEMPTS):
         answer = _sample(question, chunks)
         try:
-            return _checked(answer, chunks)
+            return _checked(question, answer, chunks)
         except GenerationError as error:
             last_error = error
     assert last_error is not None
