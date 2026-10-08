@@ -13,11 +13,20 @@ import { createTeamNote, getWorkday, type Workday } from "../api/workdays";
 import { getWorkItems, type WorkItem } from "../api/workItems";
 import { formatWorkdayDate, nameFormatter } from "../app/formatters";
 import { LiveBoard } from "../app/live";
-import { statusColors } from "../app/workItemStatus";
 import { RequestError } from "../components/ApiErrors";
 import { AvatarStack } from "../components/Avatar";
+import { Button, buttonClass } from "../components/Button";
+import { StatusChip } from "../components/Chip";
+import { EmptyState } from "../components/EmptyState";
 import { EntryActions } from "../components/EntryActions";
+import { Label, Select, TextArea } from "../components/Field";
+import { IconLabel, type IconName } from "../components/Icon";
+import { Notice, SuccessMessage } from "../components/Notice";
+import { Page } from "../components/Page";
+import { Panel } from "../components/Panel";
+import { SectionTabs } from "../components/SectionTabs";
 import { TeamActivity } from "../components/TeamActivity";
+import { Eyebrow, Heading } from "../components/Typography";
 import { OpenWorkItemPanel } from "./OpenWorkItemPanel";
 
 type StatusFilter = "all" | WorkItem["status"];
@@ -25,6 +34,10 @@ type TeamSection = "work-items" | "activity";
 
 const WORK_ITEM_STATUSES: WorkItem["status"][] = ["open", "done", "dropped"];
 const TEAM_SECTIONS: TeamSection[] = ["work-items", "activity"];
+const SECTION_ICONS: Record<TeamSection, IconName> = {
+  "work-items": "wrench",
+  activity: "chart",
+};
 
 const dateFormatter = new Intl.DateTimeFormat("fr-FR", {
   dateStyle: "long",
@@ -88,12 +101,8 @@ function WorkItemCard({
         className="block p-4 transition hover:bg-mist focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-lagoon sm:p-5"
       >
         <div className="flex flex-wrap items-start justify-between gap-3">
-          <h3 className="brand-title text-xl text-ink">{item.title}</h3>
-          <span
-            className={`rounded-full px-3 py-1 text-xs font-semibold ${statusColors[item.status]}`}
-          >
-            {t(`teamHome.statuses.${item.status}`)}
-          </span>
+          <Heading size="card">{item.title}</Heading>
+          <StatusChip status={item.status} />
         </div>
 
         {item.current_step && (
@@ -115,7 +124,7 @@ function WorkItemCard({
         )}
 
         {item.handover && (
-          <div className="mt-3 border-l-4 border-warning bg-warning-tint py-2 pr-3 pl-3 text-warning-ink">
+          <Notice tone="warning" callout className="mt-3">
             <p className="text-xs font-bold tracking-[0.12em] uppercase">
               {t("teamHome.handover")}
             </p>
@@ -126,7 +135,7 @@ function WorkItemCard({
                 date: formatActivityDate(item.handover.day, currentWorkday),
               })}
             </p>
-          </div>
+          </Notice>
         )}
       </Link>
     </article>
@@ -136,11 +145,13 @@ function WorkItemCard({
 function WorkItemSection({
   id,
   title,
+  icon,
   items,
   currentWorkday,
 }: {
   id: string;
   title: string;
+  icon: IconName;
   items: WorkItem[];
   currentWorkday?: string;
 }) {
@@ -151,7 +162,7 @@ function WorkItemSection({
   return (
     <section aria-labelledby={id}>
       <div className="mb-4 flex items-baseline justify-between gap-4">
-        <h2 id={id} className="brand-title text-2xl text-ink">
+        <Heading size="section" id={id}>
           <button
             type="button"
             className="flex items-center gap-2 text-left"
@@ -169,16 +180,16 @@ function WorkItemSection({
             >
               <path d="m6 3 5 5-5 5" />
             </svg>
-            {title}
+            <IconLabel icon={icon}>{title}</IconLabel>
           </button>
-        </h2>
+        </Heading>
         <span className="text-sm text-muted">
           {t("teamHome.workItemCount", { count: items.length })}
         </span>
       </div>
       <div id={contentId} hidden={!isOpen}>
         {items.length > 0 ? (
-          <div className="divide-y divide-primary/10 overflow-hidden rounded-2xl border border-primary/12 bg-white shadow-sm">
+          <Panel padding="none">
             {items.map((item) => (
               <WorkItemCard
                 key={item.id}
@@ -186,11 +197,9 @@ function WorkItemSection({
                 currentWorkday={currentWorkday}
               />
             ))}
-          </div>
+          </Panel>
         ) : (
-          <p className="rounded-2xl border border-dashed border-primary/20 p-5 text-sm text-muted">
-            {t("teamHome.noWorkItems")}
-          </p>
+          <EmptyState>{t("teamHome.noWorkItems")}</EmptyState>
         )}
       </div>
     </section>
@@ -252,18 +261,12 @@ function TodaySummary({
   }
 
   return (
-    <section
-      aria-labelledby="today-summary"
-      className="mt-10 rounded-2xl border border-primary/12 bg-white p-5 shadow-sm"
-    >
+    <Panel as="section" aria-labelledby="today-summary" className="mt-10">
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
         <div>
-          <h2
-            id="today-summary"
-            className="text-xs font-bold tracking-[0.14em] text-accent uppercase"
-          >
+          <Eyebrow as="h2" id="today-summary">
             {t("teamHome.today")}
-          </h2>
+          </Eyebrow>
           {day.isPending ? (
             <p role="status" className="mt-2 text-sm text-muted">
               {t("teamHome.loadingDay")}
@@ -308,21 +311,21 @@ function TodaySummary({
           )}
         </div>
 
-        <button
-          type="button"
-          className="self-start rounded-xl bg-ink px-4 py-2 text-sm font-semibold text-white hover:bg-accent sm:self-auto"
+        <Button
+          variant="dark"
+          className="self-start sm:self-auto"
           aria-expanded={isNoteOpen}
           aria-controls="team-note-form"
           onClick={toggleNote}
         >
           {t("teamHome.addNote")}
-        </button>
+        </Button>
       </div>
 
       {noteSaved && (
-        <p role="status" className="mt-4 text-sm font-semibold text-success">
+        <SuccessMessage className="mt-4">
           {t("teamHome.noteSaved")}
-        </p>
+        </SuccessMessage>
       )}
 
       {dayNotes.length > 0 && (
@@ -332,20 +335,24 @@ function TodaySummary({
           </h3>
           <ul className="mt-3 space-y-3">
             {dayNotes.map((entry) => (
-              <li key={entry.id} className="rounded-xl bg-mist px-4 py-3">
-                <EntryActions
-                  entry={entry}
-                  onChanged={reloadDays}
-                  currentBody={() => currentBody(entry.id)}
-                >
-                  <p className="text-sm text-body">{entry.body}</p>
-                </EntryActions>
-                <p className="mt-1 text-xs text-muted">
-                  {t("teamHome.noteMeta", {
-                    author: entry.author,
-                    time: noteTimeFormatter.format(new Date(entry.occurred_at)),
-                  })}
-                </p>
+              <li key={entry.id}>
+                <Notice tone="info">
+                  <EntryActions
+                    entry={entry}
+                    onChanged={reloadDays}
+                    currentBody={() => currentBody(entry.id)}
+                  >
+                    <p className="text-sm text-body">{entry.body}</p>
+                  </EntryActions>
+                  <p className="mt-1 text-xs text-muted">
+                    {t("teamHome.noteMeta", {
+                      author: entry.author,
+                      time: noteTimeFormatter.format(
+                        new Date(entry.occurred_at),
+                      ),
+                    })}
+                  </p>
+                </Notice>
               </li>
             ))}
           </ul>
@@ -358,15 +365,10 @@ function TodaySummary({
           className="mt-5 border-t border-primary/10 pt-5"
           onSubmit={submitNote}
         >
-          <label
-            htmlFor="team-note-body"
-            className="text-sm font-semibold text-ink"
-          >
-            {t("teamHome.noteLabel")}
-          </label>
-          <textarea
+          <Label htmlFor="team-note-body">{t("teamHome.noteLabel")}</Label>
+          <TextArea
+            className="min-h-24"
             id="team-note-body"
-            className="mt-2 min-h-24 w-full rounded-xl border border-primary/20 px-3 py-2 text-body"
             value={noteBody}
             placeholder={t("teamHome.notePlaceholder")}
             required
@@ -376,9 +378,7 @@ function TodaySummary({
           {note.isError && <RequestError error={note.error} />}
 
           <div className="mt-3 flex justify-end gap-3">
-            <button
-              type="button"
-              className="rounded-xl border border-primary/20 px-4 py-2 text-sm font-semibold text-ink"
+            <Button
               disabled={note.isPending}
               onClick={() => {
                 setIsNoteOpen(false);
@@ -387,20 +387,20 @@ function TodaySummary({
               }}
             >
               {t("teamHome.cancelNote")}
-            </button>
-            <button
+            </Button>
+            <Button
               type="submit"
-              className="rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+              variant="primary"
               disabled={note.isPending || noteBody.trim().length === 0}
             >
               {note.isPending
                 ? t("teamHome.savingNote")
                 : t("teamHome.saveNote")}
-            </button>
+            </Button>
           </div>
         </form>
       )}
-    </section>
+    </Panel>
   );
 }
 
@@ -423,10 +423,10 @@ function NotebookExport({ teamSeasonId }: { teamSeasonId: number }) {
         {t("teamHome.exportNotebook")}
       </summary>
       <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-end">
-        <label className="font-semibold text-ink">
+        <Label>
           {t("teamHome.exportCategory")}
-          <select
-            className="mt-2 block w-full rounded-xl border border-primary/20 bg-white px-3 py-2 font-normal sm:w-auto"
+          <Select
+            className="sm:w-auto"
             value={category}
             onChange={(event) => setCategory(event.target.value)}
           >
@@ -436,10 +436,10 @@ function NotebookExport({ teamSeasonId }: { teamSeasonId: number }) {
                 {t(`teamHome.exportCategories.${key}`)}
               </option>
             ))}
-          </select>
-        </label>
+          </Select>
+        </Label>
         <a
-          className="rounded-xl bg-primary px-4 py-2 text-center font-semibold text-white"
+          className={buttonClass({ variant: "primary" })}
           href={`/api/team-seasons/${teamSeasonId}/export/?${query}`}
           download
         >
@@ -452,35 +452,6 @@ function NotebookExport({ teamSeasonId }: { teamSeasonId: number }) {
 
 function teamLabel(teamSeason: TeamSeasonSummary) {
   return `${teamSeason.team.number} · ${teamSeason.team.name}`;
-}
-
-function TeamSectionNav({ section }: { section: TeamSection }) {
-  const { t } = useTranslation();
-
-  return (
-    <nav
-      aria-label={t("teamHome.sectionsLabel")}
-      className="mt-8 grid grid-cols-2 gap-1 rounded-2xl border border-primary/12 bg-white p-1 shadow-sm"
-    >
-      {TEAM_SECTIONS.map((item) => {
-        const isCurrent = item === section;
-        return (
-          <Link
-            key={item}
-            to={{ pathname: "/", search: `?section=${item}` }}
-            aria-current={isCurrent ? "page" : undefined}
-            className={`rounded-xl px-2 py-2.5 text-center text-sm font-semibold whitespace-nowrap transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lagoon sm:px-4 ${
-              isCurrent
-                ? "bg-primary text-white shadow-button"
-                : "text-ink hover:bg-tint"
-            }`}
-          >
-            {t(`teamHome.sections.${item}`)}
-          </Link>
-        );
-      })}
-    </nav>
-  );
 }
 
 export function TeamHomePage({ identity }: { identity: Identity }) {
@@ -515,19 +486,21 @@ export function TeamHomePage({ identity }: { identity: Identity }) {
 
   if (!selectedTeamSeason) {
     return (
-      <main className="mx-auto w-full max-w-4xl flex-1 px-5 py-14 sm:px-8">
-        <p className="text-sm font-bold tracking-[0.14em] text-accent uppercase">
-          {t("teamHome.welcome", { name: identity.display_name })}
-        </p>
-        <div className="mt-6 rounded-3xl border border-primary/15 bg-white p-8 shadow-sm">
-          <h1 className="brand-title text-3xl text-ink">
+      <Page message>
+        <Eyebrow size="sm">
+          <IconLabel icon="user">
+            {t("teamHome.welcome", { name: identity.display_name })}
+          </IconLabel>
+        </Eyebrow>
+        <Panel padding="xl" className="mt-6">
+          <Heading size="large" as="h1">
             {t("teamHome.noTeamTitle")}
-          </h1>
+          </Heading>
           <p className="mt-3 max-w-xl leading-7 text-muted">
             {t("teamHome.noTeamDescription")}
           </p>
-        </div>
-      </main>
+        </Panel>
+      </Page>
     );
   }
 
@@ -538,20 +511,24 @@ export function TeamHomePage({ identity }: { identity: Identity }) {
   const offRobotItems = visibleItems.filter((item) => !item.on_robot);
 
   return (
-    <main className="mx-auto w-full max-w-6xl flex-1 px-5 py-10 sm:px-8 sm:py-14">
-      <p className="text-sm font-bold tracking-[0.14em] text-accent uppercase">
-        {t("teamHome.welcome", { name: identity.display_name })}
-      </p>
+    <Page width="6xl">
+      <Eyebrow size="sm">
+        <IconLabel icon="user">
+          {t("teamHome.welcome", { name: identity.display_name })}
+        </IconLabel>
+      </Eyebrow>
       <LiveBoard teamSeasonId={selectedTeamSeason.id} />
 
       <div className="mt-3 flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
         <div>
-          <h1 className="brand-title text-3xl tracking-[-0.035em] text-ink sm:text-4xl">
-            {t("teamHome.teamTitle", {
-              number: selectedTeamSeason.team.number,
-              name: selectedTeamSeason.team.name,
-            })}
-          </h1>
+          <Heading size="page">
+            <IconLabel icon="team" before>
+              {t("teamHome.teamTitle", {
+                number: selectedTeamSeason.team.number,
+                name: selectedTeamSeason.team.name,
+              })}
+            </IconLabel>
+          </Heading>
           <p className="mt-2 text-sm text-muted">
             {t("teamHome.season", {
               start: selectedTeamSeason.season.start_year,
@@ -562,10 +539,10 @@ export function TeamHomePage({ identity }: { identity: Identity }) {
         </div>
 
         {identity.team_seasons.length > 1 && (
-          <label className="text-sm font-semibold text-ink">
+          <Label>
             {t("teamHome.chooseTeam")}
-            <select
-              className="mt-2 block w-full rounded-xl border border-primary/20 bg-white px-3 py-2 font-normal sm:w-auto"
+            <Select
+              className="sm:w-auto"
               value={selectedTeamSeason.id}
               onChange={(event) => setSelectedId(Number(event.target.value))}
             >
@@ -574,8 +551,8 @@ export function TeamHomePage({ identity }: { identity: Identity }) {
                   {teamLabel(teamSeason)}
                 </option>
               ))}
-            </select>
-          </label>
+            </Select>
+          </Label>
         )}
       </div>
 
@@ -585,7 +562,17 @@ export function TeamHomePage({ identity }: { identity: Identity }) {
         day={day}
       />
 
-      <TeamSectionNav section={section} />
+      <SectionTabs
+        label={t("teamHome.sectionsLabel")}
+        className="mt-8"
+        current={section}
+        tabs={TEAM_SECTIONS.map((item) => ({
+          key: item,
+          label: t(`teamHome.sections.${item}`),
+          icon: SECTION_ICONS[item],
+          to: { pathname: "/", search: `?section=${item}` },
+        }))}
+      />
 
       {section === "activity" && (
         <TeamActivity
@@ -611,10 +598,10 @@ export function TeamHomePage({ identity }: { identity: Identity }) {
                 teamSeasonId={selectedTeamSeason.id}
                 workItems={workItems.data}
               >
-                <label className="text-sm font-semibold text-ink">
+                <Label>
                   {t("teamHome.filterByStatus")}
-                  <select
-                    className="mt-2 block w-full rounded-xl border border-primary/20 bg-white px-3 py-2 font-normal sm:w-auto"
+                  <Select
+                    className="sm:w-auto"
                     value={statusFilter}
                     onChange={(event) =>
                       setStatusFilter(event.target.value as StatusFilter)
@@ -626,20 +613,22 @@ export function TeamHomePage({ identity }: { identity: Identity }) {
                         {t(`teamHome.statuses.${status}`)}
                       </option>
                     ))}
-                  </select>
-                </label>
+                  </Select>
+                </Label>
               </OpenWorkItemPanel>
 
               <div className="mt-8 space-y-10">
                 <WorkItemSection
                   id="robot-work-items"
                   title={t("teamHome.robot")}
+                  icon="robot"
                   items={robotItems}
                   currentWorkday={day.data?.day}
                 />
                 <WorkItemSection
                   id="off-robot-work-items"
                   title={t("teamHome.offRobot")}
+                  icon="toolbox"
                   items={offRobotItems}
                   currentWorkday={day.data?.day}
                 />
@@ -650,6 +639,6 @@ export function TeamHomePage({ identity }: { identity: Identity }) {
           <NotebookExport teamSeasonId={selectedTeamSeason.id} />
         </div>
       )}
-    </main>
+    </Page>
   );
 }

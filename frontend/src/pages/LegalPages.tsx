@@ -1,5 +1,7 @@
 import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
+import { Page } from "../components/Page";
+import { Heading } from "../components/Typography";
 
 // Written from what the application stores and does, not from a template:
 // a change to what it collects, shows or keeps changes these pages too.
@@ -14,15 +16,13 @@ function LegalPage({
   children: ReactNode;
 }) {
   return (
-    <main className="legal mx-auto w-full max-w-3xl flex-1 px-5 py-10 text-body sm:px-8 sm:py-14">
-      <h1 className="brand-title text-3xl tracking-[-0.035em] text-ink sm:text-4xl">
-        {title}
-      </h1>
+    <Page width="3xl" className="legal text-body">
+      <Heading size="page">{title}</Heading>
       <p className="mt-2 text-sm text-muted">
         Dernière mise à jour : {UPDATED_ON}
       </p>
       {children}
-    </main>
+    </Page>
   );
 }
 

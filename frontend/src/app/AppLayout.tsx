@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { type ReactNode, useEffect, useId, useRef, useState } from "react";
+import { type ReactNode, useEffect, useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 
@@ -9,57 +9,14 @@ import { ApiRequestError } from "../api/client";
 import logo from "../assets/logo.webp";
 import { RequestError } from "../components/ApiErrors";
 import { Avatar } from "../components/Avatar";
-import { currentUserQueryKey, useCurrentUser } from "./useCurrentUser";
+import { IconLabel } from "../components/Icon";
+import { focusRing, type OpenMenu, useMenu } from "./menu";
+import { NotificationsMenu } from "./NotificationsMenu";
+import { resetSession, useCurrentUser } from "./useCurrentUser";
 
-const focusRing =
-  "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lagoon";
 const navLinkClass = `rounded-full px-3 py-2 text-sm font-semibold whitespace-nowrap text-ink transition hover:bg-tint ${focusRing}`;
 const panelLinkClass =
   "block rounded-xl px-3 py-2.5 text-sm font-semibold text-ink no-underline hover:bg-tint focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-lagoon";
-
-type OpenMenu = "account" | "admin" | "nav" | null;
-
-/** A button that shows a panel, and every way to put it away again: Escape
- * (focus back on the button), a click anywhere else, or a new page. */
-function useMenu(
-  name: Exclude<OpenMenu, null>,
-  open: OpenMenu,
-  setOpen: (menu: OpenMenu) => void,
-) {
-  const rootRef = useRef<HTMLDivElement>(null);
-  const buttonRef = useRef<HTMLButtonElement>(null);
-  const isOpen = open === name;
-
-  useEffect(() => {
-    if (!isOpen) {
-      return;
-    }
-    function onPointerDown(event: PointerEvent) {
-      if (!rootRef.current?.contains(event.target as Node)) {
-        setOpen(null);
-      }
-    }
-    function onKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        setOpen(null);
-        buttonRef.current?.focus();
-      }
-    }
-    document.addEventListener("pointerdown", onPointerDown);
-    document.addEventListener("keydown", onKeyDown);
-    return () => {
-      document.removeEventListener("pointerdown", onPointerDown);
-      document.removeEventListener("keydown", onKeyDown);
-    };
-  }, [isOpen, setOpen]);
-
-  return {
-    rootRef,
-    buttonRef,
-    isOpen,
-    toggle: () => setOpen(isOpen ? null : name),
-  };
-}
 
 function AdminLinks({
   linkClass,
@@ -72,10 +29,14 @@ function AdminLinks({
   return (
     <>
       <Link to="/teams" className={linkClass} onClick={onNavigate}>
-        {t("nav.teams")}
+        <IconLabel icon="team" before>
+          {t("nav.teams")}
+        </IconLabel>
       </Link>
       <Link to="/users" className={linkClass} onClick={onNavigate}>
-        {t("nav.users")}
+        <IconLabel icon="user" before>
+          {t("nav.users")}
+        </IconLabel>
       </Link>
     </>
   );
@@ -150,7 +111,9 @@ function NavLinks({
   return (
     <>
       <Link to="/fieldbot" className={linkClass} onClick={onNavigate}>
-        {t("nav.fieldbot")}
+        <IconLabel icon="chat" before>
+          {t("nav.fieldbot")}
+        </IconLabel>
       </Link>
       {identity.is_club_admin && admin}
     </>
@@ -343,7 +306,7 @@ export function AppLayout() {
     },
     onSuccess: () => {
       setOpen(null);
-      queryClient.setQueryData(currentUserQueryKey, null);
+      resetSession(queryClient, null);
       navigate("/", { replace: true });
     },
   });
@@ -399,6 +362,9 @@ export function AppLayout() {
               </span>
             ) : (
               <>
+                {identity && (
+                  <NotificationsMenu open={open} setOpen={setOpen} />
+                )}
                 {identity && (
                   <AccountMenu
                     identity={identity}

@@ -433,6 +433,7 @@ class NoteSerializer(serializers.Serializer[Entry]):
     work_item = serializers.PrimaryKeyRelatedField(
         queryset=WorkItem.objects.all(), required=False
     )
+    client_id = serializers.UUIDField(required=False)
 
     def validate_work_item(self, value: WorkItem) -> WorkItem:
         if value.team_season != self.context["team_season"]:
@@ -459,6 +460,14 @@ class DecisionSerializer(NoteSerializer):
     attendees = serializers.PrimaryKeyRelatedField(
         queryset=User.objects.all(), many=True, required=False
     )
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        # Replay is a note concept (NoteCreateView): offline decisions are
+        # not the problem #154 was about, and inheriting the field without
+        # inheriting that view's guards would let a decision collide with,
+        # or be mistaken for, a note sharing its (author, client_id).
+        super().__init__(*args, **kwargs)
+        del self.fields["client_id"]
 
     def validate_attendees(self, value: list[User]) -> list[User]:
         members = Membership.objects.filter(team_season=self.context["team_season"])
@@ -651,3 +660,14 @@ class AddSourceSerializer(serializers.Serializer[None]):
 
 class AskSerializer(serializers.Serializer[None]):
     question = serializers.CharField(max_length=500)
+
+
+class ReadNotificationsSerializer(serializers.Serializer[None]):
+    """Without `ids`, every notification of the member's is read."""
+
+    # SQLite's integers stop at 2**63 - 1: past it, the query fails rather
+    # than finding nothing.
+    ids = serializers.ListField(
+        child=serializers.IntegerField(min_value=1, max_value=2**63 - 1),
+        required=False,
+    )

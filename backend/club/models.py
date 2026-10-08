@@ -17,7 +17,7 @@ from django.contrib.auth.models import (
 from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator
 from django.db import models, transaction
-from django.db.models import F
+from django.db.models import F, Q
 from django.db.models.signals import post_delete
 from django.dispatch import receiver
 from django.utils import timezone
@@ -373,6 +373,13 @@ class TeamSeason(models.Model):
         return f"{self.team.number} - {self.season.game_name}"
 
 
+class MembershipQuerySet(models.QuerySet["Membership"]):
+    def roster(self) -> "MembershipQuerySet":
+        """The students a team counts on: mentors supervise, and a suspended
+        or anonymized account (anonymizing also deactivates) is not there."""
+        return self.filter(user__club_role=User.ClubRole.STUDENT, user__is_active=True)
+
+
 class Membership(models.Model):
     """Belonging to a team for a season; it carries no role. An explicit model
     rather than a ManyToManyField, so a column can be added without converting
@@ -384,6 +391,8 @@ class Membership(models.Model):
     team_season = models.ForeignKey(
         TeamSeason, on_delete=models.CASCADE, related_name="memberships"
     )
+
+    objects = MembershipQuerySet.as_manager()
 
     class Meta:
         # Not « adhésion »: in the club that means joining the association in
@@ -586,9 +595,21 @@ class Entry(models.Model):
         blank=True,
     )
 
+    # Chosen by the device that wrote the trace: a replayed offline save with
+    # the same id must not create a second one. Unique per author only, since
+    # two members' devices can produce the same value by chance.
+    client_id = models.UUIDField("identifiant de l'appareil", null=True, blank=True)
+
     class Meta:
         ordering = ["-occurred_at", "-id"]
         verbose_name = "trace"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["author", "client_id"],
+                condition=Q(client_id__isnull=False),
+                name="unique_client_id_per_author",
+            ),
+        ]
 
     def __str__(self) -> str:
         return f"{self.get_type_display()} — {self.team_season}"
@@ -898,3 +919,59 @@ class QueryCitation(models.Model):
 
     def __str__(self) -> str:
         return f"{self.query} — #{self.rank}"
+
+
+class Notification(models.Model):
+    """One member told of one change on their team's board (module 13): read
+    in the app, never sent by mail."""
+
+    class Verb(models.TextChoices):
+        WORK_ITEM_OPENED = "work_item_opened", "chantier ouvert"
+        WORK_ITEM_DONE = "work_item_done", "chantier terminé"
+        WORK_ITEM_DROPPED = "work_item_dropped", "chantier abandonné"
+        WORK_ITEM_DELETED = "work_item_deleted", "chantier supprimé"
+        ENTRY_ADDED = "entry_added", "trace ajoutée"
+        ENTRY_UPDATED = "entry_updated", "trace modifiée"
+        ENTRY_REMOVED = "entry_removed", "trace retirée"
+
+    recipient = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="notifications",
+        verbose_name="destinataire",
+    )
+    actor = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="+",
+        verbose_name="auteur du changement",
+    )
+    team_season = models.ForeignKey(
+        TeamSeason, on_delete=models.CASCADE, related_name="+"
+    )
+    verb = models.CharField("changement", max_length=20, choices=Verb.choices)
+    # Emptied when the work item or the trace goes, since the notice of its
+    # removal outlives it: hence the copies of what is shown of them.
+    work_item = models.ForeignKey(
+        WorkItem, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
+    work_item_title = models.CharField("titre du chantier", max_length=120, blank=True)
+    entry = models.ForeignKey(
+        Entry, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
+    entry_type = models.CharField(
+        "type de trace",
+        max_length=10,
+        choices=Entry.Type.choices,
+        null=True,
+        blank=True,
+    )
+    created_at = models.DateTimeField("créée le", auto_now_add=True)
+    read_at = models.DateTimeField("lue le", null=True, blank=True)
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
+        verbose_name = "notification"
+
+    def __str__(self) -> str:
+        return f"{self.get_verb_display()} — {self.recipient}"

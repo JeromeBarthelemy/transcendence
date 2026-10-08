@@ -23,6 +23,8 @@ function formatDay(day: string) {
   return shortDateFormatter.format(new Date(`${day}T12:00:00Z`));
 }
 
+/** A team's activity day by day, as lines; its data stays readable as a
+ * table for whoever cannot see the chart. */
 export function ActivityOverTimeChart({
   data,
   title,
@@ -102,6 +104,8 @@ export interface StepDatum {
   count: number;
 }
 
+/** How many work items stand at each step today, as bars; its data stays
+ * readable as a table for whoever cannot see the chart. */
 export function WorkItemsByStepChart({
   data,
   title,

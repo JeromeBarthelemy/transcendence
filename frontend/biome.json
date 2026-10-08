@@ -1,7 +1,7 @@
 {
   "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
   "files": {
-    "includes": ["src/**", "*.ts", "*.json"]
+    "includes": ["src/**", "!src/assets/icons", "*.ts", "*.json"]
   },
   "formatter": {
     "indentStyle": "space"
@@ -9,6 +9,17 @@
   "linter": {
     "domains": {
       "react": "recommended"
+    },
+    "rules": {
+      "a11y": {
+        "noLabelWithoutControl": {
+          "level": "error",
+          "options": {
+            "inputComponents": ["TextInput", "TextArea", "Select"],
+            "labelComponents": ["Label"]
+          }
+        }
+      }
     }
   },
   "css": {

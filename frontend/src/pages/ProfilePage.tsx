@@ -27,13 +27,13 @@ import {
   RequestError,
 } from "../components/ApiErrors";
 import { Avatar, photoChanged } from "../components/Avatar";
-
-const primaryButtonClass =
-  "rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-white hover:bg-primary disabled:opacity-50";
-const secondaryButtonClass =
-  "rounded-xl border border-primary/20 px-4 py-2 text-sm font-semibold text-ink hover:bg-tint disabled:opacity-50";
-const dangerButtonClass =
-  "rounded-xl border border-red-800/25 px-4 py-2 text-sm font-semibold text-red-800 hover:bg-red-50 disabled:opacity-50";
+import { Button, buttonClass } from "../components/Button";
+import { Label, TextInput } from "../components/Field";
+import { IconLabel } from "../components/Icon";
+import { SuccessMessage } from "../components/Notice";
+import { Page } from "../components/Page";
+import { Panel } from "../components/Panel";
+import { Eyebrow, Heading } from "../components/Typography";
 
 const sizeFormatter = new Intl.NumberFormat("fr-FR", {
   maximumFractionDigits: 1,
@@ -120,13 +120,15 @@ function PhotoForm({ identity }: { identity: Identity }) {
   const percent = Math.round(progress * 100);
 
   return (
-    <section
+    <Panel
+      as="section"
+      padding="lg"
       aria-labelledby="photo-title"
-      className="mt-8 rounded-3xl border border-primary/12 bg-white p-5 shadow-sm sm:p-7"
+      className="mt-8"
     >
-      <h2 id="photo-title" className="brand-title text-2xl text-ink">
+      <Heading size="section" id="photo-title">
         {t("profile.photo")}
-      </h2>
+      </Heading>
 
       <div className="mt-5 flex flex-col items-center gap-6 sm:flex-row sm:items-start">
         <figure className="flex flex-col items-center gap-2">
@@ -176,22 +178,16 @@ function PhotoForm({ identity }: { identity: Identity }) {
                 {formatSize(file.size)}
               </p>
               <div className="mt-4 flex flex-wrap gap-3">
-                <button
-                  type="button"
-                  className={primaryButtonClass}
+                <Button
+                  variant="primary"
                   disabled={busy}
                   onClick={() => upload.mutate(file)}
                 >
                   {upload.isPending ? t("profile.sending") : t("profile.send")}
-                </button>
-                <button
-                  type="button"
-                  className={secondaryButtonClass}
-                  disabled={busy}
-                  onClick={cancel}
-                >
+                </Button>
+                <Button disabled={busy} onClick={cancel}>
                   {t("profile.cancel")}
-                </button>
+                </Button>
               </div>
               {upload.isPending && (
                 <div className="mt-4">
@@ -211,7 +207,7 @@ function PhotoForm({ identity }: { identity: Identity }) {
             </>
           ) : (
             <>
-              <div className="flex flex-wrap gap-3">
+              <div className="flex flex-wrap justify-center gap-3 sm:justify-start">
                 <input
                   id={inputId}
                   type="file"
@@ -223,14 +219,13 @@ function PhotoForm({ identity }: { identity: Identity }) {
                 />
                 <label
                   htmlFor={inputId}
-                  className={`${primaryButtonClass} cursor-pointer peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-lagoon`}
+                  className={`${buttonClass({ variant: "primary" })} cursor-pointer peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-lagoon`}
                 >
                   {identity.avatar ? t("profile.change") : t("profile.choose")}
                 </label>
                 {identity.avatar && (
-                  <button
-                    type="button"
-                    className={dangerButtonClass}
+                  <Button
+                    variant="danger"
                     disabled={busy}
                     onClick={() => {
                       setRefusal(null);
@@ -239,13 +234,18 @@ function PhotoForm({ identity }: { identity: Identity }) {
                       remove.mutate();
                     }}
                   >
-                    {remove.isPending
-                      ? t("profile.removing")
-                      : t("profile.remove")}
-                  </button>
+                    <IconLabel icon="xmark">
+                      {remove.isPending
+                        ? t("profile.removing")
+                        : t("profile.remove")}
+                    </IconLabel>
+                  </Button>
                 )}
               </div>
-              <p id={`${inputId}-hint`} className="mt-3 text-xs text-muted">
+              <p
+                id={`${inputId}-hint`}
+                className="mt-3 text-center text-xs text-muted sm:text-left"
+              >
                 {t("profile.hint")}
               </p>
             </>
@@ -265,13 +265,13 @@ function PhotoForm({ identity }: { identity: Identity }) {
           )}
           {remove.isError && <RequestError error={remove.error} />}
           {done && (
-            <p role="status" className="mt-4 text-sm text-success">
+            <SuccessMessage className="mt-4">
               {t(done === "uploaded" ? "profile.uploaded" : "profile.removed")}
-            </p>
+            </SuccessMessage>
           )}
         </div>
       </div>
-    </section>
+    </Panel>
   );
 }
 
@@ -318,13 +318,15 @@ function PersonalData() {
   }
 
   return (
-    <section
+    <Panel
+      as="section"
+      padding="lg"
       aria-labelledby="personal-data-title"
-      className="mt-8 rounded-3xl border border-primary/12 bg-white p-5 shadow-sm sm:p-7"
+      className="mt-8"
     >
-      <h2 id="personal-data-title" className="brand-title text-2xl text-ink">
+      <Heading size="section" id="personal-data-title">
         {t("personalData.title")}
-      </h2>
+      </Heading>
       <p className="mt-2 text-sm leading-6 text-muted">
         {t("personalData.intro")}
       </p>
@@ -338,21 +340,21 @@ function PersonalData() {
             {t("personalData.exportDescription")}
           </p>
         </div>
-        <button
-          type="button"
-          className={`${primaryButtonClass} shrink-0`}
+        <Button
+          variant="primary"
+          className="shrink-0"
           disabled={exportData.isPending}
           onClick={() => exportData.mutate()}
         >
           {exportData.isPending
             ? t("personalData.exporting")
             : t("personalData.export")}
-        </button>
+        </Button>
       </div>
       {exportData.isSuccess && (
-        <p role="status" className="mt-3 text-sm text-success">
+        <SuccessMessage className="mt-3">
           {t("personalData.exported", { address: exportData.data })}
-        </p>
+        </SuccessMessage>
       )}
       {exportData.isError && <RequestError error={exportData.error} />}
 
@@ -366,13 +368,13 @@ function PersonalData() {
           </p>
         </div>
         {!isConfirming && (
-          <button
-            type="button"
-            className={`${dangerButtonClass} shrink-0`}
+          <Button
+            variant="danger"
+            className="shrink-0"
             onClick={() => setIsConfirming(true)}
           >
-            {t("personalData.delete")}
-          </button>
+            <IconLabel icon="xmark">{t("personalData.delete")}</IconLabel>
+          </Button>
         )}
       </div>
 
@@ -384,46 +386,40 @@ function PersonalData() {
           <p className="text-sm font-semibold text-red-900">
             {t("personalData.deleteWarning")}
           </p>
-          <label
-            htmlFor={passwordId}
-            className="mt-4 block text-sm font-semibold text-ink"
-          >
+          <Label className="mt-4 block" htmlFor={passwordId}>
             {t("personalData.password")}
-          </label>
-          <input
+          </Label>
+          <TextInput
+            tone="danger"
             id={passwordId}
             type="password"
             autoComplete="current-password"
-            // biome-ignore lint/a11y/noAutofocus: the member just asked for this form; the password is the only thing left to do.
+            // Autofocus: the member just asked for this form; the password is the only thing left to do.
             autoFocus
             value={password}
             aria-invalid={wrongPassword}
-            className="mt-2 block w-full rounded-xl border border-red-800/25 bg-white px-3 py-2 text-body"
             onChange={(event) => setPassword(event.target.value)}
           />
           <RequestError error={erase.error} />
           <div className="mt-4 flex flex-wrap gap-3">
-            <button
+            <Button
+              variant="danger-solid"
               type="submit"
-              className="rounded-xl bg-red-800 px-4 py-2 text-sm font-semibold text-white hover:bg-red-900 disabled:opacity-50"
               disabled={!password || erase.isPending}
             >
-              {erase.isPending
-                ? t("personalData.deleting")
-                : t("personalData.confirmDelete")}
-            </button>
-            <button
-              type="button"
-              className={secondaryButtonClass}
-              disabled={erase.isPending}
-              onClick={cancel}
-            >
+              <IconLabel icon="xmark">
+                {erase.isPending
+                  ? t("personalData.deleting")
+                  : t("personalData.confirmDelete")}
+              </IconLabel>
+            </Button>
+            <Button disabled={erase.isPending} onClick={cancel}>
               {t("profile.cancel")}
-            </button>
+            </Button>
           </div>
         </form>
       )}
-    </section>
+    </Panel>
   );
 }
 
@@ -433,18 +429,18 @@ export function ProfilePage() {
 
   if (currentUser.isPending) {
     return (
-      <main className="mx-auto w-full max-w-2xl flex-1 px-5 py-14 sm:px-8">
+      <Page width="2xl" message>
         <p role="status" className="text-sm text-muted">
           {t("auth.checkingSession")}
         </p>
-      </main>
+      </Page>
     );
   }
   if (currentUser.isError) {
     return (
-      <main className="mx-auto w-full max-w-2xl flex-1 px-5 py-14 sm:px-8">
+      <Page width="2xl" message>
         <RequestError error={currentUser.error} />
-      </main>
+      </Page>
     );
   }
   if (!currentUser.data) {
@@ -453,19 +449,17 @@ export function ProfilePage() {
   const identity = currentUser.data;
 
   return (
-    <main className="mx-auto w-full max-w-2xl flex-1 px-5 py-10 sm:px-8 sm:py-14">
-      <p className="text-sm font-bold tracking-[0.14em] text-accent uppercase">
-        {t("profile.eyebrow")}
-      </p>
-      <h1 className="brand-title mt-3 text-3xl tracking-[-0.035em] text-ink sm:text-4xl">
+    <Page width="2xl">
+      <Eyebrow size="sm">{t("profile.eyebrow")}</Eyebrow>
+      <Heading size="page" className="mt-3">
         {identity.display_name}
-      </h1>
+      </Heading>
       <p className="mt-2 text-muted">
         {t(`teams.roles.${identity.club_role}`)}
         {identity.is_club_admin && ` · ${t("profile.clubAdmin")}`}
       </p>
       <PhotoForm identity={identity} />
       <PersonalData />
-    </main>
+    </Page>
   );
 }

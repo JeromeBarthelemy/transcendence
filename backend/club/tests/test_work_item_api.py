@@ -1,9 +1,12 @@
 from datetime import date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
+import pytest
+from django.db import IntegrityError
 from django.test import Client
 
 from club.api.serializers import OpenWorkItemSerializer
+from club.gdpr import anonymize
 from club.models import (
     Entry,
     EntryParticipant,
@@ -180,7 +183,9 @@ def test_of_two_simultaneous_openings_of_one_title_the_second_is_refused(
     assert rival == [201]
     assert response.status_code == 400
     assert response.json()["title"][0]["code"] == "work_item_title_taken"
-    assert rouages.work_items.count() == 1
+    # Not the work items left: the rival ran inside this request's
+    # transaction, on its connection, so the refusal rolls the rival's back
+    # too, which two real connections would not.
 
 
 def test_a_student_cannot_open_a_work_item_in_another_team(client):
@@ -765,6 +770,23 @@ def test_a_day_shows_its_entries_and_who_was_there_out_of_the_roster(client):
     assert day["advanced_work_items"] == 1
 
 
+def test_the_days_roster_leaves_out_suspended_and_anonymized_students(client):
+    rouages = team_season()
+    lina = member_of(rouages, "lina")
+    member_of(rouages, "tom")
+    member_of(rouages, "sam")
+    suspended = member_of(rouages, "noe")
+    suspended.is_active = False
+    suspended.save()
+    anonymize(member_of(rouages, "yann"))
+    member_of(rouages, "paul", User.ClubRole.MENTOR)
+    client.force_login(lina)
+
+    day = client.get(f"/api/team-seasons/{rouages.id}/days/2026-09-09/").json()
+
+    assert day["roster"] == 3
+
+
 def test_today_means_the_current_club_workday(client, monkeypatch):
     rouages = team_season()
     lina = member_of(rouages)
@@ -1061,3 +1083,87 @@ def test_a_trace_says_what_its_reader_may_do_with_it(client):
     assert rights(lina) == (True, False)
     assert rights(tom) == (False, False)
     assert rights(mentor()) == (True, True)
+
+
+# --- replayed notes ---
+
+DEVICE_ID = "6f1f3c1e-2a4b-4c59-9d7e-0b8a1c2d3e4f"
+
+
+def test_a_note_replayed_with_the_same_client_id_is_stored_once(client):
+    rouages = team_season()
+    client.force_login(member_of(rouages))
+
+    first = note(client, rouages, body="Perceuse HS.", client_id=DEVICE_ID)
+    replayed = note(client, rouages, body="Perceuse HS.", client_id=DEVICE_ID)
+
+    assert first.status_code == 201
+    assert replayed.status_code == 200
+    assert replayed.json()["id"] == first.json()["id"]
+    assert Entry.objects.count() == 1
+
+
+def test_the_same_client_id_from_two_members_is_not_a_collision(client):
+    rouages = team_season()
+    lina, tom = member_of(rouages, "lina"), member_of(rouages, "tom")
+
+    client.force_login(lina)
+    first = note(client, rouages, body="Lina.", client_id=DEVICE_ID)
+    client.force_login(tom)
+    second = note(client, rouages, body="Tom.", client_id=DEVICE_ID)
+
+    assert first.status_code == 201
+    assert second.status_code == 201
+    assert Entry.objects.count() == 2
+
+
+def test_a_note_without_a_client_id_is_never_treated_as_a_replay(client):
+    rouages = team_season()
+    client.force_login(member_of(rouages))
+
+    note(client, rouages, body="Une remarque.")
+    again = note(client, rouages, body="Une remarque.")
+
+    assert again.status_code == 201
+    assert Entry.objects.count() == 2
+
+
+def test_a_replay_towards_another_team_is_refused_as_a_conflict(client):
+    rouages = team_season(12345)
+    other = team_season(67890)
+    lina = member_of(rouages)
+    client.force_login(lina)
+    note(client, rouages, body="Ici.", client_id=DEVICE_ID)
+    Membership.objects.create(user=lina, team_season=other)
+
+    response = note(client, other, body="Là.", client_id=DEVICE_ID)
+
+    assert response.status_code == 409
+    assert response.json()["detail"]["code"] == "client_id_taken"
+    assert Entry.objects.count() == 1
+
+
+def test_a_malformed_client_id_is_refused(client):
+    rouages = team_season()
+    client.force_login(member_of(rouages))
+
+    response = note(client, rouages, body="Une remarque.", client_id="pas-un-uuid")
+
+    assert response.status_code == 400
+    assert not Entry.objects.exists()
+
+
+def test_an_unrelated_integrity_error_is_not_mistaken_for_a_replay(client, monkeypatch):
+    # Nothing to replay without a client_id: a failure here must surface as
+    # itself, not be read as "this was already answered once" and queried
+    # for an existing (author, client_id) that was never given.
+    rouages = team_season()
+    client.force_login(member_of(rouages))
+
+    def broken_save(self, **kwargs):
+        raise IntegrityError("unrelated constraint")
+
+    monkeypatch.setattr("club.api.serializers.NoteSerializer.save", broken_save)
+
+    with pytest.raises(IntegrityError):
+        note(client, rouages, body="Une remarque.")

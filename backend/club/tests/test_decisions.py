@@ -146,3 +146,56 @@ def test_a_student_only_ticked_on_a_decision_is_not_present(client):
     decide(client, rouages, body="Carbone.", attendees=[tom.id])
 
     assert list(attendance(rouages, workday(timezone.now()))) == [lina]
+
+
+# --- client_id is a note concept, replay is not ---
+
+
+def note(client, team, **body):
+    return client.post(
+        f"/api/team-seasons/{team.id}/notes/", body, content_type="application/json"
+    )
+
+
+DEVICE_ID = "6f1f3c1e-2a4b-4c59-9d7e-0b8a1c2d3e4f"
+
+
+def test_a_decisions_client_id_is_ignored_not_stored(client):
+    rouages = team_season()
+    client.force_login(member_of(rouages))
+
+    response = decide(client, rouages, body="Carbone.", client_id=DEVICE_ID)
+
+    assert response.status_code == 201
+    assert Entry.objects.get().client_id is None
+
+
+def test_a_decision_never_answers_as_a_note_sharing_its_client_id(client):
+    # #154's replay is a note concept (NoteCreateView): without this, a note
+    # sent with the same (author, client_id) as an existing decision would
+    # be answered with that decision instead, as if it were the note replayed.
+    rouages = team_season()
+    lina = member_of(rouages)
+    client.force_login(lina)
+    decide(client, rouages, body="Carbone.", client_id=DEVICE_ID)
+
+    response = note(client, rouages, body="Perceuse HS.", client_id=DEVICE_ID)
+
+    assert response.status_code == 201
+    assert response.json()["type"] == "note"
+    assert response.json()["body"] == "Perceuse HS."
+    assert Entry.objects.count() == 2
+
+
+def test_the_same_client_id_reuses_a_decision_without_colliding(client):
+    # Ignored rather than stored, so two decisions sharing a client_id by
+    # coincidence never meet unique_client_id_per_author — a 500 before this.
+    rouages = team_season()
+    client.force_login(member_of(rouages))
+
+    first = decide(client, rouages, body="Carbone.", client_id=DEVICE_ID)
+    second = decide(client, rouages, body="Finalement, alu.", client_id=DEVICE_ID)
+
+    assert first.status_code == 201
+    assert second.status_code == 201
+    assert Entry.objects.count() == 2

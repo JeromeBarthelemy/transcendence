@@ -13,7 +13,6 @@ from typing import TypedDict
 from django.db import models
 
 from club.models import (
-    ANONYMIZED_NAME,
     Entry,
     EntryParticipant,
     Membership,
@@ -154,13 +153,8 @@ def summarize_activity(
         ).values_list("entry_id", "user_id")
     )
     current_members = set(
-        Membership.objects.filter(
-            team_season=team_season,
-            user__club_role=User.ClubRole.STUDENT,
-        )
-        # Anonymization deliberately keeps historical relations, including
-        # the membership row. The reserved name is its reliable marker.
-        .exclude(user__display_name__startswith=f"{ANONYMIZED_NAME} ")
+        Membership.objects.filter(team_season=team_season)
+        .roster()
         .values_list("user_id", flat=True)
         .order_by()
     )

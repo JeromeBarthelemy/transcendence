@@ -12,6 +12,11 @@ import {
 import type { TeamSeasonSummary } from "../api/auth";
 import { RequestError } from "./ApiErrors";
 import { Avatar } from "./Avatar";
+import { buttonClass } from "./Button";
+import { EmptyState } from "./EmptyState";
+import { Label, Select, TextInput } from "./Field";
+import { Panel } from "./Panel";
+import { Eyebrow, Heading } from "./Typography";
 
 type PeriodChoice = "last30" | "season" | "custom";
 
@@ -182,31 +187,28 @@ export function TeamActivity({
   const hasStartedWorkItems = stepData.some((item) => item.count > 0);
 
   return (
-    <section
+    <Panel
+      as="section"
+      padding="lg"
       aria-labelledby="team-activity-title"
-      className="mt-10 rounded-3xl border border-primary/12 bg-white p-5 shadow-panel sm:p-7"
+      className="mt-10"
     >
       <div className="flex flex-col justify-between gap-5 lg:flex-row lg:items-end">
         <div>
-          <p className="text-xs font-bold tracking-[0.14em] text-accent uppercase">
-            {t("activity.eyebrow")}
-          </p>
-          <h2
-            id="team-activity-title"
-            className="brand-title mt-1 text-3xl text-ink"
-          >
+          <Eyebrow>{t("activity.eyebrow")}</Eyebrow>
+          <Heading size="large" className="mt-1" id="team-activity-title">
             {t("activity.title")}
-          </h2>
+          </Heading>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-muted">
             {t("activity.description")}
           </p>
         </div>
 
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-          <label className="text-sm font-semibold text-ink">
+          <Label>
             {t("activity.period")}
-            <select
-              className="mt-2 block w-full rounded-xl border border-primary/20 bg-white px-3 py-2 font-normal lg:w-auto"
+            <Select
+              className="lg:w-auto"
               value={periodChoice}
               onChange={(event) =>
                 setPeriodChoice(event.target.value as PeriodChoice)
@@ -215,11 +217,11 @@ export function TeamActivity({
               <option value="last30">{t("activity.last30Days")}</option>
               <option value="season">{t("activity.wholeSeason")}</option>
               <option value="custom">{t("activity.customPeriod")}</option>
-            </select>
-          </label>
+            </Select>
+          </Label>
           {periodIsValid && analytics.isSuccess && (
             <a
-              className="rounded-xl bg-primary px-4 py-2 text-center text-sm font-semibold text-white"
+              className={buttonClass({ variant: "primary" })}
               href={activityAnalyticsCsvUrl(
                 teamSeason.id,
                 analytics.data.period,
@@ -234,24 +236,22 @@ export function TeamActivity({
 
       {periodChoice === "custom" && (
         <div className="mt-5 grid gap-4 rounded-2xl bg-mist p-4 sm:grid-cols-2">
-          <label className="text-sm font-semibold text-ink">
+          <Label>
             {t("activity.since")}
-            <input
+            <TextInput
               type="date"
-              className="mt-2 block w-full rounded-xl border border-primary/20 bg-white px-3 py-2 font-normal"
               value={customSince}
               onChange={(event) => setCustomSince(event.target.value)}
             />
-          </label>
-          <label className="text-sm font-semibold text-ink">
+          </Label>
+          <Label>
             {t("activity.until")}
-            <input
+            <TextInput
               type="date"
-              className="mt-2 block w-full rounded-xl border border-primary/20 bg-white px-3 py-2 font-normal"
               value={customUntil}
               onChange={(event) => setCustomUntil(event.target.value)}
             />
-          </label>
+          </Label>
         </div>
       )}
 
@@ -270,9 +270,7 @@ export function TeamActivity({
       ) : (
         <div className="mt-7 space-y-9">
           <div>
-            <h3 className="brand-title text-xl text-ink">
-              {t("activity.currentSnapshot")}
-            </h3>
+            <Heading size="card">{t("activity.currentSnapshot")}</Heading>
             <p className="mt-1 text-sm text-muted">
               {t("activity.currentSnapshotHint")}
             </p>
@@ -294,16 +292,13 @@ export function TeamActivity({
 
           <div className="grid gap-8 xl:grid-cols-2">
             <section aria-labelledby="activity-over-time-title">
-              <h3
-                id="activity-over-time-title"
-                className="brand-title text-xl text-ink"
-              >
+              <Heading size="card" id="activity-over-time-title">
                 {t("activity.overTime")}
-              </h3>
+              </Heading>
               {analytics.data.activity_by_day.length === 0 ? (
-                <p className="mt-4 rounded-2xl border border-dashed border-primary/20 p-5 text-sm text-muted">
+                <EmptyState className="mt-4">
                   {t("activity.noActivity")}
-                </p>
+                </EmptyState>
               ) : (
                 <Suspense
                   fallback={
@@ -324,16 +319,13 @@ export function TeamActivity({
             </section>
 
             <section aria-labelledby="activity-steps-title">
-              <h3
-                id="activity-steps-title"
-                className="brand-title text-xl text-ink"
-              >
+              <Heading size="card" id="activity-steps-title">
                 {t("activity.byStep")}
-              </h3>
+              </Heading>
               {!hasStartedWorkItems ? (
-                <p className="mt-4 rounded-2xl border border-dashed border-primary/20 p-5 text-sm text-muted">
+                <EmptyState className="mt-4">
                   {t("activity.noStartedWorkItems")}
-                </p>
+                </EmptyState>
               ) : (
                 <Suspense
                   fallback={
@@ -354,12 +346,9 @@ export function TeamActivity({
           </div>
 
           <section aria-labelledby="activity-participation-title">
-            <h3
-              id="activity-participation-title"
-              className="brand-title text-xl text-ink"
-            >
+            <Heading size="card" id="activity-participation-title">
               {t("activity.participation")}
-            </h3>
+            </Heading>
             <p className="mt-1 text-sm text-muted">
               {t("activity.participationHint")}
             </p>
@@ -367,6 +356,6 @@ export function TeamActivity({
           </section>
         </div>
       )}
-    </section>
+    </Panel>
   );
 }

@@ -42,7 +42,7 @@ function stubApi(handler: Handler) {
   const fetchMock = vi.fn(async (path: string, init?: RequestInit) => {
     if (path === "/api/auth/me/" && init?.method === "DELETE") {
       const response = await handler(path, init);
-      if (response?.status === 204) {
+      if (response?.ok) {
         deleted = true;
       }
       if (response) return response;

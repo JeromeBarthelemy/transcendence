@@ -8,6 +8,12 @@ import { formatWorkdayDate, nameFormatter } from "../app/formatters";
 import { useCurrentUser } from "../app/useCurrentUser";
 import { RequestError } from "../components/ApiErrors";
 import { Avatar, AvatarStack } from "../components/Avatar";
+import { Chip } from "../components/Chip";
+import { IconLabel } from "../components/Icon";
+import { Notice } from "../components/Notice";
+import { Page } from "../components/Page";
+import { Panel } from "../components/Panel";
+import { Eyebrow, Heading } from "../components/Typography";
 
 function attachmentCounts(entry: SummaryEntry, t: TFunction) {
   const types = entry.attachments.map((file) => file.content_type);
@@ -28,18 +34,12 @@ function Progress({ entry }: { entry: SummaryEntry }) {
   const attachments = attachmentCounts(entry, t);
 
   return (
-    <article className="rounded-2xl border border-primary/12 bg-white p-4 shadow-sm">
+    <Panel as="article" padding="sm">
       <div className="flex flex-wrap items-center gap-3">
         {entry.work_item && (
-          <h3 className="brand-title text-lg text-ink">
-            {entry.work_item.title}
-          </h3>
+          <Heading size="small">{entry.work_item.title}</Heading>
         )}
-        {entry.step && (
-          <span className="rounded-full bg-tint px-3 py-1 text-xs font-semibold text-accent">
-            {t(`teamHome.steps.${entry.step}`)}
-          </span>
-        )}
+        {entry.step && <Chip>{t(`teamHome.steps.${entry.step}`)}</Chip>}
         <span className="flex items-center gap-2 text-sm text-muted">
           <AvatarStack people={entry.participants} />
           {nameFormatter.format(
@@ -50,14 +50,14 @@ function Progress({ entry }: { entry: SummaryEntry }) {
       {entry.body && <p className="mt-2 text-ink">{entry.body}</p>}
       {attachments && <p className="mt-2 text-sm text-muted">{attachments}</p>}
       {entry.handover && (
-        <div className="mt-3 border-l-4 border-warning bg-warning-tint py-2 pr-3 pl-3 text-warning-ink">
+        <Notice tone="warning" callout className="mt-3">
           <p className="text-xs font-bold tracking-[0.12em] uppercase">
             {t("teamHome.handover")}
           </p>
           <p className="mt-1 text-sm">{entry.handover}</p>
-        </div>
+        </Notice>
       )}
-    </article>
+    </Panel>
   );
 }
 
@@ -99,18 +99,18 @@ export function DaySummaryPage() {
 
   if (currentUser.isPending) {
     return (
-      <main className="mx-auto w-full max-w-4xl flex-1 px-5 py-14 sm:px-8">
+      <Page message>
         <p role="status" className="text-sm text-muted">
           {t("auth.checkingSession")}
         </p>
-      </main>
+      </Page>
     );
   }
   if (currentUser.isError) {
     return (
-      <main className="mx-auto w-full max-w-4xl flex-1 px-5 py-14 sm:px-8">
+      <Page message>
         <RequestError error={currentUser.error} />
-      </main>
+      </Page>
     );
   }
   if (!currentUser.data) {
@@ -118,18 +118,18 @@ export function DaySummaryPage() {
   }
   if (summary.isPending) {
     return (
-      <main className="mx-auto w-full max-w-4xl flex-1 px-5 py-14 sm:px-8">
+      <Page message>
         <p role="status" className="text-sm text-muted">
           {t("daySummary.loading")}
         </p>
-      </main>
+      </Page>
     );
   }
   if (summary.isError) {
     return (
-      <main className="mx-auto w-full max-w-4xl flex-1 px-5 py-14 sm:px-8">
+      <Page message>
         <RequestError error={summary.error} />
-      </main>
+      </Page>
     );
   }
 
@@ -139,18 +139,20 @@ export function DaySummaryPage() {
   const title = formatWorkdayDate(summary.data.day);
 
   return (
-    <main className="mx-auto w-full max-w-4xl flex-1 px-5 py-10 sm:px-8 sm:py-14">
+    <Page>
       <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
         <div>
-          <h1 className="brand-title text-3xl tracking-[-0.035em] text-ink sm:text-4xl">
+          <Heading size="page">
             {title.charAt(0).toUpperCase() + title.slice(1)}
-          </h1>
+          </Heading>
           {teamSeason && (
             <p className="mt-2 text-sm text-muted">
-              {t("teamHome.teamTitle", {
-                number: teamSeason.team.number,
-                name: teamSeason.team.name,
-              })}
+              <IconLabel icon="team" before>
+                {t("teamHome.teamTitle", {
+                  number: teamSeason.team.number,
+                  name: teamSeason.team.name,
+                })}
+              </IconLabel>
             </p>
           )}
         </div>
@@ -169,12 +171,9 @@ export function DaySummaryPage() {
       </div>
 
       <section aria-labelledby="day-produced" className="mt-10">
-        <h2
-          id="day-produced"
-          className="text-xs font-bold tracking-[0.14em] text-accent uppercase"
-        >
+        <Eyebrow as="h2" id="day-produced">
           {t("daySummary.produced")}
-        </h2>
+        </Eyebrow>
         {entries.length === 0 ? (
           <p className="mt-3 text-sm text-muted">{t("daySummary.empty")}</p>
         ) : (
@@ -188,11 +187,11 @@ export function DaySummaryPage() {
               <ul className="mt-4 space-y-2">
                 {others.map((entry) => (
                   <li key={entry.id} className="text-sm text-ink">
-                    <span className="mr-2 rounded-full bg-tint px-3 py-1 text-xs font-semibold text-accent">
+                    <Chip className="mr-2">
                       {entry.type === "decision"
                         ? t("daySummary.decision")
                         : t("daySummary.note")}
-                    </span>
+                    </Chip>
                     {entry.work_item && (
                       <>
                         <strong>{entry.work_item.title}</strong>
@@ -210,12 +209,9 @@ export function DaySummaryPage() {
 
       <section aria-labelledby="day-present" className="mt-10">
         <div className="flex items-baseline justify-between gap-3">
-          <h2
-            id="day-present"
-            className="text-xs font-bold tracking-[0.14em] text-accent uppercase"
-          >
+          <Eyebrow as="h2" id="day-present">
             {t("daySummary.present", { count: present.length, roster })}
-          </h2>
+          </Eyebrow>
           <span className="text-xs text-muted">
             {t("daySummary.presentFrom")}
           </span>
@@ -232,6 +228,6 @@ export function DaySummaryPage() {
           ))}
         </ul>
       </section>
-    </main>
+    </Page>
   );
 }
