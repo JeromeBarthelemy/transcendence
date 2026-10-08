@@ -3,6 +3,7 @@ import { Link, useLocation } from "react-router-dom";
 
 import { useCurrentUser } from "../app/useCurrentUser";
 import { RequestError } from "../components/ApiErrors";
+import { Notice } from "../components/Notice";
 import { TeamHomePage } from "./TeamHomePage";
 
 export function HomePage() {
@@ -23,12 +24,9 @@ export function HomePage() {
     <main className="mx-auto grid w-full max-w-6xl flex-1 items-center gap-12 px-5 py-14 sm:px-8 lg:grid-cols-[1.15fr_0.85fr] lg:gap-20 lg:py-20">
       <section aria-labelledby="home-title">
         {accountDeleted && (
-          <p
-            role="status"
-            className="mb-8 rounded-2xl border border-success/30 bg-success-tint px-4 py-3 text-sm font-semibold text-success"
-          >
+          <Notice as="p" role="status" tone="success" className="mb-8">
             {t("personalData.deleted", { address: accountDeleted })}
-          </p>
+          </Notice>
         )}
         <p className="mb-5 inline-flex items-center gap-2 rounded-full border border-azure/20 bg-tint px-4 py-2 text-xs font-bold tracking-[0.14em] text-accent uppercase">
           <span aria-hidden="true" className="size-2 rounded-full bg-lagoon" />

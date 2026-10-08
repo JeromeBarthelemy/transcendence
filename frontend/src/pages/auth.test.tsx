@@ -1,4 +1,8 @@
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import {
+  isCancelledError,
+  QueryClient,
+  QueryClientProvider,
+} from "@tanstack/react-query";
 import {
   cleanup,
   fireEvent,
@@ -29,17 +33,52 @@ function json(body: unknown, status: number): Response {
   });
 }
 
-function renderAt(path: string) {
-  const queryClient = new QueryClient({
-    defaultOptions: { queries: { retry: false } },
-  });
+function renderAt(path: string, queryClient = newQueryClient()) {
   const router = createMemoryRouter(routes, { initialEntries: [path] });
   render(
     <QueryClientProvider client={queryClient}>
       <RouterProvider router={router} />
     </QueryClientProvider>,
   );
+  return queryClient;
 }
+
+function newQueryClient() {
+  return new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+}
+
+/** What a previous account left behind on a shared laptop's tab: a team's
+ * board and day, and an admin's member list with its addresses. */
+const PREVIOUS_ACCOUNT_KEYS = [
+  ["team-seasons", 7, "work-items"],
+  ["team-seasons", 7, "days", "today"],
+  ["users", "list"],
+];
+
+function previousAccountCache() {
+  const queryClient = newQueryClient();
+  for (const key of PREVIOUS_ACCOUNT_KEYS) {
+    queryClient.setQueryData(key, [{ email: "paul@club.fr" }]);
+  }
+  return queryClient;
+}
+
+function cached(queryClient: QueryClient) {
+  return queryClient
+    .getQueryCache()
+    .getAll()
+    .map((query) => [query.queryKey, query.state.data]);
+}
+
+const marieIdentity = {
+  display_name: "Marie",
+  club_role: "student",
+  is_club_admin: false,
+  avatar: null,
+  team_seasons: [],
+};
 
 function issue(code: string, message = "Message du backend") {
   return { code, message };
@@ -268,13 +307,6 @@ it("shows one login error for bad credentials", async () => {
 });
 
 it("opens and closes a session using the rotated CSRF cookie", async () => {
-  const marieIdentity = {
-    display_name: "Marie",
-    club_role: "student",
-    is_club_admin: false,
-    avatar: null,
-    team_seasons: [],
-  };
   // Like the server: once logged in, /me answers with the session, and the
   // cookie the login rotated stays rotated.
   let loggedIn = false;
@@ -408,4 +440,88 @@ it("distinguishes a current-user server failure from a network failure", async (
     await screen.findByText("Une erreur inattendue est survenue."),
   ).toBeTruthy();
   expect(screen.queryByText(/Impossible de joindre le serveur/)).toBeNull();
+});
+
+it("forgets every query of the previous account on logout", async () => {
+  let releaseLateBoard: (response: Response) => void = () => {};
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (path: string) => {
+      if (path === "/api/auth/me/") return json(marieIdentity, 200);
+      if (path === "/api/auth/logout/")
+        return new Response(null, { status: 204 });
+      throw new Error(`Unexpected request: ${path}`);
+    }),
+  );
+  setDocumentCookie("csrftoken=token; path=/");
+  const queryClient = renderAt("/", previousAccountCache());
+  // Still loading when the member logs out: its answer must not land after.
+  const lateBoard = queryClient
+    .fetchQuery({
+      queryKey: ["team-seasons", 8, "work-items"],
+      queryFn: () =>
+        new Promise<Response>((resolve) => {
+          releaseLateBoard = resolve;
+        }).then((response) => response.json()),
+    })
+    .catch((error: unknown) => error);
+
+  const user = userEvent.setup();
+  await user.click(
+    await screen.findByRole("button", { name: "Menu du compte (Marie)" }),
+  );
+  await user.click(screen.getByRole("button", { name: "Se déconnecter" }));
+  await screen.findByRole("link", { name: "Créer mon compte" });
+  releaseLateBoard(json([{ id: 2 }], 200));
+  expect(isCancelledError(await lateBoard)).toBe(true);
+
+  expect(cached(queryClient)).toEqual([[["auth", "me"], null]]);
+});
+
+it("starts a login with nothing of the previous account cached", async () => {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (path: string) => {
+      if (path === "/api/auth/me/") {
+        setDocumentCookie("csrftoken=first-token; path=/");
+        return json(null, 200);
+      }
+      if (path === "/api/auth/login/") return json(marieIdentity, 200);
+      if (path.endsWith("/work-items/")) return json([], 200);
+      if (path.includes("/days/")) {
+        return json(
+          {
+            day: "2026-10-08",
+            entries: [],
+            present: [],
+            roster: 0,
+            advanced_work_items: 0,
+          },
+          200,
+        );
+      }
+      throw new Error(`Unexpected request: ${path}`);
+    }),
+  );
+  // The previous account's session ended elsewhere: this tab still held
+  // its data when the next member reached the login page.
+  const queryClient = previousAccountCache();
+  queryClient.setQueryData(["auth", "me"], null);
+  renderAt("/login", queryClient);
+
+  const user = userEvent.setup();
+  await user.type(
+    await screen.findByLabelText("E-mail ou nom d'affichage"),
+    "Marie",
+  );
+  await user.type(screen.getByLabelText("Mot de passe"), marie.password);
+  await user.click(screen.getByRole("button", { name: "Se connecter" }));
+
+  await waitFor(() =>
+    expect(queryClient.getQueryData(["auth", "me"])).toEqual(marieIdentity),
+  );
+  // Whatever the home screen now loads is Marie's; nothing is left of before.
+  for (const key of PREVIOUS_ACCOUNT_KEYS) {
+    expect(queryClient.getQueryState(key)).toBeUndefined();
+  }
 });

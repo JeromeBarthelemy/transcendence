@@ -17,7 +17,7 @@ from django.contrib.auth.models import (
 from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator
 from django.db import models, transaction
-from django.db.models import F
+from django.db.models import F, Q
 from django.db.models.signals import post_delete
 from django.dispatch import receiver
 from django.utils import timezone
@@ -373,6 +373,13 @@ class TeamSeason(models.Model):
         return f"{self.team.number} - {self.season.game_name}"
 
 
+class MembershipQuerySet(models.QuerySet["Membership"]):
+    def roster(self) -> "MembershipQuerySet":
+        """The students a team counts on: mentors supervise, and a suspended
+        or anonymized account (anonymizing also deactivates) is not there."""
+        return self.filter(user__club_role=User.ClubRole.STUDENT, user__is_active=True)
+
+
 class Membership(models.Model):
     """Belonging to a team for a season; it carries no role. An explicit model
     rather than a ManyToManyField, so a column can be added without converting
@@ -384,6 +391,8 @@ class Membership(models.Model):
     team_season = models.ForeignKey(
         TeamSeason, on_delete=models.CASCADE, related_name="memberships"
     )
+
+    objects = MembershipQuerySet.as_manager()
 
     class Meta:
         # Not « adhésion »: in the club that means joining the association in
@@ -586,9 +595,21 @@ class Entry(models.Model):
         blank=True,
     )
 
+    # Chosen by the device that wrote the trace: a replayed offline save with
+    # the same id must not create a second one. Unique per author only, since
+    # two members' devices can produce the same value by chance.
+    client_id = models.UUIDField("identifiant de l'appareil", null=True, blank=True)
+
     class Meta:
         ordering = ["-occurred_at", "-id"]
         verbose_name = "trace"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["author", "client_id"],
+                condition=Q(client_id__isnull=False),
+                name="unique_client_id_per_author",
+            ),
+        ]
 
     def __str__(self) -> str:
         return f"{self.get_type_display()} — {self.team_season}"

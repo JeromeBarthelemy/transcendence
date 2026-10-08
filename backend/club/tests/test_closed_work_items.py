@@ -202,6 +202,32 @@ def test_a_note_is_refused_when_its_work_item_closes_during_validation(
     assert not Entry.objects.exists()
 
 
+def test_a_note_stored_before_its_work_item_closed_still_answers_its_replay(
+    client, open_item
+):
+    outreach, lina = open_item
+    client.force_login(lina)
+
+    def send():
+        return client.post(
+            f"/api/team-seasons/{outreach.team_season_id}/notes/",
+            {
+                "body": "Une de plus.",
+                "work_item": outreach.id,
+                "client_id": "6f1f3c1e-2a4b-4c59-9d7e-0b8a1c2d3e4f",
+            },
+            content_type="application/json",
+        )
+
+    first = send()
+    close_in_the_database(outreach)
+    replayed = send()
+
+    assert replayed.status_code == 200
+    assert replayed.json()["id"] == first.json()["id"]
+    assert Entry.objects.count() == 1
+
+
 # --- closing, with its reason, and reopening on purpose ---
 
 

@@ -6,7 +6,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("club", "0027_notification"),
+        ("club", "0028_entry_client_id"),
     ]
 
     operations = [

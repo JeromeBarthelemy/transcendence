@@ -1,6 +1,9 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { Notice } from "../components/Notice";
+
+import { notificationsQueryKey } from "../api/notifications";
 
 // Waits between reconnections, the last one repeated: quick after a blip,
 // patient when the network is gone for a while.
@@ -64,6 +67,8 @@ function useLiveBoard(teamSeasonId: number): boolean {
         queryClient.invalidateQueries({
           queryKey: ["team-seasons", teamSeasonId],
         });
+        // The change may concern this member: their bell reads them again.
+        queryClient.invalidateQueries({ queryKey: notificationsQueryKey });
         if (work_item !== null) {
           queryClient.invalidateQueries({
             queryKey: ["work-items", work_item],
@@ -152,11 +157,8 @@ export function LiveBoard({ teamSeasonId }: { teamSeasonId: number }) {
     return null;
   }
   return (
-    <p
-      role="status"
-      className="mt-3 rounded-xl border border-warning/35 bg-warning-wash px-3 py-2 text-sm text-warning-ink"
-    >
+    <Notice as="p" role="status" tone="warning" padding="sm" className="mt-3">
       {t("live.offline")}
-    </p>
+    </Notice>
   );
 }

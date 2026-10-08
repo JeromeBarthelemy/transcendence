@@ -21,6 +21,29 @@
     "menu": "Menu",
     "admin": "Administration"
   },
+  "notifications": {
+    "title": "Notifications",
+    "labelNone": "Notifications, aucune non lue",
+    "label_one": "Notifications, {{count}} non lue",
+    "label_other": "Notifications, {{count}} non lues",
+    "empty": "Rien de nouveau.",
+    "new": "Nouveau",
+    "team": "Toute l'équipe",
+    "verbs": {
+      "work_item_opened": "{{actor}} a ouvert un chantier",
+      "work_item_done": "{{actor}} a terminé un chantier",
+      "work_item_dropped": "{{actor}} a abandonné un chantier",
+      "work_item_deleted": "{{actor}} a supprimé un chantier",
+      "entry_added": "{{actor}} a ajouté {{entry}}",
+      "entry_updated": "{{actor}} a modifié {{entry}}",
+      "entry_removed": "{{actor}} a retiré {{entry}}"
+    },
+    "entries": {
+      "progress": "une avancée",
+      "note": "une remarque",
+      "decision": "une décision"
+    }
+  },
   "home": {
     "eyebrow": "La mémoire du club",
     "title": "Chaque avancée mérite une trace.",

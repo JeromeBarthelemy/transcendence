@@ -11,6 +11,8 @@ export function fieldIssues(error: unknown, field: string): ApiIssue[] {
   return error instanceof ApiRequestError ? error.forField(field) : [];
 }
 
+/** A field's refusals from the API, under the field, in French from each
+ * code — a code the catalogue does not know reads as the generic error. */
 export function FieldErrors({
   id,
   message,
@@ -44,6 +46,9 @@ export function FieldErrors({
   );
 }
 
+/** A refusal that names no field, or one this form has no field for: the
+ * whole request's error, shown once. A network failure says so in its own
+ * words. */
 export function RequestError({
   error,
   handledFields = [],
