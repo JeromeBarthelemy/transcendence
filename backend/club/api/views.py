@@ -6,7 +6,7 @@ from typing import Any
 
 from django.contrib.auth import login, logout
 from django.core.exceptions import ValidationError as DjangoValidationError
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.db.models import ProtectedError, QuerySet
 from django.http import FileResponse, Http404, JsonResponse
 from django.shortcuts import get_object_or_404
@@ -884,6 +884,10 @@ class EntryDetailView(APIView):
 
 
 class NoteCreateView(APIView):
+    """A note sent twice with the same `client_id` (an offline save replayed
+    after reconnection) is stored once: the second answer is the first note,
+    with 200 rather than 201."""
+
     @transaction.atomic
     def post(self, request: Request, team_season_id: int) -> Response:
         user = request.user
@@ -893,7 +897,22 @@ class NoteCreateView(APIView):
             data=request.data, context={"team_season": team_season, "author": user}
         )
         serializer.is_valid(raise_exception=True)
-        entry = serializer.save()
+        client_id = serializer.validated_data.get("client_id")
+        if client_id is None:
+            # Nothing to replay, so none of the collision handling below
+            # applies: a failure here is a real error, not a sign this
+            # request was already answered once.
+            entry = serializer.save()
+        else:
+            existing = Entry.objects.filter(author=user, client_id=client_id).first()
+            if existing is not None:
+                return _replayed_note(existing, team_season, user)
+            try:
+                with transaction.atomic():
+                    entry = serializer.save()
+            except IntegrityError:
+                existing = Entry.objects.get(author=user, client_id=client_id)
+                return _replayed_note(existing, team_season, user)
         record_change(
             user,
             Notification.Verb.ENTRY_ADDED,
@@ -902,6 +921,15 @@ class NoteCreateView(APIView):
             entry=entry,
         )
         return Response(_entry(entry, user), status=status.HTTP_201_CREATED)
+
+
+def _replayed_note(existing: Entry, team_season: TeamSeason, reader: User) -> Response:
+    if existing.team_season_id != team_season.id:
+        raise Conflict(
+            "Cet identifiant appartient déjà à une remarque d'une autre équipe.",
+            code="client_id_taken",
+        )
+    return Response(_entry(existing, reader), status=status.HTTP_200_OK)
 
 
 class DecisionCreateView(APIView):
