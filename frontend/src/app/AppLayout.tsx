@@ -10,7 +10,7 @@ import logo from "../assets/logo.webp";
 import { RequestError } from "../components/ApiErrors";
 import { Avatar } from "../components/Avatar";
 import { IconLabel } from "../components/Icon";
-import { currentUserQueryKey, useCurrentUser } from "./useCurrentUser";
+import { resetSession, useCurrentUser } from "./useCurrentUser";
 
 const focusRing =
   "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lagoon";
@@ -350,7 +350,7 @@ export function AppLayout() {
     },
     onSuccess: () => {
       setOpen(null);
-      queryClient.setQueryData(currentUserQueryKey, null);
+      resetSession(queryClient, null);
       navigate("/", { replace: true });
     },
   });
