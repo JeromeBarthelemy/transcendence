@@ -75,15 +75,17 @@ if MODEL_NAME not in {m["model"] for m in TextEmbedding.list_supported_models()}
 # "downloaded once", the whole point of caching it at all.
 FASTEMBED_CACHE_DIR = str(Path(settings.BASE_DIR) / ".cache" / "fastembed")
 DIMENSIONS = 768
-# How many passages a question keeps. A narrower cut (tried down to 1)
-# saves real time, but #135's own review caught it costing something worse
-# than time: with only the top one or two candidates, the right passage
-# sometimes isn't among them, and the model answers fluently from whatever
-# it got anyway — a wrong-content answer with a technically real citation,
-# which the generation module's reference check cannot catch, because
-# nothing about the reference is wrong. 10 keeps that risk low; the prompt
-# this feeds stays short through GENERATION_MAX_PASSAGE_CHARS
-# (club/generation.py) instead.
+# How many passages a question keeps. A narrower cut (tried down to 1,
+# then 3) saves real time, but both #135's and #207's own reviews caught
+# it costing something worse than time: with only the top few candidates,
+# the right passage sometimes isn't among them, and the model answers
+# fluently from whatever it got anyway — a wrong-content answer with a
+# technically real citation, which the generation module's reference
+# check cannot catch, because nothing about the reference is wrong. 10
+# keeps that risk low. GENERATION_MAX_PASSAGE_CHARS (club/generation.py)
+# no longer cuts what reaches the model short for this either — #207's
+# own review found that cut, not the prompt's length, behind some of its
+# worst wrong-content answers, and correctness was asked for over speed.
 TOP_K = 10
 # How weak a match may be and still count as one — cosine similarity
 # between two unit vectors, bounded in [-1, 1]. Calibrated against the

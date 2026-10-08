@@ -18,45 +18,53 @@ from django.conf import settings
 
 from .models import Chunk
 
-# The hard ceiling on how long a question may wait, enforced here rather
-# than hoped for: past this, urlopen's own timeout fires (a plain OSError,
-# already caught below) and the question falls back to its citations alone
-# — same path as a bad citation or an unreachable server. A smaller, faster
-# model answered within this reliably on #135's own 100-question review,
-# but also got the *content* wrong more often where qwen2.5:3b (the
-# default) did not — reference-citing is the only thing this module can
-# check mechanically, so the choice leans toward the model proven right by
-# hand, with this as its safety net against the rare slow outlier rather
-# than the everyday case.
-GENERATION_TIMEOUT_SECONDS = 10
-# Three sentences rarely need more; a cap keeps a rambling answer from
-# running past the timeout above on its own.
-GENERATION_MAX_TOKENS = 120
-# A real passage runs 653 characters at the median, some past 2000; this
-# cuts 87% of them to roughly their first 25 words — short enough that
-# the model is often writing from a fragment of a passage rather than the
-# passage, the same wrong-content risk TOP_K went to 10 to avoid in the
-# first place (#207's own review). Raising it was tried and measured back
-# out: at TOP_K=10 the prompt is up to ten passages long, so each added
-# character here is paid ten times over, and a real sweep against this
-# manual (150 → 220 chars) already pushed the median past the 6-7s this
-# model was chosen to hold and p95 past GENERATION_TIMEOUT_SECONDS. Fewer,
-# more complete passages reaching the model — generation reading less of
-# `ask`'s own TOP_K than it cites — would need its own measurement, not a
-# number changed here on the strength of this alone.
-GENERATION_MAX_PASSAGE_CHARS = 150
+# The hard ceiling on how long a question may wait — past this, urlopen's
+# own timeout fires (a plain OSError, already caught below) and the
+# question falls back to its citations alone, same path as a bad citation
+# or an unreachable server. Raised well past what #207's own review first
+# shipped (10s): read by hand, a cut-short passage or a narrowed TOP_K
+# produced wrong answers as often as a slow one was ever actually a
+# problem — a club member asking a rules question is not latency-
+# sensitive the way gameplay is, and a correct answer worth waiting 30s
+# for beats a fast, confident, wrong one every time.
+GENERATION_TIMEOUT_SECONDS = 90
+# Room enough that a longer answer, or a model partway through
+# enumerating a passage's own lettered list (A., B., C., …), finishes
+# rather than being cut mid-item — #207's own review found exactly that:
+# cut at "D." with nothing after, which the old, narrower token budget
+# made the everyday case rather than the rare one.
+GENERATION_MAX_TOKENS = 500
+# A real passage runs 653 characters at the median, some past 2000.
+# Cutting it — at 150 chars or even 700 — means the model answers from a
+# fragment rather than the passage, which #207's own review measured as a
+# real, repeated cause of a correct citation next to wrong content. Set
+# high enough that no real passage in this manual is ever actually cut;
+# this is a ceiling against a pathological one, not a lever tuned for
+# speed any more now that speed is not what's being tuned for.
+GENERATION_MAX_PASSAGE_CHARS = 3000
+# The model is not deterministic: the same question against the same
+# passages sampled again can cite the right reference where the first
+# draft cited an unrelated one, or the other way round (#207's own
+# review, read by hand — the NECTAR question's own answer went from a
+# confidently wrong citation to a correct one on a second sample, same
+# inputs both times). One bad sample used to mean a refusal; now it
+# means another sample, since nothing here is checking a clock anymore.
+GENERATION_MAX_ATTEMPTS = 3
 
 SYSTEM_PROMPT = (
     "Tu es Fieldbot, l'assistant du cahier de bord d'un club de robotique "
     "FIRST. Réponds uniquement à partir des passages du règlement fournis "
-    "ci-dessous, en français, en trois phrases maximum. Chaque passage "
-    "commence par sa référence entre crochets : reproduis-la à l'identique "
-    "quand tu t'appuies dessus, lettres et points compris (par exemple "
-    "[G102] ou [11.3.4]) — jamais raccourcie à son seul numéro, jamais "
-    "approximée, jamais inventée. En cas de contradiction, le manuel de "
-    "jeu fait autorité sur le Q&A officiel. Si les passages fournis ne "
-    "permettent pas de répondre avec certitude, dis-le clairement au lieu "
-    "d'inventer une réponse."
+    "ci-dessous, en français, en trois phrases maximum. N'écris jamais en "
+    "anglais, même si les passages fournis le sont : traduis-les en "
+    "français dans ta réponse, ne les recopie pas tels quels. Chaque "
+    "passage commence par sa référence entre crochets : reproduis-la à "
+    "l'identique quand tu t'appuies dessus, lettres et points compris "
+    "(par exemple [G102] ou [11.3.4]) — jamais raccourcie à son seul "
+    "numéro, jamais approximée, jamais inventée, et jamais omise : chaque "
+    "phrase doit citer le passage dont elle vient. En cas de "
+    "contradiction, le manuel de jeu fait autorité sur le Q&A officiel. "
+    "Si les passages fournis ne permettent pas de répondre avec "
+    "certitude, dis-le clairement au lieu d'inventer une réponse."
 )
 
 # The system prompt asks for a reference inside [brackets] and nothing
@@ -75,6 +83,29 @@ _TOKEN_RE = re.compile(r"[A-Za-z0-9](?:[A-Za-z0-9.\-]*[A-Za-z0-9])?")
 # the end of the text — not just the character anywhere, which a dotted
 # reference like [6.1.2] would otherwise be mistaken for mid-citation.
 _SENTENCE_END_RE = re.compile(r"[.!?](?=\s|$)")
+# A lone letter right before the stop ("A.", "D.") is a passage's own
+# lettered list running out of room, not a sentence of its own (#207's
+# own review: trimming stopped at exactly this and showed "…D." with
+# nothing after it, read back as if it were the answer's last word).
+_LIST_MARKER_RE = re.compile(r"(?:^|\s)[A-Za-z]\.$")
+# #207's own review, reading real generated answers by hand: a 3B model
+# asked for French sometimes answers in English instead — not a typo in
+# one word, the *whole* passage copied verbatim. Requiring a French word
+# to be *present* flagged real, terse, jargon-heavy answers that happen
+# to have none ("AUTO dure 30 secondes [6.1.2]", "Vrai.") — this instead
+# requires *both* a common English word and the absence of a French one,
+# which only the actual failure (a whole passage copied as-is) manages:
+# a French sentence, however short, essentially never contains "the" or
+# "and" at all, English or not.
+_FRENCH_WORD_RE = re.compile(
+    r"\b(?:le|la|les|de|du|des|un|une|est|sont|dans|pour|avec|sur|pas|"
+    r"ne|que|qui|cette|ces|son|sa|ses|et|en|selon)\b",
+    re.IGNORECASE,
+)
+_ENGLISH_WORD_RE = re.compile(
+    r"\b(?:the|and|with|from|is|are|this|that|must|shall|not|of|to)\b",
+    re.IGNORECASE,
+)
 
 
 class GenerationError(Exception):
@@ -103,10 +134,12 @@ def _complete_sentences(answer: str) -> str:
     sentence, a shorter answer still reads as finished rather than broken.
     No sentence at all — the cap bit before the model said anything worth
     keeping — refuses rather than show a fragment."""
-    matches = list(_SENTENCE_END_RE.finditer(answer))
-    if not matches:
-        raise GenerationError("réponse coupée avant la moindre phrase complète")
-    return answer[: matches[-1].end()]
+    for match in reversed(list(_SENTENCE_END_RE.finditer(answer))):
+        candidate = answer[: match.end()]
+        if _LIST_MARKER_RE.search(candidate):
+            continue
+        return candidate
+    raise GenerationError("réponse coupée avant la moindre phrase complète")
 
 
 def _truncated(text: str) -> str:
@@ -123,23 +156,11 @@ def _prompt(question: str, chunks: list[Chunk]) -> str:
     return f"Passages :\n{passages}\n\nQuestion : {question}"
 
 
-def generate_answer(question: str, chunks: list[Chunk]) -> str:
-    """A few sentences grounded in `chunks` alone, naming the references
-    relied on. `chunks` is `ask`'s own `matches`, already above `MIN_SCORE`
-    and ordered by authority then score — the order the model reads them
-    in is the order the manual is meant to be trusted in.
-
-    A citation the model gets wrong — shortened, misspelled, made up
-    outright — is worse than no citation: it reads as checkable and is
-    not. Measured on the real manual (100 questions, #135's own review):
-    about one matched answer in five cited something that was not in
-    `chunks`. Refusing the whole answer the moment one citation does not
-    match exactly is the only guarantee strict enough for a rule a robot
-    could be disqualified over — a looser check (fuzzy match, drop the bad
-    one and keep the rest) would still let a wrong reference through
-    sometimes, and `ask`'s caller already has a clean fallback for this:
-    the citations below stand on their own, same as any other
-    `GenerationError`."""
+def _sample(question: str, chunks: list[Chunk]) -> str:
+    """One draft from the model — reaching it, reading its message, and
+    trimming a token-cut one back to its last full sentence. Never
+    retried on its own: a server that cannot be reached or answers with
+    something unreadable is a reason to stop, not to ask again."""
     body = json.dumps(
         {
             "model": settings.RAG_GENERATION_MODEL,
@@ -170,11 +191,55 @@ def generate_answer(question: str, chunks: list[Chunk]) -> str:
     answer = answer.strip()
     if payload.get("done_reason") == "length":
         answer = _complete_sentences(answer)
+    return answer
 
+
+def _checked(answer: str, chunks: list[Chunk]) -> str:
+    """The three ways of being wrong that reading real answers by hand
+    found (#207's own review), none of which a reference-only check
+    could ever catch on its own: answering in English because the
+    source passage was, answering with no citation at all — not a wrong
+    one, just none — and a citation the model gets wrong — shortened,
+    misspelled, made up outright. Measured on the real manual (100
+    questions, #135's own review): about one matched answer in five
+    cited something that was not in `chunks`. A looser check on that
+    last one (fuzzy match, drop the bad reference and keep the rest)
+    would still let a wrong one through sometimes; refusing outright is
+    the only guarantee strict enough for a rule a robot could be
+    disqualified over."""
+    if _ENGLISH_WORD_RE.search(answer) and not _FRENCH_WORD_RE.search(answer):
+        raise GenerationError("réponse qui ne semble pas être en français")
+    cited = _cited_references(answer)
+    if not cited:
+        raise GenerationError("réponse sans aucune référence citée")
     known = {chunk.reference for chunk in chunks if chunk.reference}
-    stray = _cited_references(answer) - known
+    stray = cited - known
     if stray:
         raise GenerationError(
             f"référence non retrouvée citée : {', '.join(sorted(stray))}"
         )
     return answer
+
+
+def generate_answer(question: str, chunks: list[Chunk]) -> str:
+    """A few sentences grounded in `chunks` alone, naming the references
+    relied on. `chunks` is `ask`'s own `matches`, already above `MIN_SCORE`
+    and ordered by authority then score — the order the model reads them
+    in is the order the manual is meant to be trusted in.
+
+    The model is not deterministic: read by hand against this manual,
+    the same question against the same passages sampled again drew a
+    correct citation where the first draft drew an unrelated one (#207's
+    own review). `GENERATION_MAX_ATTEMPTS` asks again rather than
+    settling for the first draft's bad luck — `ask`'s caller still has a
+    clean fallback once every attempt fails the same way: the citations
+    below stand on their own, same as any other `GenerationError`."""
+    last_error: GenerationError | None = None
+    for _ in range(GENERATION_MAX_ATTEMPTS):
+        answer = _sample(question, chunks)
+        try:
+            return _checked(answer, chunks)
+        except GenerationError as error:
+            last_error = error
+    assert last_error is not None
+    raise last_error

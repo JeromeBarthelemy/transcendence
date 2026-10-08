@@ -689,17 +689,33 @@ given don't say". `qwen2.5:3b` hedges in exactly that case instead, which
 no citation check can tell apart from a model confidently wrong, so the
 choice rests on reading its answers, not just counting its citations.
 
-Measured on this machine, warm, against the real BioBuzz manual (364
-passages, `TOP_K=10`) over 100 questions: a full answer in 6.3 s at the
-median, 10.0 s for 95% of them. `GENERATION_TIMEOUT_SECONDS` caps the rest
-at 10 s — past it, the question falls back to its citations alone the same
-way a bad citation already does, so no answer waits past ~11 s for the
-timeout itself to be noticed and acted on. 5 of the 100 questions fell
-back this way; none of the other 95 cited anything that wasn't actually
-retrieved. Flash attention and a quantized KV cache (`compose.yml`'s
-`ollama` service) cost nothing in accuracy and measurably shortened this —
-free to enable, not free to skip. Still to be re-measured on the club's
-own laptop, which this machine's CPU is unlikely to match.
+Reading real answers by hand (#207's own review, both Jerome's and a
+sweep of my own) found two more ways of being wrong no citation check
+alone catches: answering in English because the retrieved passage was,
+and citing nothing at all. Both now refuse the same way a wrong
+reference does (`generation.py`), and the model is asked again —
+sampled fresh, not deterministic — rather than settling for one bad
+draft, now that correctness matters more than how long an answer takes
+to arrive. Passages reach the model whole; `GENERATION_TIMEOUT_SECONDS`
+is 90 s per attempt, up to `GENERATION_MAX_ATTEMPTS` (3) attempts, so a
+hard failure (the model unreachable) is bounded at 90 s but three bad
+samples in a row can take several minutes. Read by hand against the
+real manual, this reliably turned confidently wrong answers (a real
+citation next to the wrong meaning, or a different rule entirely cited
+with the model's own text admitting it doesn't fit) into either a
+correct one on a later sample or a safe refusal — never, in this
+reading, a wrong one reaching the screen. Flash attention and a
+quantized KV cache (`compose.yml`'s `ollama` service) still cost nothing
+in accuracy and still help, just no longer the main lever.
+
+Retrieval itself still runs on the question as asked, in whatever
+language that is — translating it to English first measurably finds
+the right passage more often for some question categories and less
+often for others (read against this same manual), and does not reach
+far enough into `MIN_SCORE`'s own calibration (364 passages, 90 real
+questions against 10 off-topic controls, French throughout) to change
+it on the strength of what was measured here alone. Left as French in,
+French out; the lead is open, not closed.
 
 Memory is the other real constraint, not just CPU: `qwen2.5:3b` resident
 in Ollama measures about 2.1 GB on this machine, and the embedding
