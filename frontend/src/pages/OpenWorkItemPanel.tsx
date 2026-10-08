@@ -76,7 +76,7 @@ function OpenWorkItemForm({
         <div>
           <Label htmlFor={choiceId}>{t("openWorkItem.choice")}</Label>
           <Select
-            className="mt-1 text-sm"
+            className="mt-1"
             id={choiceId}
             value={choice}
             onChange={(event) => setChoice(event.target.value)}
@@ -114,7 +114,7 @@ function OpenWorkItemForm({
             <div>
               <Label htmlFor={inputId}>{t("openWorkItem.name")}</Label>
               <TextInput
-                className="mt-1 text-sm"
+                className="mt-1"
                 id={inputId}
                 value={name}
                 maxLength={120}

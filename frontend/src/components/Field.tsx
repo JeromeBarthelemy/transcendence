@@ -18,8 +18,10 @@ const TONES = {
 };
 export type FieldTone = keyof typeof TONES;
 
+/** 16 px, whatever the text around it: fields inherit the font, and iOS
+ * zooms the page into any field smaller than that once it takes the focus. */
 export function fieldClass(tone: FieldTone = "default") {
-  return `block w-full rounded-xl border px-3 py-2 font-normal text-body focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-lagoon aria-invalid:border-danger ${TONES[tone]}`;
+  return `block w-full rounded-xl border px-3 py-2 text-base font-normal text-body focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-lagoon aria-invalid:border-danger ${TONES[tone]}`;
 }
 
 /** A default the caller's own class may replace: two utilities on the same

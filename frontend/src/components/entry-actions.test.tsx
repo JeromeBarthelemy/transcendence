@@ -83,6 +83,12 @@ it("removes a trace once confirmed", async () => {
 
   await userEvent.click(screen.getByRole("button", { name: "Retirer" }));
   expect(screen.getByText("Retirer cette remarque ?")).toBeTruthy();
+  // "Retirer" is gone with the panel's opening: the focus lands in the
+  // panel, on the choice that removes nothing.
+  expect(screen.queryByRole("button", { name: "Retirer" })).toBeNull();
+  expect(document.activeElement).toBe(
+    screen.getByRole("button", { name: "Annuler" }),
+  );
   expect(sent(fetchMock, "DELETE")).toHaveLength(0);
   await userEvent.click(
     screen.getByRole("button", { name: "Retirer définitivement" }),

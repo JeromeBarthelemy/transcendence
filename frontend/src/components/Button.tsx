@@ -1,4 +1,4 @@
-import type { ButtonHTMLAttributes, ReactNode } from "react";
+import type { ButtonHTMLAttributes, ComponentProps, ReactNode } from "react";
 import { Link, type LinkProps } from "react-router-dom";
 
 /** What the button does to the club's data, not just its colour:
@@ -64,7 +64,7 @@ export function Button({
   className = "",
   type = "button",
   ...props
-}: StyleProps & ButtonHTMLAttributes<HTMLButtonElement>) {
+}: StyleProps & ComponentProps<"button">) {
   return (
     <button
       type={type}

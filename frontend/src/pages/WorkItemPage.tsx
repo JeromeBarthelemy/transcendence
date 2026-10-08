@@ -816,6 +816,7 @@ function WorkItemScreen({
           tone="warning"
           callout
           padding="lg"
+          textSize="inherit"
           className="mt-8"
         >
           <Eyebrow tone="inherit" as="h2">

@@ -1,4 +1,4 @@
-import { type ReactNode, useId } from "react";
+import { type ReactNode, useEffect, useId, useRef } from "react";
 import { RequestError } from "./ApiErrors";
 import { Button } from "./Button";
 import { IconLabel } from "./Icon";
@@ -25,6 +25,7 @@ export function Notice({
   tone = "info",
   callout = false,
   padding = callout ? "sm" : "md",
+  textSize = "sm",
   role,
   className = "",
   children,
@@ -33,6 +34,10 @@ export function Notice({
   tone?: NoticeTone;
   callout?: boolean;
   padding?: keyof typeof PADDINGS;
+  /** `inherit` for a message read in full rather than glanced at — the
+   * chantier's handover, the one the next team must not miss — so it keeps
+   * the page's own size instead of the notice's smaller one. */
+  textSize?: "sm" | "inherit";
   role?: "status" | "alert";
   className?: string;
   children: ReactNode;
@@ -41,7 +46,7 @@ export function Notice({
   return (
     <Element
       role={role}
-      className={`text-sm ${shape} ${PADDINGS[padding]} ${TONES[tone]} ${className}`}
+      className={`${textSize === "sm" ? "text-sm" : ""} ${shape} ${PADDINGS[padding]} ${TONES[tone]} ${className}`}
     >
       {children}
     </Element>
@@ -69,7 +74,12 @@ export function SuccessMessage({
 
 /** The step between asking to remove something and removing it: what will
  * go, then "Annuler" and the removal itself. Every removal in the app goes
- * through one. */
+ * through one.
+ *
+ * Focus moves to "Annuler" as it appears: the button that opened it often
+ * disappears with it, which would drop the focus on the page's body, and a
+ * screen reader only announces a dialog the focus lands in. "Annuler"
+ * rather than the removal, so that a second Enter cannot delete anything. */
 export function ConfirmPanel({
   message,
   confirmLabel,
@@ -93,6 +103,10 @@ export function ConfirmPanel({
   children?: ReactNode;
 }) {
   const messageId = useId();
+  const cancelRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    cancelRef.current?.focus();
+  }, []);
   return (
     <div
       role="alertdialog"
@@ -104,7 +118,12 @@ export function ConfirmPanel({
       </p>
       {children}
       <div className="mt-3 flex flex-wrap justify-end gap-3">
-        <Button variant="secondary" disabled={pending} onClick={onCancel}>
+        <Button
+          ref={cancelRef}
+          variant="secondary"
+          disabled={pending}
+          onClick={onCancel}
+        >
           {cancelLabel}
         </Button>
         <Button variant="danger-solid" disabled={pending} onClick={onConfirm}>
