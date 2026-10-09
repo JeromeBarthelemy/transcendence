@@ -6,7 +6,7 @@ from unittest import mock
 import pytest
 from django.core.files.uploadedfile import SimpleUploadedFile
 
-from club.api.serializers import NoteSerializer
+from club.api.serializers import NoteSerializer, WorkItemStatusSerializer
 from club.models import Entry, Membership, Season, Team, TeamSeason, User, WorkItem
 from club.progress import WorkItemClosed, edit_progress, record_progress
 
@@ -200,6 +200,27 @@ def test_a_note_is_refused_when_its_work_item_closes_during_validation(
 
     refused(response)
     assert not Entry.objects.exists()
+
+
+def test_a_closing_is_refused_when_its_work_item_closes_during_validation(
+    client, open_item
+):
+    outreach, lina = open_item
+    client.force_login(lina)
+
+    def closed_meanwhile(serializer, value):
+        close_in_the_database(outreach)
+        return value
+
+    with mock.patch.object(
+        WorkItemStatusSerializer, "validate_status", closed_meanwhile
+    ):
+        response = change(client, outreach, status="dropped", reason="Trop tard.")
+
+    refused(response)
+    assert notes_on(outreach) == []
+    outreach.refresh_from_db()
+    assert outreach.closed_at is None
 
 
 def test_a_note_stored_before_its_work_item_closed_still_answers_its_replay(

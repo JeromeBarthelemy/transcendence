@@ -626,7 +626,8 @@ class WorkItemDetailView(APIView):
         assert isinstance(request.user, User)
         item = _work_item_acted_on(request.user, pk)
         # Only a reopening changes a closed work item; said before the reason
-        # is asked for, which would only lead to this refusal.
+        # is asked for, which would only lead to this refusal, and checked
+        # again right before writing, as every other write path does.
         asked = request.data.get("status") if isinstance(request.data, dict) else None
         if asked != WorkItem.Status.OPEN:
             _open_for_work(item)
@@ -634,6 +635,8 @@ class WorkItemDetailView(APIView):
             item, data=request.data, context={"author": request.user}
         )
         serializer.is_valid(raise_exception=True)
+        if serializer.validated_data["status"] != WorkItem.Status.OPEN:
+            _open_for_work(item)
         serializer.save()
         record_change(
             request.user,
