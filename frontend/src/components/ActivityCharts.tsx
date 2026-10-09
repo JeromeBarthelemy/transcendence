@@ -2,16 +2,19 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
+  Cell,
   Legend,
   Line,
   LineChart,
+  Pie,
+  PieChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
 } from "recharts";
 
-import type { DailyActivity } from "../api/activityAnalytics";
+import type { DailyActivity, WeeklyActivity } from "../api/activityAnalytics";
 
 const shortDateFormatter = new Intl.DateTimeFormat("fr-FR", {
   day: "numeric",
@@ -21,6 +24,142 @@ const shortDateFormatter = new Intl.DateTimeFormat("fr-FR", {
 
 function formatDay(day: string) {
   return shortDateFormatter.format(new Date(`${day}T12:00:00Z`));
+}
+
+export function WeeklyActivityChart({
+  data,
+  title,
+  weekLabel,
+  progressLabel,
+  membersLabel,
+  daysLabel,
+}: {
+  data: WeeklyActivity[];
+  title: string;
+  weekLabel: string;
+  progressLabel: string;
+  membersLabel: string;
+  daysLabel: string;
+}) {
+  return (
+    <div>
+      <div className="h-72 w-full" aria-hidden="true">
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={data} margin={{ top: 12, right: 12, left: -20 }}>
+            <CartesianGrid stroke="var(--color-line)" strokeDasharray="4 4" />
+            <XAxis
+              dataKey="week_start"
+              tickFormatter={formatDay}
+              stroke="var(--color-muted)"
+            />
+            <YAxis allowDecimals={false} stroke="var(--color-muted)" />
+            <Tooltip
+              labelFormatter={(day) => `${weekLabel} ${formatDay(String(day))}`}
+            />
+            <Legend />
+            <Bar
+              dataKey="progress_entries"
+              name={progressLabel}
+              fill="var(--color-accent)"
+              radius={[4, 4, 0, 0]}
+            />
+            <Bar
+              dataKey="active_members"
+              name={membersLabel}
+              fill="var(--color-mint-deep)"
+              radius={[4, 4, 0, 0]}
+            />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+      <div className="sr-only">
+        <table>
+          <caption>{title}</caption>
+          <thead>
+            <tr>
+              <th scope="col">{weekLabel}</th>
+              <th scope="col">{progressLabel}</th>
+              <th scope="col">{membersLabel}</th>
+              <th scope="col">{daysLabel}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {data.map((week) => (
+              <tr key={week.week_start}>
+                <th scope="row">{formatDay(week.week_start)}</th>
+                <td>{week.progress_entries}</td>
+                <td>{week.active_members}</td>
+                <td>{week.active_days}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+export function ActivityByCategoryChart({
+  data,
+  title,
+  categoryLabel,
+  progressLabel,
+}: {
+  data: { on_robot: boolean; label: string; progress_entries: number }[];
+  title: string;
+  categoryLabel: string;
+  progressLabel: string;
+}) {
+  return (
+    <div>
+      <div className="h-72 w-full" aria-hidden="true">
+        <ResponsiveContainer width="100%" height="100%">
+          <PieChart>
+            <Pie
+              data={data}
+              dataKey="progress_entries"
+              nameKey="label"
+              innerRadius={60}
+              outerRadius={95}
+              paddingAngle={3}
+            >
+              {data.map((item) => (
+                <Cell
+                  key={String(item.on_robot)}
+                  fill={
+                    item.on_robot
+                      ? "var(--color-accent)"
+                      : "var(--color-mint-deep)"
+                  }
+                />
+              ))}
+            </Pie>
+            <Tooltip />
+            <Legend />
+          </PieChart>
+        </ResponsiveContainer>
+      </div>
+      <div className="sr-only">
+        <table>
+          <caption>{title}</caption>
+          <thead>
+            <tr>
+              <th scope="col">{categoryLabel}</th>
+              <th scope="col">{progressLabel}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {data.map((item) => (
+              <tr key={String(item.on_robot)}>
+                <th scope="row">{item.label}</th>
+                <td>{item.progress_entries}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
 }
 
 /** A team's activity day by day, as lines; its data stays readable as a

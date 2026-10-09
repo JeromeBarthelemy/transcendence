@@ -559,6 +559,8 @@ anyone else gets a `403` with the code `not_a_member`.
 | `GET /api/team-seasons/{id}/days/{YYYY-MM-DD}/` | the day's entries, number of work items advanced, who was there, the roster they count against, and the `previous` and `next` days the team left a trace; `today` resolves the current 4 a.m.–4 a.m. workday on the server |
 | `GET /api/team-seasons/{id}/gaps/?since=&until=` | the workshop-slot days on which nothing moved forward |
 | `GET /api/team-seasons/{id}/analytics/activity/?since=&until=` | progress activity by workday and member over the inclusive period, plus a current work-item snapshot |
+| `GET /api/team-seasons/{id}/analytics/activity/?since=&until=&format=csv` | download the same daily activity values as CSV (`day`, `progress_entries`, `active_members`), with the same period validation and team access |
+| `GET /api/team-seasons/{id}/analytics/activity/?since=&until=&format=csv&report=full` | download the complete activity report: period summary, days, weeks, categories, work items, members and current snapshot |
 | `GET /api/team-seasons/{id}/export/?format=markdown` | the season's notebook as a `.zip`, one Markdown file per category; `category` (`robot`, `outreach`, `team-life`) and `work_item` narrow it |
 
 A day runs from 4 a.m. to 4 a.m., in Paris time: a late session belongs to
@@ -584,8 +586,15 @@ participants remain in the history with `is_current_member: false`: the
 current members are the team's roster, the same students the day screen
 counts attendance against (`Membership.objects.roster()`).
 
-The `snapshot` is deliberately current rather than historical: it groups all
-of the team's work items by their present status and latest progress step,
+An optional `on_robot=true` or `on_robot=false` on the activity endpoint limits
+both JSON and CSV to robot or off-robot work. Omit it for all work; an invalid
+value is refused. The filter applies to the period summary, daily and weekly activity, category and work-item totals, per-member totals and
+the current snapshot, not just to the display. Current students remain in the
+table with zero totals when they have no matching progress; former participants
+appear only when they have matching progress in the selected period.
+
+The `snapshot` is deliberately current rather than historical: it groups the
+selected team's work items by their present status and latest progress step,
 and counts items with no progress yet. The calculation lives in
 `club.analytics`, alongside the future match and trial analytics, so API
 views only validate access and input.
@@ -594,12 +603,35 @@ The team home keeps a compact summary of today's workshop and its team notes
 above URL-backed work-item and activity sections, so a member can open the
 activity view directly without putting both screens into one long page. The
 activity section starts with the last 30 days and can show the whole
-September-to-August season or a custom inclusive period. Summary cards describe
-the current work, while the time chart and member table follow the selected
-period. Recharts is the frontend's single charting library; each visual chart
+September-to-August season or a custom inclusive period. "Tous les chantiers",
+"Robot" and "Hors robot" filter all cards, charts, work-item and member counts and CSV
+together. Period cards show recorded progress, days with progress, distinct student
+participants and work items with progress. Weekly bars count each participant once
+per Monday-based workday week, clipped to the requested dates; only weeks with
+recorded progress have rows. The category donut distributes progress between
+Robot and Hors robot, not robot performance. A linked work-item table includes
+zero-activity items and the last progress day within the period. Its status and
+step, like the separate snapshot cards and step chart, are explicitly current.
+Recharts is the frontend's single charting library; each visual chart
 has the same values in an accessible table, so colour and pointer interaction
 are never required. The member table keeps the API's neutral order and wording:
 it describes days, traces and distinct work items, without scores or rankings.
+
+"Exporter en CSV" downloads the complete report for the selected period and work
+filter (`format=csv&report=full`). It is one rectangular CSV: `section` identifies
+`summary`, `day`, `week`, `category`, `work_item`, `member`, `status`, `step` and
+`snapshot` rows; `since`, `until` and `scope` accompany every row. Counts are
+separate views of the same activity and must not be summed across sections.
+Untrusted titles and member names are protected against spreadsheet formulas.
+The filename includes the team number, both dates, the optional `robot` or
+`hors-robot` suffix, and `complet`. Empty periods still export a zero summary,
+categories, current work items and roster. For compatibility, plain `format=csv`
+(or `report=daily`) retains the original daily three-column export and filename;
+an empty daily export contains only its header. JSON remains the default;
+`format=json` is also accepted, other
+formats are refused. The existing live board reloads this section's queries on
+every team change and on reconnection: progress recorded in another browser
+updates the charts and participation without a page reload or polling.
 
 The export is raw material for the portfolio, which students write elsewhere:
 the season's entries by category — building the robot (work items on the
@@ -950,7 +982,7 @@ All in `components/`, each with a comment saying when to use it.
 | `FieldErrors`, `RequestError` | a refusal from the API, by field or for the whole form, in French from its code |
 | `AdminOnly` | a screen for club admins only |
 | `EntryActions` | correcting or removing a trace in place |
-| `ActivityOverTimeChart`, `WorkItemsByStepChart` | the team's activity, in Recharts, each with its data as a table |
+| `ActivityOverTimeChart`, `WeeklyActivityChart`, `ActivityByCategoryChart`, `WorkItemsByStepChart` | the team's activity, in Recharts, each with its data as an accessible table |
 | `AuthPageFrame` | the sign-up and log-in pages' frame |
 
 Biome knows the fields and `Label` (`biome.json`, `noLabelWithoutControl`), so
