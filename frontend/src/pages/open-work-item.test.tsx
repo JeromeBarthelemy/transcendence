@@ -219,6 +219,26 @@ it("shows the API's message for a name the team already uses", async () => {
   expect(router.state.location.pathname).toBe("/");
 });
 
+it("shows the API's message for a suggestion a teammate opened first", async () => {
+  serve([], () =>
+    json(
+      { title: [{ code: "work_item_title_taken", message: "Déjà pris." }] },
+      400,
+    ),
+  );
+  const router = renderHome();
+  const panel = await openPanel();
+
+  await userEvent.selectOptions(choice(panel), "Intake");
+  await userEvent.click(submitButton(panel));
+
+  expect((await within(panel).findByRole("alert")).textContent).toBe(
+    "Ce chantier existe déjà dans l'équipe.",
+  );
+  expect(choice(panel).getAttribute("aria-invalid")).toBe("true");
+  expect(router.state.location.pathname).toBe("/");
+});
+
 // --- the usual work items, suggested ---
 
 it("suggests the usual work items the team does not have yet", async () => {

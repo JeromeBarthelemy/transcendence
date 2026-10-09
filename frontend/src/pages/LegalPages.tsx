@@ -5,7 +5,7 @@ import { Heading } from "../components/Typography";
 
 // Written from what the application stores and does, not from a template:
 // a change to what it collects, shows or keeps changes these pages too.
-const UPDATED_ON = "2 octobre 2026";
+const UPDATED_ON = "8 octobre 2026";
 const CONTACT = "robotique.civ@gmail.com";
 
 function LegalPage({
@@ -125,12 +125,10 @@ export function PrivacyPage() {
       <h3>Les fichiers déposés</h3>
       <p>
         Les photos, vidéos, plans et fichiers de CAO ajoutés à une trace. Une
-        photo est <strong>débarrassée de ses métadonnées</strong>, dont la
-        position où elle a été prise, et une photo d'iPhone (HEIC) est convertie
-        en JPEG ; une <strong>vidéo est gardée telle quelle</strong> et peut
-        donc contenir cette position si le téléphone l'a enregistrée. Ils ne
-        sont visibles que de l'équipe et des mentors ; celui qui a déposé un
-        fichier, ou un mentor, peut le retirer.
+        photo ou une vidéo est <strong>débarrassée de ses métadonnées</strong>,
+        dont la position où elle a été prise, et une photo d'iPhone (HEIC) est
+        convertie en JPEG. Ils ne sont visibles que de l'équipe et des mentors ;
+        celui qui a déposé un fichier, ou un mentor, peut le retirer.
       </p>
       <p className="legal-why">
         Pourquoi : une photo du prototype ou la vidéo d'un essai est souvent la

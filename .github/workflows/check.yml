@@ -37,6 +37,9 @@ jobs:
 
       - run: make check
 
+      # The backend strips uploaded videos' metadata with it (club/videos.py).
+      - run: sudo apt-get update && sudo apt-get install -y ffmpeg
+
       - run: make test
 
       # `make check` stops at the types; only the build proves Vite can bundle.

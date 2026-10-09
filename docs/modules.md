@@ -235,11 +235,16 @@ une avancée dans un autre onglet, la voir arriver. Exporter en CSV.
 **Chez nous** — le manuel de jeu et le Q&A officiel, avec un rang d'autorité par
 source. Pas de base vectorielle : les embeddings tiennent dans un
 `BinaryField` et le produit scalaire se fait en force brute, en Python, sur
-quelques milliers de passages.
+quelques milliers de passages. Un modèle local (Ollama, `qwen2.5:3b` par
+défaut, changeable sans toucher au code) écrit ensuite une réponse en
+français à partir des seuls passages retenus, en citant leurs références ;
+aucun passage retenu, aucune génération, la phrase de refus du système
+suffit. Un modèle injoignable laisse la réponse vide : les passages cités
+restent affichés en dessous.
 
-**Démo (3 min)** — poser une question de règlement, montrer les passages cités et
-leur rang d'autorité. Poser une question que le manuel ne couvre pas et montrer
-que le système le dit au lieu d'inventer.
+**Démo (3 min)** — poser une question de règlement, montrer la réponse générée
+puis les passages cités et leur rang d'autorité. Poser une question que le
+manuel ne couvre pas et montrer que le système le dit au lieu d'inventer.
 
 ---
 

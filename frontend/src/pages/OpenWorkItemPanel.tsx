@@ -59,6 +59,8 @@ function OpenWorkItemForm({
     ? workItems.find((item) => title && sameTitle(item.title, title))
     : undefined;
   const ready = Boolean(title) && side !== null && !existing;
+  // The server's refusal goes under whichever field the title came from.
+  const choiceInvalid = !other && issues.length > 0;
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -79,6 +81,8 @@ function OpenWorkItemForm({
             className="mt-1"
             id={choiceId}
             value={choice}
+            aria-invalid={choiceInvalid}
+            aria-describedby={choiceInvalid ? `${choiceId}-errors` : undefined}
             onChange={(event) => setChoice(event.target.value)}
           >
             <option value="">{t("openWorkItem.choose")}</option>
@@ -107,6 +111,7 @@ function OpenWorkItemForm({
             })}
             <option value={OTHER}>{t("openWorkItem.other")}</option>
           </Select>
+          {!other && <FieldErrors id={`${choiceId}-errors`} issues={issues} />}
         </div>
 
         {other && (

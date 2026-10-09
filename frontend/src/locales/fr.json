@@ -426,7 +426,7 @@
     "conversation": "Conversation avec Fieldbot",
     "botName": "Fieldbot",
     "thinking": "Fieldbot cherche dans le règlement…",
-    "citationsIntro": "Voici les passages qui répondent à votre question :",
+    "citationsIntro": "Passages cités :",
     "citations": "Passages cités",
     "sources": {
       "game_manual": "Manuel de jeu",

@@ -1,7 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-
 import { notificationsQueryKey } from "../api/notifications";
 import { Notice } from "../components/Notice";
 
