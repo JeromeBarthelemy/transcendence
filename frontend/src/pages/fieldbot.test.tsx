@@ -147,8 +147,12 @@ it("opens from the header and sends the question with Enter", async () => {
     "Q44Q&A officiel · décision officielleQ&A BioBuzzBlue robot over their gate…",
   ]);
   // Only the citation with a URL gets a link out to FIRST's own page.
-  expect(within(items[0]).getByRole("link", { name: "Voir dans le manuel" }))
-    .toHaveProperty("href", "https://ftc-resources.firstinspires.org/manual.htm#G420");
+  expect(
+    within(items[0]).getByRole("link", { name: "Voir dans le manuel" }),
+  ).toHaveProperty(
+    "href",
+    "https://ftc-resources.firstinspires.org/manual.htm#G420",
+  );
   expect(within(items[1]).queryByRole("link")).toBeNull();
   expect(within(log).queryByRole("status")).toBeNull();
 });
