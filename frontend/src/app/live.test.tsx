@@ -121,6 +121,14 @@ it("reloads the member's notifications on any message, since a change may concer
   expect(invalidated(["notifications"])).toBe(true);
 });
 
+it("reloads the member's notifications on connecting, since some may have come while off the board", () => {
+  const { invalidated } = renderBoard();
+
+  latest().open();
+
+  expect(invalidated(["notifications"])).toBe(true);
+});
+
 it("reconnects after a drop and reloads what it may have missed", () => {
   const { invalidated, fresh } = renderBoard();
   latest().open();
