@@ -146,6 +146,26 @@ it("says what happened, by whom and where, and links to the work item", async ()
   expect(within(teamNote).queryByRole("link")).toBeNull();
 });
 
+it("shows a reopened work item alongside other notifications and marks them read", async () => {
+  const user = userEvent.setup();
+  serve([notice(2, { verb: "work_item_reopened", entry: null }), notice(1)]);
+  renderApp();
+
+  await user.click(
+    await screen.findByRole("button", { name: "Notifications, 2 non lues" }),
+  );
+  const panel = screen.getByRole("region", { name: "Notifications" });
+  const [reopened, added] = within(panel).getAllByRole("listitem");
+
+  expect(reopened.textContent).toContain("Lina a rouvert un chantier");
+  expect(reopened.textContent).toContain("intake");
+  expect(within(reopened).getByRole("link").getAttribute("href")).toBe(
+    "/work-items/10",
+  );
+  expect(added.textContent).toContain("Lina a ajouté une remarque");
+  await screen.findByRole("button", { name: "Notifications, aucune non lue" });
+});
+
 it("never links to a work item that was deleted", async () => {
   const user = userEvent.setup();
   serve([
