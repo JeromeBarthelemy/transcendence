@@ -38,5 +38,55 @@ services:
       backend:
         condition: service_healthy
 
+  # The rulebook's generated answer (#135, club/generation.py). Decoupled
+  # from backend on purpose: a question asked while the model is still
+  # downloading degrades to citations alone (club/generation.py,
+  # GenerationError) instead of the whole stack waiting on a ~2 GB pull.
+  ollama:
+    # Pinned rather than :latest, so a pull on one machine can't hand
+    # another a different model server mid-review.
+    image: ollama/ollama:0.40.0
+    environment:
+      # No accuracy cost, measured on the real manual (#135's own review):
+      # same model, same answers, meaningfully faster prompt processing.
+      OLLAMA_FLASH_ATTENTION: "1"
+      OLLAMA_KV_CACHE_TYPE: q8_0
+    volumes:
+      - ollama_models:/root/.ollama
+    ports:
+      # Bound to the host alone: Ollama's API carries no auth, and the
+      # README already has phones joining this stack over the club's
+      # Wi-Fi — an unqualified host port would hand the whole LAN a free
+      # model server.
+      - "127.0.0.1:11434:11434"
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 3s
+      timeout: 2s
+      retries: 20
+
+  # One-shot: pulls RAG_GENERATION_MODEL (backend/.env) once, then exits.
+  # Reruns on every `up`, but `ollama pull` is a no-op once the model is
+  # already there.
+  ollama-pull:
+    image: ollama/ollama:0.40.0
+    env_file: ./backend/.env
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+    depends_on:
+      ollama:
+        condition: service_healthy
+    entrypoint: ["sh", "-c"]
+    command:
+      - |
+        set -e
+        ollama pull "$${RAG_GENERATION_MODEL:-qwen2.5:3b}"
+        # Loads the model into memory now rather than leaving that cost
+        # for the first real question — a cold load can run past
+        # GENERATION_TIMEOUT_SECONDS on its own, generation.py's sole
+        # safety net meant for a slow answer, not a slow load.
+        ollama run "$${RAG_GENERATION_MODEL:-qwen2.5:3b}" "" || true
+
 volumes:
   frontend_node_modules:
+  ollama_models:

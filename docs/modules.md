@@ -222,7 +222,15 @@ le scouting, qui auraient donné d'autres courbes, viendront après la soutenanc
 d'ici là, un résultat d'essai s'écrit dans le texte de l'avancée.
 
 **Démo (3 min)** — changer la plage de dates, voir les courbes bouger. Enregistrer
-une avancée dans un autre onglet, la voir arriver. Exporter en CSV.
+une avancée dans un autre onglet, la voir arriver. Filtrer Robot / Hors robot :
+les graphiques et les compteurs des membres suivent le même filtre. Exporter
+en CSV et retrouver les valeurs de la période et du filtre affichés : résumé,
+jours, semaines, Robot / Hors robot, chantiers et participations, avec une colonne
+`section` pour distinguer les vues (ne pas additionner leurs totaux entre elles).
+Les barres hebdomadaires comptent chaque élève une fois par semaine ; les cartes
+de période le comptent une fois sur toute la période. Le tableau des chantiers
+garde ceux sans activité à zéro, avec un lien vers leur détail. Les statuts et
+étapes restent explicitement actuels, contrairement aux compteurs de période.
 
 ---
 
@@ -235,11 +243,16 @@ une avancée dans un autre onglet, la voir arriver. Exporter en CSV.
 **Chez nous** — le manuel de jeu et le Q&A officiel, avec un rang d'autorité par
 source. Pas de base vectorielle : les embeddings tiennent dans un
 `BinaryField` et le produit scalaire se fait en force brute, en Python, sur
-quelques milliers de passages.
+quelques milliers de passages. Un modèle local (Ollama, `qwen2.5:3b` par
+défaut, changeable sans toucher au code) écrit ensuite une réponse en
+français à partir des seuls passages retenus, en citant leurs références ;
+aucun passage retenu, aucune génération, la phrase de refus du système
+suffit. Un modèle injoignable laisse la réponse vide : les passages cités
+restent affichés en dessous.
 
-**Démo (3 min)** — poser une question de règlement, montrer les passages cités et
-leur rang d'autorité. Poser une question que le manuel ne couvre pas et montrer
-que le système le dit au lieu d'inventer.
+**Démo (3 min)** — poser une question de règlement, montrer la réponse générée
+puis les passages cités et leur rang d'autorité. Poser une question que le
+manuel ne couvre pas et montrer que le système le dit au lieu d'inventer.
 
 ---
 

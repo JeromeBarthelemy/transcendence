@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { createMemoryRouter, RouterProvider } from "react-router-dom";
 import { afterEach, expect, it, vi } from "vitest";
@@ -98,13 +98,12 @@ function workItem(overrides: object = {}) {
   };
 }
 
-function renderWorkItem() {
+function renderWorkItem(
+  router = createMemoryRouter(routes, { initialEntries: ["/work-items/10"] }),
+) {
   // The application's staleTime: a fresh cache must not hide a newer save.
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false, staleTime: 30_000 } },
-  });
-  const router = createMemoryRouter(routes, {
-    initialEntries: ["/work-items/10"],
   });
   render(
     <QueryClientProvider client={queryClient}>
@@ -351,6 +350,246 @@ it("starts today's progress at the chosen step", async () => {
   expect(JSON.parse(String(tickRequest?.[1]?.body))).toEqual({
     step: "building",
   });
+});
+
+/** Exercise the real socket -> query invalidation -> detail refetch path. */
+function liveStepServer(initial = workItem()) {
+  const sockets: Socket[] = [];
+  class Socket {
+    static CONNECTING = 0;
+    static OPEN = 1;
+    readyState = Socket.OPEN;
+    onopen: (() => void) | null = null;
+    onmessage: ((event: { data: string }) => void) | null = null;
+    onclose: (() => void) | null = null;
+    constructor(readonly url: string) {
+      sockets.push(this);
+    }
+    close() {}
+  }
+  vi.stubGlobal("WebSocket", Socket);
+  setDocumentCookie("csrftoken=test; path=/");
+  const server = {
+    item: initial,
+    tickStatus: 200,
+    tickGate: null as Promise<void> | null,
+  };
+  const fetchMock = vi.fn(async (path: string, options?: RequestInit) => {
+    if (path === "/api/auth/me/") return json(identity());
+    if (path === "/api/work-items/10/" && !options?.method)
+      return json(server.item);
+    if (path === "/api/work-items/10/tick/" && options?.method === "POST") {
+      if (server.tickGate) await server.tickGate;
+      if (server.tickStatus !== 200)
+        return json(
+          { detail: { code: "unknown", message: "Refus" } },
+          server.tickStatus,
+        );
+      const { step } = JSON.parse(String(options.body));
+      const created = progress({
+        step: step ?? server.item.current_progress?.step,
+      });
+      server.item = workItem({
+        current_step: created.step,
+        current_progress: created,
+        thread: [created],
+      });
+      return json(created);
+    }
+    throw new Error(`Unexpected request: ${path}`);
+  });
+  vi.stubGlobal("fetch", fetchMock);
+  const queryClient = renderWorkItem();
+  return {
+    server,
+    fetchMock,
+    queryClient,
+    async broadcast(item: ReturnType<typeof workItem>) {
+      server.item = item;
+      const reads = fetchMock.mock.calls.filter(
+        ([path]) => path === "/api/work-items/10/",
+      ).length;
+      await act(async () => {
+        sockets[0].onmessage?.({ data: JSON.stringify({ work_item: 10 }) });
+      });
+      await waitFor(() => {
+        expect(
+          fetchMock.mock.calls.filter(
+            ([path]) => path === "/api/work-items/10/",
+          ).length,
+        ).toBeGreaterThan(reads);
+        expect(
+          queryClient.getQueryState(["work-items", 10])?.isInvalidated,
+        ).toBe(false);
+      });
+    },
+  };
+}
+
+function workItemAtStep(step: string, id = 32) {
+  const current = progress({ id, step });
+  return workItem({
+    current_step: step,
+    current_progress: current,
+    thread: [current],
+  });
+}
+
+it.each([31, 32])(
+  "follows a live step change, even when today's progress id is %s",
+  async (id) => {
+    const live = liveStepServer();
+    const selector = await screen.findByLabelText<HTMLSelectElement>("Étape");
+    expect(selector.value).toBe("prototyping");
+    await live.broadcast(workItemAtStep("building", id));
+    await waitFor(() => expect(selector.value).toBe("building"));
+    const change = screen.getByRole("button", { name: "Passer à cette étape" });
+    expect((change as HTMLButtonElement).disabled).toBe(true);
+    await userEvent.click(change);
+    expect(
+      live.fetchMock.mock.calls.some(([path]) => path.endsWith("/tick/")),
+    ).toBe(false);
+  },
+);
+
+it("keeps a manually chosen step across live updates instead of submitting the teammate's choice", async () => {
+  const live = liveStepServer();
+  const selector = await screen.findByLabelText<HTMLSelectElement>("Étape");
+  await userEvent.selectOptions(selector, "integration");
+  await live.broadcast(workItemAtStep("building"));
+  expect(selector.value).toBe("integration");
+  await userEvent.click(
+    screen.getByRole("button", { name: "Passer à cette étape" }),
+  );
+  await waitFor(() => {
+    const call = live.fetchMock.mock.calls.find(([path]) =>
+      path.endsWith("/tick/"),
+    );
+    expect(JSON.parse(String(call?.[1]?.body))).toEqual({
+      step: "integration",
+    });
+  });
+});
+
+it("resumes following live changes after a step choice is saved", async () => {
+  const live = liveStepServer();
+  const selector = await screen.findByLabelText<HTMLSelectElement>("Étape");
+  await userEvent.selectOptions(selector, "integration");
+  await userEvent.click(
+    screen.getByRole("button", { name: "Passer à cette étape" }),
+  );
+  await waitFor(() => {
+    expect(
+      live.queryClient.getQueryState(["work-items", 10])?.isInvalidated,
+    ).toBe(false);
+    expect(live.queryClient.isMutating()).toBe(0);
+    expect(live.server.item.current_step).toBe("integration");
+  });
+  await live.broadcast(workItemAtStep("test_zero", 33));
+  await waitFor(() => expect(selector.value).toBe("test_zero"));
+});
+
+it("resumes following when the member selects the current server step again", async () => {
+  const live = liveStepServer();
+  const selector = await screen.findByLabelText<HTMLSelectElement>("Étape");
+  await userEvent.selectOptions(selector, "integration");
+  await userEvent.selectOptions(selector, "prototyping");
+  await live.broadcast(workItemAtStep("building"));
+  await waitFor(() => expect(selector.value).toBe("building"));
+});
+
+it("preserves a draft after a refused tick and subsequent live change", async () => {
+  const live = liveStepServer();
+  live.server.tickStatus = 409;
+  const selector = await screen.findByLabelText<HTMLSelectElement>("Étape");
+  await userEvent.selectOptions(selector, "integration");
+  await userEvent.click(
+    screen.getByRole("button", { name: "Passer à cette étape" }),
+  );
+  await screen.findByRole("alert");
+  await live.broadcast(workItemAtStep("building"));
+  expect(selector.value).toBe("integration");
+});
+
+it("does not clear a newer manual choice when an earlier tick finishes", async () => {
+  const live = liveStepServer();
+  let finishTick: (() => void) | undefined;
+  live.server.tickGate = new Promise<void>((resolve) => {
+    finishTick = resolve;
+  });
+  const selector = await screen.findByLabelText<HTMLSelectElement>("Étape");
+  await userEvent.selectOptions(selector, "integration");
+  await userEvent.click(
+    screen.getByRole("button", { name: "Passer à cette étape" }),
+  );
+  await userEvent.selectOptions(selector, "building");
+  await act(async () => {
+    finishTick?.();
+  });
+  await waitFor(() => expect(live.queryClient.isMutating()).toBe(0));
+  expect(live.server.item.current_step).toBe("integration");
+  expect(selector.value).toBe("building");
+  await live.broadcast(workItemAtStep("test_zero"));
+  expect(selector.value).toBe("building");
+});
+
+it("joining without a step does not discard a manual step choice", async () => {
+  const live = liveStepServer(workItem({ current_user_participates: false }));
+  const selector = await screen.findByLabelText<HTMLSelectElement>("Étape");
+  await userEvent.selectOptions(selector, "integration");
+  await userEvent.click(screen.getByRole("button", { name: "Je participe" }));
+  await waitFor(() => expect(live.queryClient.isMutating()).toBe(0));
+  const call = live.fetchMock.mock.calls.find(([path]) =>
+    path.endsWith("/tick/"),
+  );
+  expect(JSON.parse(String(call?.[1]?.body))).toEqual({});
+  await live.broadcast(workItemAtStep("building"));
+  expect(selector.value).toBe("integration");
+});
+
+it("does not carry a step draft to another cached work-item page", async () => {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (path: string) => {
+      if (path === "/api/auth/me/") return json(identity());
+      if (path === "/api/work-items/10/") return json(workItem());
+      throw new Error(`Unexpected request: ${path}`);
+    }),
+  );
+  const router = createMemoryRouter(routes, {
+    initialEntries: ["/work-items/10"],
+  });
+  const queryClient = renderWorkItem(router);
+  const selector = await screen.findByLabelText<HTMLSelectElement>("Étape");
+  await userEvent.selectOptions(selector, "integration");
+  queryClient.setQueryData(["work-items", 20], {
+    ...workItemAtStep("building"),
+    id: 20,
+    title: "Bras",
+  });
+  await act(async () => {
+    await router.navigate("/work-items/20");
+  });
+  await screen.findByRole("heading", { name: "Bras", level: 1 });
+  expect(screen.getByLabelText<HTMLSelectElement>("Étape").value).toBe(
+    "building",
+  );
+});
+
+it("uses the latest known step when today's progress disappears or is first created", async () => {
+  const live = liveStepServer();
+  const selector = await screen.findByLabelText<HTMLSelectElement>("Étape");
+  await live.broadcast(
+    workItem({
+      current_progress: null,
+      current_step: "integration",
+      current_user_participates: false,
+      thread: [],
+    }),
+  );
+  await waitFor(() => expect(selector.value).toBe("integration"));
+  await live.broadcast(workItemAtStep("building"));
+  await waitFor(() => expect(selector.value).toBe("building"));
 });
 
 function progressServer(
@@ -899,6 +1138,53 @@ it("uploads a file with its image-right answer", async () => {
     (FakeXMLHttpRequest.last?.sent?.get("file") as File | null)?.name,
   ).toBe("photo.png");
 });
+
+it.each([
+  ["attachment_type_refused", "Ce fichier n'est pas une photo lisible."],
+  ["attachment_too_large", "Ce fichier dépasse la taille autorisée (10 Mo)."],
+  ["attachment_too_many_pixels", "Cette photo compte trop de pixels."],
+])(
+  "shows the server's upload refusal for %s, even though file has no dedicated error component",
+  async (code, message) => {
+    setDocumentCookie("csrftoken=test; path=/");
+    class RefusedUpload {
+      status = 400;
+      responseText = JSON.stringify({ file: [{ code, message }] });
+      upload = { onprogress: null as ((event: ProgressEvent) => void) | null };
+      onerror: (() => void) | null = null;
+      onload: (() => void) | null = null;
+      open() {}
+      setRequestHeader() {}
+      send() {
+        this.onload?.();
+      }
+    }
+    vi.stubGlobal("XMLHttpRequest", RefusedUpload);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (path: string) => {
+        if (path === "/api/auth/me/") return json(identity());
+        if (path === "/api/work-items/10/") return json(workItem());
+        throw new Error(`Unexpected request: ${path}`);
+      }),
+    );
+    renderWorkItem();
+    const input = await screen.findByLabelText("Photo, mesure ou fichier");
+    await userEvent.upload(
+      input,
+      new File(["image"], "photo.png", { type: "image/png" }),
+    );
+    await userEvent.click(screen.getByRole("radio", { name: "Non" }));
+    await userEvent.click(
+      screen.getByRole("button", { name: "Ajouter le fichier" }),
+    );
+    expect(await screen.findByText(message)).toBeTruthy();
+    expect(
+      screen.queryByText("Une erreur inattendue est survenue."),
+    ).toBeNull();
+    expect(screen.queryByText("Fichier ajouté.")).toBeNull();
+  },
+);
 
 // --- deleting a work item opened by mistake ---
 

@@ -122,6 +122,15 @@ cookies. The Django admin remains available at <http://localhost:8000/admin/>.
 This Compose stack is for development and proves the frontend/backend
 integration — `runserver`, Vite's dev server, `DEBUG=true`, no certificate.
 
+The stack also starts `ollama` (the rulebook's generated answer, see
+[Rulebook questions](#rulebook-questions)) and `ollama-pull`, which fetches
+`RAG_GENERATION_MODEL` once and exits — about 2 GB on the first `up`, kept in
+the `ollama_models` volume so later ones do not re-download it. It then asks
+the model an empty question of its own, so loading it into memory is already
+paid for by the time a member asks a real one — otherwise that load competes
+with `GENERATION_TIMEOUT_SECONDS` on whoever asks first. A question asked
+before the pull itself finishes still answers, with its citations alone.
+
 #### From a phone on the same Wi-Fi
 
 For a supervised trial in the club's room, before the HTTPS stack: a phone
@@ -231,6 +240,7 @@ worth not losing.
 ### Backend without containers
 
 ```sh
+sudo apt install ffmpeg   # videos are stored without their metadata
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r backend/requirements-dev.txt
 
@@ -242,7 +252,12 @@ python backend/manage.py createsuperuser
 python backend/manage.py runserver
 ```
 
-`.env` is never versioned: everyone keeps their own.
+`.env` is never versioned: everyone keeps their own. `RAG_OLLAMA_URL`
+defaults to `http://ollama:11434`, Compose's service name: outside Compose,
+run your own Ollama and set it to its address (`http://localhost:11434` for
+one running directly on this machine), or leave it as is — a rulebook
+question still answers, with its citations alone (see
+[Rulebook questions](#rulebook-questions)).
 
 ### Frontend without containers
 
@@ -544,12 +559,20 @@ anyone else gets a `403` with the code `not_a_member`.
 | `GET /api/team-seasons/{id}/days/{YYYY-MM-DD}/` | the day's entries, number of work items advanced, who was there, the roster they count against, and the `previous` and `next` days the team left a trace; `today` resolves the current 4 a.m.–4 a.m. workday on the server |
 | `GET /api/team-seasons/{id}/gaps/?since=&until=` | the workshop-slot days on which nothing moved forward |
 | `GET /api/team-seasons/{id}/analytics/activity/?since=&until=` | progress activity by workday and member over the inclusive period, plus a current work-item snapshot |
+| `GET /api/team-seasons/{id}/analytics/activity/?since=&until=&format=csv` | download the same daily activity values as CSV (`day`, `progress_entries`, `active_members`), with the same period validation and team access |
+| `GET /api/team-seasons/{id}/analytics/activity/?since=&until=&format=csv&report=full` | download the complete activity report: period summary, days, weeks, categories, work items, members and current snapshot |
 | `GET /api/team-seasons/{id}/export/?format=markdown` | the season's notebook as a `.zip`, one Markdown file per category; `category` (`robot`, `outreach`, `team-life`) and `work_item` narrow it |
 
 A day runs from 4 a.m. to 4 a.m., in Paris time: a late session belongs to
 the day it started. Ticking at another step than today's opens a second
 progress, and the handover shown on a work item is the latest one left,
 with who left it, when, and at which step.
+
+On the work-item screen, the step selector follows live updates until the member
+chooses a different step. That draft survives background updates and a refused
+tick; following resumes after a successful step tick and detail refresh, or when
+the member selects the server's current step again. Joining without a step does
+not discard a draft, and a draft never carries over to another work item.
 
 Every entry names its work item, `{"id", "title"}`, or `null` for a note to
 the whole team. It also says what its reader may do with it — `can_remove`,
@@ -569,8 +592,15 @@ participants remain in the history with `is_current_member: false`: the
 current members are the team's roster, the same students the day screen
 counts attendance against (`Membership.objects.roster()`).
 
-The `snapshot` is deliberately current rather than historical: it groups all
-of the team's work items by their present status and latest progress step,
+An optional `on_robot=true` or `on_robot=false` on the activity endpoint limits
+both JSON and CSV to robot or off-robot work. Omit it for all work; an invalid
+value is refused. The filter applies to the period summary, daily and weekly activity, category and work-item totals, per-member totals and
+the current snapshot, not just to the display. Current students remain in the
+table with zero totals when they have no matching progress; former participants
+appear only when they have matching progress in the selected period.
+
+The `snapshot` is deliberately current rather than historical: it groups the
+selected team's work items by their present status and latest progress step,
 and counts items with no progress yet. The calculation lives in
 `club.analytics`, alongside the future match and trial analytics, so API
 views only validate access and input.
@@ -579,12 +609,35 @@ The team home keeps a compact summary of today's workshop and its team notes
 above URL-backed work-item and activity sections, so a member can open the
 activity view directly without putting both screens into one long page. The
 activity section starts with the last 30 days and can show the whole
-September-to-August season or a custom inclusive period. Summary cards describe
-the current work, while the time chart and member table follow the selected
-period. Recharts is the frontend's single charting library; each visual chart
+September-to-August season or a custom inclusive period. "Tous les chantiers",
+"Robot" and "Hors robot" filter all cards, charts, work-item and member counts and CSV
+together. Period cards show recorded progress, days with progress, distinct student
+participants and work items with progress. Weekly bars count each participant once
+per Monday-based workday week, clipped to the requested dates; only weeks with
+recorded progress have rows. The category donut distributes progress between
+Robot and Hors robot, not robot performance. A linked work-item table includes
+zero-activity items and the last progress day within the period. Its status and
+step, like the separate snapshot cards and step chart, are explicitly current.
+Recharts is the frontend's single charting library; each visual chart
 has the same values in an accessible table, so colour and pointer interaction
 are never required. The member table keeps the API's neutral order and wording:
 it describes days, traces and distinct work items, without scores or rankings.
+
+"Exporter en CSV" downloads the complete report for the selected period and work
+filter (`format=csv&report=full`). It is one rectangular CSV: `section` identifies
+`summary`, `day`, `week`, `category`, `work_item`, `member`, `status`, `step` and
+`snapshot` rows; `since`, `until` and `scope` accompany every row. Counts are
+separate views of the same activity and must not be summed across sections.
+Untrusted titles and member names are protected against spreadsheet formulas.
+The filename includes the team number, both dates, the optional `robot` or
+`hors-robot` suffix, and `complet`. Empty periods still export a zero summary,
+categories, current work items and roster. For compatibility, plain `format=csv`
+(or `report=daily`) retains the original daily three-column export and filename;
+an empty daily export contains only its header. JSON remains the default;
+`format=json` is also accepted, other
+formats are refused. The existing live board reloads this section's queries on
+every team change and on reconnection: progress recorded in another browser
+updates the charts and participation without a page reload or polling.
 
 The export is raw material for the portfolio, which students write elsewhere:
 the season's entries by category — building the robot (work items on the
@@ -670,7 +723,7 @@ opened it:
 | --- | --- | --- | --- |
 | photo | JPEG, PNG, WebP | 20 MB | same size and format, upright, without its metadata |
 | iPhone photo | HEIC | 20 MB | the same, as a JPEG named after it — only Safari shows HEIC |
-| video | MP4 (Android), MOV (iPhone), WebM | 200 MB | as sent |
+| video | MP4 (Android), MOV (iPhone), WebM | 200 MB | same picture and sound, without its metadata |
 | document | PDF | 20 MB | as sent |
 | CAD | STEP, STL | 50 MB | as sent, downloaded rather than shown |
 
@@ -680,20 +733,83 @@ with `attachment_too_large`, a photo decoding to too many pixels with
 when the application starts; `libheif` applies the rotation an iPhone stores
 in the file itself, so the photo comes out upright.
 
+A phone video records where it was filmed, like a photo, and most members are
+minors. `ffmpeg` copies its picture and sound without re-encoding them, and
+leaves behind every metadata tag, the tracks' own and any data track (an
+iPhone may record its position in one). It is the one system dependency of
+the backend, installed in its image: one tool for MP4, MOV and WebM, and for
+whatever format phones film in next, where a parser of our own would cover
+one format at a time. Its reader is forced to the format already recognised,
+never guessed — left to guess, `ffmpeg` also reads playlists that open other
+files or addresses. A video it cannot copy is refused with
+`attachment_type_refused`: one that might still carry a position is never
+kept.
+
 Files live under `backend/media/`, beside the database, and a backup takes
 both: the database only records where each file is. A removed attachment, or
 the entry it belongs to, leaves the disk once the deletion is committed.
 
 ## Rulebook questions
 
-A member asks the current season's game manual a question and gets back the
-passages that answer it, ranked first by how much they may be trusted, then
-by how well they answer it — not a generated answer, so nothing is ever
-invented past what the source says.
+A member asks the current season's game manual a question. Retrieval finds
+the passages that answer it, ranked first by how much they may be trusted,
+then by how well they answer it; a local model (`club/generation.py`, Ollama,
+`compose.yml`'s `ollama` service) then writes a short French answer from
+those passages alone, naming the references it relies on. No passage above
+the retrieval threshold means no generation either — the system's own
+refusal stands instead, so nothing is ever invented past what the source
+says. A citation the model gets wrong — shortened, misspelled, made up
+outright — is refused the same way a model that cannot be reached is: the
+citations stand on their own instead, rather than an answer that reads as
+checkable and is not. `RAG_GENERATION_MODEL` (`backend/.env`) picks the
+model — swapping it for another one Ollama has pulled needs no code
+change.
+
+A smaller, faster model was tried and measured faster and just as clean by
+every automatic check — and, read by hand against what it actually
+retrieved, wrong often enough to drop: confidently answering from a
+passage that didn't address the question, never once saying "the passages
+given don't say". `qwen2.5:3b` hedges in exactly that case instead, which
+no citation check can tell apart from a model confidently wrong, so the
+choice rests on reading its answers, not just counting its citations.
+
+Reading real answers by hand (#207's own review, both Jerome's and a
+sweep of my own) found two more ways of being wrong no citation check
+alone catches: answering in English because the retrieved passage was,
+and citing nothing at all. Both now refuse the same way a wrong
+reference does (`generation.py`), and the model is asked again —
+sampled fresh, not deterministic — rather than settling for one bad
+draft, now that correctness matters more than how long an answer takes
+to arrive. Passages reach the model whole; `GENERATION_TIMEOUT_SECONDS`
+is 90 s per attempt, up to `GENERATION_MAX_ATTEMPTS` (3) attempts, so a
+hard failure (the model unreachable) is bounded at 90 s but three bad
+samples in a row can take several minutes. Read by hand against the
+real manual, this reliably turned confidently wrong answers (a real
+citation next to the wrong meaning, or a different rule entirely cited
+with the model's own text admitting it doesn't fit) into either a
+correct one on a later sample or a safe refusal — never, in this
+reading, a wrong one reaching the screen. Flash attention and a
+quantized KV cache (`compose.yml`'s `ollama` service) still cost nothing
+in accuracy and still help, just no longer the main lever.
+
+Retrieval itself still runs on the question as asked, in whatever
+language that is — translating it to English first measurably finds
+the right passage more often for some question categories and less
+often for others (read against this same manual), and does not reach
+far enough into `MIN_SCORE`'s own calibration (364 passages, 90 real
+questions against 10 off-topic controls, French throughout) to change
+it on the strength of what was measured here alone. Left as French in,
+French out; the lead is open, not closed.
+
+Memory is the other real constraint, not just CPU: `qwen2.5:3b` resident
+in Ollama measures about 2.1 GB on this machine, and the embedding
+model's own cache on disk is another 1.1 GB — before Django, an ingest,
+or anything else running alongside. Comfortable here; likely tight on a
+laptop nearer the lower end of what the club has.
 
 | route | does |
 | --- | --- |
-| `POST /api/rules/ask/` | a question, answered with up to five cited passages from this season's ingested documents |
+| `POST /api/rules/ask/` | a question, answered with a generated French answer and up to ten cited passages from this season's ingested documents |
 | `GET /api/rules/sources/` | administrators only: per source, the copy searched, when it was checked, and any change waiting for acceptance with its summary |
 | `POST /api/rules/sources/` | administrators only: `source` (`game_manual`) and `url` on FIRST's own site (`https`, `ftc-resources.firstinspires.org`) — fetches the page, ingests it as the new copy, and the checks follow that URL from now on; `400` with `source_not_allowed`, `fetch_failed` (also when a redirect leaves FIRST's site) or `no_passage` (a page with nothing to index) otherwise |
 | `POST /api/rules/sources/check/` | administrators only: check the game manual against its page now, the same check the `sources-check` service runs every 24 hours (the Q&A is not checked yet) |
@@ -729,7 +845,7 @@ its own, so a typo can't file the Q&A as binding. Citations are ordered by
 authority first, score second: the manual is explicit that it takes
 precedence over the Q&A, so a `binding` passage is always quoted ahead of a
 `ruling` one that merely scored higher, and every match above the threshold
-is considered for this ordering before being cut to the five kept — cutting
+is considered for this ordering before being cut to the ten kept — cutting
 by score first could otherwise drop a `binding` passage that a handful of
 `ruling` ones outscored. A question is answered plainly when anything clears
 the threshold; otherwise the response carries a refusal instead of a guess,
@@ -872,7 +988,7 @@ All in `components/`, each with a comment saying when to use it.
 | `FieldErrors`, `RequestError` | a refusal from the API, by field or for the whole form, in French from its code |
 | `AdminOnly` | a screen for club admins only |
 | `EntryActions` | correcting or removing a trace in place |
-| `ActivityOverTimeChart`, `WorkItemsByStepChart` | the team's activity, in Recharts, each with its data as a table |
+| `ActivityOverTimeChart`, `WeeklyActivityChart`, `ActivityByCategoryChart`, `WorkItemsByStepChart` | the team's activity, in Recharts, each with its data as an accessible table |
 | `AuthPageFrame` | the sign-up and log-in pages' frame |
 
 Biome knows the fields and `Label` (`biome.json`, `noLabelWithoutControl`), so
@@ -886,7 +1002,8 @@ make check
 
 Runs, from the activated virtual environment, Ruff (lint and formatting),
 mypy, a check that no model change is missing its migration, the frontend
-TypeScript check, and Biome (frontend lint and formatting). It must pass before
+TypeScript check, Biome (frontend lint and formatting), and the API error-code
+catalogue check. It must pass before
 every commit. It only reports; `make format` applies the formatting on both
 sides, for you to review before committing. CI runs `make check` on every pull
 request, followed by the frontend production build:
@@ -898,6 +1015,26 @@ npm --prefix frontend run build
 `build` repeats the type check and creates the optimized assets in
 `frontend/dist/`; a failure here that `make check` missed is a bundling
 problem, not a type error.
+
+### API refusal messages
+
+The frontend prefers `errors.<code>` from `frontend/src/locales/fr.json` when
+present. Otherwise it displays the server's `issue.message` as plain text,
+including errors for fields a form does not handle itself (e.g. an upload's
+`file`). A missing or blank sentence still uses the generic error; network
+failures retain their separate message. Handled field errors are not repeated
+in the request-level error block.
+
+`make check-error-codes` runs `backend/check_error_codes.py`, also included in
+`make check` and therefore CI. Without importing the application, it reads Python
+syntax for repo-defined literal `code=`, `violation_error_code=` and
+`default_code` declarations, excluding tests and migrations. Each code must have
+a non-empty French catalogue entry or a reason in
+`frontend/src/locales/server-error-fallbacks.json` explaining why the server's
+sentence is deliberately used. The check also rejects stale fallback entries
+and entries that now have translations. Codes forwarded dynamically from
+Django/DRF are not statically enumerated by this check; the runtime fallback
+still handles them.
 
 ## Testing
 

@@ -16,7 +16,7 @@ from django.core.files.uploadedfile import UploadedFile
 from PIL import ImageOps
 from rest_framework.exceptions import ValidationError
 
-from club import images
+from club import images, videos
 
 MEGABYTE = 1024 * 1024
 # Downloaded rather than shown: no browser displays a CAD file.
@@ -40,6 +40,8 @@ STEP = Kind(DOWNLOAD_ONLY, ".step", 50 * MEGABYTE)
 STL = Kind(DOWNLOAD_ONLY, ".stl", 50 * MEGABYTE)
 
 PHOTOS = {JPEG: "JPEG", PNG: "PNG", WEBP: "WEBP"}
+# ffmpeg's names for reading and writing each: MP4 and MOV share one reader.
+VIDEOS = {MP4: ("mov", "mp4"), MOV: ("mov", "mov"), WEBM: ("matroska", "webm")}
 
 # MP4, MOV and HEIC photos are all ISO media files, told apart by the brand
 # that follows `ftyp`. Android films in MP4, an iPhone in MOV and takes its
@@ -75,6 +77,15 @@ def check(value: UploadedFile) -> Checked:
     stored = f"{uuid4().hex}{kind.extension}"
     if kind in PHOTOS:
         return Checked(name, kind.content_type, _without_metadata(value, kind, stored))
+    if kind in VIDEOS:
+        try:
+            cleaned = videos.without_metadata(value, *VIDEOS[kind], stored)
+        except videos.Unreadable:
+            raise ValidationError(
+                "Ce fichier n'est pas une vidéo lisible.",
+                code="attachment_type_refused",
+            ) from None
+        return Checked(name, kind.content_type, cleaned)
     value.name = stored
     return Checked(name, kind.content_type, value)
 

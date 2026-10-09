@@ -115,6 +115,18 @@ function activity(path: string): Response {
       work_items_without_progress: 0,
     },
     activity_by_day: [],
+    summary: {
+      progress_entries: 0,
+      active_days: 0,
+      active_members: 0,
+      work_items: 0,
+    },
+    activity_by_week: [],
+    activity_by_category: [
+      { on_robot: true, progress_entries: 0 },
+      { on_robot: false, progress_entries: 0 },
+    ],
+    work_items: [],
     members: [],
   });
 }

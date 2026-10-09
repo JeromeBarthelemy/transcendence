@@ -150,6 +150,47 @@ it("opens from the header and sends the question with Enter", async () => {
   expect(within(log).queryByRole("status")).toBeNull();
 });
 
+it("shows the generated answer above its citations", async () => {
+  const user = userEvent.setup();
+  stubApi(() =>
+    json(
+      {
+        question: "Les robots peuvent-ils se toucher ?",
+        answer:
+          "Oui, un contact fortuit entre coéquipiers n'est pas une infraction [Q45].",
+        citations: [
+          {
+            rank: 1,
+            reference: "Q45",
+            text: "Two robots touching during autonomous…",
+            source: "official_qa",
+            authority: "ruling",
+            document_title: "Q&A BioBuzz",
+          },
+        ],
+      },
+      201,
+    ),
+  );
+
+  renderAt("/fieldbot");
+  await user.type(
+    await screen.findByLabelText("Votre question sur le règlement"),
+    "Les robots peuvent-ils se toucher ?{Enter}",
+  );
+
+  const log = screen.getByRole("log", { name: "Conversation avec Fieldbot" });
+  expect(
+    await within(log).findByText(
+      "Oui, un contact fortuit entre coéquipiers n'est pas une infraction [Q45].",
+    ),
+  ).toBeTruthy();
+  expect(within(log).getByText("Passages cités :")).toBeTruthy();
+  expect(
+    within(log).getByRole("list", { name: "Passages cités" }),
+  ).toBeTruthy();
+});
+
 it("shows the server's own sentence when nothing could be cited", async () => {
   const user = userEvent.setup();
   const refusal =

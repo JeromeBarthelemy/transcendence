@@ -335,13 +335,20 @@ function TodayPanel({
 }) {
   const { t } = useTranslation();
   const invalidateWorkItem = useInvalidateWorkItem(item);
-  const [selectedStep, setSelectedStep] = useState<WorkItemStep>(
-    item.current_progress?.step ?? item.current_step ?? workItemSteps[0],
-  );
+  const liveStep =
+    item.current_progress?.step ?? item.current_step ?? workItemSteps[0];
+  // null means "follow the server"; only an explicit choice is held locally.
+  const [stepChoice, setStepChoice] = useState<WorkItemStep | null>(null);
+  const selectedStep = stepChoice ?? liveStep;
   const tick = useMutation({
     mutationFn: (step?: WorkItemStep) => tickWorkItem(item.id, step),
-    onSuccess: async () => {
+    onSuccess: async (_entry, submittedStep) => {
       await invalidateWorkItem();
+      if (submittedStep !== undefined) {
+        // Joining doesn't submit a step. Nor should an earlier save erase a
+        // newer choice made while its request/refetch was still pending.
+        setStepChoice((choice) => (choice === submittedStep ? null : choice));
+      }
     },
   });
   const [isConfirmingLeave, setIsConfirmingLeave] = useState(false);
@@ -386,9 +393,10 @@ function TodayPanel({
             {t("workItem.currentStep")}
             <Select
               value={selectedStep}
-              onChange={(event) =>
-                setSelectedStep(event.target.value as WorkItemStep)
-              }
+              onChange={(event) => {
+                const step = event.target.value as WorkItemStep;
+                setStepChoice(step === liveStep ? null : step);
+              }}
             >
               {workItemSteps.map((step) => (
                 <option key={step} value={step}>
@@ -940,7 +948,7 @@ function WorkItemScreen({
             history can still be put right, and today's tick undone. */}
         {(!isClosed || item.current_progress) && (
           <div className="space-y-6">
-            <TodayPanel item={item} identity={identity} />
+            <TodayPanel key={item.id} item={item} identity={identity} />
             {!isClosed && <WorkItemNoteForm item={item} />}
           </div>
         )}

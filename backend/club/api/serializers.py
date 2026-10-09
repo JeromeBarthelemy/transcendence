@@ -542,6 +542,12 @@ class PeriodSerializer(serializers.Serializer[None]):
         return attrs
 
 
+class ActivityAnalyticsSerializer(PeriodSerializer):
+    format = serializers.ChoiceField(choices=["json", "csv"], default="json")
+    on_robot = serializers.BooleanField(required=False)
+    report = serializers.ChoiceField(choices=["daily", "full"], default="daily")
+
+
 class ExportSerializer(serializers.Serializer[None]):
     format = serializers.ChoiceField(choices=["markdown"], default="markdown")
     category = serializers.ChoiceField(choices=CATEGORY_KEYS, required=False)

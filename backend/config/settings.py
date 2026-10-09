@@ -232,6 +232,13 @@ DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "fieldnotes@localhost"
 EMAIL_TIMEOUT = 10
 
 
+# The rulebook's generated answer (#135, club/generation.py): both read from
+# the environment so that trying another model is a `.env` change, never a
+# code change. `ollama` is the service name in compose.yml.
+RAG_OLLAMA_URL = os.environ.get("RAG_OLLAMA_URL", "http://ollama:11434")
+RAG_GENERATION_MODEL = os.environ.get("RAG_GENERATION_MODEL", "qwen2.5:3b")
+
+
 # ---------------------------------------------------------------------------
 # Security
 # ---------------------------------------------------------------------------

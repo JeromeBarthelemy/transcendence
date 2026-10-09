@@ -22,6 +22,7 @@ offline after its one-time download — nothing about the club's "tout
 tourne en local" posture changes, only what `embed()` does inside.
 """
 
+import logging
 import re
 import struct
 from collections.abc import Callable
@@ -36,6 +37,7 @@ from django.utils import timezone
 from fastembed import TextEmbedding
 from fastembed.common.model_description import ModelSource, PoolingType
 
+from .generation import GenerationError, generate_answer
 from .models import Chunk, Document, QueryCitation, RuleQuery, Season, User
 
 # fastembed does not carry multilingual-e5-base in its own catalogue (only
@@ -73,8 +75,18 @@ if MODEL_NAME not in {m["model"] for m in TextEmbedding.list_supported_models()}
 # "downloaded once", the whole point of caching it at all.
 FASTEMBED_CACHE_DIR = str(Path(settings.BASE_DIR) / ".cache" / "fastembed")
 DIMENSIONS = 768
-# How many passages a question keeps.
-TOP_K = 5
+# How many passages a question keeps. A narrower cut (tried down to 1,
+# then 3) saves real time, but both #135's and #207's own reviews caught
+# it costing something worse than time: with only the top few candidates,
+# the right passage sometimes isn't among them, and the model answers
+# fluently from whatever it got anyway — a wrong-content answer with a
+# technically real citation, which the generation module's reference
+# check cannot catch, because nothing about the reference is wrong. 10
+# keeps that risk low. GENERATION_MAX_PASSAGE_CHARS (club/generation.py)
+# no longer cuts what reaches the model short for this either — #207's
+# own review found that cut, not the prompt's length, behind some of its
+# worst wrong-content answers, and correctness was asked for over speed.
+TOP_K = 10
 # How weak a match may be and still count as one — cosine similarity
 # between two unit vectors, bounded in [-1, 1]. Calibrated against the
 # real BioBuzz manual, chunked by `chunk_manual` from FIRST's own HTML
@@ -105,6 +117,19 @@ NO_ANSWER = (
     "Le manuel et le Q&A officiel ne disent rien d'assez sûr sur cette "
     "question. Consultez le Q&A officiel de FIRST pour une réponse engageante."
 )
+
+# Read when something *did* clear MIN_SCORE but generate_answer still
+# couldn't produce a sentence (#207's own review: previously a silent ""
+# with nothing on screen explaining it, next to citations that look
+# unexplained without it). The passages below answer either way; this
+# only says why no sentence sits above them this time, same as NO_ANSWER
+# does for the no-passage case.
+GENERATION_UNAVAILABLE = (
+    "La réponse rédigée n'a pas pu être produite cette fois. Les passages "
+    "ci-dessous répondent tout de même à la question."
+)
+
+logger = logging.getLogger(__name__)
 
 _model: TextEmbedding | None = None
 
@@ -409,10 +434,18 @@ _AUTHORITY_RANK: dict[str, int] = {
 def ask(question: str, season: Season, asker: User) -> RuleQuery:
     """The passages closest to the question, for this season only — the
     game changes every year, and a rule from last season's manual is not a
-    rule. `answer` stays empty when the citations speak for themselves, and
-    only ever says something when none of them cleared `MIN_SCORE` — with
-    only the manual and the Q&A left as sources, a citation existing at all
-    already means it came from one of the two.
+    rule — and a French answer written only from them. `answer` holds the
+    system's own refusal when none cleared `MIN_SCORE`, and nothing is
+    generated for that case: with only the manual and the Q&A left as
+    sources, a citation existing at all already means it came from one of
+    the two, but no citation means there is nothing to write from either.
+    A model that cannot be reached, or answers with nothing readable,
+    leaves `answer` as `GENERATION_UNAVAILABLE` instead of failing the
+    question: the citations still stand on their own under it, with a
+    sentence saying why no generated one sits above them this time
+    (#207's own review: previously silent, which a student reading only
+    citations with no sentence couldn't tell apart from the question
+    simply having a less certain source).
 
     Only the latest `Document` per (season, source) is searched: FIRST
     republishes the manual with every Team Update (§1.7.3), and citing an
@@ -420,12 +453,13 @@ def ask(question: str, season: Season, asker: User) -> RuleQuery:
     student unsure which to trust — until proper versioning settles that,
     the old one is simply not searched.
 
-    Read and embedded before the transaction opens, not inside it: with
-    `transaction_mode: "IMMEDIATE"` (config/settings.py), an open
-    transaction holds SQLite's write lock for its whole duration, and
-    embedding the question — plus, on the first call, loading the model —
-    would hold that lock for every other save in the app to wait behind.
-    Only the two writes below need one.
+    Read, embedded and (when there is something to cite) generated before
+    the transaction opens, not inside it: with `transaction_mode:
+    "IMMEDIATE"` (config/settings.py), an open transaction holds SQLite's
+    write lock for its whole duration, and a generation call alone can run
+    into the tens of seconds — holding that lock for every other save in
+    the app to wait behind the length of an answer. Only the two writes
+    below need one.
 
     Every match above `MIN_SCORE` is kept and sorted by (authority, score)
     before being cut to `TOP_K` — never the reverse: cutting to the
@@ -466,10 +500,16 @@ def ask(question: str, season: Season, asker: User) -> RuleQuery:
             key=lambda pair: (_AUTHORITY_RANK[pair[1].document.authority], -pair[0]),
         )[:TOP_K]
 
+    answer = NO_ANSWER
+    if matches:
+        try:
+            answer = generate_answer(question, [chunk for _, chunk in matches])
+        except GenerationError as error:
+            logger.warning("rulebook generation failed: %s", error)
+            answer = GENERATION_UNAVAILABLE
+
     with transaction.atomic():
-        query = RuleQuery.objects.create(
-            asker=asker, question=question, answer="" if matches else NO_ANSWER
-        )
+        query = RuleQuery.objects.create(asker=asker, question=question, answer=answer)
         QueryCitation.objects.bulk_create(
             QueryCitation(query=query, chunk=chunk, rank=rank)
             for rank, (_, chunk) in enumerate(matches, start=1)
