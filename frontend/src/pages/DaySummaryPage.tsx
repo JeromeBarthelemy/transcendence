@@ -1,14 +1,22 @@
 import { useQuery } from "@tanstack/react-query";
 import type { TFunction } from "i18next";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Link, Navigate, useParams } from "react-router-dom";
+import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
 
-import { getDaySummary, type SummaryEntry } from "../api/workdays";
+import {
+  getActivityCalendar,
+  getDaySummary,
+  type SummaryEntry,
+} from "../api/workdays";
 import { formatWorkdayDate, nameFormatter } from "../app/formatters";
 import { useCurrentUser } from "../app/useCurrentUser";
+import { ActivityCalendar } from "../components/ActivityCalendar";
 import { RequestError } from "../components/ApiErrors";
 import { Avatar, AvatarStack } from "../components/Avatar";
+import { ButtonLink } from "../components/Button";
 import { Chip } from "../components/Chip";
+import { Label, TextInput } from "../components/Field";
 import { IconLabel } from "../components/Icon";
 import { Notice } from "../components/Notice";
 import { Page } from "../components/Page";
@@ -70,9 +78,13 @@ function DayLink({
   day: string;
   direction: "previous" | "next";
 }) {
+  const { t } = useTranslation();
   return (
     <Link
       to={`/team-seasons/${teamSeasonId}/days/${day}`}
+      aria-label={t(`daySummary.${direction}Session`, {
+        date: formatWorkdayDate(day),
+      })}
       className="text-sm font-semibold text-accent hover:underline"
     >
       {direction === "previous" && <span aria-hidden="true">◂ </span>}
@@ -82,8 +94,46 @@ function DayLink({
   );
 }
 
+function DatePicker({
+  day,
+  onSelect,
+}: {
+  day: string;
+  onSelect: (day: string) => void;
+}) {
+  const { t } = useTranslation();
+  const [value, setValue] = useState(day);
+
+  function commit(input: HTMLInputElement) {
+    if (input.value && input.validity.valid && input.value !== day) {
+      onSelect(input.value);
+    }
+  }
+
+  return (
+    <Label>
+      {t("daySummary.chooseDate")}
+      <TextInput
+        type="date"
+        min="2000-01-01"
+        max="2099-12-31"
+        value={value}
+        onChange={(event) => setValue(event.currentTarget.value)}
+        onBlur={(event) => commit(event.currentTarget)}
+        onKeyDown={(event) => {
+          if (event.key === "Enter") {
+            event.preventDefault();
+            commit(event.currentTarget);
+          }
+        }}
+      />
+    </Label>
+  );
+}
+
 export function DaySummaryPage() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const params = useParams();
   const teamSeasonId = Number(params.teamSeasonId);
   const day = params.day ?? "";
@@ -92,6 +142,13 @@ export function DaySummaryPage() {
     queryKey: ["team-seasons", teamSeasonId, "days", day, "summary"],
     queryFn: () => getDaySummary(teamSeasonId, day),
     enabled: Boolean(currentUser.data),
+  });
+  // Share the calendar's request and use its server-resolved 4 a.m. workday.
+  const month = summary.data?.day.slice(0, 7) ?? "";
+  const calendar = useQuery({
+    queryKey: ["team-seasons", teamSeasonId, "calendar", month],
+    queryFn: () => getActivityCalendar(teamSeasonId, month),
+    enabled: Boolean(currentUser.data) && summary.isSuccess,
   });
   const teamSeason = currentUser.data?.team_seasons.find(
     (item) => item.id === teamSeasonId,
@@ -137,14 +194,18 @@ export function DaySummaryPage() {
   const progress = entries.filter((entry) => entry.type === "progress");
   const others = entries.filter((entry) => entry.type !== "progress");
   const title = formatWorkdayDate(summary.data.day);
+  const isToday = day === "today" || summary.data.day === calendar.data?.today;
 
   return (
     <Page>
       <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
         <div>
-          <Heading size="page">
-            {title.charAt(0).toUpperCase() + title.slice(1)}
-          </Heading>
+          <div className="flex flex-wrap items-center gap-3">
+            <Heading size="page">
+              {title.charAt(0).toUpperCase() + title.slice(1)}
+            </Heading>
+            {isToday && <Chip tone="mint">{t("daySummary.today")}</Chip>}
+          </div>
           {teamSeason && (
             <p className="mt-2 text-sm text-muted">
               <IconLabel icon="team" before>
@@ -156,19 +217,49 @@ export function DaySummaryPage() {
             </p>
           )}
         </div>
-        <nav className="flex gap-4">
-          {previous && (
-            <DayLink
-              teamSeasonId={teamSeasonId}
-              day={previous}
-              direction="previous"
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-wrap items-end gap-3">
+            <ButtonLink
+              to={`/team-seasons/${teamSeasonId}/days/today`}
+              aria-current={isToday ? "date" : undefined}
+            >
+              {t("daySummary.today")}
+            </ButtonLink>
+            <DatePicker
+              key={`${teamSeasonId}:${summary.data.day}`}
+              day={summary.data.day}
+              onSelect={(selected) =>
+                navigate(`/team-seasons/${teamSeasonId}/days/${selected}`)
+              }
             />
-          )}
-          {next && (
-            <DayLink teamSeasonId={teamSeasonId} day={next} direction="next" />
-          )}
-        </nav>
+          </div>
+          <nav
+            aria-label={t("daySummary.recordedSessions")}
+            className="flex flex-wrap gap-4"
+          >
+            {previous && (
+              <DayLink
+                teamSeasonId={teamSeasonId}
+                day={previous}
+                direction="previous"
+              />
+            )}
+            {next && (
+              <DayLink
+                teamSeasonId={teamSeasonId}
+                day={next}
+                direction="next"
+              />
+            )}
+          </nav>
+        </div>
       </div>
+
+      <ActivityCalendar
+        key={`${teamSeasonId}:${summary.data.day}`}
+        teamSeasonId={teamSeasonId}
+        day={summary.data.day}
+      />
 
       <section aria-labelledby="day-produced" className="mt-10">
         <Eyebrow as="h2" id="day-produced">

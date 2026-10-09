@@ -2,6 +2,7 @@ from django.urls import path
 
 from .views import (
     ActivityAnalyticsView,
+    ActivityCalendarView,
     AttachmentView,
     AvatarView,
     DayView,
@@ -90,6 +91,11 @@ urlpatterns = [
         "team-seasons/<int:team_season_id>/days/<str:day>/",
         DayView.as_view(),
         name="day",
+    ),
+    path(
+        "team-seasons/<int:team_season_id>/calendar/",
+        ActivityCalendarView.as_view(),
+        name="activity-calendar",
     ),
     path(
         "team-seasons/<int:team_season_id>/gaps/",

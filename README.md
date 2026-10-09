@@ -557,6 +557,7 @@ anyone else gets a `403` with the code `not_a_member`.
 | `POST /api/team-seasons/{id}/notes/` | a note for the team, or addressed to one of its work items |
 | `POST /api/team-seasons/{id}/decisions/` | a decision, same fields as a note plus `attendees`: members of the team or mentors, ticked by the author; only the author counts as present |
 | `GET /api/team-seasons/{id}/days/{YYYY-MM-DD}/` | the day's entries, number of work items advanced, who was there, the roster they count against, and the `previous` and `next` days the team left a trace; `today` resolves the current 4 a.m.–4 a.m. workday on the server |
+| `GET /api/team-seasons/{id}/calendar/?month=YYYY-MM` | the requested month, the server's current workday (`today`), and sorted active `days`, each with its `day`, `progress`, `notes` and `decisions` counts; members read their teams, mentors any team |
 | `GET /api/team-seasons/{id}/gaps/?since=&until=` | the workshop-slot days on which nothing moved forward |
 | `GET /api/team-seasons/{id}/analytics/activity/?since=&until=` | progress activity by workday and member over the inclusive period, plus a current work-item snapshot |
 | `GET /api/team-seasons/{id}/analytics/activity/?since=&until=&format=csv` | download the same daily activity values as CSV (`day`, `progress_entries`, `active_members`), with the same period validation and team access |
@@ -622,6 +623,29 @@ Recharts is the frontend's single charting library; each visual chart
 has the same values in an accessible table, so colour and pointer interaction
 are never required. The member table keeps the API's neutral order and wording:
 it describes days, traces and distinct work items, without scores or rankings.
+
+The day-summary screen keeps the previous/next recorded-session links and
+adds a permanent Today action and a native date picker. A valid, changed date
+opens its URL on Enter or when the field loses focus, including empty days.
+Typing intermediate values does not navigate. Today opens `/days/today` and
+is marked beside the heading; an explicit date matching today is marked too. The
+calendar's `today` field resolves the club's 4 a.m. workday rather than the
+browser's clock or time zone, without fetching a separate today summary.
+The monthly activity calendar sits alongside this navigation. Its month
+arrows browse without changing the displayed summary; selecting any day,
+including an empty one, opens its summary and updates the date picker.
+Monday-first cells mark today, the selected date and days with recorded
+activity separately. Counts are available in each link's accessible label
+and tooltip; an active day can hold progress, a note or a decision, not just
+student attendance. An empty month still offers every date.
+
+One aggregated calendar request loads a month, never one summary request per
+calendar cell. The endpoint validates a required `YYYY-MM` month between
+January 2000 and December 2099 and groups only that team's bounded timestamps
+through the same 4 a.m. workday rule,
+including daylight-saving transitions. Monthly results are cached by team
+season and month. A calendar failure leaves the day's summary usable and
+offers a retry. No model, migration or additional calendar dependency.
 
 "Exporter en CSV" downloads the complete report for the selected period and work
 filter (`format=csv&report=full`). It is one rectangular CSV: `section` identifies

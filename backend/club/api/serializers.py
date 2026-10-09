@@ -5,6 +5,7 @@ side is the one that decides.
 """
 
 from collections.abc import Callable
+from datetime import date
 from io import BytesIO
 from typing import Any
 from uuid import uuid4
@@ -527,6 +528,15 @@ class DecisionSerializer(NoteSerializer):
 
 class DaySerializer(serializers.Serializer[None]):
     day = serializers.DateField()
+
+
+class MonthSerializer(serializers.Serializer[None]):
+    month = serializers.RegexField(
+        r"\A20[0-9]{2}-(0[1-9]|1[0-2])\Z", max_length=7, trim_whitespace=False
+    )
+
+    def validate_month(self, value: str) -> date:
+        return date.fromisoformat(f"{value}-01")
 
 
 class PeriodSerializer(serializers.Serializer[None]):
