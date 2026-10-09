@@ -189,6 +189,14 @@ it("reloads the member's notifications on any message, since a change may concer
   expect(invalidated(["notifications"])).toBe(true);
 });
 
+it("reloads the member's notifications on connecting, since some may have come while off the board", () => {
+  const { invalidated } = renderBoard();
+
+  latest().open();
+
+  expect(invalidated(["notifications"])).toBe(true);
+});
+
 it("reconnects after a drop and reloads what it may have missed", () => {
   const { invalidated, fresh } = renderBoard();
   latest().open();
@@ -212,6 +220,7 @@ it("reconnects after a drop and reloads what it may have missed", () => {
     ]),
   ).toBe(true);
   expect(invalidated(["work-items", 11])).toBe(true);
+  expect(invalidated(["notifications"])).toBe(true);
 });
 
 it("says it is offline after a few seconds without a connection, until it is back", () => {
@@ -265,6 +274,7 @@ it("starts a fresh socket once the browser is back online, the old one may be de
   expect(FakeSocket.all).toHaveLength(2);
   latest().open();
   expect(invalidated(["work-items", 11])).toBe(true);
+  expect(invalidated(["notifications"])).toBe(true);
 });
 
 it("reconnects without waiting once the browser is back online", () => {
@@ -308,6 +318,7 @@ it("closes its socket when the page is left, and opens it again if the page come
   expect(FakeSocket.all).toHaveLength(2);
   latest().open();
   expect(invalidated(["work-items", 11])).toBe(true);
+  expect(invalidated(["notifications"])).toBe(true);
 });
 
 it("starts a fresh socket every hour, without saying it is offline", () => {
@@ -325,4 +336,5 @@ it("starts a fresh socket every hour, without saying it is offline", () => {
   expect(screen.queryByText(offline)).toBeNull();
   latest().open();
   expect(invalidated(["work-items", 11])).toBe(true);
+  expect(invalidated(["notifications"])).toBe(true);
 });
