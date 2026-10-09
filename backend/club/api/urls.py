@@ -21,6 +21,7 @@ from .views import (
     NoteCreateView,
     NotificationListView,
     NotificationReadView,
+    RuleGlossaryView,
     RuleQuestionView,
     RuleSourceAcceptView,
     RuleSourcesCheckView,
@@ -113,6 +114,7 @@ urlpatterns = [
         name="export",
     ),
     path("rules/ask/", RuleQuestionView.as_view(), name="rule-ask"),
+    path("rules/glossary/", RuleGlossaryView.as_view(), name="rule-glossary"),
     path("rules/sources/", RuleSourcesView.as_view(), name="rule-sources"),
     path(
         "rules/sources/check/",

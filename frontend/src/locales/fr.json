@@ -469,6 +469,8 @@
     "citationsIntro": "Passages cités :",
     "citations": "Passages cités",
     "viewInManual": "Voir dans le manuel",
+    "glossaryTitle": "Termes du manuel",
+    "glossaryInsert": "Insérer {{term}} dans la question",
     "sources": {
       "game_manual": "Manuel de jeu",
       "official_qa": "Q&A officiel"

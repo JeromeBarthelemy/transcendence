@@ -58,7 +58,7 @@ from club.progress import (
     leave_todays_progress,
     record_progress,
 )
-from club.rag import ask, serialize
+from club.rag import ask, glossary_for, serialize
 from club.sources import (
     CheckOutcome,
     NoPassage,
@@ -1197,6 +1197,22 @@ class RuleQuestionView(APIView):
             )
         query = ask(serializer.validated_data["question"], season, user)
         return Response(serialize(query), status=status.HTTP_201_CREATED)
+
+
+class RuleGlossaryView(APIView):
+    """The current season's glossary (#136): the manual's own last
+    chapter, read into terms at ingestion so a student can find their
+    question's word without already knowing the manual's own one for
+    it. Quietly empty without a season to read it from — the ask route
+    is where that absence is actually an error worth stopping someone
+    over."""
+
+    def get(self, request: Request) -> Response:
+        season = Season.objects.first()
+        terms = glossary_for(season) if season else []
+        return Response(
+            [{"term": term.term, "definition": term.definition} for term in terms]
+        )
 
 
 def _rule_sources(checks: list[CheckOutcome] | None = None) -> list[dict[str, Any]]:

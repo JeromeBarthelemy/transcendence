@@ -29,10 +29,14 @@ const identity = {
 
 const TITLE = "Des questions sur le règlement du club ?";
 
-function stubApi(ask: (init?: RequestInit) => Response | Promise<Response>) {
+function stubApi(
+  ask: (init?: RequestInit) => Response | Promise<Response>,
+  glossary: () => Response | Promise<Response> = () => json([]),
+) {
   const fetchMock = vi.fn(async (path: string, init?: RequestInit) => {
     if (path === "/api/auth/me/") return json(identity);
     if (path === "/api/rules/ask/" && init?.method === "POST") return ask(init);
+    if (path === "/api/rules/glossary/") return glossary();
     throw new Error(`Unexpected request: ${init?.method ?? "GET"} ${path}`);
   });
   vi.stubGlobal("fetch", fetchMock);
@@ -326,4 +330,44 @@ it("takes one question at a time, keeping the next one until the answer is in", 
   expect(JSON.parse(String(asked()[1][1]?.body))).toEqual({
     question: "And TELEOP?",
   });
+});
+
+it("hides the glossary panel when the season has no terms yet", async () => {
+  stubApi(() =>
+    json({ question: "?", answer: "Réponse.", citations: [] }, 201),
+  );
+
+  renderAt("/fieldbot");
+  await screen.findByLabelText("Votre question sur le règlement");
+
+  expect(screen.queryByText("Termes du manuel")).toBeNull();
+});
+
+it("lists the manual's glossary and inserts a clicked term into the question", async () => {
+  const user = userEvent.setup();
+  stubApi(
+    () => json({ question: "HIVE?", answer: "", citations: [] }, 201),
+    () =>
+      json([
+        { term: "HIVE", definition: "the structure robots score into" },
+        { term: "AUTO", definition: "the first 30 seconds of a MATCH" },
+      ]),
+  );
+
+  renderAt("/fieldbot");
+  const summary = await screen.findByText("Termes du manuel");
+  await user.click(summary);
+  expect(screen.getByText("the structure robots score into")).toBeTruthy();
+
+  const box = screen.getByLabelText("Votre question sur le règlement");
+  await user.type(box, "Can a");
+  await user.click(
+    screen.getByRole("button", { name: "Insérer HIVE dans la question" }),
+  );
+  expect((box as HTMLTextAreaElement).value).toBe("Can a HIVE");
+
+  await user.click(
+    screen.getByRole("button", { name: "Insérer AUTO dans la question" }),
+  );
+  expect((box as HTMLTextAreaElement).value).toBe("Can a HIVE AUTO");
 });

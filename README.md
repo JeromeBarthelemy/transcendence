@@ -833,6 +833,7 @@ laptop nearer the lower end of what the club has.
 | route | does |
 | --- | --- |
 | `POST /api/rules/ask/` | a question, answered with a generated French answer and up to ten cited passages from this season's ingested documents |
+| `GET /api/rules/glossary/` | the current season's glossary — its latest manual's own terms and definitions, read at ingestion (#136); quietly `[]` without one |
 | `GET /api/rules/sources/` | administrators only: per source, the copy searched, when it was checked, and any change waiting for acceptance with its summary |
 | `POST /api/rules/sources/` | administrators only: `source` (`game_manual`) and `url` on FIRST's own site (`https`, `ftc-resources.firstinspires.org`) — fetches the page, ingests it as the new copy, and the checks follow that URL from now on; `400` with `source_not_allowed`, `fetch_failed` (also when a redirect leaves FIRST's site) or `no_passage` (a page with nothing to index) otherwise |
 | `POST /api/rules/sources/check/` | administrators only: check the game manual against its page now, the same check the `sources-check` service runs every 24 hours (the Q&A is not checked yet) |
@@ -901,6 +902,21 @@ passage's own anchor — a rule's is its own reference, a section's the
 Word-generated id its heading carries) when the document has one; `null`
 otherwise, for whatever was ingested from a bare file.
 
+A manual's own glossary chapter (§16 on the real one) is read separately,
+into a `GlossaryTerm` per entry rather than left for `chunk_manual` to
+fold into a handful of unreadable passages, term and definition running
+together with no boundary a citation could show (#136). It is not a
+`Chunk`: a term is never scored against a question or cited, only shown
+on the rulebook screen as a "Termes du manuel" panel a student opens to
+find the word their question needs before FIRST's own model can bridge
+"ruche" to `HIVE` — `multilingual-e5-base` closes the gap between a
+question and its answer, never between a language the manual was never
+written in and the one it was. Clicking a term there writes it into the
+question instead of looking it up by hand. Replaced with its document
+like `Chunk` is, and read by the same "latest document per source" rule
+everything else in this module follows: a Team Update's new definitions
+replace the old ones the moment it is ingested, never alongside them.
+
 The first `ingest_document` or `POST /api/rules/ask/` on a fresh install
 downloads the embedding model once (1.1GB, cached under
 `backend/.cache/fastembed`, inside the existing `backend/` bind mount in
@@ -927,10 +943,13 @@ with the passage that answered them. A real embedding closes that gap:
 retrieves the manual's English contact rules directly, nothing in common
 between the two but what they mean. Calibrated on the real manual,
 chunked by rule or numbered section with heading-only passages dropped
-(331 passages, TU03), against 46 real English questions spanning every
-section and 12 off-topic English controls: every off-topic question
-fell below the threshold, and every real question still found its own
-passage within what a student is shown. On this run the gap is real,
+and its glossary read separately rather than chunked at all (326
+passages, TU03 — 331 before #136 moved the glossary table out), against
+46 real English questions spanning every section and 12 off-topic
+English controls: every off-topic question fell below the threshold,
+and every real question still found its own passage within what a
+student is shown, the same as before the glossary's own passages left
+the corpus. On this run the gap is real,
 not a coin flip — the weakest real question still scores 0.829, the
 strongest off-topic one 0.805 — but still read this as what held on
 this one question set, not a guarantee a different set of off-topic

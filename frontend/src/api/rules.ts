@@ -1,5 +1,5 @@
 import { z } from "zod/mini";
-import { post } from "./client";
+import { get, post } from "./client";
 
 const citationSchema = z.object({
   rank: z.number(),
@@ -32,6 +32,27 @@ export async function askRules(question: string): Promise<RuleAnswer> {
   const result = ruleAnswerSchema.safeParse(body);
   if (!result.success) {
     throw new Error("The rulebook answer is invalid");
+  }
+  return result.data;
+}
+
+const glossaryTermSchema = z.object({
+  term: z.string(),
+  definition: z.string(),
+});
+
+const glossarySchema = z.array(glossaryTermSchema);
+
+export type GlossaryTerm = z.infer<typeof glossaryTermSchema>;
+
+export const glossaryQueryKey = ["rules", "glossary"] as const;
+
+/** The current season's glossary (#136), empty without one ingested yet. */
+export async function getGlossary(): Promise<GlossaryTerm[]> {
+  const { body } = await get("/api/rules/glossary/");
+  const result = glossarySchema.safeParse(body);
+  if (!result.success) {
+    throw new Error("The glossary response is invalid");
   }
   return result.data;
 }

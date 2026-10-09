@@ -38,7 +38,15 @@ from fastembed import TextEmbedding
 from fastembed.common.model_description import ModelSource, PoolingType
 
 from .generation import GenerationError, generate_answer
-from .models import Chunk, Document, QueryCitation, RuleQuery, Season, User
+from .models import (
+    Chunk,
+    Document,
+    GlossaryTerm,
+    QueryCitation,
+    RuleQuery,
+    Season,
+    User,
+)
 
 # fastembed does not carry multilingual-e5-base in its own catalogue (only
 # the larger e5-large) — this registers the same model as a custom one,
@@ -208,6 +216,10 @@ _SECTION_NUMBER = re.compile(r"^(\d{1,2}(?:\.\d{1,2}){0,3})(?:\s|$)")
 # the first is kept, since a later Team Update is more likely to add a new
 # one than to remove the first.
 _TOC_ANCHOR = re.compile(r"^_Toc\d+$")
+# The glossary is always the manual's own last chapter (#136) — FIRST
+# renumbers every chapter each season, but never its title, so this reads
+# the chapter by that rather than by a number that moves.
+_GLOSSARY_HEADING = "Glossary"
 # Word never opens a new passage anywhere but one of these four tags —
 # everything else (`div`, `span`, `table`, `b`...) is transparent, its text
 # still collected, just under whichever of these last opened.
@@ -218,6 +230,13 @@ _HTML_SKIP_TAGS = frozenset({"style", "script", "head"})
 # Motors & Actuators and Power Distribution — is re-split by word count
 # rather than measured token by token.
 MAX_WORDS_PER_PASSAGE = 350
+
+
+def _collapse_whitespace(parts: list[str]) -> str:
+    """Word's own export wraps at arbitrary points and pads with
+    non-breaking spaces — shared by every parser below so one passage's
+    whitespace never tells it apart from another's."""
+    return re.sub(r"\s+", " ", "".join(parts).replace("\xa0", " ")).strip()
 
 
 def _finalize_chunks(
@@ -299,7 +318,7 @@ class _ManualParser(HTMLParser):
         self._buffer.append(data)
 
     def _flush(self) -> None:
-        text = re.sub(r"\s+", " ", "".join(self._buffer).replace("\xa0", " ")).strip()
+        text = _collapse_whitespace(self._buffer)
         self._buffer = []
         if text:
             is_heading = bool(self._heading_depth)
@@ -346,13 +365,26 @@ def chunk_manual(html_text: str) -> list[tuple[str, str, str]]:
     the real manual (#134) — is dropped rather than kept as a citation
     that would only ever point to its own heading text: a student citing
     it would learn nothing a plain heading on the screen hadn't already
-    said."""
+    said.
+
+    Nothing from the glossary chapter onward becomes a chunk (#136): its
+    table has no reference of its own, so every row used to fold into
+    one giant passage under the chapter's own heading, re-split by word
+    count into a handful of unreadable ones, term and definition running
+    together with no boundary a citation could show. `parse_glossary`
+    reads the same table properly instead."""
     parser = _ManualParser()
     parser.feed(html_text)
     parser.close()
 
+    blocks = parser.blocks
+    for index, (_, _, is_heading, text) in enumerate(blocks):
+        if is_heading and _GLOSSARY_HEADING in text:
+            blocks = blocks[:index]
+            break
+
     open_chunks: list[tuple[str, str, bool, list[str]]] = []
-    for reference, anchor, is_heading, text in parser.blocks:
+    for reference, anchor, is_heading, text in blocks:
         if reference is not None:
             open_chunks.append((reference, anchor, is_heading, [text]))
         elif open_chunks:
@@ -366,6 +398,99 @@ def chunk_manual(html_text: str) -> list[tuple[str, str, str]]:
         if not (is_heading and len(lines) == 1)
     ]
     return _finalize_chunks(kept)
+
+
+class _GlossaryParser(HTMLParser):
+    """Walks the manual's HTML export for its own glossary table (#136):
+    a plain two-column (Term, Definition) table under a heading titled
+    exactly "Glossary". `td` is a block of its own here, unlike in
+    `_ManualParser` — reading a cell at a time is the only way to keep a
+    term apart from its own definition, which the rest of this module
+    has no reason to care about.
+
+    Everything before that heading, and anything past its one table's
+    own close, is ignored — including a nested table, if a future Team
+    Update ever adds one: real as of this season, the table is flat."""
+
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self.terms: list[tuple[str, str]] = []
+        self._skip_depth = 0
+        self._heading_depth = 0
+        self._past_heading = False
+        self._in_table = False
+        self._done = False
+        self._row_index = -1
+        self._in_cell = False
+        self._row_cells: list[str] = []
+        self._buffer: list[str] = []
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        if tag in _HTML_SKIP_TAGS:
+            self._skip_depth += 1
+            return
+        if self._done or self._skip_depth:
+            return
+        if tag in ("h1", "h2", "h3"):
+            self._heading_depth += 1
+            self._buffer = []
+        elif tag == "table" and self._past_heading and not self._in_table:
+            self._in_table = True
+            self._row_index = -1
+        elif self._in_table and tag == "tr":
+            self._row_index += 1
+            self._row_cells = []
+        elif self._in_table and tag == "td":
+            self._in_cell = True
+            self._buffer = []
+
+    def handle_startendtag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        self.handle_starttag(tag, attrs)
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag in _HTML_SKIP_TAGS:
+            self._skip_depth = max(0, self._skip_depth - 1)
+            return
+        if self._done or self._skip_depth:
+            return
+        if tag in ("h1", "h2", "h3"):
+            self._heading_depth = max(0, self._heading_depth - 1)
+            text = _collapse_whitespace(self._buffer)
+            self._buffer = []
+            if _GLOSSARY_HEADING in text:
+                self._past_heading = True
+        elif self._in_table and tag == "td" and self._in_cell:
+            self._row_cells.append(_collapse_whitespace(self._buffer))
+            self._in_cell = False
+            self._buffer = []
+        elif self._in_table and tag == "tr":
+            # Row 0 is always the table's own header ("Term", "Definition").
+            if self._row_index > 0 and len(self._row_cells) == 2:
+                term, definition = self._row_cells
+                if term and definition:
+                    self.terms.append((term, definition))
+        elif self._in_table and tag == "table":
+            self._in_table = False
+            self._done = True
+
+    def handle_data(self, data: str) -> None:
+        if self._skip_depth or self._done:
+            return
+        if self._heading_depth or self._in_cell:
+            self._buffer.append(data)
+
+
+def parse_glossary(html_text: str) -> list[tuple[str, str]]:
+    """The manual's own glossary (#136): `(term, definition)` pairs read
+    straight off its table, in reading order, rather than the handful of
+    flattened passages `chunk_manual` used to cut it into — term and
+    definition run together there, with no boundary a citation could
+    show past the first row. A student picks a term here by its own
+    name, before they have a question's rest of the words yet."""
+    parser = _GlossaryParser()
+    parser.feed(html_text)
+    parser.close()
+    return parser.terms
 
 
 def chunk_qa(text: str) -> list[tuple[str, str, str]]:
@@ -428,9 +553,12 @@ def ingest_document(
     `authority` is read off `source`, never asked for on its own — a
     typo could otherwise file the Q&A as binding. Chunked by `_CHUNKER_OF`:
     a manual and a Q&A summary are structured too differently for one
-    chunker to read both correctly (see `chunk_manual`, `chunk_qa`)."""
+    chunker to read both correctly (see `chunk_manual`, `chunk_qa`). A
+    manual also carries its own glossary (#136), read the same way, in
+    the same transaction — not a `Chunk`, so not chunked or embedded."""
     passages = _CHUNKER_OF[source](text)
     embeddings = _embed_many([passage for _, _, passage in passages], is_query=False)
+    glossary = parse_glossary(text) if source == Document.Source.GAME_MANUAL else []
     with transaction.atomic():
         document = Document.objects.create(
             season=season,
@@ -454,7 +582,28 @@ def ingest_document(
                 zip(passages, embeddings), start=1
             )
         )
+        GlossaryTerm.objects.bulk_create(
+            GlossaryTerm(
+                document=document, ordinal=ordinal, term=term, definition=definition
+            )
+            for ordinal, (term, definition) in enumerate(glossary, start=1)
+        )
     return document
+
+
+def glossary_for(season: Season) -> list[GlossaryTerm]:
+    """The current season's glossary (#136), read off its latest ingested
+    manual — the same "latest document per source" `ask` itself
+    searches, so a newer Team Update's terms replace the old ones the
+    moment it is ingested, same as its passages do."""
+    document = (
+        Document.objects.filter(season=season, source=Document.Source.GAME_MANUAL)
+        .order_by("-fetched_at", "-id")
+        .first()
+    )
+    if document is None:
+        return []
+    return list(document.glossary_terms.order_by("ordinal"))
 
 
 # Where a citation is quoted from, before how well it scored: the manual

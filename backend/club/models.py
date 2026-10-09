@@ -875,6 +875,34 @@ class Chunk(models.Model):
         return f"{self.document} #{self.ordinal}"
 
 
+class GlossaryTerm(models.Model):
+    """One entry of a `Document`'s own glossary (§16 on the real manual,
+    #136), replaced with the document like its chunks are. Not a `Chunk`
+    itself: a term has nothing to score against a question or to cite —
+    only to be picked from by name, before the question is even asked."""
+
+    document = models.ForeignKey(
+        Document, on_delete=models.CASCADE, related_name="glossary_terms"
+    )
+    ordinal = models.PositiveIntegerField("position")
+    term = models.CharField("terme", max_length=60)
+    definition = models.TextField("définition")
+
+    class Meta:
+        ordering = ["document", "ordinal"]
+        verbose_name = "terme du glossaire"
+        verbose_name_plural = "termes du glossaire"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["document", "ordinal"],
+                name="unique_glossary_ordinal_per_document",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.document} — {self.term}"
+
+
 class RuleQuery(models.Model):
     """A question asked of the rulebook, and what came back. `answer` holds
     the generated text grounded in the citations below, the system's own

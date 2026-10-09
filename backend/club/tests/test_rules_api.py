@@ -178,3 +178,50 @@ def test_without_an_open_season_the_question_is_refused(client):
 
     assert response.status_code == 400
     assert response.json()["detail"]["code"] == "no_season"
+
+
+GLOSSARY_HTML = (
+    RULE_HTML + '<h1><a name="_Toc9">16 Glossary</a></h1>'
+    "<p>The following definitions and terms are used for the game.</p>"
+    "<table><tr><td><p><b>Term</b></p></td><td><p><b>Definition</b></p></td></tr>"
+    "<tr><td><p><b>ALLIANCE</b></p></td>"
+    "<td><p>a cooperative of 2 FIRST Tech Challenge teams</p></td></tr></table>"
+)
+
+
+def test_a_member_reads_the_current_seasons_glossary(client):
+    this_season = season()
+    ingest_document(
+        season=this_season,
+        source=Document.Source.GAME_MANUAL,
+        title="Manuel BioBuzz",
+        text=GLOSSARY_HTML,
+    )
+    client.force_login(student())
+
+    response = client.get("/api/rules/glossary/")
+
+    assert response.status_code == 200
+    assert response.json() == [
+        {
+            "term": "ALLIANCE",
+            "definition": "a cooperative of 2 FIRST Tech Challenge teams",
+        }
+    ]
+
+
+def test_an_anonymous_caller_cannot_read_the_glossary(client):
+    response = client.get("/api/rules/glossary/")
+
+    assert response.status_code in (401, 403)
+
+
+def test_without_an_open_season_the_glossary_is_quietly_empty(client):
+    # Unlike asking a question, nothing here is a student action waiting
+    # on a season to exist — the panel just has nothing to show yet.
+    client.force_login(student())
+
+    response = client.get("/api/rules/glossary/")
+
+    assert response.status_code == 200
+    assert response.json() == []
