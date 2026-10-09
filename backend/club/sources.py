@@ -151,11 +151,14 @@ def check_document(document: Document) -> CheckOutcome:
         return CheckOutcome(document, "unchanged")
 
     text = page
-    candidate = _CHUNKER_OF[document.source](text)
-    if not candidate:
+    chunked = _CHUNKER_OF[document.source](text)
+    if not chunked:
         return CheckOutcome(
             document, "error", "la page ne contient aucun passage à indexer"
         )
+    # The anchor plays no part in this diff: it says where a passage links
+    # to, not whether its own content changed.
+    candidate = [(reference, passage) for reference, _, passage in chunked]
     current = list(document.chunks.values_list("reference", "text"))
     summary = summarize(current, candidate)
     if _is_empty(summary):

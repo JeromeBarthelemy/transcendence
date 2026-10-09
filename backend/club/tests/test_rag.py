@@ -115,7 +115,7 @@ def test_a_question_scores_higher_against_its_own_answer_than_off_topic():
 
 
 def test_a_rule_becomes_its_own_chunk_named_by_its_reference():
-    references = [reference for reference, _ in chunk_manual(REAL_HTML_EXCERPT)]
+    references = [reference for reference, _, _ in chunk_manual(REAL_HTML_EXCERPT)]
 
     assert "G101" in references
     assert "G102" in references
@@ -123,7 +123,7 @@ def test_a_rule_becomes_its_own_chunk_named_by_its_reference():
 
 
 def test_a_rules_text_does_not_leak_into_the_next_ones_chunk():
-    passages = dict(chunk_manual(REAL_HTML_EXCERPT))
+    passages = {ref: text for ref, _, text in chunk_manual(REAL_HTML_EXCERPT)}
 
     assert "stay off the FIELD" in passages["G101"]
     assert "Climbing on" not in passages["G101"]
@@ -135,7 +135,7 @@ def test_a_bare_cross_reference_does_not_start_a_new_chunk():
     # (`CrossRefChar`) and carries no anchor of its own, unlike the real
     # opening of a rule — it must stay part of whichever chunk was already
     # open (G101's own), not start a second one.
-    passages = dict(chunk_manual(REAL_HTML_EXCERPT))
+    passages = {ref: text for ref, _, text in chunk_manual(REAL_HTML_EXCERPT)}
 
     assert "covered further" in passages["G101"]
 
@@ -145,7 +145,7 @@ def test_a_table_stays_attached_to_the_rule_before_it():
     # table came out as its own fake sections ("18", "22", "28") under the
     # PDF chunker. A table has no anchor or heading of its own, so it must
     # merge into whichever rule was still open when it appears.
-    passages = dict(chunk_manual(REAL_HTML_EXCERPT))
+    passages = {ref: text for ref, _, text in chunk_manual(REAL_HTML_EXCERPT)}
 
     assert "18 AWG" in passages["G102"]
 
@@ -156,17 +156,74 @@ def test_a_rule_id_with_a_space_after_its_asterisk_is_still_found():
     # line-start regex didn't allow, so their text was folded into the
     # rule before them instead. The anchor doesn't care about the
     # asterisk's spacing at all.
-    passages = dict(chunk_manual(REAL_HTML_EXCERPT))
+    passages = {ref: text for ref, _, text in chunk_manual(REAL_HTML_EXCERPT)}
 
     assert "A204" in passages
     assert "Initial Interview" in passages["A204"]
 
 
-def test_a_numbered_section_becomes_its_own_chunk():
-    passages = dict(chunk_manual(REAL_HTML_EXCERPT))
+def test_a_heading_with_nothing_but_itself_before_the_next_rule_is_dropped():
+    # #134: "11" (Game Rules (G)) and "11.1" (Personal Safety) are each
+    # immediately followed by a rule, with no body paragraph of their own
+    # in between — on the real manual this shape accounts for 31 of its
+    # 364 passages, every one of them a citation that could only ever
+    # point back at its own heading text.
+    references = [reference for reference, _, _ in chunk_manual(REAL_HTML_EXCERPT)]
 
-    assert "Personal Safety" in passages["11.1"]
-    assert "Conduct" in passages["11.2"]
+    assert "11" not in references
+    assert "11.1" not in references
+    assert "11.2" not in references
+
+
+def test_a_heading_with_real_body_text_is_kept_as_its_own_chunk():
+    html = (
+        "<h2><a name=_Toc9></a>5.1<span>&nbsp;</span>Robot Sizing</h2>"
+        "<p>This section covers the limits placed on a ROBOT's size.</p>"
+        "<p class=RuleNumber-Game><a name=G500></a><b>G500</b> "
+        "<span class=Headline-Evergreen>*A rule.</span> Some text.</p>"
+    )
+
+    passages = {ref: text for ref, _, text in chunk_manual(html)}
+
+    assert "5.1" in passages
+    assert "Robot Sizing" in passages["5.1"]
+    assert "limits placed" in passages["5.1"]
+
+
+def test_a_rules_anchor_is_its_own_reference():
+    anchors = {ref: anchor for ref, anchor, _ in chunk_manual(REAL_HTML_EXCERPT)}
+
+    assert anchors["G101"] == "G101"
+    assert anchors["G102"] == "G102"
+
+
+def test_a_sections_anchor_is_its_word_generated_toc_id_not_its_number():
+    # #134: what "Voir dans le manuel" jumps to is the id Word planted on
+    # the heading, never the human-readable section number shown as
+    # `reference` — the page has no element named "5.1" to jump to.
+    html = (
+        "<h2><a name=_Toc9></a>5.1<span>&nbsp;</span>Robot Sizing</h2>"
+        "<p>This section covers the limits placed on a ROBOT's size.</p>"
+    )
+
+    anchors = {ref: anchor for ref, anchor, _ in chunk_manual(html)}
+
+    assert anchors["5.1"] == "_Toc9"
+
+
+def test_only_the_first_toc_anchor_is_kept_and_ref_bookmarks_are_ignored():
+    # Word plants several anchors ahead of one heading: more than one
+    # _Toc id (interchangeable, all jump to the same spot) and sometimes a
+    # _Ref bookmark (a cross-reference target, useless as a jump link).
+    html = (
+        "<h2><a name=_Toc1></a><a name=_Toc2></a><a name=_Ref3></a>5.1"
+        "<span>&nbsp;</span>Robot Sizing</h2>"
+        "<p>This section covers the limits placed on a ROBOT's size.</p>"
+    )
+
+    anchors = {ref: anchor for ref, anchor, _ in chunk_manual(html)}
+
+    assert anchors["5.1"] == "_Toc1"
 
 
 def test_table_of_contents_entries_are_not_mistaken_for_section_headings():
@@ -175,7 +232,7 @@ def test_table_of_contents_entries_are_not_mistaken_for_section_headings():
     # (MsoToc1), never a real <h1>-<h3>. The ToC line here ("11 Game Rules
     # (G) .......... 99") must fold into front matter, not open its own
     # "11" chunk — only the real <h1> heading further down does that.
-    passages = dict(chunk_manual(REAL_HTML_EXCERPT))
+    passages = {ref: text for ref, _, text in chunk_manual(REAL_HTML_EXCERPT)}
 
     assert "Game Rules (G) .......... 99" in passages[""]
 
@@ -185,8 +242,9 @@ def test_text_before_the_first_rule_or_section_is_kept_unreferenced():
         "<p>Some front matter.</p><p>More of it.</p><h1>1 Intro</h1>"
     )
 
-    reference, text = passages[0]
+    reference, anchor, text = passages[0]
     assert reference == ""
+    assert anchor == ""
     assert "front matter" in text
 
 
@@ -197,12 +255,13 @@ def test_a_rule_longer_than_the_word_budget_is_resplit_under_the_same_reference(
         + "</p>"
     )
 
-    passages = [pair for pair in chunk_manual(html) if pair[0] == "G999"]
+    passages = [triple for triple in chunk_manual(html) if triple[0] == "G999"]
 
     assert len(passages) > 1
-    assert all(reference == "G999" for reference, _ in passages)
+    assert all(reference == "G999" for reference, _, _ in passages)
+    assert all(anchor == "G999" for _, anchor, _ in passages)
     # Every word still appears somewhere — nothing dropped at the split.
-    joined = " ".join(text for _, text in passages)
+    joined = " ".join(text for _, _, text in passages)
     assert "word0" in joined
     assert "word399" in joined
 
@@ -211,14 +270,22 @@ def test_a_rule_longer_than_the_word_budget_is_resplit_under_the_same_reference(
 
 
 def test_a_qa_entry_becomes_its_own_chunk_named_by_its_number():
-    references = [reference for reference, _ in chunk_qa(REAL_QA_EXCERPT)]
+    references = [reference for reference, _, _ in chunk_qa(REAL_QA_EXCERPT)]
 
     assert "Q44" in references
     assert "Q45" in references
 
 
+def test_a_qa_chunk_has_no_anchor_of_its_own():
+    # The Q&A summary is plain text with no page of its own to link to.
+    anchors = {ref: anchor for ref, anchor, _ in chunk_qa(REAL_QA_EXCERPT)}
+
+    assert anchors["Q44"] == ""
+    assert anchors["Q45"] == ""
+
+
 def test_a_qa_entrys_text_does_not_leak_into_the_next_ones_chunk():
-    passages = dict(chunk_qa(REAL_QA_EXCERPT))
+    passages = {ref: text for ref, _, text in chunk_qa(REAL_QA_EXCERPT)}
 
     assert "Blue robot over their gate" in passages["Q44"]
     assert "Two robots touching" not in passages["Q44"]
@@ -231,7 +298,7 @@ def test_a_bare_qa_cross_reference_does_not_start_a_new_chunk():
     # applies to a bare rule cross-reference.
     text = "Q50 A later question referencing an earlier ruling in Q44."
 
-    references = [reference for reference, _ in chunk_qa(text)]
+    references = [reference for reference, _, _ in chunk_qa(text)]
 
     assert references == ["Q50"]
 
@@ -240,7 +307,7 @@ def test_a_rule_reference_inside_a_qa_answer_does_not_split_the_entry():
     # chunk_manual would read a line like "G410, which prohibits..." as
     # G410 opening a new chunk; chunk_qa has no such rule and keeps the
     # whole entry, references and all, together.
-    passages = dict(chunk_qa(REAL_QA_EXCERPT))
+    passages = {ref: text for ref, _, text in chunk_qa(REAL_QA_EXCERPT)}
 
     assert "G410" in passages["Q44"]
 
