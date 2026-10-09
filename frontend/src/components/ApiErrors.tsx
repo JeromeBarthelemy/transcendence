@@ -11,8 +11,8 @@ export function fieldIssues(error: unknown, field: string): ApiIssue[] {
   return error instanceof ApiRequestError ? error.forField(field) : [];
 }
 
-/** A field's refusals from the API, under the field, in French from each
- * code — a code the catalogue does not know reads as the generic error. */
+/** Prefer a code's translation; otherwise keep the server's own sentence.
+ * React renders that sentence as text, never as HTML or a translation key. */
 export function FieldErrors({
   id,
   message,
@@ -35,11 +35,11 @@ export function FieldErrors({
       {message && <p>{message}</p>}
       {[...uniqueIssues].map(([key, issue]) => (
         <p key={key}>
-          {t(
-            hasTranslation(issue.code)
-              ? (`errors.${issue.code}` as const)
-              : "errors.unknown",
-          )}
+          {hasTranslation(issue.code)
+            ? t(`errors.${issue.code}`)
+            : issue.message.trim()
+              ? issue.message
+              : t("errors.unknown")}
         </p>
       ))}
     </div>
@@ -66,8 +66,18 @@ export function RequestError({
       ...error.forField("non_field_errors"),
       ...error.forField("detail"),
     ];
-    if (general.length > 0) {
-      return <FieldErrors id="request-error" issues={general} />;
+    const unhandled = Object.entries(error.issues)
+      .filter(
+        ([field]) =>
+          field !== "detail" &&
+          field !== "non_field_errors" &&
+          !handledFields.includes(field),
+      )
+      .flatMap(([, issues]) => issues);
+    if (general.length + unhandled.length > 0) {
+      return (
+        <FieldErrors id="request-error" issues={[...general, ...unhandled]} />
+      );
     }
     // Known fields are shown below their inputs. A new server field must not
     // make the refusal disappear just because this form has no input for it.

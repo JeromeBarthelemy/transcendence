@@ -398,6 +398,15 @@ def test_searching_users_ignores_case_and_accents_as_typed(client):
     assert body[0]["club_role"] == "student"
 
 
+def test_searching_users_without_the_accent_finds_the_accented_name(client):
+    client.force_login(admin())
+    student("e@club.fr", "Élodie")
+
+    body = client.get("/api/users/", {"search": "elo"}).json()
+
+    assert [user["display_name"] for user in body] == ["Élodie"]
+
+
 def test_searching_users_leaves_out_inactive_accounts(client):
     client.force_login(admin())
     gone = student("g@club.fr", "Gaston")

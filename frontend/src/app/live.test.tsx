@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, cleanup, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { activityAnalyticsQueryKey } from "../api/activityAnalytics";
 
 import "../i18n";
 import { LiveBoard, liveUrl } from "./live";
@@ -57,6 +58,20 @@ function renderBoard() {
   const fresh = () => {
     for (const key of [
       ["team-seasons", 7, "work-items"],
+      ["team-seasons", 7, "analytics", "activity", "2026-09-01", "2026-10-05"],
+      ["team-seasons", 8, "analytics", "activity", "2026-09-01", "2026-10-05"],
+      ...[7, 8].flatMap((team) =>
+        ["all", "robot", "off_robot"].map((scope) =>
+          activityAnalyticsQueryKey(
+            team,
+            {
+              since: "2026-09-01",
+              until: "2026-10-05",
+            },
+            scope as "all" | "robot" | "off_robot",
+          ),
+        ),
+      ),
       ["work-items", 10],
       ["work-items", 11],
       ["notifications"],
@@ -78,6 +93,39 @@ function renderBoard() {
 const offline =
   "Hors ligne : les changements des autres arriveront à la reconnexion.";
 
+it("invalidates every work filter on messages and reconnection, but not another team", () => {
+  const { invalidated, fresh } = renderBoard();
+  latest().open();
+  fresh();
+
+  function expectFilteredInvalidation() {
+    for (const scope of ["all", "robot", "off_robot"] as const) {
+      for (const team of [7, 8]) {
+        expect(
+          invalidated([
+            ...activityAnalyticsQueryKey(
+              team,
+              {
+                since: "2026-09-01",
+                until: "2026-10-05",
+              },
+              scope,
+            ),
+          ]),
+        ).toBe(team === 7);
+      }
+    }
+  }
+
+  latest().receive({ work_item: 10 });
+  expectFilteredInvalidation();
+  fresh();
+  latest().drop();
+  act(() => vi.advanceTimersByTime(1000));
+  latest().open();
+  expectFilteredInvalidation();
+});
+
 it("listens on its team season's socket, secure under https", () => {
   expect(liveUrl(7, { protocol: "http:", host: "localhost:5173" })).toBe(
     "ws://localhost:5173/ws/team-seasons/7/",
@@ -95,6 +143,26 @@ it("reloads the team season and the work item a message names", () => {
   latest().receive({ work_item: 10 });
 
   expect(invalidated(["team-seasons", 7, "work-items"])).toBe(true);
+  expect(
+    invalidated([
+      "team-seasons",
+      7,
+      "analytics",
+      "activity",
+      "2026-09-01",
+      "2026-10-05",
+    ]),
+  ).toBe(true);
+  expect(
+    invalidated([
+      "team-seasons",
+      8,
+      "analytics",
+      "activity",
+      "2026-09-01",
+      "2026-10-05",
+    ]),
+  ).toBe(false);
   expect(invalidated(["work-items", 10])).toBe(true);
   expect(invalidated(["work-items", 11])).toBe(false);
 });
@@ -121,6 +189,14 @@ it("reloads the member's notifications on any message, since a change may concer
   expect(invalidated(["notifications"])).toBe(true);
 });
 
+it("reloads the member's notifications on connecting, since some may have come while off the board", () => {
+  const { invalidated } = renderBoard();
+
+  latest().open();
+
+  expect(invalidated(["notifications"])).toBe(true);
+});
+
 it("reconnects after a drop and reloads what it may have missed", () => {
   const { invalidated, fresh } = renderBoard();
   latest().open();
@@ -133,7 +209,18 @@ it("reconnects after a drop and reloads what it may have missed", () => {
   latest().open();
 
   expect(invalidated(["team-seasons", 7, "work-items"])).toBe(true);
+  expect(
+    invalidated([
+      "team-seasons",
+      7,
+      "analytics",
+      "activity",
+      "2026-09-01",
+      "2026-10-05",
+    ]),
+  ).toBe(true);
   expect(invalidated(["work-items", 11])).toBe(true);
+  expect(invalidated(["notifications"])).toBe(true);
 });
 
 it("says it is offline after a few seconds without a connection, until it is back", () => {
@@ -187,6 +274,7 @@ it("starts a fresh socket once the browser is back online, the old one may be de
   expect(FakeSocket.all).toHaveLength(2);
   latest().open();
   expect(invalidated(["work-items", 11])).toBe(true);
+  expect(invalidated(["notifications"])).toBe(true);
 });
 
 it("reconnects without waiting once the browser is back online", () => {
@@ -230,6 +318,7 @@ it("closes its socket when the page is left, and opens it again if the page come
   expect(FakeSocket.all).toHaveLength(2);
   latest().open();
   expect(invalidated(["work-items", 11])).toBe(true);
+  expect(invalidated(["notifications"])).toBe(true);
 });
 
 it("starts a fresh socket every hour, without saying it is offline", () => {
@@ -247,4 +336,5 @@ it("starts a fresh socket every hour, without saying it is offline", () => {
   expect(screen.queryByText(offline)).toBeNull();
   latest().open();
   expect(invalidated(["work-items", 11])).toBe(true);
+  expect(invalidated(["notifications"])).toBe(true);
 });

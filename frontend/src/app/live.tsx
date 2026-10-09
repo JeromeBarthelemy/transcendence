@@ -53,6 +53,7 @@ function useLiveBoard(teamSeasonId: number): boolean {
           queryKey: ["team-seasons", teamSeasonId],
         });
         queryClient.invalidateQueries({ queryKey: ["work-items"] });
+        queryClient.invalidateQueries({ queryKey: notificationsQueryKey });
         attempts = 0;
         renew = setTimeout(() => {
           shut();

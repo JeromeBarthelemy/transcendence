@@ -44,16 +44,16 @@ def month_activity(team_season: TeamSeason, month: date) -> list[dict[str, date 
     club's 4 a.m. boundary must remain correct over both DST changes.
     `month` is the first day, validated by the API.
     """
-    entries = Entry.objects.filter(
-        team_season=team_season, occurred_at__gte=workday_bounds(month)[0]
+    following = (
+        date(month.year + 1, 1, 1)
+        if month.month == 12
+        else date(month.year, month.month + 1, 1)
     )
-    if month != date(9999, 12, 1):
-        following = (
-            date(month.year + 1, 1, 1)
-            if month.month == 12
-            else date(month.year, month.month + 1, 1)
-        )
-        entries = entries.filter(occurred_at__lt=workday_bounds(following)[0])
+    entries = Entry.objects.filter(
+        team_season=team_season,
+        occurred_at__gte=workday_bounds(month)[0],
+        occurred_at__lt=workday_bounds(following)[0],
+    )
     kinds: dict[str, str] = {
         Entry.Type.PROGRESS: "progress",
         Entry.Type.NOTE: "notes",

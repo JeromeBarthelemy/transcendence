@@ -14,6 +14,7 @@ from config.asgi import application
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import OperationalError
 from django.test import Client
+from django.utils import timezone
 
 from club.models import (
     Attachment,
@@ -28,6 +29,7 @@ from club.models import (
     WorkItem,
 )
 from club.progress import join, record_progress
+from club.workdays import workday
 
 
 def team_season(number=12345):
@@ -106,8 +108,9 @@ def test_a_connection_from_another_site_is_refused(db):
 @pytest.fixture
 def board(db, settings, tmp_path):
     """A team with a robot work item, today's progress and a file on it, a
-    note written twice, and an empty work item opened by mistake. Tom took
-    part in the progress, so he follows the robot work item."""
+    note written twice, an empty work item opened by mistake, and a dropped
+    one. Tom took part in a progress on the robot work item and on the
+    dropped one, so he follows both."""
     settings.MEDIA_ROOT = tmp_path
     rouages = team_season()
     lina = member_of(rouages)
@@ -123,6 +126,11 @@ def board(db, settings, tmp_path):
     )
     tom = member_of(rouages, "tom")
     join(progress, tom)
+    dropped = WorkItem.objects.create(team_season=rouages, title="treuil")
+    join(record_progress(dropped, lina, "Treuil essayé."), tom)
+    dropped.status = WorkItem.Status.DROPPED
+    dropped.closed_at = timezone.now()
+    dropped.save()
     client = Client()
     client.force_login(lina)
     attachment = client.post(
@@ -136,6 +144,7 @@ def board(db, settings, tmp_path):
         client=client,
         intake=intake,
         empty=empty,
+        dropped=dropped,
         progress=progress,
         duplicate=duplicate,
         attachment=attachment,
@@ -166,8 +175,15 @@ WRITES = {
         lambda response: response.json()["id"],
     ),
     "close a work item": lambda b: (
-        b.client.patch(f"/api/work-items/{b.intake.id}/", **as_json(status="dropped")),
+        b.client.patch(
+            f"/api/work-items/{b.intake.id}/",
+            **as_json(status="dropped", reason="Trop lourd."),
+        ),
         lambda response: b.intake.id,
+    ),
+    "reopen a work item": lambda b: (
+        b.client.patch(f"/api/work-items/{b.dropped.id}/", **as_json(status="open")),
+        lambda response: b.dropped.id,
     ),
     "delete a work item": lambda b: (
         b.client.delete(f"/api/work-items/{b.empty.id}/"),
@@ -350,12 +366,40 @@ def test_ticking_again_changes_nothing_and_notifies_nobody(
     assert heard is None
 
 
+def test_another_members_progress_notifies_the_listener_and_updates_activity(
+    board, django_capture_on_commit_callbacks
+):
+    ines = member_of(board.team_season, "ines")
+    writer = Client()
+    writer.force_login(ines)
+    day = workday(board.progress.occurred_at)
+    analytics_url = (
+        f"/api/team-seasons/{board.team_season.id}/analytics/activity/"
+        f"?since={day}&until={day}"
+    )
+    before = board.client.get(analytics_url).json()["activity_by_day"]
+
+    response, heard = listen(
+        board.team_season,
+        board.lina,
+        lambda: writer.post(f"/api/work-items/{board.empty.id}/tick/", **as_json()),
+        django_capture_on_commit_callbacks,
+    )
+    after = board.client.get(analytics_url).json()["activity_by_day"]
+
+    assert response.status_code == 201
+    assert heard == {"work_item": board.empty.id}
+    assert before == [{"day": str(day), "progress_entries": 2, "active_members": 2}]
+    assert after == [{"day": str(day), "progress_entries": 3, "active_members": 3}]
+
+
 # What each write tells Tom, who follows the robot work item; None when it
 # tells him nothing. Ticking or leaving a progress tells nobody: ten students
 # ticking at the start of a session would bury the notices that matter.
 TOLD_TO_TOM = {
     "open a work item": Notification.Verb.WORK_ITEM_OPENED,
     "close a work item": Notification.Verb.WORK_ITEM_DROPPED,
+    "reopen a work item": Notification.Verb.WORK_ITEM_REOPENED,
     "delete a work item": Notification.Verb.WORK_ITEM_DELETED,
     "tick": None,
     "tick at another step": Notification.Verb.ENTRY_ADDED,

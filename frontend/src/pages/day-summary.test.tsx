@@ -311,7 +311,7 @@ it("returns to the server's current workday even when the latest session has no 
   ).toBe(true);
 });
 
-it("clearly identifies today and deduplicates its summary request", async () => {
+it("clearly identifies today and loads its summary once", async () => {
   const { fetchMock } = renderSummary(day({ day: "2026-10-08" }), undefined, {
     initialDay: "today",
   });
@@ -333,7 +333,11 @@ it("also identifies an explicit date matching the server's workday, not the brow
   vi.useFakeTimers({ toFake: ["Date"] });
   // At 01:30 in Paris the server still considers this the previous workday.
   vi.setSystemTime(new Date("2026-09-30T23:30:00Z"));
-  renderSummary(day(), undefined, { today: day() });
+  renderSummary(day(), undefined, {
+    calendars: {
+      "2026-09": { month: "2026-09", today: "2026-09-30", days: [] },
+    },
+  });
 
   await waitFor(() => {
     expect(
@@ -371,9 +375,14 @@ it("opens an arbitrary selected date and preserves its empty state", async () =>
     days: { "2026-09-28": day({ day: "2026-09-28" }) },
   });
 
-  fireEvent.change(await screen.findByLabelText("Choisir une date"), {
+  const picker = await screen.findByLabelText("Choisir une date");
+  fireEvent.change(picker, {
     target: { value: "2026-09-28" },
   });
+  expect(router.state.location.pathname).toBe(
+    "/team-seasons/7/days/2026-09-30",
+  );
+  fireEvent.blur(picker);
 
   expect(
     await screen.findByRole("heading", { name: "Lundi 28 septembre" }),
@@ -392,18 +401,64 @@ it("opens an arbitrary selected date and preserves its empty state", async () =>
   ).toBe(true);
 });
 
-it("does not navigate when the date picker is cleared", async () => {
-  const { fetchMock, router } = renderSummary(day());
+it("keeps keyboard date edits focused and navigates only once on Enter", async () => {
+  const user = userEvent.setup();
+  const { router } = renderSummary(day(), undefined, {
+    days: { "2025-11-15": day({ day: "2025-11-15" }) },
+  });
   const picker = await screen.findByLabelText("Choisir une date");
-  const requests = fetchMock.mock.calls.length;
+  await user.click(picker);
+  const navigate = vi.spyOn(router, "navigate");
 
-  fireEvent.change(picker, { target: { value: "" } });
+  // Values emitted by Chrome when typing 15112025 into a prefilled date.
+  for (const value of [
+    "2026-09-01",
+    "2026-09-15",
+    "2026-01-15",
+    "2026-11-15",
+    "0002-11-15",
+    "0020-11-15",
+    "0202-11-15",
+    "2025-11-15",
+  ]) {
+    fireEvent.change(picker, { target: { value } });
+    expect(navigate).not.toHaveBeenCalled();
+    expect(document.activeElement).toBe(picker);
+    expect(router.state.location.pathname).toBe(
+      "/team-seasons/7/days/2026-09-30",
+    );
+  }
 
+  await user.keyboard("{Enter}");
+  await screen.findByRole("heading", { name: "Samedi 15 novembre" });
   expect(router.state.location.pathname).toBe(
-    "/team-seasons/7/days/2026-09-30",
+    "/team-seasons/7/days/2025-11-15",
   );
-  expect(fetchMock.mock.calls).toHaveLength(requests);
+  expect(navigate).toHaveBeenCalledTimes(1);
+  fireEvent.blur(screen.getByLabelText("Choisir une date"));
+  expect(navigate).toHaveBeenCalledTimes(1);
 });
+
+it.each(["", "2026-09-30", "1999-12-31", "2100-01-01"])(
+  "does not navigate on Enter or blur for an empty, unchanged or out-of-range date (%s)",
+  async (value) => {
+    const { fetchMock, router } = renderSummary(day());
+    const picker = await screen.findByLabelText("Choisir une date");
+    await screen.findByRole("list", { name: "Jours du mois" });
+    const requests = fetchMock.mock.calls.length;
+    const navigate = vi.spyOn(router, "navigate");
+
+    fireEvent.change(picker, { target: { value } });
+    fireEvent.keyDown(picker, { key: "Enter" });
+    fireEvent.blur(picker);
+
+    expect(router.state.location.pathname).toBe(
+      "/team-seasons/7/days/2026-09-30",
+    );
+    expect(fetchMock.mock.calls).toHaveLength(requests);
+    expect(navigate).not.toHaveBeenCalled();
+  },
+);
 
 it("still navigates between recorded sessions and updates the date picker", async () => {
   const user = userEvent.setup();
@@ -473,13 +528,15 @@ it("marks progress, notes and decisions with one aggregated request, not one req
   expect(within(dates).getAllByRole("link")).toHaveLength(30);
   expect(
     within(dates)
-      .getByRole("link", { name: /mercredi 2 septembre, 2 avancée/ })
+      .getByRole("link", {
+        name: /mercredi 2 septembre, 2 avancées, 0 remarque, 0 décision/,
+      })
       .querySelector("[aria-hidden]"),
   ).toBeTruthy();
   expect(
     within(dates)
       .getByRole("link", {
-        name: /jeudi 3 septembre, 0 avancée\(s\), 1 remarque/,
+        name: /jeudi 3 septembre, 0 avancée, 1 remarque, 0 décision/,
       })
       .querySelector("[aria-hidden]"),
   ).toBeTruthy();
@@ -507,10 +564,7 @@ it("marks progress, notes and decisions with one aggregated request, not one req
       .filter(([path]) => path.includes("/days/"))
       .map(([path]) => path)
       .sort(),
-  ).toEqual([
-    "/api/team-seasons/7/days/2026-09-30/",
-    "/api/team-seasons/7/days/today/",
-  ]);
+  ).toEqual(["/api/team-seasons/7/days/2026-09-30/"]);
 });
 
 it("shows every date of an empty leap month in Monday-first order", async () => {
@@ -541,6 +595,32 @@ it("shows every date of an empty leap month in Monday-first order", async () => 
     within(calendar).getByText("Aucune activité enregistrée ce mois-ci."),
   ).toBeTruthy();
 });
+
+it.each([
+  ["2000-01-15", "Mois précédent"],
+  ["2099-12-15", "Mois suivant"],
+])(
+  "keeps month navigation within the supported range (%s)",
+  async (selectedDay, blockedDirection) => {
+    const user = userEvent.setup();
+    const { fetchMock } = renderSummary(day({ day: selectedDay }), undefined, {
+      initialDay: selectedDay,
+    });
+    const calendar = await screen.findByRole("region", {
+      name: "Calendrier des séances",
+    });
+    await within(calendar).findByRole("list", { name: "Jours du mois" });
+    const button = within(calendar).getByRole("button", {
+      name: blockedDirection,
+    });
+
+    expect((button as HTMLButtonElement).disabled).toBe(true);
+    await user.click(button);
+    expect(
+      fetchMock.mock.calls.filter(([path]) => path.includes("/calendar/")),
+    ).toHaveLength(1);
+  },
+);
 
 it("distinguishes today from the selected date even in an empty month", async () => {
   renderSummary(day({ day: "2026-10-20" }), undefined, {

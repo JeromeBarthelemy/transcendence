@@ -545,9 +545,9 @@ anyone else gets a `403` with the code `not_a_member`.
 | `GET /api/team-seasons/{id}/work-items/` | the team's work items, each with when it was opened, its current step, last progress and handover; progress dates include their 4 a.m.–4 a.m. workday |
 | `POST /api/team-seasons/{id}/work-items/` | open one |
 | `GET /api/work-items/{id}/` | one work item and its thread, newest first |
-| `PATCH /api/work-items/{id}/` | close it, `done` or `dropped`; working on it again reopens it |
+| `PATCH /api/work-items/{id}/` | close it, `done` or `dropped`, or reopen it on purpose, `open`; a `reason` becomes a note by whoever changed the status, required to drop (`reason_required`). A closed work item is reopened before anything else (`work_item_closed`, `409`) |
 | `DELETE /api/work-items/{id}/` | delete one opened by mistake: refused with `work_item_has_traces` (`409`) once it has any trace, even an empty progress — drop it instead |
-| `POST /api/work-items/{id}/tick/` | sign up to today's progress, created by the first to tick |
+| `POST /api/work-items/{id}/tick/` | sign up to today's progress, created by the first to tick; refused on a closed work item (`work_item_closed`, `409`), like adding to its progress, a note or decision on it, or a file on its traces — correcting, removing or leaving one is not |
 | `DELETE /api/work-items/{id}/tick/` | leave today's progress ticked by mistake, oneself only (`not_a_participant` otherwise); the last one leaving takes it with them, text included, unless it holds a file |
 | `PATCH /api/entries/{id}/` | add to a progress (`addition`, appended: nobody erases what another wrote) and change its step or handover, for its participants and mentors; a handover change sends `handover_was` and is refused with `progress_changed` (`409`) if the handover changed since; a student's `body` is refused rather than ignored — `use_addition` on a progress, `correct_not_allowed` (`403`) on a note or a decision; a mentor corrects any trace's text with `body` and `body_was`, refused with `entry_changed` (`409`) if the text changed since |
 | `DELETE /api/entries/{id}/` | remove a trace — a note or a decision by its author, any trace by a mentor, with its participants and files; anyone else gets `remove_not_allowed`. A student leaves a progress rather than removing it |
@@ -560,12 +560,20 @@ anyone else gets a `403` with the code `not_a_member`.
 | `GET /api/team-seasons/{id}/calendar/?month=YYYY-MM` | the requested month, the server's current workday (`today`), and sorted active `days`, each with its `day`, `progress`, `notes` and `decisions` counts; members read their teams, mentors any team |
 | `GET /api/team-seasons/{id}/gaps/?since=&until=` | the workshop-slot days on which nothing moved forward |
 | `GET /api/team-seasons/{id}/analytics/activity/?since=&until=` | progress activity by workday and member over the inclusive period, plus a current work-item snapshot |
+| `GET /api/team-seasons/{id}/analytics/activity/?since=&until=&format=csv` | download the same daily activity values as CSV (`day`, `progress_entries`, `active_members`), with the same period validation and team access |
+| `GET /api/team-seasons/{id}/analytics/activity/?since=&until=&format=csv&report=full` | download the complete activity report: period summary, days, weeks, categories, work items, members and current snapshot |
 | `GET /api/team-seasons/{id}/export/?format=markdown` | the season's notebook as a `.zip`, one Markdown file per category; `category` (`robot`, `outreach`, `team-life`) and `work_item` narrow it |
 
 A day runs from 4 a.m. to 4 a.m., in Paris time: a late session belongs to
 the day it started. Ticking at another step than today's opens a second
 progress, and the handover shown on a work item is the latest one left,
 with who left it, when, and at which step.
+
+On the work-item screen, the step selector follows live updates until the member
+chooses a different step. That draft survives background updates and a refused
+tick; following resumes after a successful step tick and detail refresh, or when
+the member selects the server's current step again. Joining without a step does
+not discard a draft, and a draft never carries over to another work item.
 
 Every entry names its work item, `{"id", "title"}`, or `null` for a note to
 the whole team. It also says what its reader may do with it — `can_remove`,
@@ -585,8 +593,15 @@ participants remain in the history with `is_current_member: false`: the
 current members are the team's roster, the same students the day screen
 counts attendance against (`Membership.objects.roster()`).
 
-The `snapshot` is deliberately current rather than historical: it groups all
-of the team's work items by their present status and latest progress step,
+An optional `on_robot=true` or `on_robot=false` on the activity endpoint limits
+both JSON and CSV to robot or off-robot work. Omit it for all work; an invalid
+value is refused. The filter applies to the period summary, daily and weekly activity, category and work-item totals, per-member totals and
+the current snapshot, not just to the display. Current students remain in the
+table with zero totals when they have no matching progress; former participants
+appear only when they have matching progress in the selected period.
+
+The `snapshot` is deliberately current rather than historical: it groups the
+selected team's work items by their present status and latest progress step,
 and counts items with no progress yet. The calculation lives in
 `club.analytics`, alongside the future match and trial analytics, so API
 views only validate access and input.
@@ -595,20 +610,27 @@ The team home keeps a compact summary of today's workshop and its team notes
 above URL-backed work-item and activity sections, so a member can open the
 activity view directly without putting both screens into one long page. The
 activity section starts with the last 30 days and can show the whole
-September-to-August season or a custom inclusive period. Summary cards describe
-the current work, while the time chart and member table follow the selected
-period. Recharts is the frontend's single charting library; each visual chart
+September-to-August season or a custom inclusive period. "Tous les chantiers",
+"Robot" and "Hors robot" filter all cards, charts, work-item and member counts and CSV
+together. Period cards show recorded progress, days with progress, distinct student
+participants and work items with progress. Weekly bars count each participant once
+per Monday-based workday week, clipped to the requested dates; only weeks with
+recorded progress have rows. The category donut distributes progress between
+Robot and Hors robot, not robot performance. A linked work-item table includes
+zero-activity items and the last progress day within the period. Its status and
+step, like the separate snapshot cards and step chart, are explicitly current.
+Recharts is the frontend's single charting library; each visual chart
 has the same values in an accessible table, so colour and pointer interaction
 are never required. The member table keeps the API's neutral order and wording:
 it describes days, traces and distinct work items, without scores or rankings.
 
 The day-summary screen keeps the previous/next recorded-session links and
-adds a permanent Today action and a native date picker. Selecting a date
-opens its URL, including empty days. Today opens `/days/today` and is marked
-beside the heading; an explicit date matching today is marked too. The
-server's `today` response resolves the club's 4 a.m. workday rather than the
-browser's clock or time zone. Its query is shared with the displayed summary
-when viewing today; dated summaries also read today through the query cache.
+adds a permanent Today action and a native date picker. A valid, changed date
+opens its URL on Enter or when the field loses focus, including empty days.
+Typing intermediate values does not navigate. Today opens `/days/today` and
+is marked beside the heading; an explicit date matching today is marked too. The
+calendar's `today` field resolves the club's 4 a.m. workday rather than the
+browser's clock or time zone, without fetching a separate today summary.
 The monthly activity calendar sits alongside this navigation. Its month
 arrows browse without changing the displayed summary; selecting any day,
 including an empty one, opens its summary and updates the date picker.
@@ -618,11 +640,28 @@ and tooltip; an active day can hold progress, a note or a decision, not just
 student attendance. An empty month still offers every date.
 
 One aggregated calendar request loads a month, never one summary request per
-calendar cell. The endpoint validates a required `YYYY-MM` month and groups
-only that team's bounded timestamps through the same 4 a.m. workday rule,
+calendar cell. The endpoint validates a required `YYYY-MM` month between
+January 2000 and December 2099 and groups only that team's bounded timestamps
+through the same 4 a.m. workday rule,
 including daylight-saving transitions. Monthly results are cached by team
 season and month. A calendar failure leaves the day's summary usable and
 offers a retry. No model, migration or additional calendar dependency.
+
+"Exporter en CSV" downloads the complete report for the selected period and work
+filter (`format=csv&report=full`). It is one rectangular CSV: `section` identifies
+`summary`, `day`, `week`, `category`, `work_item`, `member`, `status`, `step` and
+`snapshot` rows; `since`, `until` and `scope` accompany every row. Counts are
+separate views of the same activity and must not be summed across sections.
+Untrusted titles and member names are protected against spreadsheet formulas.
+The filename includes the team number, both dates, the optional `robot` or
+`hors-robot` suffix, and `complet`. Empty periods still export a zero summary,
+categories, current work items and roster. For compatibility, plain `format=csv`
+(or `report=daily`) retains the original daily three-column export and filename;
+an empty daily export contains only its header. JSON remains the default;
+`format=json` is also accepted, other
+formats are refused. The existing live board reloads this section's queries on
+every team change and on reconnection: progress recorded in another browser
+updates the charts and participation without a page reload or polling.
 
 The export is raw material for the portfolio, which students write elsewhere:
 the season's entries by category — building the robot (work items on the
@@ -680,7 +719,7 @@ member sees is true, and trying again does not make the write twice.
   member who made the change, never a deactivated account.
 - **What tells**: a trace added, updated (an addition, a step or handover, a
   correction, a file added or removed) or removed; a work item opened, done,
-  dropped or deleted.
+  dropped, reopened or deleted.
 - **What does not**: joining or leaving a progress. It still reloads the
   open screens, but ten students ticking at the start of a session would
   bury the notices that matter. The last to leave today's progress takes it
@@ -973,7 +1012,7 @@ All in `components/`, each with a comment saying when to use it.
 | `FieldErrors`, `RequestError` | a refusal from the API, by field or for the whole form, in French from its code |
 | `AdminOnly` | a screen for club admins only |
 | `EntryActions` | correcting or removing a trace in place |
-| `ActivityOverTimeChart`, `WorkItemsByStepChart` | the team's activity, in Recharts, each with its data as a table |
+| `ActivityOverTimeChart`, `WeeklyActivityChart`, `ActivityByCategoryChart`, `WorkItemsByStepChart` | the team's activity, in Recharts, each with its data as an accessible table |
 | `AuthPageFrame` | the sign-up and log-in pages' frame |
 
 Biome knows the fields and `Label` (`biome.json`, `noLabelWithoutControl`), so
@@ -987,7 +1026,8 @@ make check
 
 Runs, from the activated virtual environment, Ruff (lint and formatting),
 mypy, a check that no model change is missing its migration, the frontend
-TypeScript check, and Biome (frontend lint and formatting). It must pass before
+TypeScript check, Biome (frontend lint and formatting), and the API error-code
+catalogue check. It must pass before
 every commit. It only reports; `make format` applies the formatting on both
 sides, for you to review before committing. CI runs `make check` on every pull
 request, followed by the frontend production build:
@@ -999,6 +1039,26 @@ npm --prefix frontend run build
 `build` repeats the type check and creates the optimized assets in
 `frontend/dist/`; a failure here that `make check` missed is a bundling
 problem, not a type error.
+
+### API refusal messages
+
+The frontend prefers `errors.<code>` from `frontend/src/locales/fr.json` when
+present. Otherwise it displays the server's `issue.message` as plain text,
+including errors for fields a form does not handle itself (e.g. an upload's
+`file`). A missing or blank sentence still uses the generic error; network
+failures retain their separate message. Handled field errors are not repeated
+in the request-level error block.
+
+`make check-error-codes` runs `backend/check_error_codes.py`, also included in
+`make check` and therefore CI. Without importing the application, it reads Python
+syntax for repo-defined literal `code=`, `violation_error_code=` and
+`default_code` declarations, excluding tests and migrations. Each code must have
+a non-empty French catalogue entry or a reason in
+`frontend/src/locales/server-error-fallbacks.json` explaining why the server's
+sentence is deliberately used. The check also rejects stale fallback entries
+and entries that now have translations. Codes forwarded dynamically from
+Django/DRF are not statically enumerated by this check; the runtime fallback
+still handles them.
 
 ## Testing
 

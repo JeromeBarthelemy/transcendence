@@ -68,7 +68,7 @@ export function ActivityCalendar({
       <div className="mt-4 flex items-center justify-between gap-2">
         <Button
           size="sm"
-          disabled={month === "0001-01"}
+          disabled={month <= "2000-01"}
           aria-label={t("calendar.previousMonth")}
           onClick={() => setMonth(adjacentMonth(month, -1))}
         >
@@ -79,7 +79,7 @@ export function ActivityCalendar({
         </h3>
         <Button
           size="sm"
-          disabled={month === "9999-12"}
+          disabled={month >= "2099-12"}
           aria-label={t("calendar.nextMonth")}
           onClick={() => setMonth(adjacentMonth(month, 1))}
         >
@@ -125,7 +125,11 @@ export function ActivityCalendar({
               const isSelected = date === day;
               const isToday = date === calendar.data.today;
               const activityLabel = totals
-                ? t("calendar.traces", totals)
+                ? [
+                    t("calendar.progress", { count: totals.progress }),
+                    t("calendar.notes", { count: totals.notes }),
+                    t("calendar.decisions", { count: totals.decisions }),
+                  ].join(", ")
                 : t("calendar.noActivity");
               const label = [
                 formatWorkdayDate(date),
