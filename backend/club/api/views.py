@@ -2,6 +2,7 @@
 tenant to resolve: every route below is about the person calling it."""
 
 import tempfile
+from itertools import islice
 from typing import Any
 
 from django.contrib.auth import login, logout
@@ -44,6 +45,7 @@ from club.models import (
     TeamSeason,
     User,
     WorkItem,
+    fold_title,
     remove_after_commit,
 )
 from club.notifications import record_change
@@ -292,10 +294,12 @@ class UserListView(APIView):
     with no explanation.
 
     With `search`, it is the team screen's typeahead instead: active accounts
-    only, whose display name contains what was typed — matched on the folded
-    column, the same one uniqueness uses, so « élo » finds Élodie. With
-    `team_season` as well, those already on that team are left out before the
-    cap, or a page of them could hide the matches still to add."""
+    only, whose display name contains what was typed, ignoring case and
+    accents so « elo » finds Élodie. Not on display_name_folded: that column
+    keeps accents because it decides which names are duplicates, and a club's
+    worth of active accounts is few enough to fold here. With `team_season` as
+    well, those already on that team are left out before the cap, or a page of
+    them could hide the matches still to add."""
 
     permission_classes = [IsClubAdmin]
     SEARCH_LIMIT = 10
@@ -306,16 +310,17 @@ class UserListView(APIView):
         if "search" not in query.validated_data:
             users = User.objects.order_by("display_name")
             return Response([_user(user) for user in users])
-        search = query.validated_data["search"].casefold()
+        search = fold_title(query.validated_data["search"])
         if not search:
             return Response([])
-        matches = User.objects.filter(
-            is_active=True, display_name_folded__contains=search
-        )
+        candidates = User.objects.filter(is_active=True)
         team_season = query.validated_data.get("team_season")
         if team_season is not None:
-            matches = matches.exclude(memberships__team_season=team_season)
-        return Response([_user(user) for user in matches[: self.SEARCH_LIMIT]])
+            candidates = candidates.exclude(memberships__team_season=team_season)
+        matches = (
+            user for user in candidates if search in fold_title(user.display_name)
+        )
+        return Response([_user(user) for user in islice(matches, self.SEARCH_LIMIT)])
 
 
 class UserDetailView(APIView):
