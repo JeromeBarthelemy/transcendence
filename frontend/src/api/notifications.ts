@@ -8,6 +8,7 @@ const noticeSchema = z.object({
   id: z.number(),
   verb: z.enum([
     "work_item_opened",
+    "work_item_reopened",
     "work_item_done",
     "work_item_dropped",
     "work_item_deleted",

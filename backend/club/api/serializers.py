@@ -366,21 +366,27 @@ class OpenWorkItemSerializer(serializers.Serializer[WorkItem]):
             raise
 
 
-class CloseWorkItemSerializer(serializers.Serializer[WorkItem]):
-    """Only closing: a work item is reopened by working on it again."""
+class WorkItemStatusSerializer(serializers.Serializer[WorkItem]):
+    """Closing, and reopening on purpose: a closed work item is read-only
+    until then. Why it was dropped is asked, since that is what the notebook
+    would lose; finishing or reopening may say why too. The reason becomes a
+    note by whoever changed the status, written with it."""
 
-    status = serializers.ChoiceField(
-        choices=[WorkItem.Status.DONE, WorkItem.Status.DROPPED]
-    )
+    status = serializers.ChoiceField(choices=WorkItem.Status.choices)
+    reason = serializers.CharField(required=False, allow_blank=True)
 
     def validate_status(self, value: str) -> str:
+        instance = self.instance
+        assert isinstance(instance, WorkItem)
+        if value == WorkItem.Status.OPEN and instance.status == WorkItem.Status.OPEN:
+            raise serializers.ValidationError(
+                "Ce chantier est déjà ouvert.", code="already_open"
+            )
         # A robot subsystem goes to tuning, then repair, and back again until
         # the last competition — what ends it is the season, not a judgement
         # that it's "finished". Off the robot, some work items do end (a
         # tournament has taken place, a file has been sent), and `done` is
         # right for those.
-        instance = self.instance
-        assert isinstance(instance, WorkItem)
         if value == WorkItem.Status.DONE and instance.on_robot:
             raise serializers.ValidationError(
                 "Un chantier sur le robot ne se termine pas, il s'abandonne.",
@@ -388,10 +394,33 @@ class CloseWorkItemSerializer(serializers.Serializer[WorkItem]):
             )
         return value
 
+    def validate(self, attrs: dict[str, Any]) -> dict[str, Any]:
+        attrs["reason"] = attrs.get("reason", "").strip()
+        if attrs["status"] == WorkItem.Status.DROPPED and not attrs["reason"]:
+            raise serializers.ValidationError(
+                {
+                    "reason": serializers.ErrorDetail(
+                        "Dites pourquoi ce chantier est abandonné.",
+                        code="reason_required",
+                    )
+                }
+            )
+        return attrs
+
+    @transaction.atomic
     def update(self, instance: WorkItem, validated_data: dict[str, Any]) -> WorkItem:
+        reopening = validated_data["status"] == WorkItem.Status.OPEN
         instance.status = validated_data["status"]
-        instance.closed_at = timezone.now()
+        instance.closed_at = None if reopening else timezone.now()
         instance.save(update_fields=["status", "closed_at"])
+        if validated_data["reason"]:
+            Entry.objects.create(
+                team_season=instance.team_season,
+                author=self.context["author"],
+                work_item=instance,
+                type=Entry.Type.NOTE,
+                body=validated_data["reason"],
+            )
         return instance
 
 

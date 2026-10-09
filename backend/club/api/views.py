@@ -51,6 +51,8 @@ from club.models import (
 from club.notifications import record_change
 from club.progress import (
     ProgressChanged,
+    WorkItemClosed,
+    check_open,
     edit_progress,
     join,
     leave_todays_progress,
@@ -90,7 +92,6 @@ from .serializers import (
     AskSerializer,
     AttachmentSerializer,
     AvatarSerializer,
-    CloseWorkItemSerializer,
     CorrectionSerializer,
     CreateTeamSerializer,
     DaySerializer,
@@ -107,6 +108,7 @@ from .serializers import (
     TickSerializer,
     UserRoleSerializer,
     UserSearchSerializer,
+    WorkItemStatusSerializer,
     WriteProgressSerializer,
 )
 
@@ -514,6 +516,7 @@ def _work_item(item: WorkItem) -> dict[str, object]:
         "on_robot": item.on_robot,
         "status": item.status,
         "opened_at": item.opened_at,
+        "closed_at": item.closed_at,
         # The latest progress already carries it: read once, not twice.
         "current_step": latest.step if latest else None,
         "handover": {
@@ -628,14 +631,26 @@ class WorkItemDetailView(APIView):
     def patch(self, request: Request, pk: int) -> Response:
         assert isinstance(request.user, User)
         item = _work_item_acted_on(request.user, pk)
-        serializer = CloseWorkItemSerializer(item, data=request.data)
+        # Only a reopening changes a closed work item; said before the reason
+        # is asked for, which would only lead to this refusal, and checked
+        # again right before writing, as every other write path does.
+        asked = request.data.get("status") if isinstance(request.data, dict) else None
+        if asked != WorkItem.Status.OPEN:
+            _open_for_work(item)
+        serializer = WorkItemStatusSerializer(
+            item, data=request.data, context={"author": request.user}
+        )
         serializer.is_valid(raise_exception=True)
+        if serializer.validated_data["status"] != WorkItem.Status.OPEN:
+            _open_for_work(item)
         serializer.save()
         record_change(
             request.user,
-            Notification.Verb.WORK_ITEM_DONE
-            if item.status == WorkItem.Status.DONE
-            else Notification.Verb.WORK_ITEM_DROPPED,
+            {
+                WorkItem.Status.OPEN: Notification.Verb.WORK_ITEM_REOPENED,
+                WorkItem.Status.DONE: Notification.Verb.WORK_ITEM_DONE,
+                WorkItem.Status.DROPPED: Notification.Verb.WORK_ITEM_DROPPED,
+            }[WorkItem.Status(item.status)],
             team_season=item.team_season,
             work_item=item,
         )
@@ -666,6 +681,21 @@ class WorkItemDetailView(APIView):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
+def _open_for_work(item: WorkItem | None) -> None:
+    """Called inside the transaction that writes: see `check_open`."""
+    try:
+        check_open(item)
+    except WorkItemClosed as closed:
+        raise _work_item_closed() from closed
+
+
+def _work_item_closed() -> Conflict:
+    return Conflict(
+        "Ce chantier est fermé : rouvrez-le pour le reprendre.",
+        code="work_item_closed",
+    )
+
+
 class TickView(APIView):
     """Ticking a work item is signing up to today's progress on it, which the
     first to tick creates. Ticking at another step than today's opens a
@@ -680,6 +710,7 @@ class TickView(APIView):
         user = request.user
         assert isinstance(user, User)
         item = _work_item_acted_on(user, pk)
+        _open_for_work(item)
         serializer = TickSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         step = serializer.validated_data.get("step")
@@ -743,6 +774,7 @@ class EntryAttachmentsView(APIView):
         assert isinstance(user, User)
         entry = get_object_or_404(Entry, pk=pk)
         team_season_acted_on(user, entry.team_season_id)
+        _open_for_work(entry.work_item)
         serializer = AttachmentSerializer(
             data=request.data, context={"entry": entry, "user": user}
         )
@@ -837,6 +869,8 @@ class EntryDetailView(APIView):
                 "Cette avancée a été modifiée pendant que vous écriviez.",
                 code="progress_changed",
             ) from changed
+        except WorkItemClosed as closed:
+            raise _work_item_closed() from closed
         record_change(
             user,
             Notification.Verb.ENTRY_UPDATED,
@@ -904,15 +938,18 @@ class NoteCreateView(APIView):
         )
         serializer.is_valid(raise_exception=True)
         client_id = serializer.validated_data.get("client_id")
+        work_item = serializer.validated_data.get("work_item")
         if client_id is None:
             # Nothing to replay, so none of the collision handling below
             # applies: a failure here is a real error, not a sign this
             # request was already answered once.
+            _open_for_work(work_item)
             entry = serializer.save()
         else:
             existing = Entry.objects.filter(author=user, client_id=client_id).first()
             if existing is not None:
                 return _replayed_note(existing, team_season, user)
+            _open_for_work(work_item)
             try:
                 with transaction.atomic():
                     entry = serializer.save()
@@ -948,6 +985,7 @@ class DecisionCreateView(APIView):
             data=request.data, context={"team_season": team_season, "author": user}
         )
         serializer.is_valid(raise_exception=True)
+        _open_for_work(serializer.validated_data.get("work_item"))
         entry = serializer.save()
         record_change(
             user,

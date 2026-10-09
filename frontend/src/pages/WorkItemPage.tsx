@@ -1,11 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { type FormEvent, useRef, useState } from "react";
+import { type FormEvent, useId, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
 
 import type { Identity } from "../api/auth";
 import {
-  closeWorkItem,
+  changeWorkItemStatus,
   createWorkItemNote,
   deleteWorkItem,
   getWorkItem,
@@ -17,6 +17,7 @@ import {
   uploadAttachment,
   type WorkItemDetail,
   type WorkItemEntry,
+  type WorkItemStatus,
   type WorkItemStep,
   workItemSteps,
 } from "../api/workItems";
@@ -359,6 +360,7 @@ function TodayPanel({
     },
   });
   const progress = item.current_progress;
+  const isClosed = item.status !== "open";
   // The server deletes a progress its last participant leaves, unless it
   // holds a file: worth a confirmation only when something written goes.
   const leavingDeletesText =
@@ -385,7 +387,7 @@ function TodayPanel({
         {progress ? t("workItem.todayProgress") : t("workItem.noProgressToday")}
       </Heading>
 
-      {item.on_robot && (
+      {item.on_robot && !isClosed && (
         <div className="mt-5 flex flex-col gap-3 rounded-2xl bg-mist p-4 sm:flex-row sm:items-end">
           <Label className="flex-1">
             {t("workItem.currentStep")}
@@ -441,12 +443,14 @@ function TodayPanel({
               <IconLabel icon="xmark">{t("workItem.leave")}</IconLabel>
             </Button>
           ) : (
-            <Button
-              disabled={tick.isPending}
-              onClick={() => tick.mutate(undefined)}
-            >
-              {t("workItem.join")}
-            </Button>
+            !isClosed && (
+              <Button
+                disabled={tick.isPending}
+                onClick={() => tick.mutate(undefined)}
+              >
+                {t("workItem.join")}
+              </Button>
+            )
           )}
         </div>
       ) : (
@@ -477,10 +481,10 @@ function TodayPanel({
       )}
       {tick.isError && <RequestError error={tick.error} />}
       {leave.isError && <RequestError error={leave.error} />}
-      {canEdit && (
+      {canEdit && !isClosed && (
         <ProgressEditor key={progress.id} item={item} entry={progress} />
       )}
-      {progress && !canEdit && (
+      {progress && !canEdit && !isClosed && (
         <Notice as="p" tone="warning" className="mt-6">
           {t("workItem.joinToWrite")}
         </Notice>
@@ -697,6 +701,56 @@ function WorkItemNoteForm({ item }: { item: WorkItemDetail }) {
   );
 }
 
+/** Closing or reopening, with why. Dropping requires a reason, since that
+ * is what the notebook would otherwise lose; the form is the confirmation,
+ * so nothing closes by a stray click. */
+function StatusForm({
+  status,
+  isPending,
+  onCancel,
+  onConfirm,
+}: {
+  status: WorkItemStatus;
+  isPending: boolean;
+  onCancel: () => void;
+  onConfirm: (reason: string) => void;
+}) {
+  const { t } = useTranslation();
+  const reasonId = useId();
+  const [reason, setReason] = useState("");
+  const required = status === "dropped";
+  return (
+    <Panel className="mt-6">
+      <form
+        onSubmit={(event) => {
+          event.preventDefault();
+          onConfirm(reason.trim());
+        }}
+      >
+        <Label htmlFor={reasonId}>{t(`workItem.reasonFor.${status}`)}</Label>
+        <TextArea
+          id={reasonId}
+          value={reason}
+          required={required}
+          onChange={(event) => setReason(event.target.value)}
+        />
+        <div className="mt-4 flex gap-3">
+          <Button disabled={isPending} onClick={onCancel}>
+            {t("workItem.cancel")}
+          </Button>
+          <Button
+            type="submit"
+            variant="dark"
+            disabled={isPending || (required && !reason.trim())}
+          >
+            {t(`workItem.confirmStatus.${status}`)}
+          </Button>
+        </div>
+      </form>
+    </Panel>
+  );
+}
+
 function WorkItemScreen({
   item,
   identity,
@@ -710,12 +764,22 @@ function WorkItemScreen({
   ).length;
   const team = teamLabel(identity, item.team_season);
   const invalidateWorkItem = useInvalidateWorkItem(item);
+  // The status being changed, its form open until it is saved or cancelled.
+  const [statusChange, setStatusChange] = useState<WorkItemStatus | null>(null);
   const close = useMutation({
-    mutationFn: (status: "done" | "dropped") => closeWorkItem(item.id, status),
+    mutationFn: ({
+      status,
+      reason,
+    }: {
+      status: WorkItemStatus;
+      reason: string;
+    }) => changeWorkItemStatus(item.id, status, reason),
     onSuccess: async () => {
+      setStatusChange(null);
       await invalidateWorkItem();
     },
   });
+  const isClosed = item.status !== "open";
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
@@ -774,14 +838,23 @@ function WorkItemScreen({
               <IconLabel icon="xmark">{t("workItem.delete")}</IconLabel>
             </Button>
           )}
-          {item.status === "open" && (
+          {isClosed ? (
+            <Button
+              size="sm"
+              pill
+              disabled={close.isPending}
+              onClick={() => setStatusChange("open")}
+            >
+              {t("workItem.reopen")}
+            </Button>
+          ) : (
             <>
               <Button
                 variant="danger"
                 size="sm"
                 pill
                 disabled={close.isPending}
-                onClick={() => close.mutate("dropped")}
+                onClick={() => setStatusChange("dropped")}
               >
                 {t("workItem.drop")}
               </Button>
@@ -791,7 +864,7 @@ function WorkItemScreen({
                   size="sm"
                   pill
                   disabled={close.isPending}
-                  onClick={() => close.mutate("done")}
+                  onClick={() => setStatusChange("done")}
                 >
                   {t("workItem.finish")}
                 </Button>
@@ -804,7 +877,33 @@ function WorkItemScreen({
         </div>
       </header>
 
+      {statusChange && (
+        <StatusForm
+          // Another status is another question: its reason starts empty.
+          key={statusChange}
+          status={statusChange}
+          isPending={close.isPending}
+          onCancel={() => setStatusChange(null)}
+          onConfirm={(reason) => close.mutate({ status: statusChange, reason })}
+        />
+      )}
       {close.isError && <RequestError error={close.error} />}
+      {isClosed && (
+        <Notice as="p" className="mt-6 font-semibold">
+          {item.closed_at
+            ? t(
+                item.status === "done"
+                  ? "workItem.closedDone"
+                  : "workItem.closedDropped",
+                { date: dateFormatter.format(new Date(item.closed_at)) },
+              )
+            : t(
+                item.status === "done"
+                  ? "workItem.closedDoneUndated"
+                  : "workItem.closedDroppedUndated",
+              )}
+        </Notice>
+      )}
       {isConfirmingDelete && (
         <ConfirmPanel
           className="mt-6"
@@ -845,10 +944,14 @@ function WorkItemScreen({
       )}
 
       <div className="mt-8 grid items-start gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.9fr)]">
-        <div className="space-y-6">
-          <TodayPanel key={item.id} item={item} identity={identity} />
-          <WorkItemNoteForm item={item} />
-        </div>
+        {/* Closed, nothing moves it forward until it is reopened: its
+            history can still be put right, and today's tick undone. */}
+        {(!isClosed || item.current_progress) && (
+          <div className="space-y-6">
+            <TodayPanel key={item.id} item={item} identity={identity} />
+            {!isClosed && <WorkItemNoteForm item={item} />}
+          </div>
+        )}
 
         <section aria-labelledby="history-title">
           <Eyebrow>{t("workItem.fromStart")}</Eyebrow>

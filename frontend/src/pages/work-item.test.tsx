@@ -75,6 +75,7 @@ function workItem(overrides: object = {}) {
     on_robot: true,
     status: "open",
     opened_at: "2026-09-10T10:00:00+02:00",
+    closed_at: null as string | null,
     current_step: "prototyping",
     handover: {
       body: "Tester les galets à 12 V.",
@@ -889,97 +890,167 @@ it("adds a note to the work item and refreshes its history", async () => {
   });
 });
 
-it("drops a robot work item, but offers no way to finish it", async () => {
-  setDocumentCookie("csrftoken=test; path=/");
-  let item = workItem({ on_robot: true, status: "open" });
+/** A server holding one work item, which changes its status as asked. */
+function statusServer(item: ReturnType<typeof workItem>) {
+  let current = item;
   const fetchMock = vi.fn(
     async (path: string, options?: RequestInit): Promise<Response> => {
       if (path === "/api/auth/me/") {
         return json(identity());
       }
       if (path === "/api/work-items/10/" && !options?.method) {
-        return json(item);
+        return json(current);
       }
       if (path === "/api/work-items/10/" && options?.method === "PATCH") {
-        item = workItem({ on_robot: true, status: "dropped" });
-        return json(item);
+        const { status } = JSON.parse(String(options.body)) as {
+          status: string;
+        };
+        current = workItem({
+          on_robot: current.on_robot,
+          status,
+          closed_at: status === "open" ? null : "2026-10-02T09:00:00+02:00",
+        });
+        return json(current);
       }
       throw new Error(`Unexpected request: ${path}`);
     },
   );
   vi.stubGlobal("fetch", fetchMock);
+  return () => {
+    const request = fetchMock.mock.calls.find(
+      ([path, options]) =>
+        path === "/api/work-items/10/" && options?.method === "PATCH",
+    );
+    return JSON.parse(String(request?.[1]?.body));
+  };
+}
+
+it("drops a robot work item once told why, and offers no way to finish it", async () => {
+  setDocumentCookie("csrftoken=test; path=/");
+  const sent = statusServer(workItem({ on_robot: true }));
   renderWorkItem();
 
-  expect(
+  await userEvent.click(
     await screen.findByRole("button", { name: "Abandonner" }),
-  ).toBeTruthy();
+  );
   expect(screen.queryByRole("button", { name: "Terminer" })).toBeNull();
-
-  await userEvent.click(screen.getByRole("button", { name: "Abandonner" }));
+  const confirm = screen.getByRole("button", {
+    name: "Abandonner le chantier",
+  });
+  expect((confirm as HTMLButtonElement).disabled).toBe(true);
+  await userEvent.type(
+    screen.getByLabelText("Pourquoi l'abandonner ?"),
+    "Trop lourd pour le bras.",
+  );
+  await userEvent.click(confirm);
 
   expect(await screen.findByText("Abandonné")).toBeTruthy();
-  const closeRequest = fetchMock.mock.calls.find(
-    ([path, options]) =>
-      path === "/api/work-items/10/" && options?.method === "PATCH",
-  );
-  expect(JSON.parse(String(closeRequest?.[1]?.body))).toEqual({
+  expect(sent()).toEqual({
     status: "dropped",
+    reason: "Trop lourd pour le bras.",
   });
 });
 
-it("finishes an off-robot work item", async () => {
+it("finishes an off-robot work item without having to say why", async () => {
   setDocumentCookie("csrftoken=test; path=/");
-  let item = workItem({ on_robot: false, status: "open" });
-  const fetchMock = vi.fn(
-    async (path: string, options?: RequestInit): Promise<Response> => {
-      if (path === "/api/auth/me/") {
-        return json(identity());
-      }
-      if (path === "/api/work-items/10/" && !options?.method) {
-        return json(item);
-      }
-      if (path === "/api/work-items/10/" && options?.method === "PATCH") {
-        item = workItem({ on_robot: false, status: "done" });
-        return json(item);
-      }
-      throw new Error(`Unexpected request: ${path}`);
-    },
-  );
-  vi.stubGlobal("fetch", fetchMock);
+  const sent = statusServer(workItem({ on_robot: false }));
   renderWorkItem();
 
   await userEvent.click(
     await screen.findByRole("button", { name: "Terminer" }),
   );
+  expect(
+    screen.getByLabelText("Pourquoi le terminer ? (facultatif)"),
+  ).toBeTruthy();
+  await userEvent.click(
+    screen.getByRole("button", { name: "Terminer le chantier" }),
+  );
 
   expect(await screen.findByText("Terminé")).toBeTruthy();
-  const closeRequest = fetchMock.mock.calls.find(
-    ([path, options]) =>
-      path === "/api/work-items/10/" && options?.method === "PATCH",
-  );
-  expect(JSON.parse(String(closeRequest?.[1]?.body))).toEqual({
-    status: "done",
-  });
+  expect(sent()).toEqual({ status: "done" });
 });
 
-it("offers no close action on a work item that is already closed", async () => {
-  const fetchMock = vi.fn(
-    async (path: string, options?: RequestInit): Promise<Response> => {
-      if (path === "/api/auth/me/") {
-        return json(identity());
-      }
-      if (path === "/api/work-items/10/" && !options?.method) {
-        return json(workItem({ status: "dropped" }));
-      }
-      throw new Error(`Unexpected request: ${path}`);
-    },
+it("shows a closed work item read-only, and reopens it on purpose", async () => {
+  setDocumentCookie("csrftoken=test; path=/");
+  const sent = statusServer(
+    workItem({ status: "dropped", closed_at: "2026-10-02T09:00:00+02:00" }),
   );
-  vi.stubGlobal("fetch", fetchMock);
   renderWorkItem();
 
-  expect(await screen.findByText("Abandonné")).toBeTruthy();
-  expect(screen.queryByRole("button", { name: "Abandonner" })).toBeNull();
-  expect(screen.queryByRole("button", { name: "Terminer" })).toBeNull();
+  expect(
+    await screen.findByText(
+      "Chantier abandonné le 2 octobre 2026 — rouvrez-le pour le reprendre.",
+    ),
+  ).toBeTruthy();
+  for (const action of ["Abandonner", "Terminer", "Passer à cette étape"]) {
+    expect(screen.queryByRole("button", { name: action })).toBeNull();
+  }
+  expect(screen.queryByLabelText("Étape")).toBeNull();
+  // Neither the progress's editor nor a note: nothing moves it forward.
+  expect(screen.queryAllByRole("textbox")).toHaveLength(0);
+  // A tick made by mistake the day it closed can still be undone.
+  expect(screen.getByRole("button", { name: "Me retirer" })).toBeTruthy();
+  expect(screen.getByRole("heading", { name: "Historique" })).toBeTruthy();
+
+  await userEvent.click(screen.getByRole("button", { name: "Rouvrir" }));
+  await userEvent.type(
+    screen.getByLabelText("Pourquoi le rouvrir ? (facultatif)"),
+    "Nouvelle idée de pince.",
+  );
+  await userEvent.click(
+    screen.getByRole("button", { name: "Rouvrir le chantier" }),
+  );
+
+  expect(await screen.findByLabelText("Étape")).toBeTruthy();
+  expect(sent()).toEqual({ status: "open", reason: "Nouvelle idée de pince." });
+});
+
+it("shows no today panel on a closed work item nobody is on today", async () => {
+  setDocumentCookie("csrftoken=test; path=/");
+  statusServer(
+    workItem({
+      status: "dropped",
+      closed_at: "2026-10-02T09:00:00+02:00",
+      current_progress: null,
+      current_user_participates: false,
+    }),
+  );
+  renderWorkItem();
+
+  await screen.findByRole("button", { name: "Rouvrir" });
+  expect(screen.queryByText("Rien de commencé aujourd'hui")).toBeNull();
+  expect(screen.queryByRole("button", { name: /^Commencer/ })).toBeNull();
+});
+
+it("says a closed work item is closed even without knowing when", async () => {
+  setDocumentCookie("csrftoken=test; path=/");
+  statusServer(workItem({ status: "done", on_robot: false, closed_at: null }));
+  renderWorkItem();
+
+  expect(
+    await screen.findByText("Chantier terminé — rouvrez-le pour le reprendre."),
+  ).toBeTruthy();
+});
+
+it("forgets a reason typed for another status", async () => {
+  setDocumentCookie("csrftoken=test; path=/");
+  const sent = statusServer(workItem({ on_robot: false }));
+  renderWorkItem();
+
+  await userEvent.click(
+    await screen.findByRole("button", { name: "Abandonner" }),
+  );
+  await userEvent.type(
+    screen.getByLabelText("Pourquoi l'abandonner ?"),
+    "Plus de budget.",
+  );
+  await userEvent.click(screen.getByRole("button", { name: "Terminer" }));
+  await userEvent.click(
+    screen.getByRole("button", { name: "Terminer le chantier" }),
+  );
+
+  expect(await screen.findByText("Terminé")).toBeTruthy();
+  expect(sent()).toEqual({ status: "done" });
 });
 
 it("uploads a file with its image-right answer", async () => {
