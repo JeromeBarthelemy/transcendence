@@ -121,6 +121,7 @@ it("opens from the header and sends the question with Enter", async () => {
             source: "game_manual",
             authority: "binding",
             document_title: "Manuel BioBuzz TU02",
+            url: "https://ftc-resources.firstinspires.org/manual.htm#G420",
           },
           {
             rank: 2,
@@ -129,6 +130,7 @@ it("opens from the header and sends the question with Enter", async () => {
             source: "official_qa",
             authority: "ruling",
             document_title: "Q&A BioBuzz",
+            url: null,
           },
         ],
       },
@@ -139,14 +141,15 @@ it("opens from the header and sends the question with Enter", async () => {
   const citations = await within(log).findByRole("list", {
     name: "Passages cités",
   });
-  expect(
-    within(citations)
-      .getAllByRole("listitem")
-      .map((item) => item.textContent),
-  ).toEqual([
-    "G420Manuel de jeu · fait foiManuel BioBuzz TU02Do not tip or entangle.",
+  const items = within(citations).getAllByRole("listitem");
+  expect(items.map((item) => item.textContent)).toEqual([
+    "G420Manuel de jeu · fait foiManuel BioBuzz TU02Do not tip or entangle.Voir dans le manuel",
     "Q44Q&A officiel · décision officielleQ&A BioBuzzBlue robot over their gate…",
   ]);
+  // Only the citation with a URL gets a link out to FIRST's own page.
+  expect(within(items[0]).getByRole("link", { name: "Voir dans le manuel" }))
+    .toHaveProperty("href", "https://ftc-resources.firstinspires.org/manual.htm#G420");
+  expect(within(items[1]).queryByRole("link")).toBeNull();
   expect(within(log).queryByRole("status")).toBeNull();
 });
 
@@ -166,6 +169,7 @@ it("shows the generated answer above its citations", async () => {
             source: "official_qa",
             authority: "ruling",
             document_title: "Q&A BioBuzz",
+            url: null,
           },
         ],
       },

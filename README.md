@@ -792,14 +792,13 @@ reading, a wrong one reaching the screen. Flash attention and a
 quantized KV cache (`compose.yml`'s `ollama` service) still cost nothing
 in accuracy and still help, just no longer the main lever.
 
-Retrieval itself still runs on the question as asked, in whatever
-language that is — translating it to English first measurably finds
-the right passage more often for some question categories and less
-often for others (read against this same manual), and does not reach
-far enough into `MIN_SCORE`'s own calibration (364 passages, 90 real
-questions against 10 off-topic controls, French throughout) to change
-it on the strength of what was measured here alone. Left as French in,
-French out; the lead is open, not closed.
+Retrieval itself runs on the question as asked. It once ran on French
+questions against an English manual, which measurably found the right
+passage less often for some question categories than translating the
+question to English first would have; #134 settled that by asking for
+English directly instead (the screen's own placeholder and hint say so),
+closing the gap at its source rather than translating around it every
+time.
 
 Memory is the other real constraint, not just CPU: `qwen2.5:3b` resident
 in Ollama measures about 2.1 GB on this machine, and the embedding
@@ -827,8 +826,14 @@ screen for uploading a manual, only for asking it questions:
 
 ```sh
 python manage.py ingest_document "BIOBUZZ Competition Manual - TU02.htm" \
-  --season 2026 --source game_manual --title "Manuel BioBuzz TU02"
+  --season 2026 --source game_manual --title "Manuel BioBuzz TU02" \
+  --url "https://ftc-resources.firstinspires.org/ftc/game/cm-html/BIOBUZZ%20Competition%20Manual%20-%20TU02.htm"
 ```
+
+`--url` is optional, but without it a citation from this document has
+nowhere of its own to link to ("Voir dans le manuel" stays off) — it is
+also what the 24-hour source check (below) follows to notice the next
+Team Update.
 
 The manual is read from FIRST's own HTML export
 (`ftc-resources.firstinspires.org/ftc/game/cm-html/...`), never the PDF: a
@@ -861,9 +866,16 @@ robot over their gate...`), and a fixed-size window cut across them would
 leave a citation unable to say which one it was quoting — a Q&A answer also
 references rules mid-sentence ("this would violate G410"), so it is chunked
 by its own `Q<n>` numbering rather than the manual's rule chunker, which
-would otherwise read every such reference as a new rule starting. A citation
-carries its own `reference` (`G420`, `10.6.4`, `Q44`, or empty for front
-matter) alongside its text.
+would otherwise read every such reference as a new rule starting. A numbered
+heading with nothing of its own before the next one opens — a subsection
+title and nothing else — is dropped rather than kept as a citation that
+would only ever point back at its own heading text (31 of 364 passages on
+the real manual, #134). A citation carries its own `reference` (`G420`,
+`10.6.4`, `Q44`, or empty for front matter) alongside its text, and a `url`
+straight to its own place on FIRST's page (`document.url` plus the
+passage's own anchor — a rule's is its own reference, a section's the
+Word-generated id its heading carries) when the document has one; `null`
+otherwise, for whatever was ingested from a bare file.
 
 The first `ingest_document` or `POST /api/rules/ask/` on a fresh install
 downloads the embedding model once (1.1GB, cached under
@@ -889,19 +901,24 @@ language, about a manual FIRST never publishes in French, shared no token
 with the passage that answered them. A real embedding closes that gap:
 "Est-ce que le robot peut toucher un autre robot pendant l'autonome ?"
 retrieves the manual's English contact rules directly, nothing in common
-between the two but what they mean. Calibrated on the real manual, chunked
-by rule rather than by word window (364 passages, TU02), against 90 real
-questions spanning every section and 10 off-topic controls: every off-topic
-question fell below the threshold that still answered 89 of the 90 real
-ones. The margin is thin, not a comfortable gap — the weakest real question
-and the strongest off-topic one both score 0.808, tied to the thousandth —
-so read 89/90 as what held on this one question set, not a guarantee a
-different set of off-topic phrasings would preserve, and rerun the scan
-after any change to chunking: the same question set scored this boundary at
-0.805/0.806 against the previous, PDF-chunked manual, so re-chunking alone
-moved it even though the threshold value (0.81) did not change. A bigger
-corpus of nonsense phrasings would likely still find something that slips
-through; closing that gap for good would need a classifier trained on real
+between the two but what they mean. Calibrated on the real manual,
+chunked by rule or numbered section with heading-only passages dropped
+(331 passages, TU03), against 46 real English questions spanning every
+section and 12 off-topic English controls: every off-topic question
+fell below the threshold, and every real question still found its own
+passage within what a student is shown. On this run the gap is real,
+not a coin flip — the weakest real question still scores 0.829, the
+strongest off-topic one 0.805 — but still read this as what held on
+this one question set, not a guarantee a different set of off-topic
+phrasings would preserve, and rerun it after any change to chunking or
+to the question's own language: the original French 90-question set
+this threshold was first tuned against was never committed to the
+repo, only described in commit messages, so this one is a fresh
+English-only set built for #134 rather than a continuation of it — the
+two are not directly comparable, and the margin above is this set's
+own, not a tightening of the old one's. A bigger corpus of nonsense
+phrasings would likely still find something that slips through;
+closing that gap for good would need a classifier trained on real
 off-topic traffic, which does not exist yet.
 
 The embedding model itself is not pinned to a revision: `nixiesearch/multilingual-e5-base-onnx`

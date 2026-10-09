@@ -846,6 +846,13 @@ class Chunk(models.Model):
     # ingested before either is recognised. Not unique: a rule too long for
     # one passage keeps its own reference across all of them.
     reference = models.CharField("référence", max_length=20, blank=True, default="")
+    # Where this reference actually lands in the manual's own HTML page
+    # (#134): a rule's is its own anchor, the same string as `reference`
+    # ("G420"); a section's is the Word-generated id its heading carries
+    # ("_Toc205155230"), not the section number shown to a student. Blank
+    # alongside `reference` for front matter, and for a source (the Q&A)
+    # with no page of its own to jump to.
+    anchor = models.CharField("ancre", max_length=30, blank=True, default="")
     text = models.TextField("texte")
     # A fixed-size vector, packed: a manual is a few thousand chunks, and a
     # brute-force dot product over them takes milliseconds — no vector

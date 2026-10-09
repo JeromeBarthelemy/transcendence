@@ -70,6 +70,64 @@ def test_a_citation_carries_its_rule_reference(client):
     assert citation["reference"] == "G420"
 
 
+def test_a_citation_without_a_source_url_carries_no_link(client):
+    this_season = season()
+    ingest_document(
+        season=this_season,
+        source=Document.Source.GAME_MANUAL,
+        title="Manuel BioBuzz",
+        text=RULE_HTML,
+    )
+    client.force_login(student())
+
+    response = client.post(
+        "/api/rules/ask/",
+        {
+            "question": (
+                "Quelle est la hauteur maximale du robot en pouces "
+                "pendant la phase autonome ?"
+            )
+        },
+        content_type="application/json",
+    )
+
+    (citation,) = response.json()["citations"]
+    assert citation["url"] is None
+
+
+def test_a_citation_links_to_its_own_place_in_the_manual(client):
+    # #134: the URL a student is shown is the document's own page plus
+    # this passage's own anchor on it, not just the document's own URL.
+    this_season = season()
+    ingest_document(
+        season=this_season,
+        source=Document.Source.GAME_MANUAL,
+        title="Manuel BioBuzz",
+        url="https://ftc-resources.firstinspires.org/ftc/game/cm-html/manual.htm",
+        text=(
+            "<p class=RuleNumber-Game><a name=G420></a><b>G420</b> "
+            "*Do not tip or entangle. " + RULE + "</p>"
+        ),
+    )
+    client.force_login(student())
+
+    response = client.post(
+        "/api/rules/ask/",
+        {
+            "question": (
+                "Quelle est la hauteur maximale du robot en pouces "
+                "pendant la phase autonome ?"
+            )
+        },
+        content_type="application/json",
+    )
+
+    (citation,) = response.json()["citations"]
+    assert citation["url"] == (
+        "https://ftc-resources.firstinspires.org/ftc/game/cm-html/manual.htm#G420"
+    )
+
+
 def test_an_unrelated_question_carries_the_refusal(client):
     this_season = season()
     ingest_document(
