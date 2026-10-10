@@ -8,6 +8,9 @@ const citationSchema = z.object({
   source: z.enum(["game_manual", "official_qa"]),
   authority: z.enum(["binding", "ruling"]),
   document_title: z.string(),
+  // Where this passage lives on FIRST's own manual page (#134); null when
+  // the source document has no URL or this citation has no anchor on it.
+  url: z.nullable(z.string()),
 });
 
 const ruleAnswerSchema = z.object({
