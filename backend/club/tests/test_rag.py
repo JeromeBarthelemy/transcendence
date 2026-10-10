@@ -9,7 +9,9 @@ from club.rag import (
     chunk_manual,
     chunk_qa,
     embed,
+    glossary_for,
     ingest_document,
+    parse_glossary,
 )
 
 RULE = (
@@ -27,7 +29,11 @@ RULE_HTML = f"<p>{RULE}</p>"
 # Covers what the PDF version got wrong: a table attached to the rule
 # before it (G102's wire table), a mid-sentence cross-reference with no
 # anchor of its own, and a rule ID exported with a stray space after its
-# asterisk (A204, the exact shape that made the PDF miss it).
+# asterisk (A204, the exact shape that made the PDF miss it). Ends with a
+# trimmed copy of the real glossary table (#136), same shape as the real
+# manual's own (confirmed against it while building parse_glossary): a
+# heading titled "Glossary" wrapped in several anchors, then a header row
+# ("Term", "Definition") and two data rows.
 REAL_HTML_EXCERPT = """
 <html><body>
 <p class=MsoToc1><a href="#_Toc1"><span>11 Game Rules (G) .......... 99</span></a></p>
@@ -50,6 +56,13 @@ hanging from, or damaging ARENA elements is prohibited.</p>
 <p class=RulesNumbering-awards><a name=A204></a><span class=normaltextrun><b>A204<span>&nbsp;&nbsp;&nbsp;
 </span></b></span><span class=Headline-Evergreen>*</span> Have the right resources available for your
 Initial Interview.</p>
+<h1><a name="_Ref9"></a><a name="_Toc9"></a><a name="_Toc10">16<span>&nbsp;&nbsp;&nbsp;</span>Glossary</a></h1>
+<p>The following definitions and terms are used for the FIRST Tech Challenge game.</p>
+<table class=MsoTable15Grid1LightAccent1 border=1>
+<tr><td><p><b>Term</b></p></td><td><p><b>Definition</b></p></td></tr>
+<tr><td><p><b>ALLIANCE</b></p></td><td><p>a cooperative of 2 FIRST Tech Challenge teams</p></td></tr>
+<tr><td><p><b>DISABLED</b></p></td><td><p>The REFEREE instructs the team to stop the ROBOT</p></td></tr>
+</table>
 </body></html>
 """
 
@@ -266,6 +279,47 @@ def test_a_rule_longer_than_the_word_budget_is_resplit_under_the_same_reference(
     assert "word399" in joined
 
 
+# --- chunking (glossary) ---
+
+
+def test_the_glossary_table_is_not_chunked_as_regular_passages():
+    # #136: before parse_glossary, this table's rows had no reference of
+    # their own and folded into one chunk under "16" (the heading), re-
+    # split into a handful of passages mixing every term and definition
+    # together — neither a citation nor a glossary entry worth showing.
+    chunks = chunk_manual(REAL_HTML_EXCERPT)
+
+    assert "16" not in [reference for reference, _, _ in chunks]
+    assert not any("cooperative of 2" in text for _, _, text in chunks)
+
+
+def test_content_before_the_glossary_heading_is_still_chunked():
+    # Truncating at the glossary must not also drop everything before it.
+    references = [reference for reference, _, _ in chunk_manual(REAL_HTML_EXCERPT)]
+
+    assert "G101" in references
+    assert "A204" in references
+
+
+def test_the_manuals_glossary_terms_are_read_as_pairs():
+    terms = dict(parse_glossary(REAL_HTML_EXCERPT))
+
+    assert terms == {
+        "ALLIANCE": "a cooperative of 2 FIRST Tech Challenge teams",
+        "DISABLED": "The REFEREE instructs the team to stop the ROBOT",
+    }
+
+
+def test_the_glossary_tables_own_header_row_is_not_read_as_a_term():
+    terms = dict(parse_glossary(REAL_HTML_EXCERPT))
+
+    assert "Term" not in terms
+
+
+def test_a_document_with_no_glossary_heading_has_no_terms():
+    assert parse_glossary("<p>No glossary here.</p>") == []
+
+
 # --- chunking (Q&A) ---
 
 
@@ -326,6 +380,24 @@ def test_ingesting_a_qa_document_chunks_by_entry_not_by_rule():
     doc = document(season(), source=Document.Source.OFFICIAL_QA, text=REAL_QA_EXCERPT)
 
     assert set(doc.chunks.values_list("reference", flat=True)) == {"Q44", "Q45"}
+
+
+def test_ingesting_a_manual_creates_its_glossary_terms():
+    doc = document(season(), text=REAL_HTML_EXCERPT)
+
+    terms = {t.term: t.definition for t in doc.glossary_terms.all()}
+    assert terms == {
+        "ALLIANCE": "a cooperative of 2 FIRST Tech Challenge teams",
+        "DISABLED": "The REFEREE instructs the team to stop the ROBOT",
+    }
+
+
+def test_ingesting_a_qa_document_creates_no_glossary_terms():
+    # The Q&A summary has no glossary of its own to read — only a
+    # game_manual's own text is ever parsed for one.
+    doc = document(season(), source=Document.Source.OFFICIAL_QA, text=REAL_QA_EXCERPT)
+
+    assert not doc.glossary_terms.exists()
 
 
 def test_authority_is_read_off_source_not_asked_for():
@@ -592,3 +664,33 @@ def test_a_failed_citation_write_leaves_no_orphaned_answered_query(monkeypatch):
         )
 
     assert not rag_module.RuleQuery.objects.filter(asker=lina).exists()
+
+
+# --- glossary ---
+
+
+def test_glossary_for_reads_the_latest_manuals_terms():
+    this_season = season()
+    document(this_season, text=RULE_HTML, title="Manuel V1 (pas de glossaire)")
+    document(this_season, text=REAL_HTML_EXCERPT, title="Manuel V2 (Team Update 1)")
+
+    terms = {t.term: t.definition for t in glossary_for(this_season)}
+
+    assert "ALLIANCE" in terms
+
+
+def test_glossary_for_an_older_manual_is_not_mixed_in():
+    # Same "latest document per source" rule `ask` itself follows: an
+    # amended glossary alongside its own superseded one would leave a
+    # student unsure which definition to trust.
+    this_season = season()
+    document(this_season, text=REAL_HTML_EXCERPT, title="Manuel V1")
+    document(this_season, text=RULE_HTML, title="Manuel V2 (pas de glossaire)")
+
+    assert glossary_for(this_season) == []
+
+
+def test_glossary_for_a_season_with_no_manual_is_empty():
+    this_season = season(2026, "BioBuzz")
+
+    assert glossary_for(this_season) == []

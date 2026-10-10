@@ -1,4 +1,4 @@
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   type FormEvent,
   type KeyboardEvent,
@@ -14,6 +14,9 @@ import type { Identity } from "../api/auth";
 import {
   askRules,
   type Citation,
+  type GlossaryTerm,
+  getGlossary,
+  glossaryQueryKey,
   QUESTION_MAX_LENGTH,
   type RuleAnswer,
 } from "../api/rules";
@@ -129,6 +132,45 @@ function BotReply({ exchange }: { exchange: Exchange }) {
   );
 }
 
+function GlossaryPanel({
+  terms,
+  onInsert,
+}: {
+  terms: GlossaryTerm[];
+  onInsert: (term: string) => void;
+}) {
+  const { t } = useTranslation();
+
+  // Quietly absent rather than an empty shell: a season with no manual
+  // ingested yet, or still loading, has nothing to show here (#136).
+  if (terms.length === 0) {
+    return null;
+  }
+
+  return (
+    <details className="mt-4 shrink-0 rounded-2xl border border-primary/12 bg-white/60">
+      <summary className="cursor-pointer px-4 py-2 text-sm font-semibold text-primary">
+        {t("fieldbot.glossaryTitle")}
+      </summary>
+      <ul className="max-h-56 space-y-1 overflow-y-auto px-2 pb-2">
+        {terms.map((entry) => (
+          <li key={entry.term}>
+            <button
+              type="button"
+              onClick={() => onInsert(entry.term)}
+              aria-label={t("fieldbot.glossaryInsert", { term: entry.term })}
+              className="flex w-full flex-wrap items-baseline gap-2 rounded-lg px-2 py-1.5 text-left transition hover:bg-mist"
+            >
+              <span className="font-bold text-ink">{entry.term}</span>
+              <span className="text-xs text-muted">{entry.definition}</span>
+            </button>
+          </li>
+        ))}
+      </ul>
+    </details>
+  );
+}
+
 function Conversation({ identity }: { identity: Identity }) {
   const { t } = useTranslation();
   const inputId = useId();
@@ -136,6 +178,10 @@ function Conversation({ identity }: { identity: Identity }) {
   const [exchanges, setExchanges] = useState<Exchange[]>([]);
   const nextId = useRef(1);
   const logRef = useRef<HTMLOListElement>(null);
+  const glossary = useQuery({
+    queryKey: glossaryQueryKey,
+    queryFn: getGlossary,
+  });
 
   const ask = useMutation({
     mutationFn: ({ question }: { id: number; question: string }) =>
@@ -172,6 +218,13 @@ function Conversation({ identity }: { identity: Identity }) {
     setExchanges((all) => [...all, { id, question }]);
     setDraft("");
     ask.mutate({ id, question });
+  }
+
+  function insertTerm(term: string) {
+    setDraft((current) => {
+      const trimmed = current.trimEnd();
+      return trimmed.length > 0 ? `${trimmed} ${term}` : term;
+    });
   }
 
   function sendOnEnter(event: KeyboardEvent<HTMLTextAreaElement>) {
@@ -305,6 +358,7 @@ function Conversation({ identity }: { identity: Identity }) {
           </p>
         )}
       </form>
+      <GlossaryPanel terms={glossary.data ?? []} onInsert={insertTerm} />
     </main>
   );
 }
