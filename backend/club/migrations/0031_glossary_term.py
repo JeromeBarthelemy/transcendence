@@ -7,7 +7,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('club', '0030_merge_0029_chunk_anchor_0029_notification_reopened'),
+        ('club', '0030_chunk_anchor'),
     ]
 
     operations = [
