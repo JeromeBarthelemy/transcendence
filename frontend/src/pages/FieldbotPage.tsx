@@ -75,6 +75,16 @@ function CitationCard({ citation }: { citation: Citation }) {
       <p className="mt-2 text-sm leading-6 whitespace-pre-line text-body">
         {citation.text}
       </p>
+      {citation.url && (
+        <a
+          href={citation.url}
+          target="_blank"
+          rel="noreferrer"
+          className="mt-2 inline-block text-sm text-primary underline hover:no-underline"
+        >
+          {t("fieldbot.viewInManual")}
+        </a>
+      )}
     </li>
   );
 }

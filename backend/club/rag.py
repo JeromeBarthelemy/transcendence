@@ -201,6 +201,13 @@ _RULE_ANCHOR = re.compile(r"^[IEAGRTLC]\d{3}$")
 # contents: the export gives the ToC its own paragraph style, never a real
 # <h1>-<h3>, so anything reaching this pattern already is a real heading.
 _SECTION_NUMBER = re.compile(r"^(\d{1,2}(?:\.\d{1,2}){0,3})(?:\s|$)")
+# What a heading actually jumps to (#134): Word plants several of these in
+# a row right before a heading's own text, one of them wrapping it — a
+# cross-reference bookmark (`_Ref…`) sits among them too, but only `_Toc…`
+# ones are ever a real jump target. Any one found is as good as another;
+# the first is kept, since a later Team Update is more likely to add a new
+# one than to remove the first.
+_TOC_ANCHOR = re.compile(r"^_Toc\d+$")
 # Word never opens a new passage anywhere but one of these four tags —
 # everything else (`div`, `span`, `table`, `b`...) is transparent, its text
 # still collected, just under whichever of these last opened.
@@ -213,15 +220,22 @@ _HTML_SKIP_TAGS = frozenset({"style", "script", "head"})
 MAX_WORDS_PER_PASSAGE = 350
 
 
-def _finalize_chunks(open_chunks: list[tuple[str, list[str]]]) -> list[tuple[str, str]]:
+def _finalize_chunks(
+    open_chunks: list[tuple[str, str, list[str]]],
+) -> list[tuple[str, str, str]]:
     """Shared by chunk_rules and chunk_qa: a chunk longer than the word
-    budget is re-split under the same reference rather than truncated."""
-    passages: list[tuple[str, str]] = []
-    for reference, lines in open_chunks:
+    budget is re-split under the same reference and anchor rather than
+    truncated."""
+    passages: list[tuple[str, str, str]] = []
+    for reference, anchor, lines in open_chunks:
         words = " ".join(lines).split()
         for start in range(0, len(words), MAX_WORDS_PER_PASSAGE):
             passages.append(
-                (reference, " ".join(words[start : start + MAX_WORDS_PER_PASSAGE]))
+                (
+                    reference,
+                    anchor,
+                    " ".join(words[start : start + MAX_WORDS_PER_PASSAGE]),
+                )
             )
     return passages
 
@@ -229,18 +243,20 @@ def _finalize_chunks(open_chunks: list[tuple[str, list[str]]]) -> list[tuple[str
 class _ManualParser(HTMLParser):
     """Walks FIRST's own HTML export of the manual (a filtered Word
     document, ftc-resources.firstinspires.org/ftc/game/cm-html/...) into
-    `(reference, text)` blocks in reading order. Nothing here guesses at a
-    reference from wrapped plain text the way the PDF version had to: a
-    rule's own anchor, or a heading's own tag, says outright where one
-    passage ends and the next begins (see `chunk_manual`)."""
+    `(reference, anchor, is_heading, text)` blocks in reading order.
+    Nothing here guesses at a reference from wrapped plain text the way
+    the PDF version had to: a rule's own anchor, or a heading's own tag,
+    says outright where one passage ends and the next begins (see
+    `chunk_manual`)."""
 
     def __init__(self) -> None:
         super().__init__(convert_charrefs=True)
-        self.blocks: list[tuple[str | None, str]] = []
+        self.blocks: list[tuple[str | None, str, bool, str]] = []
         self._skip_depth = 0
         self._heading_depth = 0
         self._in_block = False
         self._block_ref: str | None = None
+        self._block_anchor: str | None = None
         self._buffer: list[str] = []
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
@@ -253,6 +269,8 @@ class _ManualParser(HTMLParser):
             name = dict(attrs).get("name") or ""
             if _RULE_ANCHOR.fullmatch(name):
                 self._block_ref = name
+            elif self._block_anchor is None and _TOC_ANCHOR.fullmatch(name):
+                self._block_anchor = name
             return
         if tag in _HTML_BLOCK_TAGS:
             self._in_block = True
@@ -284,20 +302,24 @@ class _ManualParser(HTMLParser):
         text = re.sub(r"\s+", " ", "".join(self._buffer).replace("\xa0", " ")).strip()
         self._buffer = []
         if text:
-            if self._heading_depth:
+            is_heading = bool(self._heading_depth)
+            if is_heading:
                 match = _SECTION_NUMBER.match(text)
                 reference = match.group(1) if match else None
+                anchor = self._block_anchor or ""
             else:
                 reference = self._block_ref
-            self.blocks.append((reference, text))
+                anchor = reference or ""
+            self.blocks.append((reference, anchor, is_heading, text))
         self._block_ref = None
+        self._block_anchor = None
 
     def close(self) -> None:
         self._flush()
         super().close()
 
 
-def chunk_manual(html_text: str) -> list[tuple[str, str]]:
+def chunk_manual(html_text: str) -> list[tuple[str, str, str]]:
     """One passage per rule or numbered section, not a sliding word window
     over extracted text: the manual is built on these, and a passage cut
     across them couldn't say which one it was quoting.
@@ -315,48 +337,61 @@ def chunk_manual(html_text: str) -> list[tuple[str, str]]:
     of contents (its own, differently tagged, paragraphs) — see
     `_ManualParser`.
 
-    Returns `(reference, passage)` pairs; `reference` is "" for whatever
-    precedes the first recognised rule or section — front matter, kept
-    rather than guessed at or dropped."""
+    Returns `(reference, anchor, passage)` triples; `reference` and
+    `anchor` are both "" for whatever precedes the first recognised rule
+    or section — front matter, kept rather than guessed at or dropped.
+
+    A numbered heading with nothing of its own before the next one opens
+    — "11.4.4 ROBOT", a subsection title and nothing else, 31 of 364 on
+    the real manual (#134) — is dropped rather than kept as a citation
+    that would only ever point to its own heading text: a student citing
+    it would learn nothing a plain heading on the screen hadn't already
+    said."""
     parser = _ManualParser()
     parser.feed(html_text)
     parser.close()
 
-    open_chunks: list[tuple[str, list[str]]] = []
-    for reference, text in parser.blocks:
+    open_chunks: list[tuple[str, str, bool, list[str]]] = []
+    for reference, anchor, is_heading, text in parser.blocks:
         if reference is not None:
-            open_chunks.append((reference, [text]))
+            open_chunks.append((reference, anchor, is_heading, [text]))
         elif open_chunks:
-            open_chunks[-1][1].append(text)
+            open_chunks[-1][3].append(text)
         else:
-            open_chunks.append(("", [text]))
+            open_chunks.append(("", "", False, [text]))
 
-    return _finalize_chunks(open_chunks)
+    kept = [
+        (reference, anchor, lines)
+        for reference, anchor, is_heading, lines in open_chunks
+        if not (is_heading and len(lines) == 1)
+    ]
+    return _finalize_chunks(kept)
 
 
-def chunk_qa(text: str) -> list[tuple[str, str]]:
+def chunk_qa(text: str) -> list[tuple[str, str, str]]:
     """One passage per Q&A entry, not run through `chunk_manual`: an answer
     references a rule mid-sentence ("this would violate G410"), a shape
     `chunk_manual` would read as a *new* rule opening — reusing it here
     would slice a single entry apart at every rule it happens to mention.
     Runs on the Q&A summary's own numbering instead.
 
-    Returns `(reference, passage)` pairs exactly like `chunk_manual`, so a
-    citation is shown the same way regardless of source — "Q44" alongside
-    "G420" — rather than adding a field only one source's citations would
-    ever use."""
-    open_chunks: list[tuple[str, list[str]]] = []
+    Returns `(reference, anchor, passage)` triples exactly like
+    `chunk_manual`, so a citation is shown the same way regardless of
+    source — "Q44" alongside "G420" — rather than adding a field only
+    one source's citations would ever use. `anchor` is always "": the
+    Q&A summary is plain text, with no page of its own to jump to."""
+    open_chunks: list[tuple[str, str, list[str]]] = []
     for raw_line in text.splitlines():
         line = raw_line.strip()
         if not line or _RUNNING_HEADER.match(line) or _TOC_LEADER.search(line):
             continue
         match = _QA_REFERENCE.match(line)
         if match:
-            open_chunks.append((match.group(1), [line]))
+            open_chunks.append((match.group(1), "", [line]))
         elif open_chunks:
-            open_chunks[-1][1].append(line)
+            open_chunks[-1][2].append(line)
         else:
-            open_chunks.append(("", [line]))
+            open_chunks.append(("", "", [line]))
 
     return _finalize_chunks(open_chunks)
 
@@ -366,7 +401,7 @@ def chunk_qa(text: str) -> list[tuple[str, str]]:
 # source correctly. `chunk_manual` also only reads HTML, never a PDF (see
 # its own docstring) — `ingest_document.py` refuses a PDF for the manual
 # rather than let this dispatch feed it one silently.
-_CHUNKER_OF: dict[str, Callable[[str], list[tuple[str, str]]]] = {
+_CHUNKER_OF: dict[str, Callable[[str], list[tuple[str, str, str]]]] = {
     Document.Source.GAME_MANUAL: chunk_manual,
     Document.Source.OFFICIAL_QA: chunk_qa,
 }
@@ -395,7 +430,7 @@ def ingest_document(
     a manual and a Q&A summary are structured too differently for one
     chunker to read both correctly (see `chunk_manual`, `chunk_qa`)."""
     passages = _CHUNKER_OF[source](text)
-    embeddings = _embed_many([passage for _, passage in passages], is_query=False)
+    embeddings = _embed_many([passage for _, _, passage in passages], is_query=False)
     with transaction.atomic():
         document = Document.objects.create(
             season=season,
@@ -411,10 +446,11 @@ def ingest_document(
                 document=document,
                 ordinal=ordinal,
                 reference=reference,
+                anchor=anchor,
                 text=passage,
                 embedding=embedding,
             )
-            for ordinal, ((reference, passage), embedding) in enumerate(
+            for ordinal, ((reference, anchor, passage), embedding) in enumerate(
                 zip(passages, embeddings), start=1
             )
         )
@@ -517,6 +553,18 @@ def ask(question: str, season: Season, asker: User) -> RuleQuery:
     return query
 
 
+def _citation_url(chunk: Chunk) -> str | None:
+    """Where "Voir dans le manuel" opens (#134): FIRST's own page, at this
+    passage's own spot — a rule's anchor is a real id on that page, a
+    section's the Word-generated one its heading carries, neither any
+    good without the page they're on (`Document.url`, set at ingestion
+    by `--url`; blank for whatever was ingested from a bare file)."""
+    document = chunk.document
+    if not document.url or not chunk.anchor:
+        return None
+    return f"{document.url}#{chunk.anchor}"
+
+
 def serialize(query: RuleQuery) -> dict[str, Any]:
     return {
         "question": query.question,
@@ -529,6 +577,7 @@ def serialize(query: RuleQuery) -> dict[str, Any]:
                 "source": citation.chunk.document.source,
                 "authority": citation.chunk.document.authority,
                 "document_title": citation.chunk.document.title,
+                "url": _citation_url(citation.chunk),
             }
             for citation in query.citations.select_related("chunk__document")
         ],
