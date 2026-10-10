@@ -509,14 +509,20 @@ it("forgets every query of the previous account on logout", async () => {
 });
 
 it("starts a login with nothing of the previous account cached", async () => {
+  // The home page refetches the identity once the login lands: like a real
+  // session, the fake answers Marie from then on, not `null` over her.
+  let signedIn = false;
   vi.stubGlobal(
     "fetch",
     vi.fn(async (path: string) => {
       if (path === "/api/auth/me/") {
         setDocumentCookie("csrftoken=first-token; path=/");
-        return json(null, 200);
+        return json(signedIn ? marieIdentity : null, 200);
       }
-      if (path === "/api/auth/login/") return json(marieIdentity, 200);
+      if (path === "/api/auth/login/") {
+        signedIn = true;
+        return json(marieIdentity, 200);
+      }
       if (path.endsWith("/work-items/")) return json([], 200);
       if (path.includes("/days/")) {
         return json(
