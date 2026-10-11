@@ -1,4 +1,5 @@
 import threading
+from http.client import InvalidURL
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.error import URLError
 
@@ -133,6 +134,24 @@ def test_a_page_that_cannot_be_fetched_is_reported_not_raised(monkeypatch):
 
     assert outcome.status == "error"
     assert "ne répond pas" in outcome.detail
+
+
+def test_a_malformed_url_is_reported_not_raised(monkeypatch):
+    # #238: urllib raises http.client.InvalidURL for a URL control
+    # character (an unencoded space, say) before it ever reaches the
+    # network — a different exception type than a reachable server
+    # refusing the request, but the same "tell the admin" outcome.
+    copy = manual_copy(season())
+
+    def malformed(url):
+        raise InvalidURL("URL can't contain control characters")
+
+    monkeypatch.setattr("club.sources.fetch_page", malformed)
+
+    outcome = check_document(copy)
+
+    assert outcome.status == "error"
+    assert "control characters" in outcome.detail
 
 
 # --- accepting ---
@@ -317,6 +336,31 @@ def test_a_page_that_cannot_be_fetched_is_refused_by_name(client, monkeypatch):
         raise URLError("hors ligne")
 
     monkeypatch.setattr("club.sources.fetch_page", unreachable)
+
+    response = client.post(
+        "/api/rules/sources/",
+        {
+            "source": "game_manual",
+            "url": "https://ftc-resources.firstinspires.org/ftc/game/cm-html/m.htm",
+        },
+        content_type="application/json",
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"]["code"] == "fetch_failed"
+
+
+def test_a_malformed_url_is_refused_by_name_not_a_500(client, monkeypatch):
+    # #238: add_source hits the same fetch_page as check_document, and the
+    # same gap — adding a source by a URL with a control character must
+    # refuse by name, never 500.
+    season()
+    client.force_login(administrator())
+
+    def malformed(url):
+        raise InvalidURL("URL can't contain control characters")
+
+    monkeypatch.setattr("club.sources.fetch_page", malformed)
 
     response = client.post(
         "/api/rules/sources/",

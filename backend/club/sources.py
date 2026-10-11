@@ -9,6 +9,7 @@ copy until then (club/api/views.py, RuleSourcesView).
 import difflib
 import hashlib
 from dataclasses import dataclass
+from http.client import InvalidURL
 from typing import TypedDict
 from urllib.error import URLError
 from urllib.parse import unquote, urlsplit
@@ -140,7 +141,7 @@ def _forget_pending(document: Document) -> None:
 def check_document(document: Document) -> CheckOutcome:
     try:
         page = fetch_page(document.url)
-    except (URLError, OSError, ValueError) as error:
+    except (URLError, OSError, ValueError, InvalidURL) as error:
         return CheckOutcome(document, "error", str(error))
 
     digest = content_hash(page)

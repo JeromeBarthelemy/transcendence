@@ -2,6 +2,7 @@
 tenant to resolve: every route below is about the person calling it."""
 
 import tempfile
+from http.client import InvalidURL
 from itertools import islice
 from typing import Any
 
@@ -1286,7 +1287,7 @@ class RuleSourcesView(APIView):
             raise DjangoValidationError(
                 "La page ne contient aucun passage à indexer.", code="no_passage"
             ) from error
-        except (OSError, ValueError) as error:
+        except (OSError, ValueError, InvalidURL) as error:
             raise DjangoValidationError(
                 "La page n'a pas pu être récupérée.", code="fetch_failed"
             ) from error
