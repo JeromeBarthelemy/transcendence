@@ -723,3 +723,113 @@ it("removes a team note its author left by mistake", async () => {
     expect(screen.queryByText("Réunion annulée.")).toBeNull(),
   );
 });
+
+it("tells a club admin a rulebook source has an update waiting, linking to its review", async () => {
+  const user = userEvent.setup();
+  const fetchMock = vi.fn(async (path: string) => {
+    if (path === "/api/auth/me/") {
+      return json({
+        ...identity([teamSeason(7, 1796, "Les Rouages")]),
+        is_club_admin: true,
+      });
+    }
+    if (path.startsWith("/api/team-seasons/7/days/")) {
+      return workday(path);
+    }
+    if (path === "/api/team-seasons/7/work-items/") {
+      return json([]);
+    }
+    if (path === "/api/rules/sources/") {
+      return json([
+        {
+          source: "game_manual",
+          title: "Manuel BioBuzz TU03",
+          url: "https://ftc-resources.firstinspires.org/manual.htm",
+          fetched_at: "2026-10-01T10:00:00Z",
+          checked_at: "2026-10-09T08:00:00Z",
+          pending: {
+            detected_at: "2026-10-10T09:00:00Z",
+            summary: {
+              added: 1,
+              removed: 0,
+              changed: 0,
+              references: [],
+              references_total: 0,
+            },
+          },
+          check: null,
+        },
+        {
+          source: "official_qa",
+          title: null,
+          url: "",
+          fetched_at: null,
+          checked_at: null,
+          pending: null,
+          check: null,
+        },
+      ]);
+    }
+    throw new Error(`Unexpected request: ${path}`);
+  });
+  vi.stubGlobal("fetch", fetchMock);
+  const router = renderHome();
+
+  const badge = await screen.findByRole("link", {
+    name: "Une mise à jour du règlement est disponible",
+  });
+  await user.click(badge);
+
+  await waitFor(() =>
+    expect(router.state.location.pathname).toBe("/rules/sources"),
+  );
+});
+
+it("shows no rulebook badge to an admin when nothing is pending", async () => {
+  const fetchMock = vi.fn(async (path: string) => {
+    if (path === "/api/auth/me/") {
+      return json({
+        ...identity([teamSeason(7, 1796, "Les Rouages")]),
+        is_club_admin: true,
+      });
+    }
+    if (path.startsWith("/api/team-seasons/7/days/")) {
+      return workday(path);
+    }
+    if (path === "/api/team-seasons/7/work-items/") {
+      return json([]);
+    }
+    if (path === "/api/rules/sources/") {
+      return json([
+        {
+          source: "game_manual",
+          title: "Manuel BioBuzz TU03",
+          url: "https://ftc-resources.firstinspires.org/manual.htm",
+          fetched_at: "2026-10-01T10:00:00Z",
+          checked_at: "2026-10-09T08:00:00Z",
+          pending: null,
+          check: null,
+        },
+        {
+          source: "official_qa",
+          title: null,
+          url: "",
+          fetched_at: null,
+          checked_at: null,
+          pending: null,
+          check: null,
+        },
+      ]);
+    }
+    throw new Error(`Unexpected request: ${path}`);
+  });
+  vi.stubGlobal("fetch", fetchMock);
+  renderHome();
+
+  await screen.findByRole("heading", { name: "Équipe 1796 · Les Rouages" });
+  expect(
+    screen.queryByRole("link", {
+      name: "Une mise à jour du règlement est disponible",
+    }),
+  ).toBeNull();
+});
