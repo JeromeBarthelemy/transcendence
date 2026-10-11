@@ -43,6 +43,23 @@ def test_a_mentor_sees_every_team_season(client):
     ]
 
 
+def test_a_mentor_sees_their_own_team_first(client):
+    paul = person("paul", User.ClubRole.MENTOR)
+    other, theirs = team_season(111), team_season(222)
+    Membership.objects.create(user=paul, team_season=theirs)
+
+    assert team_season_ids(client, paul) == [theirs.id, other.id]
+
+
+def test_a_mentor_s_team_from_last_season_comes_after_this_season(client):
+    paul = person("paul", User.ClubRole.MENTOR)
+    last_year = team_season(111, start_year=2025)
+    this_year = team_season(222, start_year=2026)
+    Membership.objects.create(user=paul, team_season=last_year)
+
+    assert team_season_ids(client, paul) == [this_year.id, last_year.id]
+
+
 def test_a_student_without_a_team_gets_an_empty_list(client):
     team_season(111)
 
