@@ -336,7 +336,7 @@ it("loads another team's work items when the selection changes", async () => {
     throw new Error(`Unexpected request: ${path}`);
   });
   vi.stubGlobal("fetch", fetchMock);
-  renderHome();
+  const router = renderHome();
 
   await openSection("Chantiers");
   const selector = await screen.findByLabelText("Changer d'équipe");
@@ -348,6 +348,51 @@ it("loads another team's work items when the selection changes", async () => {
     }),
   ).toBeTruthy();
   expect(await screen.findByText("Châssis")).toBeTruthy();
+  expect(router.state.location.search).toBe("?section=work-items&team=8");
+});
+
+function twoTeams(path: string): Response {
+  if (path === "/api/auth/me/") {
+    return json(
+      identity([
+        teamSeason(7, 1796, "Les Rouages"),
+        teamSeason(8, 6543, "Les Engrenages"),
+      ]),
+    );
+  }
+  if (path.includes("/days/")) {
+    return workday(path);
+  }
+  return json([]);
+}
+
+it("opens the team the URL names", async () => {
+  vi.stubGlobal("fetch", vi.fn(twoTeams));
+  renderHome("/?team=8");
+
+  expect(
+    await screen.findByRole("heading", {
+      name: "Équipe 6543 · Les Engrenages",
+    }),
+  ).toBeTruthy();
+});
+
+it("keeps the chosen team when switching section", async () => {
+  vi.stubGlobal("fetch", vi.fn(twoTeams));
+  const router = renderHome("/?team=8");
+
+  await openSection("Activité");
+
+  expect(router.state.location.search).toBe("?section=activity&team=8");
+});
+
+it("opens the first team when the URL names none of the member's", async () => {
+  vi.stubGlobal("fetch", vi.fn(twoTeams));
+  renderHome("/?team=99");
+
+  expect(
+    await screen.findByRole("heading", { name: "Équipe 1796 · Les Rouages" }),
+  ).toBeTruthy();
 });
 
 it("shows every work item and filters them by status", async () => {

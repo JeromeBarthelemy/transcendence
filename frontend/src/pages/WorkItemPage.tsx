@@ -789,14 +789,14 @@ function WorkItemScreen({
       await queryClient.invalidateQueries({
         queryKey: ["team-seasons", item.team_season, "work-items"],
       });
-      navigate("/");
+      navigate(`/?team=${item.team_season}`);
     },
   });
 
   return (
     <Page width="6xl">
       <Link
-        to="/"
+        to={`/?team=${item.team_season}`}
         className="text-sm font-semibold text-primary hover:underline"
       >
         ← {t("workItem.back")}
