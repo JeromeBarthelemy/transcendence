@@ -775,46 +775,35 @@ the entry it belongs to, leaves the disk once the deletion is committed.
 
 ## Rulebook questions
 
-A member asks the current season's game manual a question. Retrieval finds
-the passages that answer it, ranked first by how much they may be trusted,
-then by how well they answer it; a local model (`club/generation.py`, Ollama,
-`compose.yml`'s `ollama` service) then writes a short French answer from
-those passages alone, naming the references it relies on. No passage above
-the retrieval threshold means no generation either — the system's own
-refusal stands instead, so nothing is ever invented past what the source
-says. A citation the model gets wrong — shortened, misspelled, made up
-outright — is refused the same way a model that cannot be reached is: the
-citations stand on their own instead, rather than an answer that reads as
-checkable and is not. `RAG_GENERATION_MODEL` (`backend/.env`) picks the
-model — swapping it for another one Ollama has pulled needs no code
-change.
+A member asks the current season's game manual a question, in English like
+the manual itself. Retrieval puts candidates forward by meaning (the
+embedding below) and by keywords (BM25, `club/ranking.py`), puts each back
+together as a whole rule — a long rule is stored as several passages — and
+has a cross-encoder (`Xenova/ms-marco-MiniLM-L-6-v2`, through `fastembed`)
+read each rule with the question, each table row also on its own under its
+rule's heading and the table's caption. The five best rules, the manual's
+first, go to a local model (`club/generation.py`, Ollama, `compose.yml`'s
+`ollama` service) in one call held to a JSON schema: the one or two rules it
+relies on, picked among those five, then a short English reply. Only those
+rules are shown under the answer, below a warning that it is drafted
+automatically, without guarantee, and that only the rules shown are binding.
+No passage above the retrieval threshold, or no rule the model finds
+answering, means the system's own refusal instead; a model that cannot be
+reached leaves the five rules read standing on their own.
+`RAG_GENERATION_MODEL` (`backend/.env`) picks the model,
+`qwen3:4b-instruct-2507-q4_K_M` by default — swapping it for another one
+Ollama has pulled needs no code change.
 
-A smaller, faster model was tried and measured faster and just as clean by
-every automatic check — and, read by hand against what it actually
-retrieved, wrong often enough to drop: confidently answering from a
-passage that didn't address the question, never once saying "the passages
-given don't say". `qwen2.5:3b` hedges in exactly that case instead, which
-no citation check can tell apart from a model confidently wrong, so the
-choice rests on reading its answers, not just counting its citations.
-
-Reading real answers by hand (#207's own review, both Jerome's and a
-sweep of my own) found two more ways of being wrong no citation check
-alone catches: answering in English because the retrieved passage was,
-and citing nothing at all. Both now refuse the same way a wrong
-reference does (`generation.py`), and the model is asked again —
-sampled fresh, not deterministic — rather than settling for one bad
-draft, now that correctness matters more than how long an answer takes
-to arrive. Passages reach the model whole; `GENERATION_TIMEOUT_SECONDS`
-is 90 s per attempt, up to `GENERATION_MAX_ATTEMPTS` (3) attempts, so a
-hard failure (the model unreachable) is bounded at 90 s but three bad
-samples in a row can take several minutes. Read by hand against the
-real manual, this reliably turned confidently wrong answers (a real
-citation next to the wrong meaning, or a different rule entirely cited
-with the model's own text admitting it doesn't fit) into either a
-correct one on a later sample or a safe refusal — never, in this
-reading, a wrong one reaching the screen. Flash attention and a
-quantized KV cache (`compose.yml`'s `ollama` service) still cost nothing
-in accuracy and still help, just no longer the main lever.
+Measured by reading answers to 68 real questions by hand (#215): the
+previous design — a free French sentence whose bracketed citations were
+parsed back out, checked for language and relevance by further calls, and
+drawn up to five times — refused 16 good answers out of 68. The checks are
+gone; the warning and the rules shown replace them. On the same questions,
+`qwen3:4b` answered 56 correctly against 46 for `qwen2.5:3b`. A table is
+read row by row, each value labelled with its column (`PARK; MATCH points
+AUTO: 5`), since a flattened row loses what its numbers count. An answer
+takes about 9 s with a graphics card (a GTX 1060), close to a minute on a
+4-core processor without one; `GENERATION_TIMEOUT_SECONDS` is 90 s.
 
 Retrieval itself runs on the question as asked. It once ran on French
 questions against an English manual, which measurably found the right
@@ -824,15 +813,16 @@ English directly instead (the screen's own placeholder and hint say so),
 closing the gap at its source rather than translating around it every
 time.
 
-Memory is the other real constraint, not just CPU: `qwen2.5:3b` resident
-in Ollama measures about 2.1 GB on this machine, and the embedding
-model's own cache on disk is another 1.1 GB — before Django, an ingest,
-or anything else running alongside. Comfortable here; likely tight on a
-laptop nearer the lower end of what the club has.
+Memory is the other real constraint, not just CPU: the generation model
+is a 2.5 GB download (`qwen2.5:3b`, the previous one, measured 2.1 GB
+resident), the embedding model's own cache on disk another 1.1 GB and
+the cross-encoder's ~90 MB — before Django, an ingest, or anything else
+running alongside. Likely tight on a laptop nearer the lower end of what
+the club has.
 
 | route | does |
 | --- | --- |
-| `POST /api/rules/ask/` | a question, answered with a generated French answer and up to ten cited passages from this season's ingested documents |
+| `POST /api/rules/ask/` | a question, answered in English from this season's ingested documents, with the one or two rules the answer relies on |
 | `GET /api/rules/glossary/` | the current season's glossary — its latest manual's own terms and definitions, read at ingestion (#136); quietly `[]` without one |
 | `GET /api/rules/sources/` | administrators only: per source, the copy searched, when it was checked, and any change waiting for acceptance with its summary |
 | `POST /api/rules/sources/` | administrators only: `source` (`game_manual`) and `url` on FIRST's own site (`https`, `ftc-resources.firstinspires.org`) — fetches the page, ingests it as the new copy, and the checks follow that URL from now on; `400` with `source_not_allowed`, `fetch_failed` (also when a redirect leaves FIRST's site) or `no_passage` (a page with nothing to index) otherwise |
@@ -871,13 +861,13 @@ outright rather than silently ingest one undifferentiated passage.
 
 `--source` is one of `game_manual` or `official_qa`, and decides the
 document's authority (respectively `binding`, `ruling`) — never asked for on
-its own, so a typo can't file the Q&A as binding. Citations are ordered by
+its own, so a typo can't file the Q&A as binding. Rules are ordered by
 authority first, score second: the manual is explicit that it takes
 precedence over the Q&A, so a `binding` passage is always quoted ahead of a
-`ruling` one that merely scored higher, and every match above the threshold
-is considered for this ordering before being cut to the ten kept — cutting
-by score first could otherwise drop a `binding` passage that a handful of
-`ruling` ones outscored. A question is answered plainly when anything clears
+`ruling` one that merely scored higher, and every rule ranked is
+considered for this ordering before being cut to the five the model reads
+— cutting by score first could otherwise drop a `binding` rule that a
+handful of `ruling` ones outscored. A question is answered plainly when anything clears
 the threshold; otherwise the response carries a refusal instead of a guess,
 pointing to FIRST's own Q&A. Only the latest ingested document per
 `(season, source)` is searched — FIRST republishes the manual with every
@@ -920,8 +910,10 @@ replace the old ones the moment it is ingested, never alongside them.
 The first `ingest_document` or `POST /api/rules/ask/` on a fresh install
 downloads the embedding model once (1.1GB, cached under
 `backend/.cache/fastembed`, inside the existing `backend/` bind mount in
-`compose.yml` so a `down` and `up` does not re-download it) — the only
-network access this module ever makes; every call after that is local.
+`compose.yml` so a `down` and `up` does not re-download it), and the first
+question the cross-encoder (~90 MB, same cache) — the only network access
+this module ever makes; every call after that is local. Each Team Update,
+and this version's reading of tables, needs the manual ingested again.
 
 There is no vector database behind this: a manual is a few thousand
 passages, and ranking them against a question is a NumPy dot product, cheap
@@ -935,7 +927,7 @@ the one trade-off is ingestion, roughly twice as slow, since ONNX's CPU
 provider favours short sequences over the long batches ingestion needs),
 278M parameters, CPU-only, downloaded once and cached locally, nothing sent
 anywhere at question time. An earlier version hashed a bag-of-words and
-ranked it with Okapi BM25, which worked only when a question quoted the
+ranked it with Okapi BM25 alone, which worked only when a question quoted the
 manual's own English vocabulary — a member asking in French, the club's own
 language, about a manual FIRST never publishes in French, shared no token
 with the passage that answered them. A real embedding closes that gap:

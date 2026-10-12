@@ -83,16 +83,16 @@ if MODEL_NAME not in {m["model"] for m in TextEmbedding.list_supported_models()}
         model_file="model.onnx",
     )
 # A cross-encoder reads the question and a rule together, rather than
-# comparing two vectors made apart: in measurement 9, the expected rule
-# ranked first for 64 questions out of 74, and in the top 5 for 71. Run
+# comparing two vectors made apart: measured on 74 questions (#215), the
+# expected rule ranked first for 64 of them, and in the top 5 for 71. Run
 # through fastembed like the embedding; its ONNX export is ~90 MB.
 RERANKER_NAME = "Xenova/ms-marco-MiniLM-L-6-v2"
 # fastembed defaults to a temp directory, gone on the next reboot — not
 # "downloaded once", the whole point of caching it at all.
 FASTEMBED_CACHE_DIR = str(Path(settings.BASE_DIR) / ".cache" / "fastembed")
 DIMENSIONS = 768
-# How many rules the model reads. With 3, measurement 9 lost the answers
-# whose rule ranked 4th or 5th; each rule more costs the model reading time.
+# How many rules the model reads. With 3, answers whose rule ranked 4th or
+# 5th were lost (#215); each rule more costs the model reading time.
 TOP_K = 5
 # How many candidates each of the embedding and the keyword scores puts
 # forward for the cross-encoder to rank.

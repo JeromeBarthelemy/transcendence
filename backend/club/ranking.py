@@ -3,7 +3,7 @@ model behind them: keyword scores next to the embedding's, and the windows
 a rule is read in by the cross-encoder.
 
 Keywords catch what the embedding misses: a rule named by one rare word
-("laser", "OpenMV") ranked 17th or 64th by meaning alone (measurement 9).
+("laser", "OpenMV") ranked 17th or 64th by meaning alone (#215).
 """
 
 import math
@@ -73,7 +73,7 @@ def windows(text: str) -> list[str]:
     """What the cross-encoder reads of one rule: overlapping windows of its
     text, then each table row alone, under the rule's first line and the
     table's caption — inside a 120-word window, one row of a long table is
-    drowned by its neighbours (measurement 9: PARK ranked 12th)."""
+    drowned by its neighbours (#215: PARK ranked 12th)."""
     words = text.split()
     if len(words) <= WINDOW_WORDS:
         parts = [text]

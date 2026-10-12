@@ -6,7 +6,7 @@ reply is held to a JSON schema: the one or two rules it relies on, picked
 among those it was given, then a short reply. No check of the reply
 afterwards: the student reads it under a warning that only the rules shown
 are binding, and the rules shown are the ones the reply relies on.
-Measurement 9 (76 questions, read by hand) found the checks tried before
+Answers to 76 questions read by hand (#215) found the checks tried before
 refusing good answers more often than they caught wrong ones.
 
 The model runs through Ollama (`compose.yml`'s `ollama` service), read from

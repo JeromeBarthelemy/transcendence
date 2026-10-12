@@ -243,12 +243,16 @@ garde ceux sans activité à zéro, avec un lien vers leur détail. Les statuts 
 **Chez nous** — le manuel de jeu et le Q&A officiel, avec un rang d'autorité par
 source. Pas de base vectorielle : les embeddings tiennent dans un
 `BinaryField` et le produit scalaire se fait en force brute, en Python, sur
-quelques milliers de passages. Un modèle local (Ollama, `qwen2.5:3b` par
-défaut, changeable sans toucher au code) écrit ensuite une réponse en
-français à partir des seuls passages retenus, en citant leurs références ;
-aucun passage retenu, aucune génération, la phrase de refus du système
-suffit. Un modèle injoignable laisse la réponse vide : les passages cités
-restent affichés en dessous.
+quelques milliers de passages. Les mots-clés (BM25) proposent d'autres
+candidats, et un cross-encoder relit chaque règle entière avec la question
+pour garder les cinq meilleures. Un modèle local (Ollama,
+`qwen3:4b-instruct` par défaut, changeable sans toucher au code) écrit
+ensuite une réponse courte en anglais, comme le manuel et la question, et
+désigne les une ou deux règles sur lesquelles elle s'appuie : seules
+celles-ci s'affichent, sous un avertissement disant que la réponse n'est
+pas garantie et que seuls ces passages font foi. Aucun passage retenu, ou
+aucune règle qui réponde : la phrase de refus du système suffit. Un modèle
+injoignable laisse les règles lues affichées seules.
 
 **Démo (3 min)** — poser une question de règlement, montrer la réponse générée
 puis les passages cités et leur rang d'autorité. Poser une question que le
