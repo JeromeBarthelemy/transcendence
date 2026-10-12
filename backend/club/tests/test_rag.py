@@ -12,6 +12,7 @@ from club.rag import (
     glossary_for,
     ingest_document,
     parse_glossary,
+    rerank,
 )
 
 RULE = (
@@ -587,6 +588,84 @@ def test_a_generation_failure_logs_its_cause(monkeypatch, caplog):
         )
 
     assert "hors ligne" in caplog.text
+
+
+def rule_html(reference, text):
+    return (
+        f"<p class=RuleNumber-Game><a name={reference}></a><b>{reference}</b> "
+        f"{text}</p>"
+    )
+
+
+def references_read_by_the_model(monkeypatch, html, question):
+    """The rules the model is given, in the order it reads them."""
+    this_season = season()
+    document(this_season, source=Document.Source.GAME_MANUAL, text=html)
+    read: list[str] = []
+
+    def capture(question, chunks):
+        read.extend(chunk.reference for chunk in chunks)
+        return ""
+
+    monkeypatch.setattr("club.rag.generate_answer", capture)
+    ask(question, this_season, asker())
+    return list(dict.fromkeys(read)), read
+
+
+def test_a_rule_cut_in_two_passages_reaches_the_model_whole(monkeypatch):
+    # The second passage alone says nothing about the question, but a rule
+    # read half is how an exception at its end gets missed.
+    expansion = "The ROBOT may expand beyond its STARTING CONFIGURATION. "
+    portfolio = "Teams should record every design change in their PORTFOLIO. "
+    html = rule_html("R105", "*Robots may expand after the MATCH starts.") + "".join(
+        f"<p>{sentence * 12}</p>"
+        for sentence in (expansion, expansion, portfolio, portfolio)
+    )
+
+    _, chunks_read = references_read_by_the_model(
+        monkeypatch, html, "Can the robot expand after the match starts?"
+    )
+
+    assert chunks_read == ["R105", "R105"]
+
+
+def test_the_model_reads_at_most_five_rules(monkeypatch):
+    html = "".join(
+        rule_html(f"R10{n}", f"*The ROBOT must not be taller than {10 + n} inches.")
+        for n in range(7)
+    )
+
+    rules, _ = references_read_by_the_model(
+        monkeypatch, html, "How tall can the robot be?"
+    )
+
+    assert len(rules) == 5
+
+
+def test_rules_reach_the_model_in_the_cross_encoders_order(monkeypatch):
+    html = rule_html("R101", "*ROBOT height.") + rule_html("R102", "*ROBOT width.")
+    monkeypatch.setattr(
+        "club.rag.rerank",
+        lambda question, texts: [0.0 if "height" in t else 1.0 for t in texts],
+    )
+
+    rules, _ = references_read_by_the_model(
+        monkeypatch, html, "How tall can the robot be?"
+    )
+
+    assert rules == ["R102", "R101"]
+
+
+def test_the_cross_encoder_scores_the_answering_rule_above_an_unrelated_one():
+    scores = rerank(
+        "When can robots put NECTAR into the FLOWERS?",
+        [
+            "G101 *Humans, stay off the FIELD during the MATCH.",
+            "G410 *NECTAR only goes into FLOWERS with one minute left.",
+        ],
+    )
+
+    assert scores[1] > scores[0]
 
 
 def test_an_unmatched_question_never_calls_the_model(monkeypatch):

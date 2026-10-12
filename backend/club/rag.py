@@ -23,6 +23,7 @@ tourne en local" posture changes, only what `embed()` does inside.
 """
 
 import logging
+import math
 import re
 import struct
 from collections.abc import Callable
@@ -36,6 +37,7 @@ from django.db import transaction
 from django.utils import timezone
 from fastembed import TextEmbedding
 from fastembed.common.model_description import ModelSource, PoolingType
+from fastembed.rerank.cross_encoder import TextCrossEncoder
 
 from .generation import GenerationError, generate_answer
 from .models import (
@@ -47,6 +49,7 @@ from .models import (
     Season,
     User,
 )
+from .ranking import keyword_scores, windows
 
 # fastembed does not carry multilingual-e5-base in its own catalogue (only
 # the larger e5-large) — this registers the same model as a custom one,
@@ -79,22 +82,21 @@ if MODEL_NAME not in {m["model"] for m in TextEmbedding.list_supported_models()}
         dim=768,
         model_file="model.onnx",
     )
+# A cross-encoder reads the question and a rule together, rather than
+# comparing two vectors made apart: in measurement 9, the expected rule
+# ranked first for 64 questions out of 74, and in the top 5 for 71. Run
+# through fastembed like the embedding; its ONNX export is ~90 MB.
+RERANKER_NAME = "Xenova/ms-marco-MiniLM-L-6-v2"
 # fastembed defaults to a temp directory, gone on the next reboot — not
 # "downloaded once", the whole point of caching it at all.
 FASTEMBED_CACHE_DIR = str(Path(settings.BASE_DIR) / ".cache" / "fastembed")
 DIMENSIONS = 768
-# How many passages a question keeps. A narrower cut (tried down to 1,
-# then 3) saves real time, but both #135's and #207's own reviews caught
-# it costing something worse than time: with only the top few candidates,
-# the right passage sometimes isn't among them, and the model answers
-# fluently from whatever it got anyway — a wrong-content answer with a
-# technically real citation, which the generation module's reference
-# check cannot catch, because nothing about the reference is wrong. 10
-# keeps that risk low. GENERATION_MAX_PASSAGE_CHARS (club/generation.py)
-# no longer cuts what reaches the model short for this either — #207's
-# own review found that cut, not the prompt's length, behind some of its
-# worst wrong-content answers, and correctness was asked for over speed.
-TOP_K = 10
+# How many rules the model reads. With 3, measurement 9 lost the answers
+# whose rule ranked 4th or 5th; each rule more costs the model reading time.
+TOP_K = 5
+# How many candidates each of the embedding and the keyword scores puts
+# forward for the cross-encoder to rank.
+CANDIDATES = 20
 # How weak a match may be and still count as one — cosine similarity
 # between two unit vectors, bounded in [-1, 1]. Calibrated against the
 # real BioBuzz manual, chunked by `chunk_manual` from FIRST's own HTML
@@ -140,6 +142,7 @@ GENERATION_UNAVAILABLE = (
 logger = logging.getLogger(__name__)
 
 _model: TextEmbedding | None = None
+_reranker: TextCrossEncoder | None = None
 
 
 def _get_model() -> TextEmbedding:
@@ -151,6 +154,31 @@ def _get_model() -> TextEmbedding:
     if _model is None:
         _model = TextEmbedding(model_name=MODEL_NAME, cache_dir=FASTEMBED_CACHE_DIR)
     return _model
+
+
+def _get_reranker() -> TextCrossEncoder:
+    """Loaded once per process, like `_get_model`."""
+    global _reranker
+    if _reranker is None:
+        _reranker = TextCrossEncoder(
+            model_name=RERANKER_NAME, cache_dir=FASTEMBED_CACHE_DIR
+        )
+    return _reranker
+
+
+def rerank(question: str, texts: list[str]) -> list[float]:
+    """How well each text answers the question, read by the cross-encoder
+    together with it, each text scored by its best window (`windows`)."""
+    pieces: list[str] = []
+    owners: list[int] = []
+    for index, text in enumerate(texts):
+        for part in windows(text):
+            pieces.append(part)
+            owners.append(index)
+    best = [-math.inf] * len(texts)
+    for owner, score in zip(owners, _get_reranker().rerank(question, pieces)):
+        best[owner] = max(best[owner], float(score))
+    return best
 
 
 def embed(text: str, *, is_query: bool = False) -> bytes:
@@ -775,8 +803,54 @@ _AUTHORITY_RANK: dict[str, int] = {
 }
 
 
+def _whole_rule(chunks: list[Chunk], index: int) -> list[Chunk]:
+    """The rule `chunks[index]` belongs to, with the passages a long rule
+    was cut into put back together: an exception at the end of a rule is
+    missed by a model that reads only its start."""
+    chunk = chunks[index]
+    if not chunk.reference:
+        return [chunk]
+
+    def same_rule(other: Chunk) -> bool:
+        return (
+            other.document_id == chunk.document_id
+            and other.reference == chunk.reference
+        )
+
+    first = last = index
+    while first > 0 and same_rule(chunks[first - 1]):
+        first -= 1
+    while last + 1 < len(chunks) and same_rule(chunks[last + 1]):
+        last += 1
+    return chunks[first : last + 1]
+
+
+def _ranked_rules(
+    question: str, chunks: list[Chunk], scores: np.ndarray
+) -> list[list[Chunk]]:
+    """The `TOP_K` whole rules answering best: candidates put forward by
+    meaning (the embedding) and by keywords, each rule then read with the
+    question by the cross-encoder."""
+    by_meaning = np.argsort(-scores)[:CANDIDATES]
+    by_keyword = np.argsort(-keyword_scores(question, [c.text for c in chunks]))
+    rules: dict[int, list[Chunk]] = {}
+    for index in [*by_meaning, *by_keyword[:CANDIDATES]]:
+        rule = _whole_rule(chunks, int(index))
+        rules.setdefault(rule[0].pk, rule)
+
+    candidates = list(rules.values())
+    rule_scores = rerank(
+        question, ["\n".join(chunk.text for chunk in rule) for rule in candidates]
+    )
+    ranked = sorted(
+        zip(rule_scores, candidates),
+        key=lambda pair: (_AUTHORITY_RANK[pair[1][0].document.authority], -pair[0]),
+    )
+    return [rule for _, rule in ranked[:TOP_K]]
+
+
 def ask(question: str, season: Season, asker: User) -> RuleQuery:
-    """The passages closest to the question, for this season only — the
+    """The rules answering the question best, for this season only — the
     game changes every year, and a rule from last season's manual is not a
     rule — and a French answer written only from them. `answer` holds the
     system's own refusal when none cleared `MIN_SCORE`, and nothing is
@@ -805,11 +879,12 @@ def ask(question: str, season: Season, asker: User) -> RuleQuery:
     the app to wait behind the length of an answer. Only the two writes
     below need one.
 
-    Every match above `MIN_SCORE` is kept and sorted by (authority, score)
-    before being cut to `TOP_K` — never the reverse: cutting to the
-    top-`TOP_K` by score first could drop a binding passage that scored
-    lower than five Q&A ones, which is exactly what the manual's own
-    precedence over the Q&A (§1.7.4) rules out."""
+    `MIN_SCORE` decides whether there is anything to answer from at all,
+    on the best passage's similarity. The rules then read (`_ranked_rules`)
+    are sorted by (authority, score) before being cut to `TOP_K` — never
+    the reverse: cutting by score first could drop a binding rule that
+    scored lower than five Q&A ones, which is exactly what the manual's
+    own precedence over the Q&A (§1.7.4) rules out."""
     documents = Document.objects.filter(season=season).order_by("-fetched_at", "-id")
     latest_by_source: dict[str, Document] = {}
     for document in documents:
@@ -826,28 +901,22 @@ def ask(question: str, season: Season, asker: User) -> RuleQuery:
         )
 
     chunks = list(
-        Chunk.objects.filter(document__in=latest_by_source.values()).select_related(
-            "document"
-        )
+        Chunk.objects.filter(document__in=latest_by_source.values())
+        .select_related("document")
+        .order_by("document_id", "ordinal")
     )
-    matches: list[tuple[float, Chunk]] = []
+    rules: list[list[Chunk]] = []
     if chunks:
         matrix = np.stack([_unpack(chunk.embedding) for chunk in chunks])
-        query_vector = _unpack(embed(question, is_query=True))
-        scores = matrix @ query_vector
-        matches = sorted(
-            (
-                (float(score), chunk)
-                for score, chunk in zip(scores, chunks)
-                if score >= MIN_SCORE
-            ),
-            key=lambda pair: (_AUTHORITY_RANK[pair[1].document.authority], -pair[0]),
-        )[:TOP_K]
+        scores = matrix @ _unpack(embed(question, is_query=True))
+        if scores.max() >= MIN_SCORE:
+            rules = _ranked_rules(question, chunks, scores)
+    matches = [chunk for rule in rules for chunk in rule]
 
     answer = NO_ANSWER
     if matches:
         try:
-            answer = generate_answer(question, [chunk for _, chunk in matches])
+            answer = generate_answer(question, matches)
         except GenerationError as error:
             logger.warning("rulebook generation failed: %s", error)
             answer = GENERATION_UNAVAILABLE
@@ -856,7 +925,7 @@ def ask(question: str, season: Season, asker: User) -> RuleQuery:
         query = RuleQuery.objects.create(asker=asker, question=question, answer=answer)
         QueryCitation.objects.bulk_create(
             QueryCitation(query=query, chunk=chunk, rank=rank)
-            for rank, (_, chunk) in enumerate(matches, start=1)
+            for rank, chunk in enumerate(matches, start=1)
         )
     return query
 
