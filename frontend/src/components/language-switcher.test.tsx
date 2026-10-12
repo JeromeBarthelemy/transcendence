@@ -103,7 +103,9 @@ it.each([
       "en",
     );
     expect(router.state.location.pathname).toBe(path);
-    expect(screen.getByLabelText(fieldLabel)).toBe(field);
+    const translatedLabel =
+      path === "/login" ? "Email or display name" : "First name";
+    expect(screen.getByLabelText(translatedLabel)).toBe(field);
     expect(field.value).toBe("Mon brouillon");
     expect(password.value).toBe("secret-not-submitted");
     expect(
@@ -142,3 +144,39 @@ it("keeps the selected language after signing out", async () => {
   expect(document.documentElement.lang).toBe("es");
   expect(localStorage.getItem(languageStorageKey)).toBe("es");
 });
+
+it.each([
+  ["/login", "Se connecter"],
+  ["/signup", "Créer mon compte"],
+])(
+  "updates existing validation errors without clearing inputs on %s",
+  async (path, submit) => {
+    const user = userEvent.setup();
+    renderAt(path);
+    await screen.findByLabelText("Mot de passe", { exact: true });
+    if (path === "/signup") {
+      await user.type(screen.getByLabelText("Nom d'affichage"), "Lina");
+    }
+    await user.click(screen.getByRole("button", { name: submit }));
+    expect(
+      (await screen.findAllByText("Ce champ est obligatoire.")).length,
+    ).toBeGreaterThan(0);
+    await user.selectOptions(
+      screen.getByRole("combobox", { name: "Langue" }),
+      "es",
+    );
+    await waitFor(() =>
+      expect(screen.queryAllByText("Ce champ est obligatoire.")).toHaveLength(
+        0,
+      ),
+    );
+    expect(
+      screen.getAllByText("Este campo es obligatorio.").length,
+    ).toBeGreaterThan(0);
+    if (path === "/signup") {
+      expect(
+        screen.getByLabelText<HTMLInputElement>("Nombre para mostrar").value,
+      ).toBe("Lina");
+    }
+  },
+);

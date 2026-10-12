@@ -13,7 +13,12 @@ import { Button } from "../components/Button";
 import { Label, Select, TextInput } from "../components/Field";
 import { Panel } from "../components/Panel";
 import { Eyebrow } from "../components/Typography";
-import { SUGGESTIONS, sameTitle, suggestionsFor } from "./suggestions";
+import {
+  matchesSuggestion,
+  SUGGESTIONS,
+  sameTitle,
+  suggestionsFor,
+} from "./suggestions";
 
 const OTHER = ":other";
 
@@ -46,17 +51,22 @@ function OpenWorkItemForm({
   });
   const issues = fieldIssues(open.error, "title");
   const suggestions = suggestionsFor(workItems);
-  const picked = suggestions.find((suggestion) => suggestion.title === choice);
+  const picked = suggestions.find((suggestion) => suggestion.id === choice);
   const other = choice === OTHER;
-  const title = picked ? picked.title : name.trim();
+  const title = picked ? t(`suggestions.${picked.id}`) : name.trim();
   // A suggestion typed by hand is on its usual side, until the member says
   // otherwise.
   const typed = SUGGESTIONS.find((suggestion) =>
-    sameTitle(suggestion.title, title),
+    matchesSuggestion(suggestion, title),
   );
   const side = picked ? picked.onRobot : (onRobot ?? typed?.onRobot ?? null);
   const existing = other
-    ? workItems.find((item) => title && sameTitle(item.title, title))
+    ? workItems.find(
+        (item) =>
+          title &&
+          (sameTitle(item.title, title) ||
+            (typed && matchesSuggestion(typed, item.title))),
+      )
     : undefined;
   const ready = Boolean(title) && side !== null && !existing;
   // The server's refusal goes under whichever field the title came from.
@@ -101,8 +111,8 @@ function OpenWorkItemForm({
                     }
                   >
                     {group.map((suggestion) => (
-                      <option key={suggestion.title} value={suggestion.title}>
-                        {suggestion.title}
+                      <option key={suggestion.id} value={suggestion.id}>
+                        {t(`suggestions.${suggestion.id}`)}
                       </option>
                     ))}
                   </optgroup>

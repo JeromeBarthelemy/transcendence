@@ -75,12 +75,18 @@ out and takes precedence over browser preferences on later visits. If storage
 is unavailable, selection still works for the current visit. The document's
 `lang` attribute follows the selected language.
 
-English and Spanish currently cover the shared header and footer. Complete
-screen translations and locale-aware date and number formatting are tracked
-separately; untranslated text currently falls back to French. Source-code
-identifiers and API error codes are English.
+French, English and Spanish catalogues cover interface text, including legal
+pages, work-item suggestions, notifications and validation errors. Dates and
+number formatting are still tracked separately in #247. Member-written content,
+rulebook citations, glossary definitions and generated Fieldbot answers retain
+their original text; Fieldbot currently generates answers in French.
+Source-code identifiers and API error codes are English.
 
-All user-facing frontend text belongs to the react-i18next French catalogue.
+Frontend translation keys are typed from the French react-i18next catalogue.
+English and Spanish supply their own translations and plural forms.
+`npm --prefix frontend run check:translations` checks completeness, interpolation
+variables and rich-text tags. It also runs during typecheck and production builds,
+so a missing translation cannot be hidden by French fallback in CI.
 The Django administration interface may keep its existing French labels. API
 validation failures return stable, machine-readable codes alongside French
 messages, grouped by field:
@@ -107,7 +113,11 @@ front end that only reads field names would miss both:
 The backend's validation message is the reference wording. The frontend
 catalogue mirrors it under the same `code` and displays it beside the field
 named by the response. When a backend message changes, update its catalogue
-entry in the same change. Unknown codes fall back to a generic French message.
+entry in all three catalogues in the same change. Codes documented in
+`server-error-fallbacks.json` retain the server's precise French explanation
+(including variable file-size limits); English and Spanish use the corresponding
+`serverErrors` translation. Unknown codes display a localized generic message
+in English and Spanish, and retain a usable server explanation in French.
 
 Django remains responsible for validation, permissions, HTTP status codes and
 preventing invalid operations. React is responsible for presenting API errors.

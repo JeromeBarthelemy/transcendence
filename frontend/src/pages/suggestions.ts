@@ -1,37 +1,46 @@
 import type { WorkItem } from "../api/workItems";
+import en from "../locales/en.json";
+import es from "../locales/es.json";
+import fr from "../locales/fr.json";
 
 export interface Suggestion {
-  title: string;
+  id: keyof typeof fr.suggestions;
   onRobot: boolean;
 }
 
-// The work items a team will almost certainly have: a season starts by
-// picking from this list, not by typing it.
 const ROBOT = [
-  "Ascenseur",
-  "Autonome",
-  "Bras",
-  "Châssis",
-  "Électronique",
-  "Intake",
-  "Odométrie",
-  "Pince",
-  "Shooter",
-  "Téléop",
-  "Transfert",
-  "Vision",
-];
+  "elevator",
+  "autonomous",
+  "arm",
+  "chassis",
+  "electronics",
+  "intake",
+  "odometry",
+  "gripper",
+  "shooter",
+  "teleop",
+  "transfer",
+  "vision",
+] as const;
 const OFF_ROBOT = [
-  "Dossier de sponsoring",
-  "Outreach",
-  "Portfolio",
-  "Tournoi à domicile",
+  "sponsorship",
+  "outreach",
+  "portfolio",
+  "homeTournament",
+] as const;
+
+// Stable option IDs survive language changes. Persist only the chosen
+// title, which then becomes team content and is no longer translated.
+export const SUGGESTIONS: Suggestion[] = [
+  ...ROBOT.map((id) => ({ id, onRobot: true })),
+  ...OFF_ROBOT.map((id) => ({ id, onRobot: false })),
 ];
 
-export const SUGGESTIONS: Suggestion[] = [
-  ...ROBOT.map((title) => ({ title, onRobot: true })),
-  ...OFF_ROBOT.map((title) => ({ title, onRobot: false })),
-];
+export function matchesSuggestion(suggestion: Suggestion, title: string) {
+  return [fr, en, es].some((catalogue) =>
+    sameTitle(catalogue.suggestions[suggestion.id], title),
+  );
+}
 
 /** The backend's `fold_title`, so the screen hides what the server would
  * refuse as taken. It stays the judge: this only spares a round trip. */
@@ -53,6 +62,6 @@ export function sameTitle(a: string, b: string) {
 export function suggestionsFor(workItems: WorkItem[]) {
   return SUGGESTIONS.filter(
     (suggestion) =>
-      !workItems.some((item) => sameTitle(item.title, suggestion.title)),
+      !workItems.some((item) => matchesSuggestion(suggestion, item.title)),
   );
 }
