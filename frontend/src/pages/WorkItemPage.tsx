@@ -21,7 +21,7 @@ import {
   type WorkItemStep,
   workItemSteps,
 } from "../api/workItems";
-import { nameFormatter } from "../app/formatters";
+import { useFormatters } from "../app/formatters";
 import { useCurrentUser } from "../app/useCurrentUser";
 import { fieldIssues, RequestError } from "../components/ApiErrors";
 import { AvatarStack } from "../components/Avatar";
@@ -36,13 +36,6 @@ import { Page } from "../components/Page";
 import { Panel } from "../components/Panel";
 import { Eyebrow, Heading } from "../components/Typography";
 
-const dateFormatter = new Intl.DateTimeFormat("fr-FR", {
-  dateStyle: "long",
-});
-const dateTimeFormatter = new Intl.DateTimeFormat("fr-FR", {
-  dateStyle: "long",
-  timeStyle: "short",
-});
 function teamLabel(identity: Identity, teamSeasonId: number) {
   const teamSeason = identity.team_seasons.find(
     (candidate) => candidate.id === teamSeasonId,
@@ -333,6 +326,7 @@ function TodayPanel({
   identity: Identity;
 }) {
   const { t } = useTranslation();
+  const { nameFormatter } = useFormatters();
   const invalidateWorkItem = useInvalidateWorkItem(item);
   const liveStep =
     item.current_progress?.step ?? item.current_step ?? workItemSteps[0];
@@ -541,6 +535,7 @@ function HistoryEntry({
   entry: WorkItemEntry;
 }) {
   const { t } = useTranslation();
+  const { nameFormatter, dateTimeFormatter } = useFormatters();
   const queryClient = useQueryClient();
   const invalidateWorkItem = useInvalidateWorkItem(item);
   const participantNames = nameFormatter.format(
@@ -758,6 +753,7 @@ function WorkItemScreen({
   identity: Identity;
 }) {
   const { t } = useTranslation();
+  const { dateFormatter, dateTimeFormatter } = useFormatters();
   const progressCount = item.thread.filter(
     (entry) => entry.type === "progress",
   ).length;

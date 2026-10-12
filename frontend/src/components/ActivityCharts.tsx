@@ -13,18 +13,8 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-
 import type { DailyActivity, WeeklyActivity } from "../api/activityAnalytics";
-
-const shortDateFormatter = new Intl.DateTimeFormat("fr-FR", {
-  day: "numeric",
-  month: "short",
-  timeZone: "UTC",
-});
-
-function formatDay(day: string) {
-  return shortDateFormatter.format(new Date(`${day}T12:00:00Z`));
-}
+import { useFormatters } from "../app/formatters";
 
 export function WeeklyActivityChart({
   data,
@@ -41,20 +31,29 @@ export function WeeklyActivityChart({
   membersLabel: string;
   daysLabel: string;
 }) {
+  const { formatShortDay, formatNumber, formatChartValue } = useFormatters();
   return (
     <div>
       <div className="h-72 w-full" aria-hidden="true">
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={data} margin={{ top: 12, right: 12, left: -20 }}>
+          <BarChart data={data} margin={{ top: 12, right: 12, left: 0 }}>
             <CartesianGrid stroke="var(--color-line)" strokeDasharray="4 4" />
             <XAxis
               dataKey="week_start"
-              tickFormatter={formatDay}
+              tickFormatter={formatShortDay}
               stroke="var(--color-muted)"
             />
-            <YAxis allowDecimals={false} stroke="var(--color-muted)" />
+            <YAxis
+              width="auto"
+              tickFormatter={formatNumber}
+              allowDecimals={false}
+              stroke="var(--color-muted)"
+            />
             <Tooltip
-              labelFormatter={(day) => `${weekLabel} ${formatDay(String(day))}`}
+              formatter={formatChartValue}
+              labelFormatter={(day) =>
+                `${weekLabel} ${formatShortDay(String(day))}`
+              }
             />
             <Legend />
             <Bar
@@ -86,10 +85,10 @@ export function WeeklyActivityChart({
           <tbody>
             {data.map((week) => (
               <tr key={week.week_start}>
-                <th scope="row">{formatDay(week.week_start)}</th>
-                <td>{week.progress_entries}</td>
-                <td>{week.active_members}</td>
-                <td>{week.active_days}</td>
+                <th scope="row">{formatShortDay(week.week_start)}</th>
+                <td>{formatNumber(week.progress_entries)}</td>
+                <td>{formatNumber(week.active_members)}</td>
+                <td>{formatNumber(week.active_days)}</td>
               </tr>
             ))}
           </tbody>
@@ -110,6 +109,7 @@ export function ActivityByCategoryChart({
   categoryLabel: string;
   progressLabel: string;
 }) {
+  const { formatNumber, formatChartValue } = useFormatters();
   return (
     <div>
       <div className="h-72 w-full" aria-hidden="true">
@@ -134,7 +134,7 @@ export function ActivityByCategoryChart({
                 />
               ))}
             </Pie>
-            <Tooltip />
+            <Tooltip formatter={formatChartValue} />
             <Legend />
           </PieChart>
         </ResponsiveContainer>
@@ -152,7 +152,7 @@ export function ActivityByCategoryChart({
             {data.map((item) => (
               <tr key={String(item.on_robot)}>
                 <th scope="row">{item.label}</th>
-                <td>{item.progress_entries}</td>
+                <td>{formatNumber(item.progress_entries)}</td>
               </tr>
             ))}
           </tbody>
@@ -177,19 +177,28 @@ export function ActivityOverTimeChart({
   progressLabel: string;
   membersLabel: string;
 }) {
+  const { formatShortDay, formatNumber, formatChartValue } = useFormatters();
   return (
     <div>
       <div className="h-72 w-full" aria-hidden="true">
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={data} margin={{ top: 12, right: 12, left: -20 }}>
+          <LineChart data={data} margin={{ top: 12, right: 12, left: 0 }}>
             <CartesianGrid stroke="var(--color-line)" strokeDasharray="4 4" />
             <XAxis
               dataKey="day"
-              tickFormatter={formatDay}
+              tickFormatter={formatShortDay}
               stroke="var(--color-muted)"
             />
-            <YAxis allowDecimals={false} stroke="var(--color-muted)" />
-            <Tooltip labelFormatter={(day) => formatDay(String(day))} />
+            <YAxis
+              width="auto"
+              tickFormatter={formatNumber}
+              allowDecimals={false}
+              stroke="var(--color-muted)"
+            />
+            <Tooltip
+              formatter={formatChartValue}
+              labelFormatter={(day) => formatShortDay(String(day))}
+            />
             <Legend />
             <Line
               type="monotone"
@@ -225,9 +234,9 @@ export function ActivityOverTimeChart({
           <tbody>
             {data.map((item) => (
               <tr key={item.day}>
-                <th scope="row">{formatDay(item.day)}</th>
-                <td>{item.progress_entries}</td>
-                <td>{item.active_members}</td>
+                <th scope="row">{formatShortDay(item.day)}</th>
+                <td>{formatNumber(item.progress_entries)}</td>
+                <td>{formatNumber(item.active_members)}</td>
               </tr>
             ))}
           </tbody>
@@ -256,6 +265,7 @@ export function WorkItemsByStepChart({
   stepLabel: string;
   countLabel: string;
 }) {
+  const { formatNumber, formatChartValue } = useFormatters();
   return (
     <div>
       <div className="h-72 w-full" aria-hidden="true">
@@ -272,6 +282,7 @@ export function WorkItemsByStepChart({
             />
             <XAxis
               type="number"
+              tickFormatter={formatNumber}
               allowDecimals={false}
               stroke="var(--color-muted)"
             />
@@ -282,7 +293,7 @@ export function WorkItemsByStepChart({
               stroke="var(--color-muted)"
               tick={{ fontSize: 12 }}
             />
-            <Tooltip />
+            <Tooltip formatter={formatChartValue} />
             <Bar
               dataKey="count"
               name={countLabel}
@@ -306,7 +317,7 @@ export function WorkItemsByStepChart({
             {data.map((item) => (
               <tr key={item.step}>
                 <th scope="row">{item.label}</th>
-                <td>{item.count}</td>
+                <td>{formatNumber(item.count)}</td>
               </tr>
             ))}
           </tbody>

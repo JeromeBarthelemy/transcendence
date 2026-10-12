@@ -36,8 +36,8 @@
   "notifications": {
     "title": "Notificaciones",
     "labelNone": "Notificaciones, ninguna sin leer",
-    "label_one": "Notificaciones, {{count}} sin leer",
-    "label_other": "Notificaciones, {{count}} sin leer",
+    "label_one": "Notificaciones, {{count, number}} sin leer",
+    "label_other": "Notificaciones, {{count, number}} sin leer",
     "empty": "Nada nuevo.",
     "new": "Nuevo",
     "team": "Todo el equipo",
@@ -56,7 +56,7 @@
       "note": "una nota",
       "decision": "una decisión"
     },
-    "label_many": "Notificaciones, {{count}} sin leer"
+    "label_many": "Notificaciones, {{count, number}} sin leer"
   },
   "home": {
     "eyebrow": "La memoria del club",
@@ -86,10 +86,10 @@
     "loading": "Cargando tareas…",
     "today": "Hoy",
     "loadingDay": "Cargando sesión…",
-    "advancedWorkItemCount_one": "{{count}} tarea con avances",
-    "advancedWorkItemCount_other": "{{count}} tareas con avances",
-    "presentCount_one": "{{count}} presente de {{roster}}",
-    "presentCount_other": "{{count}} presentes de {{roster}}",
+    "advancedWorkItemCount_one": "{{count, number}} tarea con avances",
+    "advancedWorkItemCount_other": "{{count, number}} tareas con avances",
+    "presentCount_one": "{{count, number}} presente de {{roster, number}}",
+    "presentCount_other": "{{count, number}} presentes de {{roster, number}}",
     "addNote": "+ nota",
     "daySummaryLink": "Resumen del día",
     "previousDayLink": "Sesión anterior",
@@ -103,8 +103,8 @@
     "noteMeta": "{{author}} · {{time}}",
     "robot": "Robot",
     "offRobot": "Fuera del robot",
-    "workItemCount_one": "{{count}} tarea",
-    "workItemCount_other": "{{count}} tareas",
+    "workItemCount_one": "{{count, number}} tarea",
+    "workItemCount_other": "{{count, number}} tareas",
     "filterByStatus": "Filtrar por estado",
     "allStatuses": "Todos los estados",
     "noWorkItems": "No hay tareas que coincidan en esta categoría.",
@@ -139,9 +139,9 @@
       "tuning": "Ajuste",
       "repair": "Reparación"
     },
-    "advancedWorkItemCount_many": "{{count}} tareas con avances",
-    "presentCount_many": "{{count}} presentes de {{roster}}",
-    "workItemCount_many": "{{count}} tareas"
+    "advancedWorkItemCount_many": "{{count, number}} tareas con avances",
+    "presentCount_many": "{{count, number}} presentes de {{roster, number}}",
+    "workItemCount_many": "{{count, number}} tareas"
   },
   "activity": {
     "eyebrow": "Vista general",
@@ -248,8 +248,8 @@
     "closedDroppedUndated": "Tarea abandonada — reábrela para retomarla.",
     "closedDoneUndated": "Tarea terminada — reábrela para retomarla.",
     "closing": "Actualizando…",
-    "progressCount_one": "{{count}} avance",
-    "progressCount_other": "{{count}} avances",
+    "progressCount_one": "{{count, number}} avance",
+    "progressCount_other": "{{count, number}} avances",
     "handover": "Para retomar",
     "today": "Sesión actual",
     "todayProgress": "El avance de hoy",
@@ -285,7 +285,7 @@
     "yes": "Sí",
     "no": "No",
     "upload": "Añadir el archivo",
-    "uploading": "Enviando: {{progress}} %",
+    "uploading": "Enviando: {{progress, number}} %",
     "attachmentSaved": "Archivo añadido.",
     "addNote": "Añadir una nota",
     "noteHint": "Registra una observación sobre esta tarea sin modificar el avance actual.",
@@ -305,7 +305,7 @@
       "note": "Nota",
       "decision": "Decisión"
     },
-    "progressCount_many": "{{count}} avances"
+    "progressCount_many": "{{count, number}} avances"
   },
   "teams": {
     "eyebrow": "Administración del club",
@@ -329,8 +329,8 @@
     "deleteConfirm": "¿Eliminar definitivamente el equipo {{team}}?",
     "confirmDelete": "Eliminar el equipo",
     "deleting": "Eliminando…",
-    "memberCount_one": "{{count}} miembro",
-    "memberCount_other": "{{count}} miembros",
+    "memberCount_one": "{{count, number}} miembro",
+    "memberCount_other": "{{count, number}} miembros",
     "noMembers": "Todavía no hay miembros.",
     "removeMember": "Retirar",
     "removeMemberLabel": "Retirar a {{name}} del equipo {{team}}",
@@ -345,7 +345,7 @@
       "student": "alumno",
       "mentor": "mentor"
     },
-    "memberCount_many": "{{count}} miembros"
+    "memberCount_many": "{{count, number}} miembros"
   },
   "users": {
     "title": "Miembros del club",
@@ -368,8 +368,8 @@
       "mentor": "Mentores",
       "admin": "Administradores"
     },
-    "count_one": "{{count}} miembro",
-    "count_other": "{{count}} miembros",
+    "count_one": "{{count, number}} miembro",
+    "count_other": "{{count, number}} miembros",
     "noMatch": "Ningún miembro coincide con estos criterios.",
     "you": "(tú)",
     "roles": {
@@ -403,7 +403,7 @@
     "deleting": "Eliminando…",
     "cancel": "Cancelar",
     "deleted": "La cuenta de {{name}} fue eliminada.",
-    "count_many": "{{count}} miembros"
+    "count_many": "{{count, number}} miembros"
   },
   "profile": {
     "eyebrow": "Mi perfil",
@@ -424,7 +424,7 @@
     "sending": "Enviando…",
     "cancel": "Cancelar",
     "progressLabel": "Progreso del envío",
-    "progress": "Enviando… {{percent}} %",
+    "progress": "Enviando… {{percent, number}} %",
     "processing": "Foto recibida, procesando…",
     "uploaded": "Tu nueva foto fue guardada.",
     "remove": "Eliminar la foto",
@@ -472,7 +472,7 @@
     "placeholder": "How long is AUTO?",
     "hint": "Haz tu pregunta en inglés, con los términos del manual en mayúsculas (HIVE, AUTO…).",
     "send": "Enviar la pregunta",
-    "counter": "{{count}} / {{max}}",
+    "counter": "{{count, number}} / {{max, number}}",
     "conversation": "Conversación con Fieldbot",
     "botName": "Fieldbot",
     "thinking": "Fieldbot está buscando en el reglamento…",
@@ -534,17 +534,17 @@
     "empty": "No se escribió nada ese día.",
     "decision": "Decisión",
     "note": "Nota",
-    "photos_one": "{{count}} foto",
-    "photos_other": "{{count}} fotos",
-    "videos_one": "{{count}} vídeo",
-    "videos_other": "{{count}} vídeos",
-    "files_one": "{{count}} archivo",
-    "files_other": "{{count}} archivos",
-    "present": "Presentes · {{count}} de {{roster}}",
+    "photos_one": "{{count, number}} foto",
+    "photos_other": "{{count, number}} fotos",
+    "videos_one": "{{count, number}} vídeo",
+    "videos_other": "{{count, number}} vídeos",
+    "files_one": "{{count, number}} archivo",
+    "files_other": "{{count, number}} archivos",
+    "present": "Presentes · {{count, number}} de {{roster, number}}",
     "presentFrom": "deducidos de las tareas",
-    "photos_many": "{{count}} fotos",
-    "videos_many": "{{count}} vídeos",
-    "files_many": "{{count}} archivos"
+    "photos_many": "{{count, number}} fotos",
+    "videos_many": "{{count, number}} vídeos",
+    "files_many": "{{count, number}} archivos"
   },
   "calendar": {
     "title": "Calendario de sesiones",
@@ -557,12 +557,12 @@
     "selected": "Día mostrado",
     "noActivity": "Sin actividad registrada",
     "empty": "No hay actividad registrada este mes.",
-    "progress_one": "{{count}} avance",
-    "progress_other": "{{count}} avances",
-    "notes_one": "{{count}} nota",
-    "notes_other": "{{count}} notas",
-    "decisions_one": "{{count}} decisión",
-    "decisions_other": "{{count}} decisiones",
+    "progress_one": "{{count, number}} avance",
+    "progress_other": "{{count, number}} avances",
+    "notes_one": "{{count, number}} nota",
+    "notes_other": "{{count, number}} notas",
+    "decisions_one": "{{count, number}} decisión",
+    "decisions_other": "{{count, number}} decisiones",
     "weekdays": {
       "monday": "Lun",
       "tuesday": "Mar",
@@ -572,9 +572,9 @@
       "saturday": "Sáb",
       "sunday": "Dom"
     },
-    "progress_many": "{{count}} avances",
-    "notes_many": "{{count}} notas",
-    "decisions_many": "{{count}} decisiones"
+    "progress_many": "{{count, number}} avances",
+    "notes_many": "{{count, number}} notas",
+    "decisions_many": "{{count, number}} decisiones"
   },
   "validation": {
     "required": "Este campo es obligatorio.",
@@ -642,7 +642,7 @@
     "unknown": "Se produjo un error inesperado."
   },
   "legal": {
-    "updated": "Última actualización: 8 de octubre de 2026",
+    "updated": "Última actualización: {{date}}",
     "privacy": {
       "title": "Política de privacidad",
       "intro": "Fieldnotes es el cuaderno de trabajo de los equipos de robótica de Robotique CIV. Esta página explica qué datos registra la aplicación, por qué, quién puede verlos, cuánto tiempo se conservan y cómo ejercer tus derechos.",

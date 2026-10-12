@@ -12,6 +12,7 @@ import {
   type UserChanges,
   updateUser,
 } from "../api/users";
+import { useFormatters } from "../app/formatters";
 import { AdminOnly } from "../components/AdminOnly";
 import {
   FieldErrors,
@@ -42,14 +43,12 @@ const STATUS_FILTERS: StatusFilter[] = [
 ];
 const ROLE_FILTERS: RoleFilter[] = ["all", "student", "mentor", "admin"];
 
-const nameCollator = new Intl.Collator("fr-FR", { sensitivity: "base" });
-
 /** Case- and accent-blind, so « elo » finds Élodie. */
 function fold(text: string) {
   return text
     .normalize("NFD")
     .replace(/\p{Diacritic}/gu, "")
-    .toLocaleLowerCase("fr-FR");
+    .toLowerCase();
 }
 
 function userStatus(user: ClubUser): "active" | "suspended" | "anonymized" {
@@ -117,6 +116,7 @@ function Badges({ user }: { user: ClubUser }) {
 
 function UserList({ identity }: { identity: Identity }) {
   const { t } = useTranslation();
+  const { nameCollator } = useFormatters();
   const location = useLocation();
   const deletedName = (location.state as { deleted?: string } | null)?.deleted;
   const [search, setSearch] = useState("");

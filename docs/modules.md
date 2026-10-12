@@ -16,7 +16,7 @@
 > your final score. **Non-functional or incomplete modules = 0 points.** »
 > — sujet, chapitre IV
 
-22 points déclarés pour 19 comptés — 3 d'assurance. Les quinze modules figurent
+23 points déclarés pour 20 comptés — 3 d'assurance. Les seize modules figurent
 tous au barème du sujet ; aucun ne demande d'expliquer ce qu'il est avant de
 montrer qu'il fonctionne.
 
@@ -61,22 +61,18 @@ ne traîne là où un script pourrait le lire. Le prix est le CSRF, payé
 explicitement — la page appelle `GET /api/auth/me/` au démarrage, ce qui lui pose
 le cookie `csrftoken` qu'elle renverra en en-tête `X-CSRFToken`.
 
-**Une erreur d'API se dit deux fois** : un `code` stable en anglais, sur lequel le
-front branche, et un `message` en français, qu'il affiche. Aucune des deux options
-envisagées ne tenait seule — faire correspondre des phrases françaises aurait fait
-de chaque reformulation un bug côté front, et des codes seuls auraient imposé un
-catalogue de traduction à un projet qui sert un club dans une langue. Les deux
-voyagent donc ensemble :
+**Une erreur d'API se dit deux fois** : un `code` stable en anglais, que le front
+traduit dans la langue choisie, et un `message` en français, conservé pour les
+explications détaillées lorsque l'interface est en français. Les deux voyagent
+ensemble :
 
 ```json
 {"display_name": [{"code": "display_name_taken",
                    "message": "Ce nom d'affichage est déjà pris. Ajoutez une initiale."}]}
 ```
 
-Ce n'est pas une entorse à la règle du dépôt — anglais pour le code, français pour
-ce qui s'affiche — mais son application : un code *est* du code, on y branche, on
-ne le lit pas. Et il ne coûte presque rien, DRF portant déjà un `.code` sur chacun
-de ses messages.
+Les codes restent indépendants de la langue : reformuler une traduction ne
+change pas le contrat d'API. DRF porte déjà un `.code` sur chacun de ses messages.
 
 **Démo (2 min)** — montrer l'arborescence des applications, nommer le framework des
 deux côtés, ouvrir un `urls.py` et un middleware.
@@ -374,6 +370,38 @@ c'est la page qui les montre.
 
 **Démo (2 min)** — ouvrir la galerie de composants, compter au-delà de dix,
 montrer les jetons de couleur et de typographie.
+
+---
+
+## 16 · Multilingue — Minor, 1 pt
+
+- Support for multiple languages (at least 3 languages).
+- Implement i18n (internationalization) system.
+- At least 3 complete language translations.
+- Language switcher in the UI.
+- All user-facing text must be translatable.
+
+**Chez nous** — français, anglais et espagnol. Le sélecteur est disponible avant
+et après connexion ; le choix reste dans le navigateur (`fieldnotes.language`),
+y compris après déconnexion. Sans choix enregistré, on suit une langue prise en
+charge par le navigateur, avec repli sur le français. Le compte ne porte pas de
+préférence de langue.
+
+**Démo (3 min)** — ouvrir la connexion et passer du français à l'anglais puis à
+l'espagnol. Montrer les messages de validation en conservant une saisie. Connecté,
+changer de langue sur le tableau d'équipe, le calendrier et les graphiques : les
+dates, nombres et listes de participants suivent, les dates sélectionnées et les
+liens restent les mêmes. Ouvrir les notifications, puis sélectionner une photo
+dans le profil pour montrer les tailles de fichiers localisées. Recharger et se
+déconnecter : le choix reste enregistré.
+
+**À préciser** — les textes saisis par les membres, les citations du règlement,
+le glossaire et les réponses générées par Fieldbot restent dans leur langue
+d'origine. Les exports conservent leur format serveur. Les règles de journée
+de travail et de fuseau horaire ne dépendent pas de la langue de l'interface.
+
+Le parcours mobile/desktop et les commandes de vérification figurent dans
+[docs/multilingual.md](multilingual.md).
 
 ---
 

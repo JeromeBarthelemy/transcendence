@@ -10,7 +10,7 @@ import {
   notificationsQueryKey,
 } from "../api/notifications";
 import { RequestError } from "../components/ApiErrors";
-import { formatNoticeTime } from "./formatters";
+import { useFormatters } from "./formatters";
 import { focusRing, type OpenMenu, useMenu } from "./menu";
 
 /** The bell in the header: what changed on the board for this member, read
@@ -126,6 +126,7 @@ function NoticeLine({
   onNavigate: () => void;
 }) {
   const { t } = useTranslation();
+  const { formatNoticeTime } = useFormatters();
   const content = (
     <>
       <span className="flex items-start justify-between gap-2">

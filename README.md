@@ -42,7 +42,7 @@ The frontend foundation installed by the initial skeleton is:
 - **React Router** for URL-based navigation and protected screens.
 - **TanStack Query** for Django API requests, caching, loading states and cache
   invalidation.
-- **react-i18next** for the centralized French user-interface catalogue.
+- **react-i18next** for the French, English and Spanish interface catalogues.
 - **Tailwind CSS** as the responsive styling foundation. The custom design
   system module will still require at least ten reusable components built on
   top of it.
@@ -76,8 +76,11 @@ is unavailable, selection still works for the current visit. The document's
 `lang` attribute follows the selected language.
 
 French, English and Spanish catalogues cover interface text, including legal
-pages, work-item suggestions, notifications and validation errors. Dates and
-number formatting are still tracked separately in #247. Member-written content,
+pages, work-item suggestions, notifications and validation errors. Dates, times,
+relative dates, numbers, file sizes and lists of names follow the selected
+language immediately, including calendars, chart axes, tooltips and their
+accessible tables. Regional display formats are `fr-FR`, `en-GB` and `es-ES`.
+Member-written content,
 rulebook citations, glossary definitions and generated Fieldbot answers retain
 their original text; Fieldbot currently generates answers in French.
 Source-code identifiers and API error codes are English.
@@ -87,6 +90,25 @@ English and Spanish supply their own translations and plural forms.
 `npm --prefix frontend run check:translations` checks completeness, interpolation
 variables and rich-text tags. It also runs during typecheck and production builds,
 so a missing translation cannot be hidden by French fallback in CI.
+
+Display formatting never changes API values: day and month parameters remain
+ISO strings (`YYYY-MM-DD`, `YYYY-MM`), counts remain numbers, and team numbers
+and season years remain identifiers. Workdays come from the server's existing
+4 a.m.–4 a.m. rule; calendar-only dates are formatted in UTC so a browser in
+another time zone cannot move them to a different day. Actual timestamps keep
+their existing browser-local time zone. Calendars still start on Monday.
+Native date-input controls use the browser's own presentation while retaining
+their ISO value. CSV and notebook downloads keep their existing server format.
+
+To demonstrate the language module, use the header selector before signing in,
+then switch between French, English and Spanish on a team's board, activity
+charts, session calendar and notifications. Dates and quantities update without
+changing the selected team, period, day or any draft. On the profile screen,
+select a photo and switch languages to see its size update without losing the
+file. Reload and sign out to verify persistence. See
+[the multilingual verification checklist](docs/multilingual.md) for screen,
+mobile and desktop coverage and verification commands.
+
 The Django administration interface may keep its existing French labels. API
 validation failures return stable, machine-readable codes alongside French
 messages, grouped by field:

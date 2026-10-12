@@ -9,9 +9,8 @@ import {
 import userEvent from "@testing-library/user-event";
 import { createMemoryRouter, RouterProvider } from "react-router-dom";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-
+import i18n from "../i18n";
 import { routes } from "./router";
-import "../i18n";
 
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -92,8 +91,9 @@ beforeEach(() => {
   setDocumentCookie("csrftoken=test-token; path=/");
 });
 
-afterEach(() => {
+afterEach(async () => {
   cleanup();
+  await i18n.changeLanguage("fr");
   vi.unstubAllGlobals();
   setDocumentCookie("csrftoken=; Max-Age=0; path=/");
 });
@@ -286,4 +286,33 @@ it("says so when there is nothing yet", async () => {
       screen.getByRole("region", { name: "Notifications" }).textContent,
     ).toContain("Rien de nouveau."),
   );
+});
+
+it("updates notification timestamps and translated sentences without changing the actor or destination", async () => {
+  serve([
+    notice(1, {
+      read: true,
+      actor: { display_name: "Lina & Tom", avatar: null },
+    }),
+  ]);
+  renderApp();
+  await screen.findByRole("button", { name: "Notifications, aucune non lue" });
+  const language = screen.getByRole("combobox", { name: "Langue" });
+  for (const [code, month] of [
+    ["en", "6 Oct"],
+    ["es", "6 oct"],
+    ["fr", "6 oct."],
+  ] as const) {
+    await userEvent.selectOptions(language, code);
+    await userEvent.click(
+      screen.getByRole("button", { name: i18n.t("notifications.labelNone") }),
+    );
+    const panel = screen.getByRole("region", {
+      name: i18n.t("notifications.title"),
+    });
+    const link = within(panel).getByRole("link");
+    expect(link.textContent).toContain("Lina & Tom");
+    expect(link.textContent).toContain(month);
+    expect(link.getAttribute("href")).toBe("/work-items/10");
+  }
 });

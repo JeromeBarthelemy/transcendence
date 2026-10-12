@@ -11,7 +11,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import type { Identity, TeamSeasonSummary } from "../api/auth";
 import { createTeamNote, getWorkday, type Workday } from "../api/workdays";
 import { getWorkItems, type WorkItem } from "../api/workItems";
-import { formatWorkdayDate, nameFormatter } from "../app/formatters";
+import { useFormatters } from "../app/formatters";
 import { RequestError } from "../components/ApiErrors";
 import { AvatarStack } from "../components/Avatar";
 import { Button, buttonClass } from "../components/Button";
@@ -38,47 +38,6 @@ const SECTION_ICONS: Record<TeamSection, IconName> = {
   activity: "chart",
 };
 
-const dateFormatter = new Intl.DateTimeFormat("fr-FR", {
-  dateStyle: "long",
-  timeZone: "UTC",
-});
-const weekdayFormatter = new Intl.DateTimeFormat("fr-FR", {
-  weekday: "long",
-  timeZone: "UTC",
-});
-const relativeFormatter = new Intl.RelativeTimeFormat("fr-FR", {
-  numeric: "auto",
-});
-const noteTimeFormatter = new Intl.DateTimeFormat("fr-FR", {
-  hour: "2-digit",
-  minute: "2-digit",
-});
-
-function formatActivityDate(day: string, currentWorkday?: string) {
-  const date = new Date(`${day}T12:00:00Z`);
-  if (!currentWorkday) {
-    return dateFormatter.format(date);
-  }
-  const elapsedDays = Math.round(
-    (new Date(`${currentWorkday}T12:00:00Z`).getTime() - date.getTime()) /
-      (24 * 60 * 60 * 1000),
-  );
-
-  if (elapsedDays < 0) {
-    return dateFormatter.format(date);
-  }
-  if (elapsedDays < 2) {
-    return relativeFormatter.format(-elapsedDays, "day");
-  }
-  if (elapsedDays < 7) {
-    return weekdayFormatter.format(date);
-  }
-  if (elapsedDays < 28) {
-    return relativeFormatter.format(-Math.floor(elapsedDays / 7), "week");
-  }
-  return dateFormatter.format(date);
-}
-
 function WorkItemCard({
   item,
   currentWorkday,
@@ -87,6 +46,7 @@ function WorkItemCard({
   currentWorkday?: string;
 }) {
   const { t } = useTranslation();
+  const { nameFormatter, formatActivityDate } = useFormatters();
   const participants = item.last_progress
     ? nameFormatter.format(
         item.last_progress.participants.map((person) => person.display_name),
@@ -213,6 +173,7 @@ function TodaySummary({
   day: UseQueryResult<Workday, Error>;
 }) {
   const { t } = useTranslation();
+  const { formatWorkdayDate, noteTimeFormatter } = useFormatters();
   const queryClient = useQueryClient();
   const [isNoteOpen, setIsNoteOpen] = useState(false);
   const [noteBody, setNoteBody] = useState("");

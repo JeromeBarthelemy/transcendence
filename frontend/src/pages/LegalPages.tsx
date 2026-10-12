@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
+import { useFormatters } from "../app/formatters";
 import { Page } from "../components/Page";
 import { Heading } from "../components/Typography";
 
@@ -16,10 +17,13 @@ function LegalPage({
   children: ReactNode;
 }) {
   const { t } = useTranslation();
+  const { formatDay } = useFormatters();
   return (
     <Page width="3xl" className="legal text-body">
       <Heading size="page">{title}</Heading>
-      <p className="mt-2 text-sm text-muted">{t("legal.updated")}</p>
+      <p className="mt-2 text-sm text-muted">
+        {t("legal.updated", { date: formatDay("2026-10-08") })}
+      </p>
       {children}
     </Page>
   );
