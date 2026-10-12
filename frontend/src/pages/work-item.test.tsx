@@ -151,6 +151,32 @@ it("shows the current progress, handover, participants and full history", async 
   ).toBe("/api/attachments/5/");
 });
 
+it("goes back to the work item's own team, not the first one", async () => {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (path: string) => {
+      if (path === "/api/auth/me/") {
+        return json(identity());
+      }
+      if (path === "/api/work-items/10/") {
+        return json(workItem());
+      }
+      return json([]);
+    }),
+  );
+  const router = createMemoryRouter(routes, {
+    initialEntries: ["/work-items/10"],
+  });
+  renderWorkItem(router);
+
+  await userEvent.click(
+    await screen.findByRole("link", { name: /Retour aux chantiers/ }),
+  );
+
+  expect(router.state.location.pathname).toBe("/");
+  expect(router.state.location.search).toBe("?team=7");
+});
+
 it("asks a non-participant to join before editing the progress", async () => {
   const currentProgress = progress({
     participants: [{ display_name: "Lina", avatar: null }],
@@ -410,7 +436,9 @@ function liveStepServer(initial = workItem()) {
         ([path]) => path === "/api/work-items/10/",
       ).length;
       await act(async () => {
-        sockets[0].onmessage?.({ data: JSON.stringify({ work_item: 10 }) });
+        sockets[0].onmessage?.({
+          data: JSON.stringify({ team_season: 7, work_item: 10 }),
+        });
       });
       await waitFor(() => {
         expect(
@@ -1234,6 +1262,7 @@ it("deletes a work item opened by mistake, after a confirmation", async () => {
   await userEvent.click(screen.getByRole("button", { name: "Supprimer" }));
 
   await waitFor(() => expect(router.state.location.pathname).toBe("/"));
+  expect(router.state.location.search).toBe("?team=7");
   expect(
     fetchMock.mock.calls.some(
       ([path, options]) =>

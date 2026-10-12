@@ -4,7 +4,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { activityAnalyticsQueryKey } from "../api/activityAnalytics";
 
 import "../i18n";
-import { LiveBoard, liveUrl } from "./live";
+import { LiveStatus, liveUrl } from "./live";
 
 class FakeSocket {
   static CONNECTING = 0;
@@ -82,7 +82,7 @@ function renderBoard() {
   fresh();
   const view = render(
     <QueryClientProvider client={queryClient}>
-      <LiveBoard teamSeasonId={7} />
+      <LiveStatus />
     </QueryClientProvider>,
   );
   const invalidated = (key: unknown[]) =>
@@ -93,12 +93,12 @@ function renderBoard() {
 const offline =
   "Hors ligne : les changements des autres arriveront à la reconnexion.";
 
-it("invalidates every work filter on messages and reconnection, but not another team", () => {
+it("invalidates every work filter of the team a message names, and of every team on reconnecting", () => {
   const { invalidated, fresh } = renderBoard();
   latest().open();
   fresh();
 
-  function expectFilteredInvalidation() {
+  function expectFilteredInvalidation(teams: number[]) {
     for (const scope of ["all", "robot", "off_robot"] as const) {
       for (const team of [7, 8]) {
         expect(
@@ -112,26 +112,29 @@ it("invalidates every work filter on messages and reconnection, but not another 
               scope,
             ),
           ]),
-        ).toBe(team === 7);
+        ).toBe(teams.includes(team));
       }
     }
   }
 
-  latest().receive({ work_item: 10 });
-  expectFilteredInvalidation();
+  latest().receive({ team_season: 7, work_item: 10 });
+  expectFilteredInvalidation([7]);
+  fresh();
+  latest().receive({ team_season: 8, work_item: null });
+  expectFilteredInvalidation([8]);
   fresh();
   latest().drop();
   act(() => vi.advanceTimersByTime(1000));
   latest().open();
-  expectFilteredInvalidation();
+  expectFilteredInvalidation([7, 8]);
 });
 
-it("listens on its team season's socket, secure under https", () => {
-  expect(liveUrl(7, { protocol: "http:", host: "localhost:5173" })).toBe(
-    "ws://localhost:5173/ws/team-seasons/7/",
+it("listens on the member's own socket, secure under https", () => {
+  expect(liveUrl({ protocol: "http:", host: "localhost:5173" })).toBe(
+    "ws://localhost:5173/ws/me/",
   );
-  expect(liveUrl(7, { protocol: "https:", host: "192.168.0.119" })).toBe(
-    "wss://192.168.0.119/ws/team-seasons/7/",
+  expect(liveUrl({ protocol: "https:", host: "192.168.0.119" })).toBe(
+    "wss://192.168.0.119/ws/me/",
   );
 });
 
@@ -140,7 +143,7 @@ it("reloads the team season and the work item a message names", () => {
   latest().open();
   fresh();
 
-  latest().receive({ work_item: 10 });
+  latest().receive({ team_season: 7, work_item: 10 });
 
   expect(invalidated(["team-seasons", 7, "work-items"])).toBe(true);
   expect(
@@ -184,12 +187,12 @@ it("reloads the member's notifications on any message, since a change may concer
   latest().open();
   fresh();
 
-  latest().receive({ work_item: 10 });
+  latest().receive({ team_season: 7, work_item: 10 });
 
   expect(invalidated(["notifications"])).toBe(true);
 });
 
-it("reloads the member's notifications on connecting, since some may have come while off the board", () => {
+it("reloads the member's notifications on connecting, since some may have come while disconnected", () => {
   const { invalidated } = renderBoard();
 
   latest().open();

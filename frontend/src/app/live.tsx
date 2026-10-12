@@ -10,23 +10,23 @@ const RECONNECT_AFTER = [1000, 2000, 5000, 10_000];
 // A socket dropping is only worth a notice once it stays down: a server
 // restart is a blip. The browser saying it is offline is shown at once.
 const OFFLINE_AFTER = 3000;
-// The server forgets a socket's subscription after a day, without closing it,
-// and only checks access on connecting: a fresh socket every hour bounds both.
+// The server forgets a socket's subscription after a day, without closing it:
+// a fresh socket every hour bounds it.
 const RENEW_AFTER = 60 * 60 * 1000;
 
 export function liveUrl(
-  teamSeasonId: number,
   location: { protocol: string; host: string } = window.location,
 ): string {
   const scheme = location.protocol === "https:" ? "wss" : "ws";
-  return `${scheme}://${location.host}/ws/team-seasons/${teamSeasonId}/`;
+  return `${scheme}://${location.host}/ws/me/`;
 }
 
-/** Hears when anyone changes the team season's board, and reloads what the
- * screen shows through the API: a message only says what changed. Each time
- * it connects, it reloads everything: before the first connection as after a
- * drop, it may have missed messages. Returns whether the screen is offline. */
-function useLiveBoard(teamSeasonId: number): boolean {
+/** Hears when anyone changes a board the member may read, and reloads it
+ * through the API: a message only says what changed. Only the queries on
+ * screen are fetched again; the others are simply marked stale. Each time it
+ * connects, it reloads everything: before the first connection as after a
+ * drop, it may have missed messages. Returns whether the member is offline. */
+function useLive(): boolean {
   const queryClient = useQueryClient();
   const [offline, setOffline] = useState(false);
 
@@ -44,14 +44,12 @@ function useLiveBoard(teamSeasonId: number): boolean {
 
     function connect() {
       clearTimeout(reconnect);
-      const opened = new WebSocket(liveUrl(teamSeasonId));
+      const opened = new WebSocket(liveUrl());
       socket = opened;
       opened.onopen = () => {
         clearNotice();
         setOffline(false);
-        queryClient.invalidateQueries({
-          queryKey: ["team-seasons", teamSeasonId],
-        });
+        queryClient.invalidateQueries({ queryKey: ["team-seasons"] });
         queryClient.invalidateQueries({ queryKey: ["work-items"] });
         queryClient.invalidateQueries({ queryKey: notificationsQueryKey });
         attempts = 0;
@@ -61,11 +59,12 @@ function useLiveBoard(teamSeasonId: number): boolean {
         }, RENEW_AFTER);
       };
       opened.onmessage = (event) => {
-        const { work_item } = JSON.parse(event.data) as {
+        const { team_season, work_item } = JSON.parse(event.data) as {
+          team_season: number;
           work_item: number | null;
         };
         queryClient.invalidateQueries({
-          queryKey: ["team-seasons", teamSeasonId],
+          queryKey: ["team-seasons", team_season],
         });
         // The change may concern this member: their bell reads them again.
         queryClient.invalidateQueries({ queryKey: notificationsQueryKey });
@@ -143,22 +142,24 @@ function useLiveBoard(teamSeasonId: number): boolean {
       window.removeEventListener("pageshow", pageBack);
       shut();
     };
-  }, [teamSeasonId, queryClient]);
+  }, [queryClient]);
 
   return offline;
 }
 
-/** Placed on each screen of the board: keeps it live, and says so when it
- * cannot. */
-export function LiveBoard({ teamSeasonId }: { teamSeasonId: number }) {
+/** Placed once under the header, for a signed-in member: keeps every screen
+ * live, and says so when it cannot. */
+export function LiveStatus() {
   const { t } = useTranslation();
-  const offline = useLiveBoard(teamSeasonId);
+  const offline = useLive();
   if (!offline) {
     return null;
   }
   return (
-    <Notice as="p" role="status" tone="warning" padding="sm" className="mt-3">
-      {t("live.offline")}
-    </Notice>
+    <div className="mx-auto w-full max-w-6xl px-5 sm:px-8">
+      <Notice as="p" role="status" tone="warning" padding="sm" className="mt-3">
+        {t("live.offline")}
+      </Notice>
+    </div>
   );
 }

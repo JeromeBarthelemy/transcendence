@@ -13,7 +13,6 @@ import { getRuleSources, ruleSourcesQueryKey } from "../api/ruleSources";
 import { createTeamNote, getWorkday, type Workday } from "../api/workdays";
 import { getWorkItems, type WorkItem } from "../api/workItems";
 import { formatWorkdayDate, nameFormatter } from "../app/formatters";
-import { LiveBoard } from "../app/live";
 import { RequestError } from "../components/ApiErrors";
 import { AvatarStack } from "../components/Avatar";
 import { Button, buttonClass } from "../components/Button";
@@ -457,8 +456,7 @@ function teamLabel(teamSeason: TeamSeasonSummary) {
 
 export function TeamHomePage({ identity }: { identity: Identity }) {
   const { t } = useTranslation();
-  const [searchParams] = useSearchParams();
-  const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [searchParams, setSearchParams] = useSearchParams();
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("open");
   const requestedSection = searchParams.get("section");
   const section: TeamSection = TEAM_SECTIONS.includes(
@@ -467,8 +465,9 @@ export function TeamHomePage({ identity }: { identity: Identity }) {
     ? (requestedSection as TeamSection)
     : "work-items";
   const selectedTeamSeason =
-    identity.team_seasons.find((item) => item.id === selectedId) ??
-    identity.team_seasons[0];
+    identity.team_seasons.find(
+      (item) => item.id === Number(searchParams.get("team")),
+    ) ?? identity.team_seasons[0];
   const teamSeasonId = selectedTeamSeason?.id ?? null;
   const workItems = useQuery({
     queryKey: ["team-seasons", teamSeasonId, "work-items"],
@@ -562,7 +561,13 @@ export function TeamHomePage({ identity }: { identity: Identity }) {
             <Select
               className="sm:w-auto"
               value={selectedTeamSeason.id}
-              onChange={(event) => setSelectedId(Number(event.target.value))}
+              onChange={(event) =>
+                setSearchParams((current) => {
+                  const next = new URLSearchParams(current);
+                  next.set("team", event.target.value);
+                  return next;
+                })
+              }
             >
               {identity.team_seasons.map((teamSeason) => (
                 <option key={teamSeason.id} value={teamSeason.id}>
@@ -588,7 +593,12 @@ export function TeamHomePage({ identity }: { identity: Identity }) {
           key: item,
           label: t(`teamHome.sections.${item}`),
           icon: SECTION_ICONS[item],
-          to: { pathname: "/", search: `?section=${item}` },
+          to: {
+            pathname: "/",
+            search: searchParams.has("team")
+              ? `?section=${item}&team=${selectedTeamSeason.id}`
+              : `?section=${item}`,
+          },
         }))}
       />
 
