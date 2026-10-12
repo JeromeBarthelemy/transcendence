@@ -846,18 +846,17 @@ laptop nearer the lower end of what the club has.
 | `POST /api/rules/sources/check/` | administrators only: check the game manual against its page now, the same check the `sources-check` service runs every 24 hours (the Q&A is not checked yet) |
 | `POST /api/rules/sources/{source}/accept/` | administrators only: replace the searched copy with the fetched change; `404` when nothing is waiting |
 
-The last four routes have a screen of their own (#103): a club admin sees a
-small badge on the team home page the moment a check finds a change
-waiting, and opens it into a review listing each source, when it was last
-checked, and — if one is waiting — what changed (passages added, removed,
-changed, and up to the first 20 references touched) with "Accepter la mise
-à jour" and "Ignorer pour l'instant". Accepting calls the same route the
-badge is about; dismissing calls nothing at all — it only hides that
-review until the next real check (the daily one, or "Vérifier maintenant"
-on the same screen) finds the same change again, exactly as `accept_update`
-and a plain dismissal already behaved before this screen existed. Adding a
-source's very first URL is still the one thing this screen does not do —
-that stays the management command below, run once a season.
+The last four routes have a screen of their own: a club admin sees a small
+badge on the team home page the moment a check finds a change waiting, and
+opens it into a review listing each source, when it was last checked, and
+— if one is waiting — what changed (passages added, removed, changed, and
+up to the first 20 references touched), with "Accepter la mise à jour" and
+"Ignorer pour l'instant". Accepting calls the accept route above;
+dismissing writes nothing to the server, only to the browser's own
+storage, keyed by the change's own `detected_at` — a newer change brings
+the badge and the review back by themselves, with nothing to clear by
+hand. Adding a source's very first URL still needs the management command
+below, run once a season.
 
 "Current season" here means `Season.objects.first()` — the whole route has
 no `team_season_id` to read it from, unlike everything else in this API, so

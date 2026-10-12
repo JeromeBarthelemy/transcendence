@@ -9,7 +9,11 @@ import { useTranslation } from "react-i18next";
 import { Link, useSearchParams } from "react-router-dom";
 
 import type { Identity, TeamSeasonSummary } from "../api/auth";
-import { getRuleSources, ruleSourcesQueryKey } from "../api/ruleSources";
+import {
+  getRuleSources,
+  isDismissed,
+  ruleSourcesQueryKey,
+} from "../api/ruleSources";
 import { createTeamNote, getWorkday, type Workday } from "../api/workdays";
 import { getWorkItems, type WorkItem } from "../api/workItems";
 import { formatWorkdayDate, nameFormatter } from "../app/formatters";
@@ -490,7 +494,9 @@ export function TeamHomePage({ identity }: { identity: Identity }) {
     enabled: identity.is_club_admin,
   });
   const hasSourceUpdate =
-    ruleSources.data?.some((row) => row.pending !== null) ?? false;
+    ruleSources.data?.some(
+      (row) => row.pending !== null && !isDismissed(row),
+    ) ?? false;
 
   if (!selectedTeamSeason) {
     return (

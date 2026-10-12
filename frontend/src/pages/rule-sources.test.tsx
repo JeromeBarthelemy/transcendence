@@ -95,6 +95,7 @@ afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
   setDocumentCookie("csrftoken=; Max-Age=0; path=/");
+  localStorage.clear();
 });
 
 it("keeps the screen from a member who is not a club admin", async () => {
@@ -174,7 +175,53 @@ it("reviews a pending update and accepts it", async () => {
   expect(screen.queryByText(/Une nouvelle version a été trouvée/)).toBeNull();
 });
 
-it("dismisses a pending update until the next check", async () => {
+it("reports a failed accept without touching the review", async () => {
+  const user = userEvent.setup();
+  const pending = {
+    detected_at: "2026-10-10T09:00:00Z",
+    summary: {
+      added: 1,
+      removed: 0,
+      changed: 0,
+      references: [],
+      references_total: 0,
+    },
+  };
+  stubApi((path, init) => {
+    if (path === "/api/auth/me/") return json(identity(true));
+    if (path === "/api/rules/sources/")
+      return json([manualRow({ pending }), qaRow()]);
+    if (
+      path === "/api/rules/sources/game_manual/accept/" &&
+      init?.method === "POST"
+    )
+      return json(
+        {
+          detail: {
+            code: "not_found",
+            message: "Aucune mise à jour en attente pour cette source.",
+          },
+        },
+        404,
+      );
+    return undefined;
+  });
+
+  renderSources();
+
+  await screen.findByText(/Une nouvelle version a été trouvée/);
+  await user.click(
+    screen.getByRole("button", { name: "Accepter la mise à jour" }),
+  );
+
+  expect(
+    await screen.findByText("Cet élément n'existe plus. Rechargez la page."),
+  ).toBeTruthy();
+  // The failed accept did not silently drop the review itself.
+  expect(screen.getByText(/Une nouvelle version a été trouvée/)).toBeTruthy();
+});
+
+it("keeps a dismissal while the same change is still the one waiting", async () => {
   const user = userEvent.setup();
   const pending = {
     detected_at: "2026-10-10T09:00:00Z",
@@ -203,11 +250,78 @@ it("dismisses a pending update until the next check", async () => {
   );
   expect(screen.queryByText(/Une nouvelle version a été trouvée/)).toBeNull();
 
-  // Nothing but a real, fresh check brings it back.
+  // The exact same change again, from a fresh check: still dismissed.
+  await user.click(screen.getByRole("button", { name: "Vérifier maintenant" }));
+  expect(screen.queryByText(/Une nouvelle version a été trouvée/)).toBeNull();
+});
+
+it("brings a dismissed review back once a newer change replaces it", async () => {
+  const user = userEvent.setup();
+  const first = {
+    detected_at: "2026-10-10T09:00:00Z",
+    summary: {
+      added: 1,
+      removed: 0,
+      changed: 0,
+      references: [],
+      references_total: 0,
+    },
+  };
+  const second = { ...first, detected_at: "2026-10-11T09:00:00Z" };
+  stubApi((path, init) => {
+    if (path === "/api/auth/me/") return json(identity(true));
+    if (path === "/api/rules/sources/")
+      return json([manualRow({ pending: first }), qaRow()]);
+    if (path === "/api/rules/sources/check/" && init?.method === "POST")
+      return json([manualRow({ pending: second }), qaRow()]);
+    return undefined;
+  });
+
+  renderSources();
+
+  await screen.findByText(/Une nouvelle version a été trouvée/);
+  await user.click(
+    screen.getByRole("button", { name: "Ignorer pour l'instant" }),
+  );
+  expect(screen.queryByText(/Une nouvelle version a été trouvée/)).toBeNull();
+
+  // A later check found a different change: it is not the one dismissed.
   await user.click(screen.getByRole("button", { name: "Vérifier maintenant" }));
   expect(
     await screen.findByText(/Une nouvelle version a été trouvée/),
   ).toBeTruthy();
+});
+
+it("keeps a dismissal across leaving the screen and coming back", async () => {
+  const user = userEvent.setup();
+  const pending = {
+    detected_at: "2026-10-10T09:00:00Z",
+    summary: {
+      added: 1,
+      removed: 0,
+      changed: 0,
+      references: [],
+      references_total: 0,
+    },
+  };
+  stubApi((path) => {
+    if (path === "/api/auth/me/") return json(identity(true));
+    if (path === "/api/rules/sources/")
+      return json([manualRow({ pending }), qaRow()]);
+    return undefined;
+  });
+
+  renderSources();
+  await screen.findByText(/Une nouvelle version a été trouvée/);
+  await user.click(
+    screen.getByRole("button", { name: "Ignorer pour l'instant" }),
+  );
+  cleanup();
+
+  renderSources();
+
+  await screen.findByRole("heading", { name: "Manuel de jeu" });
+  expect(screen.queryByText(/Une nouvelle version a été trouvée/)).toBeNull();
 });
 
 it("reports a failed check without touching what is searched", async () => {

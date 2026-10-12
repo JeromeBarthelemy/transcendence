@@ -1,11 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useReducer } from "react";
 import { useTranslation } from "react-i18next";
 
 import {
   acceptRuleSource,
   checkRuleSources,
+  dismissPending,
   getRuleSources,
+  isDismissed,
   ruleSourcesQueryKey,
   type SourceRow,
 } from "../api/ruleSources";
@@ -21,16 +23,16 @@ import { Eyebrow, Heading } from "../components/Typography";
 
 function SourceCard({
   row,
-  dismissed,
   onDismiss,
   onAccept,
   acceptPending,
+  acceptError,
 }: {
   row: SourceRow;
-  dismissed: boolean;
   onDismiss: () => void;
   onAccept: () => void;
   acceptPending: boolean;
+  acceptError: unknown;
 }) {
   const { t } = useTranslation();
   const headingId = `rule-source-${row.source}`;
@@ -68,7 +70,7 @@ function SourceCard({
         </Notice>
       )}
 
-      {row.pending && !dismissed && (
+      {row.pending && !isDismissed(row) && (
         <Notice tone="warning" callout className="mt-4">
           <p className="font-semibold">
             {t("ruleSources.pendingTitle", {
@@ -109,6 +111,7 @@ function SourceCard({
               {t("ruleSources.dismiss")}
             </Button>
           </div>
+          <RequestError error={acceptError} />
         </Notice>
       )}
     </Panel>
@@ -118,9 +121,10 @@ function SourceCard({
 function RuleSourcesScreen() {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
-  // Ephemeral on purpose (#103): a dismissal only hides the review until the
-  // next check, never the server's own record of it.
-  const [dismissed, setDismissed] = useState<Set<string>>(new Set());
+  // Dismissing writes straight to storage (isDismissed reads it back on
+  // every render); this has no state of its own to hold, only a reason to
+  // render again once that write has happened.
+  const [, dismissedSomething] = useReducer((tick: number) => tick + 1, 0);
 
   const sources = useQuery({
     queryKey: ruleSourcesQueryKey,
@@ -128,10 +132,7 @@ function RuleSourcesScreen() {
   });
   const check = useMutation({
     mutationFn: checkRuleSources,
-    onSuccess: (rows) => {
-      queryClient.setQueryData(ruleSourcesQueryKey, rows);
-      setDismissed(new Set());
-    },
+    onSuccess: (rows) => queryClient.setQueryData(ruleSourcesQueryKey, rows),
   });
   const accept = useMutation({
     mutationFn: acceptRuleSource,
@@ -172,13 +173,18 @@ function RuleSourcesScreen() {
             <SourceCard
               key={row.source}
               row={row}
-              dismissed={dismissed.has(row.source)}
-              onDismiss={() =>
-                setDismissed((current) => new Set(current).add(row.source))
-              }
+              onDismiss={() => {
+                if (row.pending) {
+                  dismissPending(row.source, row.pending.detected_at);
+                  dismissedSomething();
+                }
+              }}
               onAccept={() => accept.mutate(row.source)}
               acceptPending={
                 accept.isPending && accept.variables === row.source
+              }
+              acceptError={
+                accept.variables === row.source ? accept.error : undefined
               }
             />
           ))}
