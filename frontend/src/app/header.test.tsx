@@ -147,7 +147,7 @@ it("lists the navigation in the phone's menu, one menu open at a time", async ()
     within(panel)
       .getAllByRole("link")
       .map((link) => link.textContent),
-  ).toEqual(["Fieldbot", "Équipes", "Membres"]);
+  ).toEqual(["Fieldbot", "Équipes", "Membres", "Sources du règlement"]);
   // The administration screens sit under their own red label.
   expect(within(panel).getByText("Administration").className).toContain(
     "text-red-800",
@@ -187,7 +187,7 @@ it("gathers the administration screens behind one red entry", async () => {
     within(panel)
       .getAllByRole("link")
       .map((link) => link.textContent),
-  ).toEqual(["Équipes", "Membres"]);
+  ).toEqual(["Équipes", "Membres", "Sources du règlement"]);
 
   await user.click(within(panel).getByRole("link", { name: "Membres" }));
   await waitFor(() => expect(router.state.location.pathname).toBe("/users"));

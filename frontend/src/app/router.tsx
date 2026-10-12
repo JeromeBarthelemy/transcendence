@@ -36,6 +36,12 @@ export const routes: RouteObject[] = [
         }),
       },
       {
+        path: "/rules/sources",
+        lazy: async () => ({
+          Component: (await import("../pages/RuleSourcesPage")).RuleSourcesPage,
+        }),
+      },
+      {
         path: "/team-seasons/:teamSeasonId/days/:day",
         lazy: async () => ({
           Component: (await import("../pages/DaySummaryPage")).DaySummaryPage,

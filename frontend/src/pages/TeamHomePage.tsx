@@ -9,6 +9,11 @@ import { useTranslation } from "react-i18next";
 import { Link, useSearchParams } from "react-router-dom";
 
 import type { Identity } from "../api/auth";
+import {
+  getRuleSources,
+  isDismissed,
+  ruleSourcesQueryKey,
+} from "../api/ruleSources";
 import { createTeamNote, getWorkday, type Workday } from "../api/workdays";
 import { getWorkItems, type WorkItem } from "../api/workItems";
 import { fetchFreshEntry } from "../app/entries";
@@ -451,6 +456,16 @@ export function TeamHomePage({ identity }: { identity: Identity }) {
         : getWorkday(teamSeasonId, "today"),
     enabled: teamSeasonId !== null,
   });
+  // Never fetched for anyone who cannot open the review screen it badges.
+  const ruleSources = useQuery({
+    queryKey: ruleSourcesQueryKey,
+    queryFn: getRuleSources,
+    enabled: identity.is_club_admin,
+  });
+  const hasSourceUpdate =
+    ruleSources.data?.some(
+      (row) => row.pending !== null && !isDismissed(row),
+    ) ?? false;
 
   if (!selectedTeamSeason) {
     return (
@@ -485,7 +500,14 @@ export function TeamHomePage({ identity }: { identity: Identity }) {
           {t("teamHome.welcome", { name: identity.display_name })}
         </IconLabel>
       </Eyebrow>
-
+      {hasSourceUpdate && (
+        <Link
+          to="/rules/sources"
+          className="mt-3 inline-flex items-center gap-2 rounded-full border border-warning/40 bg-warning-tint px-4 py-2 text-sm font-semibold text-warning-ink transition hover:brightness-95"
+        >
+          {t("teamHome.sourceUpdateBadge")}
+        </Link>
+      )}
       <div className="mt-3 flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
         <div>
           <Heading size="page">
