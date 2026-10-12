@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 
 import { getActivityCalendar } from "../api/workdays";
-import { formatWorkdayDate } from "../app/formatters";
+import { dayDate, formatWorkdayDate } from "../app/formatters";
 import { RequestError } from "./ApiErrors";
 import { Button } from "./Button";
 import { Panel } from "./Panel";
@@ -17,7 +17,7 @@ const monthFormatter = new Intl.DateTimeFormat("fr-FR", {
 });
 
 function adjacentMonth(month: string, offset: number) {
-  const date = new Date(`${month}-01T12:00:00Z`);
+  const date = dayDate(`${month}-01`);
   date.setUTCMonth(date.getUTCMonth() + offset);
   return `${String(date.getUTCFullYear()).padStart(4, "0")}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
 }
@@ -37,7 +37,7 @@ export function ActivityCalendar({
     queryKey: ["team-seasons", teamSeasonId, "calendar", month],
     queryFn: () => getActivityCalendar(teamSeasonId, month),
   });
-  const first = new Date(`${month}-01T12:00:00Z`);
+  const first = dayDate(`${month}-01`);
   const last = new Date(first);
   last.setUTCMonth(last.getUTCMonth() + 1, 0);
   const offset = (first.getUTCDay() + 6) % 7;

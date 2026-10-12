@@ -1,24 +1,53 @@
+import { z } from "zod/mini";
+
 import { del, get, post, upload } from "./client";
 
-export interface TeamSeasonSummary {
-  id: number;
-  team: {
-    id: number;
-    number: number;
-    name: string;
-  };
-  season: {
-    start_year: number;
-    game_name: string;
-  };
+const teamSeasonSchema = z.object({
+  id: z.number(),
+  team: z.object({
+    id: z.number(),
+    number: z.number(),
+    name: z.string(),
+  }),
+  season: z.object({
+    start_year: z.number(),
+    game_name: z.string(),
+  }),
+});
+
+const identitySchema = z.object({
+  display_name: z.string(),
+  club_role: z.enum(["student", "mentor"]),
+  is_club_admin: z.boolean(),
+  avatar: z.nullable(z.string()),
+  team_seasons: z.array(teamSeasonSchema),
+});
+
+const signUpResultSchema = z.object({
+  email: z.string(),
+  display_name: z.string(),
+});
+
+const sentToSchema = z.object({ sent_to: z.string() });
+
+export type TeamSeasonSummary = z.infer<typeof teamSeasonSchema>;
+export type Identity = z.infer<typeof identitySchema>;
+export type SignUpResult = z.infer<typeof signUpResultSchema>;
+
+function parseIdentity(body: unknown, response: string): Identity {
+  const result = identitySchema.safeParse(body);
+  if (!result.success) {
+    throw new Error(`The ${response} response is invalid`);
+  }
+  return result.data;
 }
 
-export interface Identity {
-  display_name: string;
-  club_role: "student" | "mentor";
-  is_club_admin: boolean;
-  avatar: string | null;
-  team_seasons: TeamSeasonSummary[];
+function parseSentTo(body: unknown, response: string): string {
+  const result = sentToSchema.safeParse(body);
+  if (!result.success) {
+    throw new Error(`The ${response} response is invalid`);
+  }
+  return result.data.sent_to;
 }
 
 export interface SignUpInput {
@@ -30,52 +59,9 @@ export interface SignUpInput {
   password: string;
 }
 
-export interface SignUpResult {
-  email: string;
-  display_name: string;
-}
-
 export interface LoginInput {
   username: string;
   password: string;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function isTeamSeason(value: unknown): value is TeamSeasonSummary {
-  return (
-    isRecord(value) &&
-    typeof value.id === "number" &&
-    isRecord(value.team) &&
-    typeof value.team.id === "number" &&
-    typeof value.team.number === "number" &&
-    typeof value.team.name === "string" &&
-    isRecord(value.season) &&
-    typeof value.season.start_year === "number" &&
-    typeof value.season.game_name === "string"
-  );
-}
-
-function isIdentity(value: unknown): value is Identity {
-  return (
-    isRecord(value) &&
-    typeof value.display_name === "string" &&
-    (value.club_role === "student" || value.club_role === "mentor") &&
-    typeof value.is_club_admin === "boolean" &&
-    (value.avatar === null || typeof value.avatar === "string") &&
-    Array.isArray(value.team_seasons) &&
-    value.team_seasons.every(isTeamSeason)
-  );
-}
-
-function isSignUpResult(value: unknown): value is SignUpResult {
-  return (
-    isRecord(value) &&
-    typeof value.email === "string" &&
-    typeof value.display_name === "string"
-  );
 }
 
 /** `null` when nobody is signed in: an answer, not an error (README,
@@ -85,26 +71,21 @@ export async function getCurrentUser(): Promise<Identity | null> {
   if (body === null) {
     return null;
   }
-  if (!isIdentity(body)) {
-    throw new Error("The identity response is invalid");
-  }
-  return body;
+  return parseIdentity(body, "identity");
 }
 
 export async function signUp(input: SignUpInput): Promise<SignUpResult> {
   const { body } = await post("/api/auth/signup/", input);
-  if (!isSignUpResult(body)) {
+  const result = signUpResultSchema.safeParse(body);
+  if (!result.success) {
     throw new Error("The sign-up response is invalid");
   }
-  return body;
+  return result.data;
 }
 
 export async function logIn(input: LoginInput): Promise<Identity> {
   const { body } = await post("/api/auth/login/", input);
-  if (!isIdentity(body)) {
-    throw new Error("The login response is invalid");
-  }
-  return body;
+  return parseIdentity(body, "login");
 }
 
 export async function logOut(): Promise<void> {
@@ -153,18 +134,11 @@ export async function uploadAvatar(
     form,
     onProgress,
   );
-  if (!isIdentity(body)) {
-    throw new Error("The avatar response is invalid");
-  }
-  return body;
+  return parseIdentity(body, "avatar");
 }
 
 export async function deleteAvatar(): Promise<void> {
   await del("/api/auth/me/avatar/");
-}
-
-function isSentTo(value: unknown): value is { sent_to: string } {
-  return isRecord(value) && typeof value.sent_to === "string";
 }
 
 /** The right of access: a copy of the account, sent by e-mail to its contact
@@ -172,10 +146,7 @@ function isSentTo(value: unknown): value is { sent_to: string } {
  * Returns that address: a guardian's, for a minor. */
 export async function requestDataExport(): Promise<string> {
   const { body } = await post("/api/auth/me/export/");
-  if (!isSentTo(body)) {
-    throw new Error("The export response is invalid");
-  }
-  return body.sent_to;
+  return parseSentTo(body, "export");
 }
 
 /** The right to erasure. The account's own password confirms it; the server
@@ -183,8 +154,5 @@ export async function requestDataExport(): Promise<string> {
  * session. Returns the address the confirmation went to. */
 export async function deleteAccount(password: string): Promise<string> {
   const { body } = await del("/api/auth/me/", { password });
-  if (!isSentTo(body)) {
-    throw new Error("The deletion response is invalid");
-  }
-  return body.sent_to;
+  return parseSentTo(body, "deletion");
 }

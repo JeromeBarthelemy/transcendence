@@ -12,12 +12,14 @@ import {
   type UserChanges,
   updateUser,
 } from "../api/users";
+import { foldText } from "../app/text";
 import { AdminOnly } from "../components/AdminOnly";
 import {
   FieldErrors,
   fieldIssues,
   RequestError,
 } from "../components/ApiErrors";
+import { Avatar } from "../components/Avatar";
 import { Button } from "../components/Button";
 import { Chip } from "../components/Chip";
 import { EmptyState } from "../components/EmptyState";
@@ -44,14 +46,6 @@ const ROLE_FILTERS: RoleFilter[] = ["all", "student", "mentor", "admin"];
 
 const nameCollator = new Intl.Collator("fr-FR", { sensitivity: "base" });
 
-/** Case- and accent-blind, so « elo » finds Élodie. */
-function fold(text: string) {
-  return text
-    .normalize("NFD")
-    .replace(/\p{Diacritic}/gu, "")
-    .toLocaleLowerCase("fr-FR");
-}
-
 function userStatus(user: ClubUser): "active" | "suspended" | "anonymized" {
   if (user.is_anonymized) return "anonymized";
   return user.is_active ? "active" : "suspended";
@@ -73,26 +67,6 @@ function matchesRole(user: ClubUser, filter: RoleFilter) {
 function isSelf(user: ClubUser, identity: Identity) {
   // Display names are unique (club/models.py), and /me/ carries no id.
   return user.display_name === identity.display_name;
-}
-
-function Avatar({ user, size = "size-9" }: { user: ClubUser; size?: string }) {
-  if (user.avatar) {
-    return (
-      <img
-        src={user.avatar}
-        alt=""
-        className={`${size} rounded-full object-cover`}
-      />
-    );
-  }
-  return (
-    <span
-      aria-hidden="true"
-      className={`${size} grid shrink-0 place-items-center rounded-full bg-tint text-sm font-bold text-accent`}
-    >
-      {user.display_name.charAt(0).toUpperCase()}
-    </span>
-  );
 }
 
 function Badges({ user }: { user: ClubUser }) {
@@ -124,15 +98,15 @@ function UserList({ identity }: { identity: Identity }) {
   const [role, setRole] = useState<RoleFilter>("all");
   const users = useQuery({ queryKey: usersQueryKey, queryFn: listUsers });
 
-  const folded = fold(search.trim());
+  const folded = foldText(search);
   const visible = (users.data ?? [])
     .filter(
       (user) =>
         matchesStatus(user, status) &&
         matchesRole(user, role) &&
         (!folded ||
-          fold(user.display_name).includes(folded) ||
-          fold(user.email).includes(folded)),
+          foldText(user.display_name).includes(folded) ||
+          foldText(user.email).includes(folded)),
     )
     .sort((a, b) => nameCollator.compare(a.display_name, b.display_name));
 
@@ -206,7 +180,7 @@ function UserList({ identity }: { identity: Identity }) {
                     to={`/users/${user.id}`}
                     className="flex flex-wrap items-center gap-3 px-4 py-3 no-underline hover:bg-mist focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-lagoon"
                   >
-                    <Avatar user={user} />
+                    <Avatar person={user} size="list" />
                     <span className="min-w-0 flex-1">
                       <span className="block font-semibold text-ink">
                         {user.display_name}
@@ -470,7 +444,7 @@ function UserDetail({ identity }: { identity: Identity }) {
       ) : (
         <>
           <div className="mt-6 flex flex-wrap items-center gap-4">
-            <Avatar user={user.data} size="size-16" />
+            <Avatar person={user.data} size="detail" />
             <div className="min-w-0 flex-1">
               <Heading size="page">{user.data.display_name}</Heading>
               <p className="mt-1 truncate text-sm text-muted">
