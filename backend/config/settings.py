@@ -236,7 +236,9 @@ EMAIL_TIMEOUT = 10
 # the environment so that trying another model is a `.env` change, never a
 # code change. `ollama` is the service name in compose.yml.
 RAG_OLLAMA_URL = os.environ.get("RAG_OLLAMA_URL", "http://ollama:11434")
-RAG_GENERATION_MODEL = os.environ.get("RAG_GENERATION_MODEL", "qwen2.5:3b")
+RAG_GENERATION_MODEL = os.environ.get(
+    "RAG_GENERATION_MODEL", "qwen3:4b-instruct-2507-q4_K_M"
+)
 
 
 # ---------------------------------------------------------------------------

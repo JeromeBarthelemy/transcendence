@@ -1,6 +1,6 @@
 import pytest
 
-from club.generation import GenerationError
+from club.generation import Answer, GenerationError
 from club.models import Document, Season, User
 from club.rag import (
     GENERATION_UNAVAILABLE,
@@ -531,7 +531,8 @@ def test_a_matched_question_is_answered_from_the_generated_text(monkeypatch):
     document(this_season, source=Document.Source.GAME_MANUAL, text=RULE_HTML)
     lina = asker()
     monkeypatch.setattr(
-        "club.rag.generate_answer", lambda question, chunks: "Dix-huit pouces [G101]."
+        "club.rag.generate_answer",
+        lambda question, rules: Answer("Eighteen inches.", [rules[0][0]]),
     )
 
     query = ask(
@@ -540,7 +541,7 @@ def test_a_matched_question_is_answered_from_the_generated_text(monkeypatch):
         lina,
     )
 
-    assert query.answer == "Dix-huit pouces [G101]."
+    assert query.answer == "Eighteen inches."
     assert query.citations.exists()
 
 
@@ -549,7 +550,7 @@ def test_a_generation_failure_leaves_the_citations_standing_alone(monkeypatch):
     document(this_season, source=Document.Source.GAME_MANUAL, text=RULE_HTML)
     lina = asker()
 
-    def failing(question, chunks):
+    def failing(question, rules):
         raise GenerationError("hors ligne")
 
     monkeypatch.setattr("club.rag.generate_answer", failing)
@@ -574,7 +575,7 @@ def test_a_generation_failure_logs_its_cause(monkeypatch, caplog):
     document(this_season, source=Document.Source.GAME_MANUAL, text=RULE_HTML)
     lina = asker()
 
-    def failing(question, chunks):
+    def failing(question, rules):
         raise GenerationError("hors ligne")
 
     monkeypatch.setattr("club.rag.generate_answer", failing)
@@ -598,18 +599,18 @@ def rule_html(reference, text):
 
 
 def references_read_by_the_model(monkeypatch, html, question):
-    """The rules the model is given, in the order it reads them."""
+    """The rules the model is given, `(reference, text)`, in reading order."""
     this_season = season()
     document(this_season, source=Document.Source.GAME_MANUAL, text=html)
-    read: list[str] = []
+    read: list[tuple[str, str]] = []
 
-    def capture(question, chunks):
-        read.extend(chunk.reference for chunk in chunks)
-        return ""
+    def capture(question, rules):
+        read.extend(rules)
+        return Answer("", [])
 
     monkeypatch.setattr("club.rag.generate_answer", capture)
     ask(question, this_season, asker())
-    return list(dict.fromkeys(read)), read
+    return read
 
 
 def test_a_rule_cut_in_two_passages_reaches_the_model_whole(monkeypatch):
@@ -622,11 +623,13 @@ def test_a_rule_cut_in_two_passages_reaches_the_model_whole(monkeypatch):
         for sentence in (expansion, expansion, portfolio, portfolio)
     )
 
-    _, chunks_read = references_read_by_the_model(
+    ((reference, text),) = references_read_by_the_model(
         monkeypatch, html, "Can the robot expand after the match starts?"
     )
 
-    assert chunks_read == ["R105", "R105"]
+    assert reference == "R105"
+    assert "STARTING CONFIGURATION" in text
+    assert "PORTFOLIO" in text
 
 
 def test_the_model_reads_at_most_five_rules(monkeypatch):
@@ -635,7 +638,7 @@ def test_the_model_reads_at_most_five_rules(monkeypatch):
         for n in range(7)
     )
 
-    rules, _ = references_read_by_the_model(
+    rules = references_read_by_the_model(
         monkeypatch, html, "How tall can the robot be?"
     )
 
@@ -649,11 +652,11 @@ def test_rules_reach_the_model_in_the_cross_encoders_order(monkeypatch):
         lambda question, texts: [0.0 if "height" in t else 1.0 for t in texts],
     )
 
-    rules, _ = references_read_by_the_model(
+    rules = references_read_by_the_model(
         monkeypatch, html, "How tall can the robot be?"
     )
 
-    assert rules == ["R102", "R101"]
+    assert [reference for reference, _ in rules] == ["R102", "R101"]
 
 
 def test_the_cross_encoder_scores_the_answering_rule_above_an_unrelated_one():

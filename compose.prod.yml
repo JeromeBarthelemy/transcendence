@@ -163,12 +163,12 @@ services:
     command:
       - |
         set -e
-        ollama pull "$${RAG_GENERATION_MODEL:-qwen2.5:3b}"
+        ollama pull "$${RAG_GENERATION_MODEL:-qwen3:4b-instruct-2507-q4_K_M}"
         # Loads the model into memory now rather than leaving that cost
         # for the first real question — a cold load can run past
         # GENERATION_TIMEOUT_SECONDS on its own, generation.py's sole
         # safety net meant for a slow answer, not a slow load.
-        ollama run "$${RAG_GENERATION_MODEL:-qwen2.5:3b}" "" || true
+        ollama run "$${RAG_GENERATION_MODEL:-qwen3:4b-instruct-2507-q4_K_M}" "" || true
 
 volumes:
   sqlite_data:

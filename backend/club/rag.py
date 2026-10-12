@@ -852,7 +852,7 @@ def _ranked_rules(
 def ask(question: str, season: Season, asker: User) -> RuleQuery:
     """The rules answering the question best, for this season only — the
     game changes every year, and a rule from last season's manual is not a
-    rule — and a French answer written only from them. `answer` holds the
+    rule — and an answer written only from them. `answer` holds the
     system's own refusal when none cleared `MIN_SCORE`, and nothing is
     generated for that case: with only the manual and the Q&A left as
     sources, a citation existing at all already means it came from one of
@@ -916,7 +916,13 @@ def ask(question: str, season: Season, asker: User) -> RuleQuery:
     answer = NO_ANSWER
     if matches:
         try:
-            answer = generate_answer(question, matches)
+            answer = generate_answer(
+                question,
+                [
+                    (rule[0].reference, "\n".join(chunk.text for chunk in rule))
+                    for rule in rules
+                ],
+            ).reply
         except GenerationError as error:
             logger.warning("rulebook generation failed: %s", error)
             answer = GENERATION_UNAVAILABLE

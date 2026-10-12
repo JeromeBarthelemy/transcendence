@@ -1,4 +1,5 @@
 import pytest
+from club.generation import Answer
 
 
 # Without this, any test touching the database fails unless it carries
@@ -16,4 +17,7 @@ def enable_db_access_for_all_tests(db):
 # before generation existed; a test about generation itself overrides this.
 @pytest.fixture(autouse=True)
 def stub_rag_generation(monkeypatch):
-    monkeypatch.setattr("club.rag.generate_answer", lambda question, chunks: "")
+    monkeypatch.setattr(
+        "club.rag.generate_answer",
+        lambda question, rules: Answer("", [rules[0][0]]),
+    )
