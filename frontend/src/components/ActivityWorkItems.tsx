@@ -1,12 +1,8 @@
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import type { WorkItemActivity } from "../api/activityAnalytics";
+import { formatDay } from "../app/formatters";
 import { EmptyState } from "./EmptyState";
-
-const dateFormatter = new Intl.DateTimeFormat("fr-FR", {
-  dateStyle: "medium",
-  timeZone: "UTC",
-});
 
 /** Period counts alongside explicitly current status/step, not a historical snapshot. */
 export function ActivityWorkItems({ items }: { items: WorkItemActivity[] }) {
@@ -81,9 +77,7 @@ export function ActivityWorkItems({ items }: { items: WorkItemActivity[] }) {
               </td>
               <td className="px-3 py-4 text-right text-body">
                 {item.last_progress_day
-                  ? dateFormatter.format(
-                      new Date(`${item.last_progress_day}T12:00:00Z`),
-                    )
+                  ? formatDay(item.last_progress_day, "medium")
                   : t("activity.noParticipation")}
               </td>
             </tr>

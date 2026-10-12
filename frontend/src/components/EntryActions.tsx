@@ -42,6 +42,7 @@ export function EntryActions({
   // The version the correction is written over, fixed when it opens.
   const [bodyWas, setBodyWas] = useState(entry.body);
   const [theirs, setTheirs] = useState<string | null>(null);
+  const [refreshError, setRefreshError] = useState<unknown>(null);
 
   const remove = useMutation({
     mutationFn: () => removeEntry(entry.id),
@@ -49,6 +50,10 @@ export function EntryActions({
   });
   const correct = useMutation({
     mutationFn: () => correctEntry(entry.id, { body, body_was: bodyWas }),
+    onMutate: () => {
+      setTheirs(null);
+      setRefreshError(null);
+    },
     onSuccess: async () => {
       setIsCorrecting(false);
       setTheirs(null);
@@ -58,10 +63,14 @@ export function EntryActions({
       if (fieldIssues(error, "detail")[0]?.code !== "entry_changed") {
         return;
       }
-      const current = await currentBody();
-      if (current !== null) {
-        setTheirs(current);
-        setBodyWas(current);
+      try {
+        const current = await currentBody();
+        if (current !== null) {
+          setTheirs(current);
+          setBodyWas(current);
+        }
+      } catch (error) {
+        setRefreshError(error);
       }
     },
   });
@@ -70,6 +79,7 @@ export function EntryActions({
     setBody(entry.body);
     setBodyWas(entry.body);
     setTheirs(null);
+    setRefreshError(null);
     correct.reset();
     setIsCorrecting(true);
   }
@@ -108,7 +118,7 @@ export function EntryActions({
             </div>
           )}
           {correct.isError && theirs === null && (
-            <RequestError error={correct.error} />
+            <RequestError error={refreshError ?? correct.error} />
           )}
           <div className="mt-3 flex flex-wrap gap-3">
             <Button

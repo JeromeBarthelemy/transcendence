@@ -21,7 +21,8 @@ import {
   type WorkItemStep,
   workItemSteps,
 } from "../api/workItems";
-import { nameFormatter } from "../app/formatters";
+import { fetchFreshEntry } from "../app/entries";
+import { nameFormatter, teamLabel } from "../app/formatters";
 import { useCurrentUser } from "../app/useCurrentUser";
 import { fieldIssues, RequestError } from "../components/ApiErrors";
 import { AvatarStack } from "../components/Avatar";
@@ -43,15 +44,6 @@ const dateTimeFormatter = new Intl.DateTimeFormat("fr-FR", {
   dateStyle: "long",
   timeStyle: "short",
 });
-function teamLabel(identity: Identity, teamSeasonId: number) {
-  const teamSeason = identity.team_seasons.find(
-    (candidate) => candidate.id === teamSeasonId,
-  );
-  return teamSeason
-    ? `${teamSeason.team.number} · ${teamSeason.team.name}`
-    : null;
-}
-
 function useInvalidateWorkItem(item: WorkItemDetail) {
   const queryClient = useQueryClient();
   return async () => {
@@ -155,12 +147,14 @@ function AttachmentUploader({
       {upload.isPending && (
         <div className="mt-4">
           <label className="text-xs text-muted" htmlFor="upload-progress">
-            {t("workItem.uploading", { progress: uploadProgress })}
+            {t("workItem.uploading", {
+              progress: Math.round(uploadProgress * 100),
+            })}
           </label>
           <progress
             id="upload-progress"
             className="mt-1 block w-full accent-accent"
-            max={100}
+            max={1}
             value={uploadProgress}
           />
         </div>
@@ -200,6 +194,7 @@ function ProgressEditor({
   const [handoverWas, setHandoverWas] = useState(entry.handover);
   // The handover someone else saved meanwhile, once a save was refused.
   const [theirs, setTheirs] = useState<string | null>(null);
+  const [refreshError, setRefreshError] = useState<unknown>(null);
   const [saved, setSaved] = useState(false);
 
   const changes: ProgressChanges = {};
@@ -214,6 +209,10 @@ function ProgressEditor({
 
   const save = useMutation({
     mutationFn: () => updateProgress(entry.id, changes),
+    onMutate: () => {
+      setTheirs(null);
+      setRefreshError(null);
+    },
     onSuccess: async (savedEntry) => {
       setAddition("");
       setHandover(savedEntry.handover);
@@ -226,16 +225,22 @@ function ProgressEditor({
       if (fieldIssues(error, "detail")[0]?.code !== "progress_changed") {
         return;
       }
-      const fresh = await queryClient.fetchQuery({
-        queryKey: ["work-items", item.id],
-        queryFn: () => getWorkItem(item.id),
-        // The cache is what the refusal says is out of date.
-        staleTime: 0,
-      });
-      const current = fresh.thread.find((other) => other.id === entry.id);
-      if (current) {
-        setTheirs(current.handover);
-        setHandoverWas(current.handover);
+      try {
+        const current = await fetchFreshEntry(
+          queryClient,
+          {
+            queryKey: ["work-items", item.id],
+            queryFn: () => getWorkItem(item.id),
+          },
+          (item) => item.thread,
+          entry.id,
+        );
+        if (current) {
+          setTheirs(current.handover);
+          setHandoverWas(current.handover);
+        }
+      } catch (error) {
+        setRefreshError(error);
       }
     },
   });
@@ -303,7 +308,9 @@ function ProgressEditor({
           </div>
         )}
 
-        {save.isError && theirs === null && <RequestError error={save.error} />}
+        {save.isError && theirs === null && (
+          <RequestError error={refreshError ?? save.error} />
+        )}
         {saved && (
           <SuccessMessage className="mt-3">
             {t("workItem.progressSaved")}
@@ -548,13 +555,16 @@ function HistoryEntry({
   );
 
   async function currentBody() {
-    const fresh = await queryClient.fetchQuery({
-      queryKey: ["work-items", item.id],
-      queryFn: () => getWorkItem(item.id),
-      // The cache is what the refusal says is out of date.
-      staleTime: 0,
-    });
-    return fresh.thread.find((other) => other.id === entry.id)?.body ?? null;
+    const current = await fetchFreshEntry(
+      queryClient,
+      {
+        queryKey: ["work-items", item.id],
+        queryFn: () => getWorkItem(item.id),
+      },
+      (item) => item.thread,
+      entry.id,
+    );
+    return current?.body ?? null;
   }
 
   return (
@@ -761,7 +771,10 @@ function WorkItemScreen({
   const progressCount = item.thread.filter(
     (entry) => entry.type === "progress",
   ).length;
-  const team = teamLabel(identity, item.team_season);
+  const teamSeason = identity.team_seasons.find(
+    (candidate) => candidate.id === item.team_season,
+  );
+  const team = teamSeason ? teamLabel(teamSeason) : null;
   const invalidateWorkItem = useInvalidateWorkItem(item);
   // The status being changed, its form open until it is saved or cancelled.
   const [statusChange, setStatusChange] = useState<WorkItemStatus | null>(null);

@@ -68,29 +68,21 @@ async function responseBody(response: Response): Promise<unknown> {
 async function request(
   path: string,
   options: RequestInit,
-  acceptedStatuses: readonly number[] = [],
 ): Promise<ApiResponse> {
   const response = await fetch(path, options);
   const body = await responseBody(response);
-  if (!response.ok && !acceptedStatuses.includes(response.status)) {
+  if (!response.ok) {
     throw toApiError(response.status, body);
   }
   return { status: response.status, body };
 }
 
-export async function get(
-  path: string,
-  acceptedStatuses: readonly number[] = [],
-): Promise<ApiResponse> {
-  return request(
-    path,
-    {
-      credentials: "same-origin",
-      headers: { Accept: "application/json" },
-      cache: "no-store",
-    },
-    acceptedStatuses,
-  );
+export async function get(path: string): Promise<ApiResponse> {
+  return request(path, {
+    credentials: "same-origin",
+    headers: { Accept: "application/json" },
+    cache: "no-store",
+  });
 }
 
 export async function csrfToken(): Promise<string> {

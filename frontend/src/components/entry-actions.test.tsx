@@ -60,6 +60,33 @@ function renderActions(
 const sent = (fetchMock: ReturnType<typeof vi.fn>, method: string) =>
   fetchMock.mock.calls.filter(([, options]) => options?.method === method);
 
+it("keeps the correction draft and reports a failed conflict refresh", async () => {
+  const refresh = vi.fn(async () => {
+    throw new TypeError("The server is unreachable");
+  });
+  renderActions(
+    note(),
+    () =>
+      json(
+        { detail: { code: "entry_changed", message: "Texte modifié." } },
+        409,
+      ),
+    refresh,
+  );
+  await userEvent.click(screen.getByRole("button", { name: "Corriger" }));
+  const text = screen.getByLabelText<HTMLTextAreaElement>("Corriger le texte");
+  await userEvent.clear(text);
+  await userEvent.type(text, "Mon brouillon.");
+  await userEvent.click(screen.getByRole("button", { name: "Enregistrer" }));
+
+  expect((await screen.findByRole("alert")).textContent).toContain(
+    "Impossible de joindre le serveur.",
+  );
+  expect(refresh).toHaveBeenCalledTimes(1);
+  expect(screen.getByLabelText("Corriger le texte")).toBe(text);
+  expect(text.value).toBe("Mon brouillon.");
+});
+
 it("shows only the actions its reader is allowed", () => {
   renderActions(note({ can_remove: true, can_correct: false }), () => json({}));
 

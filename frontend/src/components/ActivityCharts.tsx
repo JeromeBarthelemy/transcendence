@@ -15,15 +15,10 @@ import {
 } from "recharts";
 
 import type { DailyActivity, WeeklyActivity } from "../api/activityAnalytics";
+import { formatDay } from "../app/formatters";
 
-const shortDateFormatter = new Intl.DateTimeFormat("fr-FR", {
-  day: "numeric",
-  month: "short",
-  timeZone: "UTC",
-});
-
-function formatDay(day: string) {
-  return shortDateFormatter.format(new Date(`${day}T12:00:00Z`));
+function formatChartDay(day: string) {
+  return formatDay(day, "short");
 }
 
 export function WeeklyActivityChart({
@@ -49,12 +44,14 @@ export function WeeklyActivityChart({
             <CartesianGrid stroke="var(--color-line)" strokeDasharray="4 4" />
             <XAxis
               dataKey="week_start"
-              tickFormatter={formatDay}
+              tickFormatter={formatChartDay}
               stroke="var(--color-muted)"
             />
             <YAxis allowDecimals={false} stroke="var(--color-muted)" />
             <Tooltip
-              labelFormatter={(day) => `${weekLabel} ${formatDay(String(day))}`}
+              labelFormatter={(day) =>
+                `${weekLabel} ${formatChartDay(String(day))}`
+              }
             />
             <Legend />
             <Bar
@@ -86,7 +83,7 @@ export function WeeklyActivityChart({
           <tbody>
             {data.map((week) => (
               <tr key={week.week_start}>
-                <th scope="row">{formatDay(week.week_start)}</th>
+                <th scope="row">{formatChartDay(week.week_start)}</th>
                 <td>{week.progress_entries}</td>
                 <td>{week.active_members}</td>
                 <td>{week.active_days}</td>
@@ -185,11 +182,11 @@ export function ActivityOverTimeChart({
             <CartesianGrid stroke="var(--color-line)" strokeDasharray="4 4" />
             <XAxis
               dataKey="day"
-              tickFormatter={formatDay}
+              tickFormatter={formatChartDay}
               stroke="var(--color-muted)"
             />
             <YAxis allowDecimals={false} stroke="var(--color-muted)" />
-            <Tooltip labelFormatter={(day) => formatDay(String(day))} />
+            <Tooltip labelFormatter={(day) => formatChartDay(String(day))} />
             <Legend />
             <Line
               type="monotone"
@@ -225,7 +222,7 @@ export function ActivityOverTimeChart({
           <tbody>
             {data.map((item) => (
               <tr key={item.day}>
-                <th scope="row">{formatDay(item.day)}</th>
+                <th scope="row">{formatChartDay(item.day)}</th>
                 <td>{item.progress_entries}</td>
                 <td>{item.active_members}</td>
               </tr>
