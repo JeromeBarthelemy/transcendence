@@ -137,10 +137,10 @@ def test_a_page_that_cannot_be_fetched_is_reported_not_raised(monkeypatch):
 
 
 def test_a_malformed_url_is_reported_not_raised(monkeypatch):
-    # #238: urllib raises http.client.InvalidURL for a URL control
-    # character (an unencoded space, say) before it ever reaches the
-    # network — a different exception type than a reachable server
-    # refusing the request, but the same "tell the admin" outcome.
+    # urllib raises http.client.InvalidURL for a URL control character
+    # (an unencoded space, say) before it ever reaches the network — a
+    # different exception type than a reachable server refusing the
+    # request, but the same "tell the admin" outcome.
     copy = manual_copy(season())
 
     def malformed(url):
@@ -348,12 +348,13 @@ def test_a_page_that_cannot_be_fetched_is_refused_by_name(client, monkeypatch):
 
     assert response.status_code == 400
     assert response.json()["detail"]["code"] == "fetch_failed"
+    assert not Document.objects.exists()
 
 
 def test_a_malformed_url_is_refused_by_name_not_a_500(client, monkeypatch):
-    # #238: add_source hits the same fetch_page as check_document, and the
-    # same gap — adding a source by a URL with a control character must
-    # refuse by name, never 500.
+    # add_source hits the same fetch_page as check_document, and the same
+    # gap — adding a source by a URL with a control character must refuse
+    # by name, never 500.
     season()
     client.force_login(administrator())
 
