@@ -102,6 +102,32 @@ def test_a_connection_from_another_site_is_refused(db):
     assert not connects(rouages, user=member_of(rouages), origin="https://evil.example")
 
 
+def connects_as_themselves(**kwargs):
+    sent = headers(**kwargs)
+
+    async def scenario():
+        communicator = WebsocketCommunicator(application, "/ws/me/", sent)
+        connected, _ = await communicator.connect()
+        await communicator.disconnect()
+        return connected
+
+    return async_to_sync(scenario)()
+
+
+def test_a_signed_in_member_connects_to_their_own_socket(db):
+    assert connects_as_themselves(user=member_of(team_season()))
+
+
+def test_an_anonymous_visitor_has_no_socket_of_their_own(db):
+    assert not connects_as_themselves()
+
+
+def test_a_socket_of_their_own_from_another_site_is_refused(db):
+    assert not connects_as_themselves(
+        user=member_of(team_season()), origin="https://evil.example"
+    )
+
+
 # --- what a team season is told ---
 
 
@@ -279,6 +305,104 @@ def listen(team_season, user, write, django_capture_on_commit_callbacks):
         return result, heard
 
     return async_to_sync(scenario)()
+
+
+def hears(user, write, django_capture_on_commit_callbacks):
+    """What `user` hears on their own socket while `write` runs, its commit
+    callbacks executed as a real commit would. None if nothing."""
+    sent = headers(user=user)
+
+    def committed():
+        with django_capture_on_commit_callbacks(execute=True):
+            return write()
+
+    async def scenario():
+        communicator = WebsocketCommunicator(application, "/ws/me/", sent)
+        await communicator.connect()
+        result = await sync_to_async(committed)()
+        heard = (
+            None
+            if await communicator.receive_nothing(timeout=0.2)
+            else await communicator.receive_json_from()
+        )
+        await communicator.disconnect()
+        return result, heard
+
+    return async_to_sync(scenario)()
+
+
+def add_to_progress(board):
+    return board.client.patch(
+        f"/api/entries/{board.progress.id}/", **as_json(addition="Rien.")
+    )
+
+
+@pytest.mark.parametrize("write", WRITES.values(), ids=WRITES.keys())
+def test_every_write_on_the_board_reaches_its_members_on_their_own_socket(
+    board, write, django_capture_on_commit_callbacks
+):
+    outcome = {}
+
+    def run():
+        response, expected = write(board)
+        outcome["status"] = response.status_code
+        outcome["work_item"] = expected(response)
+
+    _, heard = hears(board.lina, run, django_capture_on_commit_callbacks)
+
+    assert outcome["status"] < 300
+    assert heard == {
+        "team_season": board.team_season.id,
+        "work_item": outcome["work_item"],
+    }
+
+
+def test_a_student_of_another_team_hears_nothing_of_it(
+    board, django_capture_on_commit_callbacks
+):
+    sam = member_of(team_season(67890), "sam")
+
+    _, heard = hears(
+        sam, lambda: add_to_progress(board), django_capture_on_commit_callbacks
+    )
+
+    assert heard is None
+
+
+def test_a_mentor_hears_every_team(board, django_capture_on_commit_callbacks):
+    _, heard = hears(
+        mentor(), lambda: add_to_progress(board), django_capture_on_commit_callbacks
+    )
+
+    assert heard == {"team_season": board.team_season.id, "work_item": board.intake.id}
+
+
+def test_a_member_taken_off_the_team_hears_nothing_more_of_it(
+    board, django_capture_on_commit_callbacks
+):
+    def taken_off_then_written():
+        Membership.objects.filter(user=board.tom).delete()
+        return add_to_progress(board)
+
+    _, heard = hears(
+        board.tom, taken_off_then_written, django_capture_on_commit_callbacks
+    )
+
+    assert heard is None
+
+
+def test_a_deactivated_member_hears_nothing_more(
+    board, django_capture_on_commit_callbacks
+):
+    def deactivated_then_written():
+        User.objects.filter(pk=board.tom.pk).update(is_active=False)
+        return add_to_progress(board)
+
+    _, heard = hears(
+        board.tom, deactivated_then_written, django_capture_on_commit_callbacks
+    )
+
+    assert heard is None
 
 
 @pytest.mark.parametrize("write", WRITES.values(), ids=WRITES.keys())

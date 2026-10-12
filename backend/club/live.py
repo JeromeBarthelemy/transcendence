@@ -15,7 +15,7 @@ from channels.layers import get_channel_layer
 from django.db import transaction
 from django.urls import path
 
-from club.api.permissions import team_seasons_open_to
+from club.api.permissions import readers_of, team_seasons_open_to
 from club.models import User
 
 
@@ -52,6 +52,38 @@ class TeamSeasonConsumer(JsonWebsocketConsumer):
         self.send_json({"work_item": event["work_item"]})
 
 
+def person_group(user_id: int) -> str:
+    return f"user-{user_id}"
+
+
+class PersonConsumer(JsonWebsocketConsumer):
+    """One socket per signed-in person, opened on every screen. Who hears a
+    change is worked out when it is written, not here: someone taken off a
+    team stops hearing about it at once."""
+
+    group: str | None = None
+
+    def connect(self) -> None:
+        user = self.scope["user"]
+        if not isinstance(user, User):
+            self.close()
+            return
+        self.group = person_group(user.pk)
+        async_to_sync(self.channel_layer.group_add)(self.group, self.channel_name)
+        self.accept()
+
+    def disconnect(self, code: int) -> None:
+        if self.group is not None:
+            async_to_sync(self.channel_layer.group_discard)(
+                self.group, self.channel_name
+            )
+
+    def board_changed(self, event: dict[str, Any]) -> None:
+        self.send_json(
+            {"team_season": event["team_season"], "work_item": event["work_item"]}
+        )
+
+
 # Django's own path(), as Channels documents it; its type stubs expect a
 # private subclass instead, hence the two ignores (here and in asgi.py).
 websocket_urlpatterns = [
@@ -59,6 +91,7 @@ websocket_urlpatterns = [
         "ws/team-seasons/<int:team_season_id>/",
         TeamSeasonConsumer.as_asgi(),  # type: ignore[arg-type]
     ),
+    path("ws/me/", PersonConsumer.as_asgi()),  # type: ignore[arg-type]
 ]
 
 
@@ -69,10 +102,20 @@ def broadcast(team_season_id: int, work_item_id: int | None) -> None:
     logged, not answered as an error the client would retry."""
     layer = get_channel_layer()
     assert layer is not None
-    transaction.on_commit(
-        lambda: async_to_sync(layer.group_send)(
+
+    def send() -> None:
+        async_to_sync(layer.group_send)(
             group_name(team_season_id),
             {"type": "work_items.changed", "work_item": work_item_id},
-        ),
-        robust=True,
-    )
+        )
+        for user_id in readers_of(team_season_id).values_list("pk", flat=True):
+            async_to_sync(layer.group_send)(
+                person_group(user_id),
+                {
+                    "type": "board.changed",
+                    "team_season": team_season_id,
+                    "work_item": work_item_id,
+                },
+            )
+
+    transaction.on_commit(send, robust=True)
