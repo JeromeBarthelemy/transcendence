@@ -506,11 +506,7 @@ class MembershipDetailView(APIView):
 
 
 def _work_item(item: WorkItem) -> dict[str, object]:
-    latest = (
-        item.entries.filter(type=Entry.Type.PROGRESS)
-        .order_by("-occurred_at", "-id")
-        .first()
-    )
+    latest = item.latest_progress
     handover = item.last_handover
     return {
         "id": item.id,
