@@ -1,7 +1,7 @@
 """Permissions beyond authenticated-or-not, which is all DRF's own classes
 know how to say."""
 
-from django.db.models import QuerySet
+from django.db.models import Exists, OuterRef, Q, QuerySet
 from django.shortcuts import get_object_or_404
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import BasePermission
@@ -45,8 +45,22 @@ def team_seasons_open_to(user: User) -> QuerySet[TeamSeason]:
     may offer to open."""
     team_seasons = TeamSeason.objects.select_related("team", "season")
     if user.club_role == User.ClubRole.MENTOR:
-        return team_seasons.all()
+        # The home page opens the first one: a mentor's own team, not the
+        # lowest-numbered of the club.
+        theirs = Membership.objects.filter(user=user, team_season=OuterRef("pk"))
+        return team_seasons.order_by(
+            "-season__start_year", ~Exists(theirs), "team__number"
+        )
     return team_seasons.filter(memberships__user=user)
+
+
+def readers_of(team_season_id: int) -> QuerySet[User]:
+    """The same rule again, from the other side: who may open the team
+    season right now."""
+    return User.objects.filter(
+        Q(club_role=User.ClubRole.MENTOR) | Q(memberships__team_season=team_season_id),
+        is_active=True,
+    ).distinct()
 
 
 def not_self(request: Request, target: User) -> None:

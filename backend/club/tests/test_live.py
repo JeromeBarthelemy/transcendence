@@ -1,4 +1,4 @@
-"""Who may listen to a team season, and what it is told.
+"""Who hears of a change on a team season, and what they are told.
 
 Each scenario runs whole under one `async_to_sync`: the consumer's database
 calls then come back to the test's own thread, and see its SQLite database,
@@ -62,13 +62,11 @@ def headers(user=None, origin="http://localhost"):
     return sent
 
 
-def connects(team_season, **kwargs):
+def connects_as_themselves(**kwargs):
     sent = headers(**kwargs)
 
     async def scenario():
-        communicator = WebsocketCommunicator(
-            application, f"/ws/team-seasons/{team_season.id}/", sent
-        )
+        communicator = WebsocketCommunicator(application, "/ws/me/", sent)
         connected, _ = await communicator.connect()
         await communicator.disconnect()
         return connected
@@ -76,30 +74,18 @@ def connects(team_season, **kwargs):
     return async_to_sync(scenario)()
 
 
-def test_a_member_connects_to_their_team_season(db):
-    rouages = team_season()
-
-    assert connects(rouages, user=member_of(rouages))
+def test_a_signed_in_member_connects_to_their_own_socket(db):
+    assert connects_as_themselves(user=member_of(team_season()))
 
 
-def test_a_mentor_connects_to_any_team_season(db):
-    assert connects(team_season(), user=mentor())
+def test_an_anonymous_visitor_has_no_socket_of_their_own(db):
+    assert not connects_as_themselves()
 
 
-def test_a_student_of_another_team_is_refused(db):
-    other = team_season(67890)
-
-    assert not connects(team_season(), user=member_of(other))
-
-
-def test_an_anonymous_visitor_is_refused(db):
-    assert not connects(team_season())
-
-
-def test_a_connection_from_another_site_is_refused(db):
-    rouages = team_season()
-
-    assert not connects(rouages, user=member_of(rouages), origin="https://evil.example")
+def test_a_socket_of_their_own_from_another_site_is_refused(db):
+    assert not connects_as_themselves(
+        user=member_of(team_season()), origin="https://evil.example"
+    )
 
 
 # --- what a team season is told ---
@@ -255,9 +241,9 @@ WRITES = {
 }
 
 
-def listen(team_season, user, write, django_capture_on_commit_callbacks):
-    """What the team season's listeners hear while `write` runs, its
-    commit callbacks executed as a real commit would. None if nothing."""
+def hears(user, write, django_capture_on_commit_callbacks):
+    """What `user` hears on their own socket while `write` runs, its commit
+    callbacks executed as a real commit would. None if nothing."""
     sent = headers(user=user)
 
     def committed():
@@ -265,9 +251,7 @@ def listen(team_season, user, write, django_capture_on_commit_callbacks):
             return write()
 
     async def scenario():
-        communicator = WebsocketCommunicator(
-            application, f"/ws/team-seasons/{team_season.id}/", sent
-        )
+        communicator = WebsocketCommunicator(application, "/ws/me/", sent)
         await communicator.connect()
         result = await sync_to_async(committed)()
         heard = (
@@ -281,8 +265,14 @@ def listen(team_season, user, write, django_capture_on_commit_callbacks):
     return async_to_sync(scenario)()
 
 
+def add_to_progress(board):
+    return board.client.patch(
+        f"/api/entries/{board.progress.id}/", **as_json(addition="Rien.")
+    )
+
+
 @pytest.mark.parametrize("write", WRITES.values(), ids=WRITES.keys())
-def test_every_write_on_the_board_notifies_its_team_season(
+def test_every_write_on_the_board_reaches_its_members_on_their_own_socket(
     board, write, django_capture_on_commit_callbacks
 ):
     outcome = {}
@@ -292,35 +282,65 @@ def test_every_write_on_the_board_notifies_its_team_season(
         outcome["status"] = response.status_code
         outcome["work_item"] = expected(response)
 
-    _, heard = listen(
-        board.team_season, board.lina, run, django_capture_on_commit_callbacks
-    )
+    _, heard = hears(board.lina, run, django_capture_on_commit_callbacks)
 
     assert outcome["status"] < 300
-    assert heard == {"work_item": outcome["work_item"]}
+    assert heard == {
+        "team_season": board.team_season.id,
+        "work_item": outcome["work_item"],
+    }
 
 
-def test_a_change_is_not_sent_to_another_team_season(
+def test_a_student_of_another_team_hears_nothing_of_it(
     board, django_capture_on_commit_callbacks
 ):
-    other = team_season(67890)
-    sam = member_of(other, "sam")
+    sam = member_of(team_season(67890), "sam")
 
-    _, heard = listen(
-        other,
-        sam,
-        lambda: board.client.patch(
-            f"/api/entries/{board.progress.id}/", **as_json(addition="Rien.")
-        ),
-        django_capture_on_commit_callbacks,
+    _, heard = hears(
+        sam, lambda: add_to_progress(board), django_capture_on_commit_callbacks
+    )
+
+    assert heard is None
+
+
+def test_a_mentor_hears_every_team(board, django_capture_on_commit_callbacks):
+    _, heard = hears(
+        mentor(), lambda: add_to_progress(board), django_capture_on_commit_callbacks
+    )
+
+    assert heard == {"team_season": board.team_season.id, "work_item": board.intake.id}
+
+
+def test_a_member_taken_off_the_team_hears_nothing_more_of_it(
+    board, django_capture_on_commit_callbacks
+):
+    def taken_off_then_written():
+        Membership.objects.filter(user=board.tom).delete()
+        return add_to_progress(board)
+
+    _, heard = hears(
+        board.tom, taken_off_then_written, django_capture_on_commit_callbacks
+    )
+
+    assert heard is None
+
+
+def test_a_deactivated_member_hears_nothing_more(
+    board, django_capture_on_commit_callbacks
+):
+    def deactivated_then_written():
+        User.objects.filter(pk=board.tom.pk).update(is_active=False)
+        return add_to_progress(board)
+
+    _, heard = hears(
+        board.tom, deactivated_then_written, django_capture_on_commit_callbacks
     )
 
     assert heard is None
 
 
 def test_a_refused_write_notifies_nobody(board, django_capture_on_commit_callbacks):
-    response, heard = listen(
-        board.team_season,
+    response, heard = hears(
         board.lina,
         lambda: board.client.patch(
             f"/api/entries/{board.progress.id}/",
@@ -353,8 +373,7 @@ def test_a_notification_that_fails_does_not_fail_the_write(
 def test_ticking_again_changes_nothing_and_notifies_nobody(
     board, django_capture_on_commit_callbacks
 ):
-    response, heard = listen(
-        board.team_season,
+    response, heard = hears(
         board.lina,
         lambda: board.client.post(
             f"/api/work-items/{board.intake.id}/tick/", **as_json()
@@ -379,8 +398,7 @@ def test_another_members_progress_notifies_the_listener_and_updates_activity(
     )
     before = board.client.get(analytics_url).json()["activity_by_day"]
 
-    response, heard = listen(
-        board.team_season,
+    response, heard = hears(
         board.lina,
         lambda: writer.post(f"/api/work-items/{board.empty.id}/tick/", **as_json()),
         django_capture_on_commit_callbacks,
@@ -388,7 +406,7 @@ def test_another_members_progress_notifies_the_listener_and_updates_activity(
     after = board.client.get(analytics_url).json()["activity_by_day"]
 
     assert response.status_code == 201
-    assert heard == {"work_item": board.empty.id}
+    assert heard == {"team_season": board.team_season.id, "work_item": board.empty.id}
     assert before == [{"day": str(day), "progress_entries": 2, "active_members": 2}]
     assert after == [{"day": str(day), "progress_entries": 3, "active_members": 3}]
 
