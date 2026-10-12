@@ -1,4 +1,4 @@
-// The screens open a WebSocket to hear about others' changes; jsdom would
+// The layout opens a WebSocket to hear about others' changes; jsdom would
 // try a real connection. Tests that care about it install their own.
 class SilentWebSocket {
   static CONNECTING = 0;
