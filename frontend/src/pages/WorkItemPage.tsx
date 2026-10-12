@@ -22,7 +22,6 @@ import {
   workItemSteps,
 } from "../api/workItems";
 import { nameFormatter } from "../app/formatters";
-import { LiveBoard } from "../app/live";
 import { useCurrentUser } from "../app/useCurrentUser";
 import { fieldIssues, RequestError } from "../components/ApiErrors";
 import { AvatarStack } from "../components/Avatar";
@@ -801,7 +800,6 @@ function WorkItemScreen({
       >
         ← {t("workItem.back")}
       </Link>
-      <LiveBoard teamSeasonId={item.team_season} />
 
       <header className="mt-7 flex flex-col justify-between gap-5 border-b border-primary/10 pb-7 sm:flex-row sm:items-end">
         <div>

@@ -16,7 +16,7 @@ import {
   getActivityAnalytics,
 } from "../api/activityAnalytics";
 import type { TeamSeasonSummary } from "../api/auth";
-import { LiveBoard } from "../app/live";
+import { LiveStatus } from "../app/live";
 import "../i18n";
 import { TeamActivity } from "./TeamActivity";
 
@@ -185,7 +185,7 @@ function renderActivity(fetchMock: ReturnType<typeof vi.fn>, live = false) {
   const firstTeam = teamSeason(7, 1796, "Les Rouages");
   const view = render(
     <QueryClientProvider client={queryClient}>
-      {live && <LiveBoard teamSeasonId={firstTeam.id} />}
+      {live && <LiveStatus />}
       <TeamActivity teamSeason={firstTeam} currentWorkday="2026-10-05" />
     </QueryClientProvider>,
     { wrapper: MemoryRouter },
@@ -591,7 +591,7 @@ it("reloads displayed activity for the selected period on a live board message",
   expect(
     within(participation).getByRole("row", { name: /Lina Martin 2 4 2/ }),
   ).toBeTruthy();
-  expect(sockets[0].url).toBe("ws://localhost:5173/ws/team-seasons/7/");
+  expect(sockets[0].url).toBe("ws://localhost:5173/ws/me/");
 
   await userEvent.selectOptions(
     screen.getByRole("combobox", { name: "Période observée" }),
@@ -608,7 +608,9 @@ it("reloads displayed activity for the selected period on a live board message",
   const before = fetchMock.mock.calls.length;
   updated = true;
   act(() =>
-    sockets[0].onmessage?.({ data: JSON.stringify({ work_item: 10 }) }),
+    sockets[0].onmessage?.({
+      data: JSON.stringify({ team_season: 7, work_item: 10 }),
+    }),
   );
 
   await waitFor(() => {

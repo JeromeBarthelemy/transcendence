@@ -708,17 +708,24 @@ face next to a name without asking again.
 
 ### Live board
 
-A screen open on a team season listens on a WebSocket,
-`ws/team-seasons/{id}/`, through the same session as the API and only from
-the site's own pages (an origin outside `ALLOWED_HOSTS` is refused). A member
-hears their team, a mentor any of them; the socket only listens, every write
+Every signed-in member opens one WebSocket, `ws/me/`, once, under the
+header: every screen is live, and the bell rings wherever the member is. It
+goes through the same session as the API and only from the site's own pages
+(an origin outside `ALLOWED_HOSTS` is refused); it only listens, every write
 still goes through the API. Each write on the board — opening, closing or
 deleting a work item, ticking, adding to a progress, a note, a decision, a
-file added or removed — sends, once committed, `{"work_item": id}` (or `null`
-for a note to the whole team) to that team season's listeners. The screens
-then reload what they show through the API: the message says what changed,
-never what it now holds, so nothing is serialized twice and a screen that
-reconnects only has to reload.
+file added or removed — sends, once committed,
+`{"team_season": id, "work_item": id}` (`work_item` is `null` for a note to
+the whole team) to everyone who may read that team season at that moment:
+its members and every mentor, by the API's own rule. Worked out at each write
+rather than when the socket opens, so a member taken off a team stops
+hearing about it at once.
+
+The screens then reload through the API what the message names, and the bell
+reads the member's notices again: the message says what changed, never what
+it now holds, so nothing is serialized twice. Only what is on screen is
+fetched again; the rest is marked stale. On connecting or reconnecting,
+everything is reloaded, since messages may have been missed.
 
 The channel layer lives in memory, which holds for the single Daphne process
 the stack runs. A second process would not see the first one's listeners: it
