@@ -55,6 +55,31 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+it("opens one socket for a signed-in member, on any screen, and none for a visitor", async () => {
+  const sockets: string[] = [];
+  vi.stubGlobal(
+    "WebSocket",
+    class {
+      static CONNECTING = 0;
+      readyState = 0;
+      constructor(url: string) {
+        sockets.push(url);
+      }
+      close() {}
+    },
+  );
+
+  renderAs(paul, "/privacy");
+  await screen.findByRole("button", { name: "Menu du compte (Paul)" });
+  expect(sockets).toEqual(["ws://localhost:5173/ws/me/"]);
+
+  cleanup();
+  sockets.length = 0;
+  renderAs(null, "/privacy");
+  await screen.findByRole("link", { name: "Se connecter" });
+  expect(sockets).toEqual([]);
+});
+
 it("opens the account menu from the avatar, without a logout button in the bar", async () => {
   const user = userEvent.setup();
   const router = renderAs(paul);

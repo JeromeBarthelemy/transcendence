@@ -10,6 +10,7 @@ import logo from "../assets/logo.webp";
 import { RequestError } from "../components/ApiErrors";
 import { Avatar } from "../components/Avatar";
 import { IconLabel } from "../components/Icon";
+import { LiveStatus } from "./live";
 import { focusRing, type OpenMenu, useMenu } from "./menu";
 import { NotificationsMenu } from "./NotificationsMenu";
 import { resetSession, useCurrentUser } from "./useCurrentUser";
@@ -384,6 +385,7 @@ export function AppLayout() {
           </div>
         )}
       </header>
+      {identity && <LiveStatus />}
 
       <Outlet />
 

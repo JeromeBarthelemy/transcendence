@@ -436,7 +436,9 @@ function liveStepServer(initial = workItem()) {
         ([path]) => path === "/api/work-items/10/",
       ).length;
       await act(async () => {
-        sockets[0].onmessage?.({ data: JSON.stringify({ work_item: 10 }) });
+        sockets[0].onmessage?.({
+          data: JSON.stringify({ team_season: 7, work_item: 10 }),
+        });
       });
       await waitFor(() => {
         expect(
