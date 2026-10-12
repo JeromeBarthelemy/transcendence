@@ -10,6 +10,7 @@ import logo from "../assets/logo.webp";
 import { RequestError } from "../components/ApiErrors";
 import { Avatar } from "../components/Avatar";
 import { IconLabel } from "../components/Icon";
+import { LanguageSwitcher } from "../components/LanguageSwitcher";
 import { focusRing, type OpenMenu, useMenu } from "./menu";
 import { NotificationsMenu } from "./NotificationsMenu";
 import { resetSession, useCurrentUser } from "./useCurrentUser";
@@ -344,6 +345,7 @@ export function AppLayout() {
           </Link>
 
           <HeaderEnd>
+            <LanguageSwitcher />
             <nav
               aria-label={t("nav.main")}
               className="hidden items-center gap-2 md:flex"
@@ -357,7 +359,10 @@ export function AppLayout() {
               )}
             </nav>
             {currentUser.isPending ? (
-              <span role="status" className="truncate text-sm text-muted">
+              <span
+                role="status"
+                className="max-w-28 truncate text-sm text-muted md:max-w-none"
+              >
                 {t("auth.checkingSession")}
               </span>
             ) : (
