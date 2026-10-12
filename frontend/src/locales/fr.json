@@ -466,7 +466,7 @@
     "conversation": "Conversation avec Fieldbot",
     "botName": "Fieldbot",
     "thinking": "Fieldbot cherche dans le règlement…",
-    "citationsIntro": "Passages cités :",
+    "citationsIntro": "Réponse rédigée automatiquement, sans garantie. Seuls les passages du règlement ci-dessous font foi :",
     "citations": "Passages cités",
     "viewInManual": "Voir dans le manuel",
     "glossaryTitle": "Termes du manuel",

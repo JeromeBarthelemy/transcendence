@@ -13,6 +13,7 @@ from club.rag import (
     ingest_document,
     parse_glossary,
     rerank,
+    serialize,
 )
 
 RULE = (
@@ -543,6 +544,57 @@ def test_a_matched_question_is_answered_from_the_generated_text(monkeypatch):
 
     assert query.answer == "Eighteen inches."
     assert query.citations.exists()
+
+
+def two_rules_html():
+    return rule_html(
+        "G101", "*The ROBOT must not be taller than eighteen inches during AUTO."
+    ) + rule_html("G102", "*The ROBOT may be taller after AUTO, up to 29 inches.")
+
+
+def test_only_the_rules_the_answer_relies_on_are_cited(monkeypatch):
+    # The student is told only the rules shown are binding: they must be
+    # the ones the answer was written from, not every rule the model read.
+    this_season = season()
+    document(this_season, source=Document.Source.GAME_MANUAL, text=two_rules_html())
+    monkeypatch.setattr(
+        "club.rag.generate_answer",
+        lambda question, rules: Answer("Up to 29 inches.", ["G102"]),
+    )
+
+    query = ask("How tall can the robot be after AUTO?", this_season, asker())
+
+    assert query.answer == "Up to 29 inches."
+    assert [c.chunk.reference for c in query.citations.all()] == ["G102"]
+
+
+def test_no_rule_answering_gets_the_usual_refusal_without_citations(monkeypatch):
+    this_season = season()
+    document(this_season, source=Document.Source.GAME_MANUAL, text=two_rules_html())
+    monkeypatch.setattr(
+        "club.rag.generate_answer",
+        lambda question, rules: Answer("The passages do not say.", []),
+    )
+
+    query = ask("How tall can the robot be after AUTO?", this_season, asker())
+
+    assert query.answer == NO_ANSWER
+    assert not query.citations.exists()
+
+
+def test_a_rule_cut_in_two_passages_is_shown_as_one_citation(monkeypatch):
+    sentence = "The ROBOT may expand beyond its STARTING CONFIGURATION. "
+    html = rule_html("R105", "*Robots may expand after the MATCH starts.") + "".join(
+        f"<p>{sentence * 12}</p>" for _ in range(4)
+    )
+    this_season = season()
+    document(this_season, source=Document.Source.GAME_MANUAL, text=html)
+
+    query = ask("Can the robot expand after the match starts?", this_season, asker())
+
+    (citation,) = serialize(query)["citations"]
+    assert citation["reference"] == "R105"
+    assert citation["text"].count("\n") == 4
 
 
 def test_a_generation_failure_leaves_the_citations_standing_alone(monkeypatch):

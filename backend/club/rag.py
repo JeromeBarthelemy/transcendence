@@ -911,21 +911,31 @@ def ask(question: str, season: Season, asker: User) -> RuleQuery:
         scores = matrix @ _unpack(embed(question, is_query=True))
         if scores.max() >= MIN_SCORE:
             rules = _ranked_rules(question, chunks, scores)
-    matches = [chunk for rule in rules for chunk in rule]
-
     answer = NO_ANSWER
-    if matches:
+    cited: list[list[Chunk]] = []
+    if rules:
         try:
-            answer = generate_answer(
+            generated = generate_answer(
                 question,
                 [
                     (rule[0].reference, "\n".join(chunk.text for chunk in rule))
                     for rule in rules
                 ],
-            ).reply
+            )
         except GenerationError as error:
             logger.warning("rulebook generation failed: %s", error)
             answer = GENERATION_UNAVAILABLE
+            cited = rules
+        else:
+            # Only the rules the answer relies on: the student is told
+            # they alone are binding. None of them: the usual refusal.
+            by_reference: dict[str, list[Chunk]] = {}
+            for rule in rules:  # authority first, as read
+                by_reference.setdefault(rule[0].reference, rule)
+            cited = [by_reference[ref] for ref in generated.references]
+            if cited:
+                answer = generated.reply
+    matches = [chunk for rule in cited for chunk in rule]
 
     with transaction.atomic():
         query = RuleQuery.objects.create(asker=asker, question=question, answer=answer)
@@ -949,19 +959,30 @@ def _citation_url(chunk: Chunk) -> str | None:
 
 
 def serialize(query: RuleQuery) -> dict[str, Any]:
-    return {
-        "question": query.question,
-        "answer": query.answer,
-        "citations": [
-            {
-                "rank": citation.rank,
-                "reference": citation.chunk.reference,
-                "text": citation.chunk.text,
-                "source": citation.chunk.document.source,
-                "authority": citation.chunk.document.authority,
-                "document_title": citation.chunk.document.title,
-                "url": _citation_url(citation.chunk),
-            }
-            for citation in query.citations.select_related("chunk__document")
-        ],
-    }
+    """One citation per rule: the passages a long rule was cut into, cited
+    one after the other, are shown as the one rule they are."""
+    citations: list[dict[str, Any]] = []
+    previous: Chunk | None = None
+    for citation in query.citations.select_related("chunk__document"):
+        chunk = citation.chunk
+        if (
+            previous is not None
+            and chunk.reference
+            and chunk.reference == previous.reference
+            and chunk.document_id == previous.document_id
+        ):
+            citations[-1]["text"] += "\n" + chunk.text
+        else:
+            citations.append(
+                {
+                    "rank": citation.rank,
+                    "reference": chunk.reference,
+                    "text": chunk.text,
+                    "source": chunk.document.source,
+                    "authority": chunk.document.authority,
+                    "document_title": chunk.document.title,
+                    "url": _citation_url(chunk),
+                }
+            )
+        previous = chunk
+    return {"question": query.question, "answer": query.answer, "citations": citations}

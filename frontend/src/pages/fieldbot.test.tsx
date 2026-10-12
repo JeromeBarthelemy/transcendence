@@ -197,7 +197,11 @@ it("shows the generated answer above its citations", async () => {
       "Oui, un contact fortuit entre coéquipiers n'est pas une infraction [Q45].",
     ),
   ).toBeTruthy();
-  expect(within(log).getByText("Passages cités :")).toBeTruthy();
+  expect(
+    within(log).getByText(
+      "Réponse rédigée automatiquement, sans garantie. Seuls les passages du règlement ci-dessous font foi :",
+    ),
+  ).toBeTruthy();
   expect(
     within(log).getByRole("list", { name: "Passages cités" }),
   ).toBeTruthy();
