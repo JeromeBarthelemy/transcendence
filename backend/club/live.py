@@ -1,5 +1,5 @@
-"""The work-item board, live: who listens to a team season, and how a change
-reaches them.
+"""The work-item board, live: who hears of a change on a team season, and
+how it reaches them.
 
 A message only says what changed — the team season, and the work item when
 there is one. The screens then reload it through the API, which stays the one
@@ -15,41 +15,8 @@ from channels.layers import get_channel_layer
 from django.db import transaction
 from django.urls import path
 
-from club.api.permissions import readers_of, team_seasons_open_to
+from club.api.permissions import readers_of
 from club.models import User
-
-
-def group_name(team_season_id: int) -> str:
-    return f"team-season-{team_season_id}"
-
-
-class TeamSeasonConsumer(JsonWebsocketConsumer):
-    """Listens only: every write goes through the API and its checks."""
-
-    group: str | None = None
-
-    def connect(self) -> None:
-        user = self.scope["user"]
-        team_season_id = self.scope["url_route"]["kwargs"]["team_season_id"]
-        # A visitor is an AnonymousUser, not a User. Then the API's own rule:
-        # a member hears their team, a mentor any of them.
-        if not isinstance(user, User) or not (
-            team_seasons_open_to(user).filter(pk=team_season_id).exists()
-        ):
-            self.close()
-            return
-        self.group = group_name(team_season_id)
-        async_to_sync(self.channel_layer.group_add)(self.group, self.channel_name)
-        self.accept()
-
-    def disconnect(self, code: int) -> None:
-        if self.group is not None:
-            async_to_sync(self.channel_layer.group_discard)(
-                self.group, self.channel_name
-            )
-
-    def work_items_changed(self, event: dict[str, Any]) -> None:
-        self.send_json({"work_item": event["work_item"]})
 
 
 def person_group(user_id: int) -> str:
@@ -87,10 +54,6 @@ class PersonConsumer(JsonWebsocketConsumer):
 # Django's own path(), as Channels documents it; its type stubs expect a
 # private subclass instead, hence the two ignores (here and in asgi.py).
 websocket_urlpatterns = [
-    path(
-        "ws/team-seasons/<int:team_season_id>/",
-        TeamSeasonConsumer.as_asgi(),  # type: ignore[arg-type]
-    ),
     path("ws/me/", PersonConsumer.as_asgi()),  # type: ignore[arg-type]
 ]
 
@@ -104,10 +67,6 @@ def broadcast(team_season_id: int, work_item_id: int | None) -> None:
     assert layer is not None
 
     def send() -> None:
-        async_to_sync(layer.group_send)(
-            group_name(team_season_id),
-            {"type": "work_items.changed", "work_item": work_item_id},
-        )
         for user_id in readers_of(team_season_id).values_list("pk", flat=True):
             async_to_sync(layer.group_send)(
                 person_group(user_id),
