@@ -163,6 +163,87 @@ def test_a_table_stays_attached_to_the_rule_before_it():
     assert "18 AWG" in passages["G102"]
 
 
+def table_rows(table_html):
+    """The lines a table adds under the rule it follows."""
+    html = (
+        "<p class=RuleNumber-Game><a name=G999></a><b>G999</b> *A rule.</p>"
+        + table_html
+    )
+    passages = {ref: text for ref, _, text in chunk_manual(html)}
+    return passages["G999"].split("\n")[1:]
+
+
+def test_a_table_row_becomes_one_line_with_each_value_labelled_by_its_column():
+    # Flattened cell by cell ("LEAVE 3 - PARK 5 5"), a number loses the
+    # column that says what it counts.
+    rows = table_rows(
+        "<table><tr><td></td><td>AUTO</td><td>TELEOP</td></tr>"
+        "<tr><td>LEAVE</td><td>3</td><td>-</td></tr>"
+        "<tr><td>PARK</td><td>5</td><td>5</td></tr></table>"
+    )
+
+    assert rows == ["LEAVE; AUTO: 3; TELEOP: -", "PARK; AUTO: 5; TELEOP: 5"]
+
+
+def test_a_title_spanning_the_whole_table_stays_a_line_of_its_own():
+    rows = table_rows(
+        "<table><tr><td colspan=2>Table 10-2: Point Values</td></tr>"
+        "<tr><td></td><td>AUTO</td></tr>"
+        "<tr><td>LEAVE</td><td>3</td></tr></table>"
+    )
+
+    assert rows == ["Table 10-2: Point Values", "LEAVE; AUTO: 3"]
+
+
+def test_a_merged_cell_labels_every_row_and_column_it_spans():
+    rows = table_rows(
+        "<table><tr><td rowspan=2></td><td colspan=2>MATCH points</td></tr>"
+        "<tr><td>AUTO</td><td>TELEOP</td></tr>"
+        "<tr><td rowspan=2>HIVE</td><td>20</td><td>20</td></tr>"
+        "<tr><td>-</td><td>2</td></tr></table>"
+    )
+
+    assert rows == [
+        "HIVE; MATCH points AUTO: 20; MATCH points TELEOP: 20",
+        "HIVE; MATCH points AUTO: -; MATCH points TELEOP: 2",
+    ]
+
+
+def test_a_number_merged_down_from_the_row_above_is_marked_as_shared():
+    # One "3" covers DRIVERS and HUMAN PLAYERS together, not 3 of each.
+    rows = table_rows(
+        "<table><tr><td>Role</td><td>Max.</td></tr>"
+        "<tr><td>DRIVER</td><td rowspan=2>3</td></tr>"
+        "<tr><td>HUMAN PLAYER</td></tr></table>"
+    )
+
+    assert rows == [
+        "Role: DRIVER; Max.: 3",
+        "Role: HUMAN PLAYER; Max.: 3 (same merged cell as the row above)",
+    ]
+
+
+def test_a_cells_own_paragraphs_are_read_as_one_value():
+    rows = table_rows(
+        "<table><tr><td>Award</td><td>Places</td></tr>"
+        "<tr><td>Reach</td><td><p>1st Place</p><p>(Only one is given)</p></td></tr>"
+        "</table>"
+    )
+
+    assert rows == ["Award: Reach; Places: 1st Place, (Only one is given)"]
+
+
+def test_a_long_rule_is_cut_between_two_of_its_lines_not_mid_sentence():
+    html = "<p class=RuleNumber-Game><a name=G999></a><b>G999</b> *A long rule.</p>" + (
+        "".join(f"<p>Paragraph {n}: {' '.join(['word'] * 100)}.</p>" for n in range(4))
+    )
+
+    passages = [text for ref, _, text in chunk_manual(html) if ref == "G999"]
+
+    assert [text.count("Paragraph") for text in passages] == [3, 1]
+    assert all(text.endswith(".") for text in passages)
+
+
 def test_a_rule_id_with_a_space_after_its_asterisk_is_still_found():
     # The other real miss: the PDF rendered some rules with a space after
     # their own asterisk ("A204 *​ Have the right..."), which the old

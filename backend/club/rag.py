@@ -220,11 +220,16 @@ _TOC_ANCHOR = re.compile(r"^_Toc\d+$")
 # renumbers every chapter each season, but never its title, so this reads
 # the chapter by that rather than by a number that moves.
 _GLOSSARY_HEADING = "Glossary"
-# Word never opens a new passage anywhere but one of these four tags —
-# everything else (`div`, `span`, `table`, `b`...) is transparent, its text
-# still collected, just under whichever of these last opened.
-_HTML_BLOCK_TAGS = frozenset({"p", "h1", "h2", "h3", "tr", "li"})
+# Word never opens a new passage anywhere but one of these tags —
+# everything else (`div`, `span`, `b`...) is transparent, its text still
+# collected, just under whichever of these last opened. A table is read
+# apart, row by row (`_table_lines`).
+_HTML_BLOCK_TAGS = frozenset({"p", "h1", "h2", "h3", "li"})
 _HTML_SKIP_TAGS = frozenset({"style", "script", "head"})
+# A header row holds short labels ("AUTO", "Max."), never a value: a table
+# whose first row is already data has no header to label it with.
+_HEADER_CELL_MAX_CHARS = 60
+_NUMBER = re.compile(r"[\d.,%-]+")
 # e5-base reads at most 512 tokens; a word runs close enough to a token in
 # this manual's plain English that a rule this long — a handful, mostly in
 # Motors & Actuators and Power Distribution — is re-split by word count
@@ -242,9 +247,9 @@ def _collapse_whitespace(parts: list[str]) -> str:
 def _finalize_chunks(
     open_chunks: list[tuple[str, str, list[str]]],
 ) -> list[tuple[str, str, str]]:
-    """Shared by chunk_rules and chunk_qa: a chunk longer than the word
-    budget is re-split under the same reference and anchor rather than
-    truncated."""
+    """chunk_qa's: an entry longer than the word budget is re-split under
+    the same reference and anchor rather than truncated. Its lines are a
+    PDF's own wrapping, so where it cuts between them means nothing."""
     passages: list[tuple[str, str, str]] = []
     for reference, anchor, lines in open_chunks:
         words = " ".join(lines).split()
@@ -257,6 +262,104 @@ def _finalize_chunks(
                 )
             )
     return passages
+
+
+def _cut_between_lines(lines: list[str]) -> list[str]:
+    """A rule's lines packed into passages within the word budget, cut
+    between two lines rather than mid-sentence. Only a single line over
+    the budget on its own is cut by word count."""
+    pieces = []
+    for line in lines:
+        words = line.split()
+        for start in range(0, len(words), MAX_WORDS_PER_PASSAGE):
+            pieces.append(" ".join(words[start : start + MAX_WORDS_PER_PASSAGE]))
+
+    passages: list[str] = []
+    current: list[str] = []
+    count = 0
+    for piece in pieces:
+        words_in_piece = len(piece.split())
+        if current and count + words_in_piece > MAX_WORDS_PER_PASSAGE:
+            passages.append("\n".join(current))
+            current, count = [], 0
+        current.append(piece)
+        count += words_in_piece
+    if current:
+        passages.append("\n".join(current))
+    return passages
+
+
+def _cell_text(parts: list[str]) -> str:
+    """A cell's own paragraphs, joined by commas, without the dangling one
+    an empty last paragraph would leave."""
+    return _collapse_whitespace(parts).replace(" ,", ",").rstrip(", ")
+
+
+def _table_lines(rows: list[list[tuple[str, int, int]]]) -> list[str]:
+    """One line per row, each value labelled with its column's header
+    ("PARK; MATCH points AUTO: 5"): flattened cell by cell, a number loses
+    the column that says what it counts. `rows` holds `(text, rowspan,
+    colspan)` cells; a merged cell is repeated in every row and column it
+    spans."""
+    grid: dict[tuple[int, int], str] = {}
+    # Where the cell covering each position opens.
+    origin: dict[tuple[int, int], tuple[int, int]] = {}
+    for i, row in enumerate(rows):
+        j = 0
+        for text, rowspan, colspan in row:
+            while (i, j) in grid:  # taken by a cell merged down from above
+                j += 1
+            for di in range(rowspan):
+                for dj in range(colspan):
+                    grid[i + di, j + dj] = text
+                    origin[i + di, j + dj] = (i, j)
+            j += colspan
+    if not grid:
+        return []
+    n_rows = 1 + max(i for i, _ in grid)
+    n_cols = 1 + max(j for _, j in grid)
+
+    lines = []
+    start = 0
+    if len(rows[0]) == 1 and rows[0][0][2] >= n_cols > 1:
+        lines.append(rows[0][0][0])  # a title across the whole table
+        start = 1
+    header = rows[start] if start < len(rows) else []
+    header_rows = 0
+    if (
+        header
+        and n_rows - start > 1
+        and all(
+            len(text) <= _HEADER_CELL_MAX_CHARS and not _NUMBER.fullmatch(text)
+            for text, _, _ in header
+        )
+    ):
+        header_rows = max(rowspan for _, rowspan, _ in header)
+    labels = []
+    for j in range(n_cols):
+        words: list[str] = []
+        for i in range(start, start + header_rows):
+            text = grid.get((i, j), "")
+            if text and text not in words:
+                words.append(text)
+        labels.append(" ".join(words))
+
+    for i in range(start + header_rows, n_rows):
+        values = []
+        for j in range(n_cols):
+            text = grid.get((i, j), "")
+            # Empty, or a cell merged across columns, already given once.
+            if not text or (j and origin.get((i, j)) == origin.get((i, j - 1))):
+                continue
+            # A number repeated down a merged cell is one value for all its
+            # rows ("Max. 3" for DRIVERS and HUMAN PLAYERS together), not one
+            # per row.
+            if origin[i, j][0] < i and re.search(r"\d", text):
+                text += " (same merged cell as the row above)"
+            values.append(f"{labels[j]}: {text}" if labels[j] else text)
+        if values:
+            lines.append("; ".join(values))
+    return lines
 
 
 class _ManualParser(HTMLParser):
@@ -277,6 +380,11 @@ class _ManualParser(HTMLParser):
         self._block_ref: str | None = None
         self._block_anchor: str | None = None
         self._buffer: list[str] = []
+        self._table_depth = 0
+        self._rows: list[list[tuple[str, int, int]]] = []
+        self._row: list[tuple[str, int, int]] | None = None
+        self._cell: list[str] | None = None
+        self._cell_span = (1, 1)
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         if tag in _HTML_SKIP_TAGS:
@@ -291,11 +399,37 @@ class _ManualParser(HTMLParser):
             elif self._block_anchor is None and _TOC_ANCHOR.fullmatch(name):
                 self._block_anchor = name
             return
+        if tag == "table":
+            if not self._table_depth:
+                if self._in_block:
+                    self._flush()
+                    self._in_block = False
+                self._rows = []
+            self._table_depth += 1
+            return
+        if self._table_depth:
+            self._table_starttag(tag, attrs)
+            return
         if tag in _HTML_BLOCK_TAGS:
             self._in_block = True
             self._buffer = []
         if tag in ("h1", "h2", "h3"):
             self._heading_depth += 1
+
+    def _table_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        """Only the outermost table's own rows and cells: a table nested in
+        a cell is read as part of that cell's text."""
+        if self._table_depth == 1 and tag == "tr":
+            self._row = []
+        elif self._table_depth == 1 and tag in ("td", "th"):
+            spans = dict(attrs)
+            self._cell = []
+            self._cell_span = (
+                int(spans.get("rowspan") or 1),
+                int(spans.get("colspan") or 1),
+            )
+        elif tag in ("p", "br", "li") and self._cell and "".join(self._cell).strip():
+            self._cell.append(", ")
 
     def handle_startendtag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         self.handle_starttag(tag, attrs)
@@ -306,14 +440,37 @@ class _ManualParser(HTMLParser):
             return
         if self._skip_depth:
             return
+        if self._table_depth:
+            self._table_endtag(tag)
+            return
         if tag in _HTML_BLOCK_TAGS:
             self._flush()
             self._in_block = False
         if tag in ("h1", "h2", "h3"):
             self._heading_depth = max(0, self._heading_depth - 1)
 
+    def _table_endtag(self, tag: str) -> None:
+        if tag == "table":
+            self._table_depth -= 1
+            if not self._table_depth:
+                for line in _table_lines(self._rows):
+                    self.blocks.append((None, "", False, line))
+        elif self._table_depth == 1 and tag in ("td", "th") and self._cell is not None:
+            if self._row is not None:
+                self._row.append((_cell_text(self._cell), *self._cell_span))
+            self._cell = None
+        elif self._table_depth == 1 and tag == "tr" and self._row is not None:
+            self._rows.append(self._row)
+            self._row = None
+
     def handle_data(self, data: str) -> None:
-        if self._skip_depth or not self._in_block:
+        if self._skip_depth:
+            return
+        if self._table_depth:
+            if self._cell is not None:
+                self._cell.append(data)
+            return
+        if not self._in_block:
             return
         self._buffer.append(data)
 
@@ -359,6 +516,8 @@ def chunk_manual(html_text: str) -> list[tuple[str, str, str]]:
     Returns `(reference, anchor, passage)` triples; `reference` and
     `anchor` are both "" for whatever precedes the first recognised rule
     or section — front matter, kept rather than guessed at or dropped.
+    Each paragraph of a passage, and each row of its tables
+    (`_table_lines`), is a line of its own.
 
     A numbered heading with nothing of its own before the next one opens
     — "11.4.4 ROBOT", a subsection title and nothing else, 31 of 364 on
@@ -392,12 +551,12 @@ def chunk_manual(html_text: str) -> list[tuple[str, str, str]]:
         else:
             open_chunks.append(("", "", False, [text]))
 
-    kept = [
-        (reference, anchor, lines)
+    return [
+        (reference, anchor, passage)
         for reference, anchor, is_heading, lines in open_chunks
         if not (is_heading and len(lines) == 1)
+        for passage in _cut_between_lines(lines)
     ]
-    return _finalize_chunks(kept)
 
 
 class _GlossaryParser(HTMLParser):
