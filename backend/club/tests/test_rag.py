@@ -395,6 +395,30 @@ def test_a_page_with_no_board_data_yields_no_passages():
     assert chunk_qa("<html><body><p>Not a board page.</p></body></html>") == []
 
 
+def test_plain_text_keeps_a_space_at_a_paragraphs_own_boundary():
+    # A rich-text editor never renders two paragraphs touching — dropping
+    # the tags without keeping that boundary glued "wall?" to "Only".
+    from club.rag import _plain_text
+
+    text = _plain_text(
+        "<p>Can the robot touch the wall?</p><p>Only with its intake.</p>"
+    )
+
+    assert text == "Can the robot touch the wall? Only with its intake."
+
+
+def test_plain_text_keeps_a_space_between_list_items():
+    from club.rag import _plain_text
+
+    assert _plain_text("<li>first</li><li>second</li>") == "first second"
+
+
+def test_plain_text_keeps_a_space_at_a_line_break():
+    from club.rag import _plain_text
+
+    assert _plain_text("line one<br>line two") == "line one line two"
+
+
 # --- ingestion ---
 
 

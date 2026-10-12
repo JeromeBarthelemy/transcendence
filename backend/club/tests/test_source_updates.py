@@ -376,6 +376,60 @@ def test_an_administrator_adds_the_manual_from_its_url_and_its_checks_follow(
     assert check_document(copy).status == "unchanged"
 
 
+def test_an_administrator_adds_the_qa_board_from_its_url_and_its_checks_follow(
+    client, monkeypatch
+):
+    the_season = season()
+    serve(monkeypatch, REAL_QA_BOARD_EXCERPT)
+    client.force_login(administrator())
+
+    response = client.post(
+        "/api/rules/sources/",
+        {
+            "source": "official_qa",
+            "url": "https://game-qa.firstinspires.org/boards/2027/FTC/QA",
+        },
+        content_type="application/json",
+    )
+
+    assert response.status_code == 201
+    copy = Document.objects.get(season=the_season)
+    assert copy.chunks.exists()
+    assert [document.pk for document in latest_documents()] == [copy.pk]
+    assert check_document(copy).status == "unchanged"
+
+
+def test_a_sources_url_must_be_on_its_own_sites_host(client):
+    # ALLOWED_HOSTS alone would let a game-qa URL through for the manual,
+    # or a manual URL through for the Q&A — each source only reads its
+    # own site.
+    season()
+    client.force_login(administrator())
+
+    manual_on_qa_host = client.post(
+        "/api/rules/sources/",
+        {
+            "source": "game_manual",
+            "url": "https://game-qa.firstinspires.org/boards/2027/FTC/QA",
+        },
+        content_type="application/json",
+    )
+    qa_on_manual_host = client.post(
+        "/api/rules/sources/",
+        {
+            "source": "official_qa",
+            "url": "https://ftc-resources.firstinspires.org/ftc/game/cm-html/m.htm",
+        },
+        content_type="application/json",
+    )
+
+    assert manual_on_qa_host.status_code == 400
+    assert manual_on_qa_host.json()["url"][0]["code"] == "source_not_allowed"
+    assert qa_on_manual_host.status_code == 400
+    assert qa_on_manual_host.json()["url"][0]["code"] == "source_not_allowed"
+    assert not Document.objects.exists()
+
+
 def test_a_page_that_cannot_be_fetched_is_refused_by_name(client, monkeypatch):
     season()
     client.force_login(administrator())

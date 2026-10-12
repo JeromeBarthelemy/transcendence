@@ -687,16 +687,19 @@ class UserRoleSerializer(serializers.Serializer[User]):
 
 class AddSourceSerializer(serializers.Serializer[None]):
     # `source` is also a Field attribute in DRF; the typing clash is harmless here.
-    source = serializers.ChoiceField(choices=[Document.Source.GAME_MANUAL])  # type: ignore[assignment]
+    source = serializers.ChoiceField(choices=Document.Source.choices)  # type: ignore[assignment]
     url = serializers.URLField(max_length=500)
 
-    def validate_url(self, value: str) -> str:
+    def validate(self, attrs: dict[str, Any]) -> dict[str, Any]:
+        # Which host is allowed depends on `source` — a per-field
+        # `validate_url` has no way to read it, only `attrs` here does.
         try:
-            return check_source_url(value)
+            check_source_url(attrs["url"], attrs["source"])
         except ValueError as error:
             raise serializers.ValidationError(
-                str(error), code="source_not_allowed"
+                {"url": str(error)}, code="source_not_allowed"
             ) from error
+        return attrs
 
 
 class AskSerializer(serializers.Serializer[None]):

@@ -27,14 +27,13 @@ REFERENCES_SHOWN = 20
 # The manual's pages declare windows-1252 in their own markup, and the copy
 # already ingested was read that way too: decoding differently would make
 # every page look changed. The Q&A board is a different site entirely, and
-# declares utf-8 (its own `<meta charset>`).
-_PAGE_ENCODING_OF: dict[str, str] = {
+# declares utf-8 (its own `<meta charset>`). Public: `ingest_document.py`
+# reads the same mapping to decode a file read straight off disk the same
+# way a fetched page is.
+PAGE_ENCODING_OF: dict[str, str] = {
     Document.Source.GAME_MANUAL: "cp1252",
     Document.Source.OFFICIAL_QA: "utf-8",
 }
-
-_BLOCK_TAGS = frozenset({"p", "h1", "h2", "h3", "h4", "tr", "li", "div", "br"})
-_SKIP_TAGS = frozenset({"style", "script", "head"})
 
 
 class ChangeSummary(TypedDict):
@@ -45,39 +44,44 @@ class ChangeSummary(TypedDict):
     references_total: int
 
 
-# Only FIRST's own pages are read: an administrator's URL is otherwise a way
-# to make the server fetch any address it can reach. The manual and the Q&A
-# board are on different hosts.
-ALLOWED_HOSTS = frozenset(
-    {"ftc-resources.firstinspires.org", "game-qa.firstinspires.org"}
-)
+# Only FIRST's own page for that source is read: an administrator's URL is
+# otherwise a way to make the server fetch any address it can reach, or to
+# file one source's document under the other's host.
+_HOST_OF: dict[str, str] = {
+    Document.Source.GAME_MANUAL: "ftc-resources.firstinspires.org",
+    Document.Source.OFFICIAL_QA: "game-qa.firstinspires.org",
+}
+ALLOWED_HOSTS = frozenset(_HOST_OF.values())
 
 
-def check_source_url(url: str) -> str:
-    """The URL when it points at FIRST's own rulebook, else the reason it does not."""
+def check_source_url(url: str, source: str) -> str:
+    """The URL when it points at `source`'s own site, else the reason it does not."""
     parts = urlsplit(url)
     if parts.scheme != "https":
         raise ValueError("L'adresse doit commencer par https://.")
-    if parts.hostname not in ALLOWED_HOSTS:
-        raise ValueError("Seules les pages de FIRST sont acceptées.")
+    if parts.hostname != _HOST_OF[source]:
+        raise ValueError("Cette adresse ne correspond pas à cette source.")
     return url
 
 
 class _FirstRedirects(HTTPRedirectHandler):
-    """Every hop is held to the allow-list, not only the URL the administrator
-    gave: a permitted page can otherwise redirect the server anywhere."""
+    """Every hop is held to its source's own host, not only the URL the
+    administrator gave: a permitted page can otherwise redirect the server
+    anywhere, or onto the other source's site."""
+
+    def __init__(self, source: str) -> None:
+        super().__init__()
+        self._source = source
 
     def redirect_request(self, req, fp, code, msg, headers, newurl):
-        check_source_url(newurl)
+        check_source_url(newurl, self._source)
         return super().redirect_request(req, fp, code, msg, headers, newurl)
 
 
-_OPENER = build_opener(_FirstRedirects)
-
-
 def fetch_page(url: str, source: str) -> str:
-    with _OPENER.open(url, timeout=FETCH_TIMEOUT_SECONDS) as response:
-        return response.read().decode(_PAGE_ENCODING_OF[source])
+    opener = build_opener(_FirstRedirects(source))
+    with opener.open(url, timeout=FETCH_TIMEOUT_SECONDS) as response:
+        return response.read().decode(PAGE_ENCODING_OF[source])
 
 
 def content_hash(text: str) -> str:

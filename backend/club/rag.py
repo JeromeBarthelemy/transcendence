@@ -479,6 +479,14 @@ def parse_glossary(html_text: str) -> list[tuple[str, str]]:
     return parser.terms
 
 
+# A board answer is written through a rich-text editor, which renders a
+# paragraph, a list item or a line break as visibly separate text, never
+# running two words at their own boundary together — dropping the tag
+# without keeping that boundary as a space would glue them instead
+# ("wall?Only its intake.").
+_PLAIN_TEXT_BREAK_TAGS = frozenset({"p", "li", "div", "br"})
+
+
 class _PlainText(HTMLParser):
     """Strips the tags from one rich-text fragment — a board question or
     answer, both written through the same editor — keeping only the
@@ -488,6 +496,17 @@ class _PlainText(HTMLParser):
     def __init__(self) -> None:
         super().__init__(convert_charrefs=True)
         self._parts: list[str] = []
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        if tag in _PLAIN_TEXT_BREAK_TAGS:
+            self._parts.append(" ")
+
+    def handle_startendtag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        self.handle_starttag(tag, attrs)
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag in _PLAIN_TEXT_BREAK_TAGS:
+            self._parts.append(" ")
 
     def handle_data(self, data: str) -> None:
         self._parts.append(data)

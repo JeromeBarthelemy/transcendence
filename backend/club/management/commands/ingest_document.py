@@ -4,11 +4,10 @@ from pathlib import Path
 from typing import Any
 
 from django.core.management.base import BaseCommand, CommandError, CommandParser
-from pypdf import PdfReader
 
 from club.models import Document, Season
 from club.rag import ingest_document
-from club.sources import _PAGE_ENCODING_OF
+from club.sources import PAGE_ENCODING_OF
 
 
 class Command(BaseCommand):
@@ -16,7 +15,7 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser: CommandParser) -> None:
         parser.add_argument(
-            "path", type=Path, help="Le fichier .htm, .pdf ou .txt à lire."
+            "path", type=Path, help="Le fichier HTML (.htm ou .html) à lire."
         )
         parser.add_argument(
             "--season", type=int, required=True, help="L'année de début de la saison."
@@ -73,19 +72,10 @@ class Command(BaseCommand):
 
 
 def _read_text(path: Path, source: str) -> str:
-    if path.suffix.lower() in (".htm", ".html"):
-        # Each site declares its own encoding in its own markup, and
-        # chunk_manual/chunk_qa read that markup directly, not text
-        # extracted from it — _PAGE_ENCODING_OF is the same mapping the
-        # live check (club/sources.py) decodes a fetched page with.
-        return path.read_text(encoding=_PAGE_ENCODING_OF[source])
-    if path.suffix.lower() == ".pdf":
-        reader = PdfReader(str(path))
-        return "\n".join(page.extract_text() or "" for page in reader.pages)
-    try:
-        return path.read_text(encoding="utf-8")
-    except UnicodeDecodeError:
-        # A .txt someone saved from Notepad on the club's own Windows
-        # machine, most likely — never the PDF, which pypdf always hands
-        # back as a real str regardless of the platform reading it.
-        return path.read_text(encoding="cp1252")
+    # handle() already refused anything but .htm/.html before this is
+    # called: both chunkers read HTML tags directly (chunk_qa the JSON a
+    # board page embeds), never extracted or plain text. Each site
+    # declares its own encoding in its own markup — PAGE_ENCODING_OF is
+    # the same mapping the live check (club/sources.py) decodes a fetched
+    # page with.
+    return path.read_text(encoding=PAGE_ENCODING_OF[source])
