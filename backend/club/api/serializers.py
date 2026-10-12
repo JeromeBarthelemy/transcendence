@@ -137,18 +137,16 @@ class SignUpSerializer(serializers.Serializer[User]):
         try:
             return self._create(validated_data)
         except IntegrityError:
-            # Another sign-up passed the same checks at the same moment and
-            # wrote first. Its account is committed now, so running the checks
-            # again finds it and refuses this one as they would a second later.
-            checks = {
-                "email": self.validate_email,
-                "display_name": self.validate_display_name,
-            }
-            for field, check in checks.items():
-                try:
-                    check(validated_data.get(field, ""))
-                except serializers.ValidationError as taken:
-                    raise serializers.ValidationError({field: taken.detail}) from None
+            recheck(
+                {
+                    "email": lambda: self.validate_email(
+                        validated_data.get("email", "")
+                    ),
+                    "display_name": lambda: self.validate_display_name(
+                        validated_data["display_name"]
+                    ),
+                }
+            )
             raise
 
     @transaction.atomic
