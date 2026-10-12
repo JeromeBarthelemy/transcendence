@@ -24,13 +24,16 @@ FETCH_TIMEOUT_SECONDS = 30
 # A change list longer than this is summarised, not enumerated in full.
 REFERENCES_SHOWN = 20
 
-# FIRST's pages declare windows-1252 in their own markup, and the copy already
-# ingested was read that way too: decoding differently would make every page
-# look changed.
-_PAGE_ENCODING = "cp1252"
-
-_BLOCK_TAGS = frozenset({"p", "h1", "h2", "h3", "h4", "tr", "li", "div", "br"})
-_SKIP_TAGS = frozenset({"style", "script", "head"})
+# The manual's pages declare windows-1252 in their own markup, and the copy
+# already ingested was read that way too: decoding differently would make
+# every page look changed. The Q&A board is a different site entirely, and
+# declares utf-8 (its own `<meta charset>`). Public: `ingest_document.py`
+# reads the same mapping to decode a file read straight off disk the same
+# way a fetched page is.
+PAGE_ENCODING_OF: dict[str, str] = {
+    Document.Source.GAME_MANUAL: "cp1252",
+    Document.Source.OFFICIAL_QA: "utf-8",
+}
 
 
 class ChangeSummary(TypedDict):
@@ -41,36 +44,44 @@ class ChangeSummary(TypedDict):
     references_total: int
 
 
-# Only FIRST's own export is read: an administrator's URL is otherwise a way
-# to make the server fetch any address it can reach.
-ALLOWED_HOSTS = frozenset({"ftc-resources.firstinspires.org"})
+# Only FIRST's own page for that source is read: an administrator's URL is
+# otherwise a way to make the server fetch any address it can reach, or to
+# file one source's document under the other's host.
+_HOST_OF: dict[str, str] = {
+    Document.Source.GAME_MANUAL: "ftc-resources.firstinspires.org",
+    Document.Source.OFFICIAL_QA: "game-qa.firstinspires.org",
+}
+ALLOWED_HOSTS = frozenset(_HOST_OF.values())
 
 
-def check_source_url(url: str) -> str:
-    """The URL when it points at FIRST's own rulebook, else the reason it does not."""
+def check_source_url(url: str, source: str) -> str:
+    """The URL when it points at `source`'s own site, else the reason it does not."""
     parts = urlsplit(url)
     if parts.scheme != "https":
         raise ValueError("L'adresse doit commencer par https://.")
-    if parts.hostname not in ALLOWED_HOSTS:
-        raise ValueError("Seules les pages de FIRST sont acceptées.")
+    if parts.hostname != _HOST_OF[source]:
+        raise ValueError("Cette adresse ne correspond pas à cette source.")
     return url
 
 
 class _FirstRedirects(HTTPRedirectHandler):
-    """Every hop is held to the allow-list, not only the URL the administrator
-    gave: a permitted page can otherwise redirect the server anywhere."""
+    """Every hop is held to its source's own host, not only the URL the
+    administrator gave: a permitted page can otherwise redirect the server
+    anywhere, or onto the other source's site."""
+
+    def __init__(self, source: str) -> None:
+        super().__init__()
+        self._source = source
 
     def redirect_request(self, req, fp, code, msg, headers, newurl):
-        check_source_url(newurl)
+        check_source_url(newurl, self._source)
         return super().redirect_request(req, fp, code, msg, headers, newurl)
 
 
-_OPENER = build_opener(_FirstRedirects)
-
-
-def fetch_page(url: str) -> str:
-    with _OPENER.open(url, timeout=FETCH_TIMEOUT_SECONDS) as response:
-        return response.read().decode(_PAGE_ENCODING)
+def fetch_page(url: str, source: str) -> str:
+    opener = build_opener(_FirstRedirects(source))
+    with opener.open(url, timeout=FETCH_TIMEOUT_SECONDS) as response:
+        return response.read().decode(PAGE_ENCODING_OF[source])
 
 
 def content_hash(text: str) -> str:
@@ -117,10 +128,10 @@ def _is_empty(summary: ChangeSummary) -> bool:
 
 def latest_documents() -> list[Document]:
     """The copy `ask` searches, per season and source, and only those with a
-    page to check against."""
+    page to check against — the manual and the Q&A board alike."""
     latest: dict[tuple[int, str], Document] = {}
-    manuals = Document.objects.filter(url__gt="", source=Document.Source.GAME_MANUAL)
-    for document in manuals.order_by("-fetched_at", "-id"):
+    documents = Document.objects.filter(url__gt="")
+    for document in documents.order_by("-fetched_at", "-id"):
         latest.setdefault((document.season_id, document.source), document)
     return list(latest.values())
 
@@ -140,7 +151,7 @@ def _forget_pending(document: Document) -> None:
 
 def check_document(document: Document) -> CheckOutcome:
     try:
-        page = fetch_page(document.url)
+        page = fetch_page(document.url, document.source)
     except (URLError, OSError, ValueError, InvalidURL) as error:
         return CheckOutcome(document, "error", str(error))
 
@@ -215,9 +226,9 @@ class NoPassage(ValueError):
 
 
 def add_source(*, season: Season, source: str, url: str) -> Document:
-    """A new copy of the manual, from its page. Its URL is kept, so the
-    automatic checks follow it from now on."""
-    page = fetch_page(url)
+    """A new copy of the manual or the Q&A board, from its page. Its URL is
+    kept, so the automatic checks follow it from now on."""
+    page = fetch_page(url, source)
     if not _CHUNKER_OF[source](page):
         raise NoPassage("la page ne contient aucun passage à indexer")
     title = unquote(urlsplit(url).path.rsplit("/", 1)[-1]).removesuffix(".htm")

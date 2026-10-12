@@ -842,8 +842,8 @@ laptop nearer the lower end of what the club has.
 | `POST /api/rules/ask/` | a question, answered with a generated French answer and up to ten cited passages from this season's ingested documents |
 | `GET /api/rules/glossary/` | the current season's glossary — its latest manual's own terms and definitions, read at ingestion (#136); quietly `[]` without one |
 | `GET /api/rules/sources/` | administrators only: per source, the copy searched, when it was checked, and any change waiting for acceptance with its summary |
-| `POST /api/rules/sources/` | administrators only: `source` (`game_manual`) and `url` on FIRST's own site (`https`, `ftc-resources.firstinspires.org`) — fetches the page, ingests it as the new copy, and the checks follow that URL from now on; `400` with `source_not_allowed`, `fetch_failed` (also when a redirect leaves FIRST's site) or `no_passage` (a page with nothing to index) otherwise |
-| `POST /api/rules/sources/check/` | administrators only: check the game manual against its page now, the same check the `sources-check` service runs every 24 hours (the Q&A is not checked yet) |
+| `POST /api/rules/sources/` | administrators only: `source` (`game_manual` or `official_qa`) and `url` on FIRST's own site for that source (`https`, `ftc-resources.firstinspires.org` for the manual, `game-qa.firstinspires.org` for the Q&A board) — fetches the page, ingests it as the new copy, and the checks follow that URL from now on; `400` with `source_not_allowed`, `fetch_failed` (also when a redirect leaves FIRST's site) or `no_passage` (a page with nothing to index) otherwise |
+| `POST /api/rules/sources/check/` | administrators only: check every source's page against its searched copy now, the same check the `sources-check` service runs every 24 hours |
 | `POST /api/rules/sources/{source}/accept/` | administrators only: replace the searched copy with the fetched change; `404` when nothing is waiting |
 
 The last four routes have a screen of their own: a club admin sees a small
@@ -889,6 +889,21 @@ apart from a real rule or section opening. The HTML export needs no such
 guessing — every rule carries its own anchor, and every heading already is
 a real `<h1>`-`<h3>`. The command refuses a `.pdf` file for `game_manual`
 outright rather than silently ingest one undifferentiated passage.
+
+The Q&A board (`game-qa.firstinspires.org/boards/<year>/FTC/QA`) is read
+the same way, from its own HTML: the page is a JavaScript application,
+but it embeds every question and its answer as one JSON object right in
+the markup (`Object.assign(window, {...})`), declared utf-8 in its own
+`<meta>` tag — the one encoding difference from the manual, which is
+windows-1252. An answered question (`status: "ANSWERED"`) becomes one
+passage, named `Q<n>` by its own number; a question still awaiting a
+ruling is shown on the board but never indexed — a citation naming a
+question without its answer would point a student at nothing (#163).
+`chunk_qa` reads that embedded JSON directly rather than scanning rendered
+text, so a page that is not the real board — stripped down, or redirected
+to a sign-in page if FIRST ever makes it private again — yields no passage
+and is refused up front (`NoPassage`/`no_passage`), the same guarantee the
+manual already had.
 
 `--source` is one of `game_manual` or `official_qa`, and decides the
 document's authority (respectively `binding`, `ruling`) — never asked for on
