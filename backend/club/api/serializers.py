@@ -72,10 +72,10 @@ class SignUpSerializer(serializers.Serializer[User]):
     )
     # Not a field: nobody declares their own role. Sign-up is open to whoever
     # has the address, so a role declared here would be a role granted by
-    # asking for it — and #52 is about to build permissions on top of it. The
-    # AssoConnect export confirms names, never roles, so nothing downstream
-    # would ever catch the claim. A mentor is made by the club admin, who
-    # knows who the mentors are: one club, one room.
+    # asking for it, and permissions are built on it. The AssoConnect export
+    # confirms names, never roles, so nothing downstream would ever catch the
+    # claim. A mentor is made by the club admin, who knows who the mentors
+    # are: one club, one room.
     # Only ever written to the verification request: the club trusts what is
     # declared here exactly as far as the AssoConnect export confirms it.
     last_name = serializers.CharField(max_length=80)

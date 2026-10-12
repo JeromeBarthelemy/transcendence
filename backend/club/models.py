@@ -567,7 +567,8 @@ class Entry(models.Model):
     team_season = models.ForeignKey(
         TeamSeason, on_delete=models.PROTECT, related_name="entries"
     )
-    # PROTECT until the GDPR module decides what a deleted member's traces become.
+    # PROTECT: a member who leaves is anonymized, never deleted (club/gdpr.py),
+    # so a trace always keeps its author.
     author = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="entries"
     )
@@ -631,7 +632,8 @@ class EntryParticipant(models.Model):
     nothing."""
 
     entry = models.ForeignKey(Entry, on_delete=models.CASCADE)
-    # PROTECT until the GDPR module decides what a deleted member's traces become.
+    # PROTECT: a member who leaves is anonymized, never deleted (club/gdpr.py),
+    # so a progress keeps everyone who took part in it.
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
 
     class Meta:
