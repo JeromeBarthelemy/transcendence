@@ -695,8 +695,9 @@ goes through the same session as the API and only from the site's own pages
 still goes through the API. Each write on the board — opening, closing or
 deleting a work item, ticking, adding to a progress, a note, a decision, a
 file added or removed — sends, once committed,
-`{"team_season": id, "work_item": id}` (`work_item` is `null` for a note to
-the whole team) to everyone who may read that team season at that moment:
+`{"team_season": id, "work_item": id, "deleted": false}` (`work_item` is
+`null` for a note to the whole team, `deleted` is `true` once a work item is
+deleted) to everyone who may read that team season at that moment:
 its members and every mentor, by the API's own rule. Worked out at each write
 rather than when the socket opens, so a member taken off a team stops
 hearing about it at once.
@@ -704,8 +705,11 @@ hearing about it at once.
 The screens then reload through the API what the message names, and the bell
 reads the member's notices again: the message says what changed, never what
 it now holds, so nothing is serialized twice. Only what is on screen is
-fetched again; the rest is marked stale. On connecting or reconnecting,
-everything is reloaded, since messages may have been missed.
+fetched again; the rest is marked stale. A deleted work item is the one
+exception: read again, it would answer 404 in the console, so it is
+forgotten instead, and a page open on it goes to its team's home. On
+connecting or reconnecting, everything is reloaded, since messages may have
+been missed.
 
 The channel layer lives in memory, which holds for the single Daphne process
 the stack runs. A second process would not see the first one's listeners: it
