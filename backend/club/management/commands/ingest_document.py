@@ -8,6 +8,7 @@ from pypdf import PdfReader
 
 from club.models import Document, Season
 from club.rag import ingest_document
+from club.sources import _PAGE_ENCODING_OF
 
 
 class Command(BaseCommand):
@@ -33,24 +34,29 @@ class Command(BaseCommand):
         if not path.exists():
             raise CommandError(f"Fichier introuvable : {path}")
         source = options["source"]
-        if source == Document.Source.GAME_MANUAL and path.suffix.lower() not in (
-            ".htm",
-            ".html",
-        ):
-            # chunk_manual reads HTML tags, not extracted or plain text —
-            # fed a PDF or a .txt, it would find no rule or heading at all
-            # and silently ingest zero chunks instead of failing loudly.
+        if path.suffix.lower() not in (".htm", ".html"):
+            # chunk_manual and chunk_qa both read HTML tags (chunk_qa reads
+            # the JSON the board's page embeds) — fed a PDF or a .txt,
+            # either would find no passage at all and silently ingest zero
+            # chunks instead of failing loudly.
+            if source == Document.Source.GAME_MANUAL:
+                raise CommandError(
+                    "Le manuel se lit depuis l'export HTML de FIRST "
+                    "(ftc-resources.firstinspires.org/ftc/game/cm-html/...), "
+                    "pas un PDF ni un .txt : la structure des règles ne "
+                    "survit qu'à l'export HTML."
+                )
             raise CommandError(
-                "Le manuel se lit depuis l'export HTML de FIRST "
-                "(ftc-resources.firstinspires.org/ftc/game/cm-html/...), pas un PDF ni "
-                "un .txt : la structure des règles ne survit qu'à l'export HTML."
+                "Le Q&A se lit depuis la page HTML du board FIRST "
+                "(game-qa.firstinspires.org/boards/.../QA), pas un PDF ni "
+                "un .txt : ses réponses ne sont lisibles que dans cet export."
             )
         try:
             season = Season.objects.get(start_year=options["season"])
         except Season.DoesNotExist:
             raise CommandError(f"Saison {options['season']} inconnue.") from None
 
-        text = _read_text(path)
+        text = _read_text(path, source)
         if not text.strip():
             raise CommandError("Le fichier ne contient aucun texte lisible.")
 
@@ -66,12 +72,13 @@ class Command(BaseCommand):
         )
 
 
-def _read_text(path: Path) -> str:
+def _read_text(path: Path, source: str) -> str:
     if path.suffix.lower() in (".htm", ".html"):
-        # FIRST's own export declares windows-1252 in its own <meta> tag —
-        # chunk_manual reads the markup directly, so this is the raw
-        # document, not text extracted from it.
-        return path.read_text(encoding="cp1252")
+        # Each site declares its own encoding in its own markup, and
+        # chunk_manual/chunk_qa read that markup directly, not text
+        # extracted from it — _PAGE_ENCODING_OF is the same mapping the
+        # live check (club/sources.py) decodes a fetched page with.
+        return path.read_text(encoding=_PAGE_ENCODING_OF[source])
     if path.suffix.lower() == ".pdf":
         reader = PdfReader(str(path))
         return "\n".join(page.extract_text() or "" for page in reader.pages)

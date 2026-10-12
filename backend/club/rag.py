@@ -22,6 +22,7 @@ offline after its one-time download — nothing about the club's "tout
 tourne en local" posture changes, only what `embed()` does inside.
 """
 
+import json
 import logging
 import re
 import struct
@@ -182,21 +183,6 @@ def _unpack(blob: bytes | memoryview) -> np.ndarray:
     other backend Django's stub allows for, never taken here."""
     return np.frombuffer(bytes(blob), dtype=np.float32)
 
-
-# A running header FIRST repeats on every page of a PDF export ("Section 11
-# Game Rules (G) V1 99 of 173"), never part of a Q&A entry itself — dropped
-# before `_QA_REFERENCE` gets a chance to misread it.
-_RUNNING_HEADER = re.compile(r"^Section \d+ .+ V\d+ \d+ of \d+$")
-# A table of contents lists entries in the same "number, title" shape a
-# real heading has — what tells them apart in a PDF export is the dot
-# leader pypdf keeps between a title and its page number.
-_TOC_LEADER = re.compile(r"\.{5,}")
-# A Q&A entry, opening a line the same way a rule does ("Q44 Blue robot
-# over their gate...", never "...as settled in Q44." mid-sentence, which
-# has no space before its punctuation) — FIRST's own public Q&A summary
-# (ftc-docs.firstinspires.org/.../ftcqa.html, no login needed; only asking
-# a *new* question requires a team account) numbers every entry this way.
-_QA_REFERENCE = re.compile(r"^(Q\d{1,4})\s+\*?[A-Z]")
 
 # The manual's own rule anchor, planted by Word's HTML export exactly once,
 # at the paragraph where the rule opens ("<a name=G101></a><b>G101 ...") —
@@ -493,30 +479,83 @@ def parse_glossary(html_text: str) -> list[tuple[str, str]]:
     return parser.terms
 
 
-def chunk_qa(text: str) -> list[tuple[str, str, str]]:
-    """One passage per Q&A entry, not run through `chunk_manual`: an answer
-    references a rule mid-sentence ("this would violate G410"), a shape
-    `chunk_manual` would read as a *new* rule opening — reusing it here
-    would slice a single entry apart at every rule it happens to mention.
-    Runs on the Q&A summary's own numbering instead.
+class _PlainText(HTMLParser):
+    """Strips the tags from one rich-text fragment — a board question or
+    answer, both written through the same editor — keeping only the
+    words: neither carries a reference or a heading of its own to
+    track, unlike the manual's own markup."""
+
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self._parts: list[str] = []
+
+    def handle_data(self, data: str) -> None:
+        self._parts.append(data)
+
+    def text(self) -> str:
+        return _collapse_whitespace(self._parts)
+
+
+def _plain_text(html_fragment: str) -> str:
+    parser = _PlainText()
+    parser.feed(html_fragment)
+    parser.close()
+    return parser.text()
+
+
+_BOARD_DATA_MARKER = "Object.assign(window, "
+
+
+def _board_data(html_text: str) -> dict[str, Any] | None:
+    """The board hands its own page this way to its own script, not
+    through a separate endpoint — reading it here needs no request of
+    its own. `raw_decode` rather than a regex for the object's own
+    extent: a `}` inside a question's or an answer's own rich text
+    would otherwise end the match early."""
+    start = html_text.find(_BOARD_DATA_MARKER)
+    if start == -1:
+        return None
+    try:
+        data, _ = json.JSONDecoder().raw_decode(
+            html_text, start + len(_BOARD_DATA_MARKER)
+        )
+    except json.JSONDecodeError:
+        return None
+    return data if isinstance(data, dict) else None
+
+
+def chunk_qa(html_text: str) -> list[tuple[str, str, str]]:
+    """One passage per answered question on FIRST's own live Q&A board
+    (game-qa.firstinspires.org). A question still waiting for one is
+    shown on the board too, but cited from nothing yet, so it is never
+    read into a passage here.
 
     Returns `(reference, anchor, passage)` triples exactly like
     `chunk_manual`, so a citation is shown the same way regardless of
-    source — "Q44" alongside "G420" — rather than adding a field only
-    one source's citations would ever use. `anchor` is always "": the
-    Q&A summary is plain text, with no page of its own to jump to."""
+    source — "Q44" alongside "G420". `anchor` is always "": a citation
+    does not yet link anywhere of its own on the board, only to its
+    text."""
+    data = _board_data(html_text)
+    if data is None:
+        return []
+
     open_chunks: list[tuple[str, str, list[str]]] = []
-    for raw_line in text.splitlines():
-        line = raw_line.strip()
-        if not line or _RUNNING_HEADER.match(line) or _TOC_LEADER.search(line):
+    for question in data.get("questions", []):
+        answer = question.get("answer")
+        number = question.get("number")
+        if question.get("status") != "ANSWERED" or not answer or number is None:
             continue
-        match = _QA_REFERENCE.match(line)
-        if match:
-            open_chunks.append((match.group(1), "", [line]))
-        elif open_chunks:
-            open_chunks[-1][2].append(line)
-        else:
-            open_chunks.append(("", "", [line]))
+        reference = f"Q{number}"
+        text = " ".join(
+            part
+            for part in (
+                _plain_text(question.get("title", "")),
+                _plain_text(question.get("content", "")),
+                _plain_text(answer.get("content", "")),
+            )
+            if part
+        )
+        open_chunks.append((reference, "", [text]))
 
     return _finalize_chunks(open_chunks)
 

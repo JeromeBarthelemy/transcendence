@@ -24,10 +24,14 @@ FETCH_TIMEOUT_SECONDS = 30
 # A change list longer than this is summarised, not enumerated in full.
 REFERENCES_SHOWN = 20
 
-# FIRST's pages declare windows-1252 in their own markup, and the copy already
-# ingested was read that way too: decoding differently would make every page
-# look changed.
-_PAGE_ENCODING = "cp1252"
+# The manual's pages declare windows-1252 in their own markup, and the copy
+# already ingested was read that way too: decoding differently would make
+# every page look changed. The Q&A board is a different site entirely, and
+# declares utf-8 (its own `<meta charset>`).
+_PAGE_ENCODING_OF: dict[str, str] = {
+    Document.Source.GAME_MANUAL: "cp1252",
+    Document.Source.OFFICIAL_QA: "utf-8",
+}
 
 _BLOCK_TAGS = frozenset({"p", "h1", "h2", "h3", "h4", "tr", "li", "div", "br"})
 _SKIP_TAGS = frozenset({"style", "script", "head"})
@@ -41,9 +45,12 @@ class ChangeSummary(TypedDict):
     references_total: int
 
 
-# Only FIRST's own export is read: an administrator's URL is otherwise a way
-# to make the server fetch any address it can reach.
-ALLOWED_HOSTS = frozenset({"ftc-resources.firstinspires.org"})
+# Only FIRST's own pages are read: an administrator's URL is otherwise a way
+# to make the server fetch any address it can reach. The manual and the Q&A
+# board are on different hosts.
+ALLOWED_HOSTS = frozenset(
+    {"ftc-resources.firstinspires.org", "game-qa.firstinspires.org"}
+)
 
 
 def check_source_url(url: str) -> str:
@@ -68,9 +75,9 @@ class _FirstRedirects(HTTPRedirectHandler):
 _OPENER = build_opener(_FirstRedirects)
 
 
-def fetch_page(url: str) -> str:
+def fetch_page(url: str, source: str) -> str:
     with _OPENER.open(url, timeout=FETCH_TIMEOUT_SECONDS) as response:
-        return response.read().decode(_PAGE_ENCODING)
+        return response.read().decode(_PAGE_ENCODING_OF[source])
 
 
 def content_hash(text: str) -> str:
@@ -117,10 +124,10 @@ def _is_empty(summary: ChangeSummary) -> bool:
 
 def latest_documents() -> list[Document]:
     """The copy `ask` searches, per season and source, and only those with a
-    page to check against."""
+    page to check against — the manual and the Q&A board alike."""
     latest: dict[tuple[int, str], Document] = {}
-    manuals = Document.objects.filter(url__gt="", source=Document.Source.GAME_MANUAL)
-    for document in manuals.order_by("-fetched_at", "-id"):
+    documents = Document.objects.filter(url__gt="")
+    for document in documents.order_by("-fetched_at", "-id"):
         latest.setdefault((document.season_id, document.source), document)
     return list(latest.values())
 
@@ -140,7 +147,7 @@ def _forget_pending(document: Document) -> None:
 
 def check_document(document: Document) -> CheckOutcome:
     try:
-        page = fetch_page(document.url)
+        page = fetch_page(document.url, document.source)
     except (URLError, OSError, ValueError, InvalidURL) as error:
         return CheckOutcome(document, "error", str(error))
 
@@ -215,9 +222,9 @@ class NoPassage(ValueError):
 
 
 def add_source(*, season: Season, source: str, url: str) -> Document:
-    """A new copy of the manual, from its page. Its URL is kept, so the
-    automatic checks follow it from now on."""
-    page = fetch_page(url)
+    """A new copy of the manual or the Q&A board, from its page. Its URL is
+    kept, so the automatic checks follow it from now on."""
+    page = fetch_page(url, source)
     if not _CHUNKER_OF[source](page):
         raise NoPassage("la page ne contient aucun passage à indexer")
     title = unquote(urlsplit(url).path.rsplit("/", 1)[-1]).removesuffix(".htm")

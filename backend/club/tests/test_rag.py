@@ -1,3 +1,5 @@
+import json
+
 import pytest
 
 from club.generation import GenerationError
@@ -67,22 +69,55 @@ Initial Interview.</p>
 """
 
 
-# Modeled on FIRST's own Q&A numbering convention, not a scraped verbatim
-# entry — this season's Q&A isn't published yet, and the archived page for
-# a past one didn't render outside a browser while this was written.
-REAL_QA_EXCERPT = """
-Q44 Blue robot over their gate to score in the opponent's zone?
-During the endgame, is a robot allowed to reach over its own alliance's
-gate to place a game piece in the opponent's scoring zone?
-Ruling: No. This would be a violation of G410, which prohibits a robot
-from extending over a neutral or opponent zone's boundary at any point
-during the MATCH.
-Q45 Two robots touching during autonomous?
-May two alliance partners' robots make contact with each other during
-the autonomous period?
-Ruling: Yes, incidental contact between alliance partners is not by
-itself a violation.
-"""
+# The board's real shape (game-qa.firstinspires.org/boards/2027/FTC/QA,
+# fetched while building chunk_qa): its own script reads its data from a
+# plain `Object.assign(window, {...})`, not a dedicated endpoint. Real
+# field names, two of the board's own real questions (one answered, one
+# not — Q22's own title and content, shortened), built through `json.dumps`
+# rather than hand-escaped so the HTML inside `content` stays exactly what
+# the board itself would emit.
+REAL_QA_BOARD_EXCERPT = (
+    "<html><body><script>\n"
+    "Object.assign(window, "
+    + json.dumps(
+        {
+            "questions": [
+                {
+                    "number": 21,
+                    "title": "Touching Perimeter Wall at PARK",
+                    "content": (
+                        "<p>If a ROBOT is contacting the perimeter wall in "
+                        "the LOADING ZONE after PARK, does the team not earn "
+                        "LEAVE points?</p>"
+                    ),
+                    "status": "ANSWERED",
+                    "answer": {
+                        "content": (
+                            "<p>No. Section 10.5 bullet F clarifies that the "
+                            "LEAVE achievement is only evaluated at the end "
+                            "of the AUTO period, and NOT in real-time.</p>"
+                        ),
+                    },
+                },
+                {
+                    "number": 22,
+                    "title": "Extracted potentiometer from legal servos",
+                    "content": ("<p>Is this allowed to be used on the robot?</p>"),
+                    # Submitted, not yet answered — never a passage.
+                    "status": "ACCEPTED",
+                },
+            ],
+            "board": {
+                "season": {
+                    "gameName": "BIOBUZZ",
+                    "startYear": 2026,
+                    "yearString": "2026-2027",
+                }
+            },
+        }
+    )
+    + ");\n</script></body></html>"
+)
 
 
 def season(start_year=2026, game_name="BioBuzz"):
@@ -323,47 +358,41 @@ def test_a_document_with_no_glossary_heading_has_no_terms():
 # --- chunking (Q&A) ---
 
 
-def test_a_qa_entry_becomes_its_own_chunk_named_by_its_number():
-    references = [reference for reference, _, _ in chunk_qa(REAL_QA_EXCERPT)]
+def test_an_answered_question_becomes_its_own_chunk_named_by_its_number():
+    references = [reference for reference, _, _ in chunk_qa(REAL_QA_BOARD_EXCERPT)]
 
-    assert "Q44" in references
-    assert "Q45" in references
+    assert references == ["Q21"]
+
+
+def test_an_unanswered_question_is_not_indexed():
+    # Q22 is on the board (status "ACCEPTED") but has no answer yet.
+    references = [reference for reference, _, _ in chunk_qa(REAL_QA_BOARD_EXCERPT)]
+
+    assert "Q22" not in references
 
 
 def test_a_qa_chunk_has_no_anchor_of_its_own():
-    # The Q&A summary is plain text with no page of its own to link to.
-    anchors = {ref: anchor for ref, anchor, _ in chunk_qa(REAL_QA_EXCERPT)}
+    # A citation does not yet link anywhere of its own on the board.
+    anchors = {ref: anchor for ref, anchor, _ in chunk_qa(REAL_QA_BOARD_EXCERPT)}
 
-    assert anchors["Q44"] == ""
-    assert anchors["Q45"] == ""
-
-
-def test_a_qa_entrys_text_does_not_leak_into_the_next_ones_chunk():
-    passages = {ref: text for ref, _, text in chunk_qa(REAL_QA_EXCERPT)}
-
-    assert "Blue robot over their gate" in passages["Q44"]
-    assert "Two robots touching" not in passages["Q44"]
-    assert "Two robots touching" in passages["Q45"]
+    assert anchors["Q21"] == ""
 
 
-def test_a_bare_qa_cross_reference_does_not_start_a_new_chunk():
-    # "in Q44." mid-sentence must stay part of whatever entry mentions it,
-    # not be read as Q44 opening again — same convention chunk_rules
-    # applies to a bare rule cross-reference.
-    text = "Q50 A later question referencing an earlier ruling in Q44."
+def test_a_qa_chunks_text_combines_its_title_question_and_answer():
+    passages = {ref: text for ref, _, text in chunk_qa(REAL_QA_BOARD_EXCERPT)}
 
-    references = [reference for reference, _, _ in chunk_qa(text)]
+    text = passages["Q21"]
+    assert "Touching Perimeter Wall at PARK" in text
+    assert "contacting the perimeter wall in the LOADING ZONE" in text
+    assert "only evaluated at the end of the AUTO period" in text
+    # The board writes rich text, not plain text — none of its own markup
+    # belongs in a passage a question is searched against.
+    assert "<p>" not in text
+    assert "<" not in text
 
-    assert references == ["Q50"]
 
-
-def test_a_rule_reference_inside_a_qa_answer_does_not_split_the_entry():
-    # chunk_manual would read a line like "G410, which prohibits..." as
-    # G410 opening a new chunk; chunk_qa has no such rule and keeps the
-    # whole entry, references and all, together.
-    passages = {ref: text for ref, _, text in chunk_qa(REAL_QA_EXCERPT)}
-
-    assert "G410" in passages["Q44"]
+def test_a_page_with_no_board_data_yields_no_passages():
+    assert chunk_qa("<html><body><p>Not a board page.</p></body></html>") == []
 
 
 # --- ingestion ---
@@ -376,10 +405,12 @@ def test_ingesting_a_document_creates_its_chunks():
     assert set(doc.chunks.values_list("reference", flat=True)) >= {"G101", "G102"}
 
 
-def test_ingesting_a_qa_document_chunks_by_entry_not_by_rule():
-    doc = document(season(), source=Document.Source.OFFICIAL_QA, text=REAL_QA_EXCERPT)
+def test_ingesting_a_qa_document_chunks_by_answered_question():
+    doc = document(
+        season(), source=Document.Source.OFFICIAL_QA, text=REAL_QA_BOARD_EXCERPT
+    )
 
-    assert set(doc.chunks.values_list("reference", flat=True)) == {"Q44", "Q45"}
+    assert set(doc.chunks.values_list("reference", flat=True)) == {"Q21"}
 
 
 def test_ingesting_a_manual_creates_its_glossary_terms():
@@ -393,9 +424,11 @@ def test_ingesting_a_manual_creates_its_glossary_terms():
 
 
 def test_ingesting_a_qa_document_creates_no_glossary_terms():
-    # The Q&A summary has no glossary of its own to read — only a
+    # The Q&A board has no glossary of its own to read — only a
     # game_manual's own text is ever parsed for one.
-    doc = document(season(), source=Document.Source.OFFICIAL_QA, text=REAL_QA_EXCERPT)
+    doc = document(
+        season(), source=Document.Source.OFFICIAL_QA, text=REAL_QA_BOARD_EXCERPT
+    )
 
     assert not doc.glossary_terms.exists()
 

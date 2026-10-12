@@ -16,12 +16,18 @@ from club.sources import (
     summarize,
 )
 
-from .test_rag import REAL_HTML_EXCERPT
+from .test_rag import REAL_HTML_EXCERPT, REAL_QA_BOARD_EXCERPT
 
 MANUAL_URL = "https://ftc.example/manual.html"
 CHANGED_HTML = REAL_HTML_EXCERPT.replace(
     "elements is prohibited.", "elements is prohibited, even briefly."
 )
+QA_URL = "https://game-qa.example/boards/2027/FTC/QA"
+CHANGED_QA_BOARD = REAL_QA_BOARD_EXCERPT.replace(
+    "only evaluated at the end of the AUTO period, and NOT in real-time.",
+    "only evaluated at the end of the AUTO period, never mid-MATCH.",
+)
+NO_ANSWERS_QA_BOARD = REAL_QA_BOARD_EXCERPT.replace('"ANSWERED"', '"ACCEPTED"')
 
 
 def season():
@@ -39,8 +45,19 @@ def manual_copy(the_season, text=REAL_HTML_EXCERPT):
     )
 
 
+def qa_copy(the_season, text=REAL_QA_BOARD_EXCERPT):
+    return ingest_document(
+        season=the_season,
+        source=Document.Source.OFFICIAL_QA,
+        title="Q&A officiel",
+        text=text,
+        url=QA_URL,
+        content_hash=content_hash(text),
+    )
+
+
 def serve(monkeypatch, page):
-    monkeypatch.setattr("club.sources.fetch_page", lambda url: page)
+    monkeypatch.setattr("club.sources.fetch_page", lambda url, source: page)
 
 
 # --- comparing ---
@@ -125,7 +142,7 @@ def test_bytes_that_change_without_changing_a_passage_are_not_an_update(monkeypa
 def test_a_page_that_cannot_be_fetched_is_reported_not_raised(monkeypatch):
     copy = manual_copy(season())
 
-    def unreachable(url):
+    def unreachable(url, source):
         raise URLError("le site ne répond pas")
 
     monkeypatch.setattr("club.sources.fetch_page", unreachable)
@@ -143,7 +160,7 @@ def test_a_malformed_url_is_reported_not_raised(monkeypatch):
     # request, but the same "tell the admin" outcome.
     copy = manual_copy(season())
 
-    def malformed(url):
+    def malformed(url, source):
         raise InvalidURL("URL can't contain control characters")
 
     monkeypatch.setattr("club.sources.fetch_page", malformed)
@@ -216,19 +233,50 @@ def test_accepting_with_nothing_waiting_is_not_found(client):
     assert response.status_code == 404
 
 
-def test_the_official_qa_is_not_checked_automatically():
+def test_the_official_qa_is_checked_the_same_way_as_the_manual():
+    the_season = season()
+    manual = manual_copy(the_season)
+    qa = qa_copy(the_season)
+
+    assert {document.pk for document in latest_documents()} == {manual.pk, qa.pk}
+
+
+def test_the_official_qa_with_no_url_yet_is_not_checked():
+    # Ingested once from a file, with nothing to check it against.
     the_season = season()
     manual = manual_copy(the_season)
     qa = ingest_document(
         season=the_season,
         source=Document.Source.OFFICIAL_QA,
-        title="Q&A",
-        text="Q1 Allowed gamepads\nAny listed one.",
-        url="https://ftc.example/qa",
+        title="Q&A officiel",
+        text=REAL_QA_BOARD_EXCERPT,
     )
 
     assert [document.pk for document in latest_documents()] == [manual.pk]
     assert qa.pk not in [document.pk for document in latest_documents()]
+
+
+def test_a_changed_answer_on_the_qa_board_becomes_a_pending_update(monkeypatch):
+    the_season = season()
+    copy = qa_copy(the_season)
+    serve(monkeypatch, CHANGED_QA_BOARD)
+
+    outcome = check_document(copy)
+
+    assert outcome.status == "pending"
+    update = SourceUpdate.objects.get(season=the_season, source="official_qa")
+    assert update.summary["changed"] == 1
+    assert update.summary["references"] == ["Q21"]
+
+
+def test_a_qa_page_with_no_answered_question_is_an_error(monkeypatch):
+    copy = qa_copy(season())
+    serve(monkeypatch, NO_ANSWERS_QA_BOARD)
+
+    outcome = check_document(copy)
+
+    assert outcome.status == "error"
+    assert not SourceUpdate.objects.exists()
 
 
 def test_a_page_back_to_the_searched_content_drops_the_change_waiting(monkeypatch):
@@ -248,7 +296,7 @@ def test_a_page_back_to_the_searched_content_drops_the_change_waiting(monkeypatc
 def test_a_failed_manual_check_is_reported_to_the_administrator(client, monkeypatch):
     copy = manual_copy(season())
 
-    def unreachable(url):
+    def unreachable(url, source):
         raise URLError("hors ligne")
 
     monkeypatch.setattr("club.sources.fetch_page", unreachable)
@@ -332,7 +380,7 @@ def test_a_page_that_cannot_be_fetched_is_refused_by_name(client, monkeypatch):
     season()
     client.force_login(administrator())
 
-    def unreachable(url):
+    def unreachable(url, source):
         raise URLError("hors ligne")
 
     monkeypatch.setattr("club.sources.fetch_page", unreachable)
@@ -358,7 +406,7 @@ def test_a_malformed_url_is_refused_by_name_not_a_500(client, monkeypatch):
     season()
     client.force_login(administrator())
 
-    def malformed(url):
+    def malformed(url, source):
         raise InvalidURL("URL can't contain control characters")
 
     monkeypatch.setattr("club.sources.fetch_page", malformed)
@@ -418,7 +466,7 @@ def test_a_redirect_off_first_s_site_is_refused_before_it_is_followed():
     threading.Thread(target=server.serve_forever, daemon=True).start()
     try:
         with pytest.raises(ValueError):
-            fetch_page(f"http://127.0.0.1:{port}/start")
+            fetch_page(f"http://127.0.0.1:{port}/start", Document.Source.GAME_MANUAL)
     finally:
         server.shutdown()
         server.server_close()
