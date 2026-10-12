@@ -624,13 +624,20 @@ function progressServer(
   respond: (input: Record<string, string>) => Response,
   identityOverrides: object = {},
 ) {
-  const server = { progress: progress() };
+  const server: {
+    progress: ReturnType<typeof progress>;
+    refreshError: Error | null;
+  } = {
+    progress: progress(),
+    refreshError: null,
+  };
   const fetchMock = vi.fn(
     async (path: string, options?: RequestInit): Promise<Response> => {
       if (path === "/api/auth/me/") {
         return json({ ...identity(), ...identityOverrides });
       }
       if (path === "/api/work-items/10/" && !options?.method) {
+        if (server.refreshError) throw server.refreshError;
         return json(
           workItem({
             current_progress: server.progress,
@@ -864,6 +871,44 @@ it("lets a mentor add to what was done, as anyone else", async () => {
   });
 });
 
+it("keeps the progress draft mounted when the conflict refresh fails", async () => {
+  setDocumentCookie("csrftoken=test; path=/");
+  const { server, fetchMock } = progressServer(progressChanged);
+  const queryClient = renderWorkItem();
+  const addition =
+    await screen.findByLabelText<HTMLTextAreaElement>("Votre ajout");
+  const handover = screen.getByLabelText<HTMLTextAreaElement>(
+    "À faire la prochaine fois",
+  );
+  await userEvent.type(addition, "Moteur testé.");
+  await userEvent.clear(handover);
+  await userEvent.type(handover, "Régler le PID.");
+  server.refreshError = new TypeError("The server is unreachable");
+  const save = screen.getByRole("button", { name: "Enregistrer l'avancée" });
+  await userEvent.click(save);
+
+  expect((await screen.findByRole("alert")).textContent).toContain(
+    "Impossible de joindre le serveur.",
+  );
+  expect(screen.getByLabelText("Votre ajout")).toBe(addition);
+  expect(addition.value).toBe("Moteur testé.");
+  expect(handover.value).toBe("Régler le PID.");
+  expect(queryClient.getQueryState(["work-items", 10])?.status).toBe("success");
+
+  server.refreshError = null;
+  server.progress = progress({ handover: "La version de Lina." });
+  await userEvent.click(save);
+  await waitFor(() =>
+    expect(noteUnder(handover)?.textContent).toContain("La version de Lina."),
+  );
+  expect(screen.queryByText(/Impossible de joindre le serveur/)).toBeNull();
+  expect(addition.value).toBe("Moteur testé.");
+  expect(handover.value).toBe("Régler le PID.");
+  expect(saveRequests(fetchMock)[1]?.handover_was).toBe(
+    "Tester les galets à 12 V.",
+  );
+});
+
 it("adds a note to the work item and refreshes its history", async () => {
   setDocumentCookie("csrftoken=test; path=/");
   let item = workItem();
@@ -1084,7 +1129,7 @@ it("forgets a reason typed for another status", async () => {
 it("uploads a file with its image-right answer", async () => {
   setDocumentCookie("csrftoken=test; path=/");
 
-  class FakeXMLHttpRequest {
+  class FakeXMLHttpRequest extends EventTarget {
     static last: FakeXMLHttpRequest | null = null;
     method = "";
     url = "";
@@ -1100,13 +1145,10 @@ it("uploads a file with its image-right answer", async () => {
       uploaded_by: "Marie",
       can_remove: false,
     });
-    upload = {
-      onprogress: null as ((event: ProgressEvent) => void) | null,
-    };
-    onerror: (() => void) | null = null;
-    onload: (() => void) | null = null;
+    upload = new EventTarget();
 
     constructor() {
+      super();
       FakeXMLHttpRequest.last = this;
     }
 
@@ -1121,12 +1163,13 @@ it("uploads a file with its image-right answer", async () => {
 
     send(body: FormData) {
       this.sent = body;
-      this.upload.onprogress?.({
-        lengthComputable: true,
-        loaded: 5,
-        total: 10,
-      } as ProgressEvent);
-      this.onload?.();
+      this.upload.dispatchEvent(
+        new ProgressEvent("progress", {
+          lengthComputable: true,
+          loaded: 5,
+          total: 10,
+        }),
+      );
     }
   }
 
@@ -1155,6 +1198,11 @@ it("uploads a file with its image-right answer", async () => {
     screen.getByRole("button", { name: "Ajouter le fichier" }),
   );
 
+  const bar = await screen.findByRole<HTMLProgressElement>("progressbar");
+  expect(bar.max).toBe(1);
+  expect(bar.value).toBe(0.5);
+  expect(screen.getByText("Envoi : 50 %")).toBeTruthy();
+  act(() => FakeXMLHttpRequest.last?.dispatchEvent(new Event("load")));
   expect(await screen.findByText("Fichier ajouté.")).toBeTruthy();
   expect(FakeXMLHttpRequest.last?.method).toBe("POST");
   expect(FakeXMLHttpRequest.last?.url).toBe("/api/entries/31/attachments/");
@@ -1175,16 +1223,14 @@ it.each([
   "shows the server's upload refusal for %s, even though file has no dedicated error component",
   async (code, message) => {
     setDocumentCookie("csrftoken=test; path=/");
-    class RefusedUpload {
+    class RefusedUpload extends EventTarget {
       status = 400;
       responseText = JSON.stringify({ file: [{ code, message }] });
-      upload = { onprogress: null as ((event: ProgressEvent) => void) | null };
-      onerror: (() => void) | null = null;
-      onload: (() => void) | null = null;
+      upload = new EventTarget();
       open() {}
       setRequestHeader() {}
       send() {
-        this.onload?.();
+        this.dispatchEvent(new Event("load"));
       }
     }
     vi.stubGlobal("XMLHttpRequest", RefusedUpload);

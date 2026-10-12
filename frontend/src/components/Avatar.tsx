@@ -40,6 +40,8 @@ export function initials(name: string): string {
 const sizes = {
   sm: "size-6 text-[0.6rem]",
   md: "size-8 text-xs",
+  list: "size-9 text-sm",
+  detail: "size-16 text-xl",
   lg: "size-32 text-4xl",
 } as const;
 

@@ -1,6 +1,6 @@
 import { z } from "zod/mini";
 
-import { csrfToken, del, get, patch, post, toApiError } from "./client";
+import { del, get, patch, post, upload } from "./client";
 
 export const workItemSteps = [
   "brainstorming",
@@ -222,43 +222,22 @@ export async function uploadAttachment(
   entryId: number,
   file: File,
   peopleRecognisable: boolean,
-  onProgress: (percentage: number) => void,
+  onProgress: (sent: number) => void,
 ): Promise<z.infer<typeof attachmentSchema>> {
-  const token = await csrfToken();
   const form = new FormData();
   form.set("file", file);
   form.set("people_recognisable", String(peopleRecognisable));
 
-  return new Promise((resolve, reject) => {
-    const request = new XMLHttpRequest();
-    request.open("POST", `/api/entries/${entryId}/attachments/`);
-    request.setRequestHeader("Accept", "application/json");
-    request.setRequestHeader("X-CSRFToken", token);
-    request.upload.onprogress = (event) => {
-      if (event.lengthComputable) {
-        onProgress(Math.round((event.loaded / event.total) * 100));
-      }
-    };
-    request.onerror = () => reject(new TypeError("The upload failed"));
-    request.onload = () => {
-      let body: unknown = null;
-      try {
-        body = request.responseText ? JSON.parse(request.responseText) : null;
-      } catch {
-        body = null;
-      }
-      if (request.status < 200 || request.status >= 300) {
-        reject(toApiError(request.status, body));
-        return;
-      }
-      const result = attachmentSchema.safeParse(body);
-      if (!result.success) {
-        reject(new Error("The attachment response is invalid"));
-        return;
-      }
-      onProgress(100);
-      resolve(result.data);
-    };
-    request.send(form);
-  });
+  const { body } = await upload(
+    "POST",
+    `/api/entries/${entryId}/attachments/`,
+    form,
+    onProgress,
+  );
+  const result = attachmentSchema.safeParse(body);
+  if (!result.success) {
+    throw new Error("The attachment response is invalid");
+  }
+  onProgress(1);
+  return result.data;
 }

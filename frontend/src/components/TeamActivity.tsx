@@ -11,6 +11,7 @@ import {
   type MemberActivity,
 } from "../api/activityAnalytics";
 import type { TeamSeasonSummary } from "../api/auth";
+import { dayDate, formatDay } from "../app/formatters";
 import { ActivityWorkItems } from "./ActivityWorkItems";
 import { RequestError } from "./ApiErrors";
 import { Avatar } from "./Avatar";
@@ -39,17 +40,8 @@ const ActivityByCategoryChart = lazy(async () => {
   return { default: charts.ActivityByCategoryChart };
 });
 
-const fullDateFormatter = new Intl.DateTimeFormat("fr-FR", {
-  dateStyle: "long",
-  timeZone: "UTC",
-});
-
-function formatDate(day: string) {
-  return fullDateFormatter.format(new Date(`${day}T12:00:00Z`));
-}
-
 function shiftDay(day: string, amount: number) {
-  const date = new Date(`${day}T12:00:00Z`);
+  const date = dayDate(day);
   date.setUTCDate(date.getUTCDate() + amount);
   return date.toISOString().slice(0, 10);
 }
@@ -135,7 +127,7 @@ function ParticipationTable({ members }: { members: MemberActivity[] }) {
               </td>
               <td className="px-3 py-4 text-right text-body">
                 {member.last_progress_day
-                  ? formatDate(member.last_progress_day)
+                  ? formatDay(member.last_progress_day)
                   : t("activity.noParticipation")}
               </td>
             </tr>
