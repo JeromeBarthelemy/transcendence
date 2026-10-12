@@ -539,7 +539,6 @@ export function TeamHomePage({ identity }: { identity: Identity }) {
           {t("teamHome.sourceUpdateBadge")}
         </Link>
       )}
-
       <div className="mt-3 flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
         <div>
           <Heading size="page">
