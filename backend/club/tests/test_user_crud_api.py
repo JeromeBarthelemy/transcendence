@@ -384,14 +384,17 @@ def test_a_superuser_can_edit_another_superuser(client):
 # --- deleting (anonymizing) ---
 
 
-def test_a_club_admin_deletes_a_member_by_anonymizing_them(client, mailoutbox):
+def test_a_club_admin_deletes_a_member_by_anonymizing_them(
+    client, mailoutbox, django_capture_on_commit_callbacks
+):
     # DELETE here is the same anonymize() a member's own request and the
     # Django admin's action call — not a suspension (#88): the row stays,
     # but the identity is gone and it can no longer sign in.
     client.force_login(admin())
     lina = student("lina@club.fr", "Lina", contact_email="parent.lina@club.fr")
 
-    response = client.delete(f"/api/users/{lina.id}/")
+    with django_capture_on_commit_callbacks(execute=True):
+        response = client.delete(f"/api/users/{lina.id}/")
 
     assert response.status_code == 204
     lina.refresh_from_db()
