@@ -1,8 +1,6 @@
-from datetime import timedelta
-
 from django.contrib.auth import authenticate
 from django.test import Client
-from django.utils import timezone
+from rest_framework.throttling import ScopedRateThrottle
 
 from club.models import User
 
@@ -78,11 +76,12 @@ def signed_in(client):
     return response.json()
 
 
-def login(client, username, password=PASSWORD):
+def login(client, username, password=PASSWORD, **extra):
     return client.post(
         LOGIN,
         {"username": username, "password": password},
         content_type="application/json",
+        **extra,
     )
 
 
@@ -118,107 +117,48 @@ def test_the_refusal_does_not_say_which_of_the_two_was_wrong(client):
     assert unknown["non_field_errors"][0]["code"] == "bad_credentials"
 
 
-# --- lockout after repeated failures ---
+# --- throttling repeated failures (#203) ---
 
 
-def test_five_wrong_passwords_running_lock_the_account(client):
-    ada = User.objects.create_user("ada@club.fr", "Ada", password=PASSWORD)
+def throttled_at(monkeypatch, rate):
+    """Overriding settings.REST_FRAMEWORK would not do it: SimpleRateThrottle
+    reads DEFAULT_THROTTLE_RATES once, into a class attribute, when the
+    module first imports — not per request. This mutates that same dict
+    directly instead, restored once the test ends."""
+    monkeypatch.setitem(ScopedRateThrottle.THROTTLE_RATES, "login", rate)
 
-    for _ in range(4):
+
+def test_repeated_failed_logins_are_throttled(client, monkeypatch):
+    throttled_at(monkeypatch, "3/min")
+    User.objects.create_user("ada@club.fr", "Ada", password=PASSWORD)
+
+    for _ in range(3):
         response = login(client, "Ada", "pas-le-bon")
         assert response.status_code == 400
         assert response.json()["non_field_errors"][0]["code"] == "bad_credentials"
-    ada.refresh_from_db()
-    assert not ada.is_locked
 
     response = login(client, "Ada", "pas-le-bon")
 
-    assert response.status_code == 400
-    assert response.json()["non_field_errors"][0]["code"] == "account_locked"
-    ada.refresh_from_db()
-    assert ada.is_locked
-    # Still a member in good standing — a lock is not a suspension, and
-    # nothing here needs an admin to lift it.
-    assert ada.is_active
+    assert response.status_code == 429
+    assert response.json()["detail"]["code"] == "login_throttled"
 
 
-def test_a_locked_account_is_told_apart_from_a_wrong_password(client):
-    # The member locked out needs to know to stop guessing and wait —
-    # unlike an unknown identifier or a wrong password on an account that
-    # is not (yet) locked, which stay indistinguishable.
+def test_the_throttle_is_per_client_not_per_account(client, monkeypatch):
+    # The whole point (#203): guessing against one account must not be able
+    # to keep its own owner, asking from somewhere else, from signing in —
+    # unlike the lockout this replaces, which blocked the account itself
+    # regardless of who was asking.
+    throttled_at(monkeypatch, "1/min")
     User.objects.create_user("ada@club.fr", "Ada", password=PASSWORD)
-    for _ in range(5):
-        login(client, "Ada", "pas-le-bon")
 
-    response = login(client, "Ada")
+    guessed = login(client, "Ada", "pas-le-bon", REMOTE_ADDR="10.0.0.1")
+    assert guessed.status_code == 400
+    guessed_again = login(client, "Ada", "pas-le-bon", REMOTE_ADDR="10.0.0.1")
+    assert guessed_again.status_code == 429
 
-    assert response.status_code == 400
-    assert response.json()["non_field_errors"][0]["code"] == "account_locked"
+    response = login(client, "Ada", REMOTE_ADDR="10.0.0.2")
 
-
-def test_the_right_password_does_not_lift_the_lock_early(client):
-    # A lock refuses even the right password while it runs — otherwise
-    # whoever is guessing learns they found it the moment it stops working.
-    ada = User.objects.create_user("ada@club.fr", "Ada", password=PASSWORD)
-    for _ in range(5):
-        login(client, "Ada", "pas-le-bon")
-    ada.refresh_from_db()
-    assert ada.is_locked
-
-    response = login(client, "Ada")
-
-    assert response.status_code == 400
-    assert response.json()["non_field_errors"][0]["code"] == "account_locked"
-
-
-def test_the_lock_lifts_itself_once_it_expires(client):
-    ada = User.objects.create_user("ada@club.fr", "Ada", password=PASSWORD)
-    for _ in range(5):
-        login(client, "Ada", "pas-le-bon")
-    ada.refresh_from_db()
-    ada.locked_until = timezone.now() - timedelta(seconds=1)
-    ada.save(update_fields=["locked_until"])
-
-    assert login(client, "Ada").status_code == 200
-
-
-def test_a_mistyped_password_does_not_lock_the_account(client):
-    ada = User.objects.create_user("ada@club.fr", "Ada", password=PASSWORD)
-
-    assert login(client, "Ada", "pas-le-bon").status_code == 400
-    assert login(client, "Ada", "pas-le-bon-non-plus").status_code == 400
-
-    assert login(client, "Ada").status_code == 200
-    ada.refresh_from_db()
-    assert not ada.is_locked
-    assert ada.failed_login_attempts == 0
-
-
-def test_the_lock_is_per_identifier_not_global(client):
-    User.objects.create_user("ada@club.fr", "Ada", password=PASSWORD)
-    User.objects.create_user("tom@club.fr", "Tom", password=PASSWORD)
-
-    for _ in range(5):
-        login(client, "Ada", "pas-le-bon")
-
-    assert login(client, "Tom").status_code == 200
-
-
-def test_a_suspended_members_wrong_password_does_not_lock_their_account(client):
-    # is_active is a separate, older state an admin alone controls — a lock
-    # must never form under it, or lifting the suspension later would also
-    # have to know to clear a lock it never meant to set (#60 review).
-    ada = User.objects.create_user("ada@club.fr", "Ada", password=PASSWORD)
-    ada.is_active = False
-    ada.save(update_fields=["is_active"])
-
-    for _ in range(5):
-        response = login(client, "Ada", "pas-le-bon")
-        assert response.json()["non_field_errors"][0]["code"] == "bad_credentials"
-
-    ada.refresh_from_db()
-    assert not ada.is_locked
-    assert ada.failed_login_attempts == 0
+    assert response.status_code == 200
 
 
 def test_a_suspended_members_own_correct_password_is_still_just_refused(client):
@@ -234,21 +174,6 @@ def test_a_suspended_members_own_correct_password_is_still_just_refused(client):
 
     assert response.status_code == 400
     assert response.json()["non_field_errors"][0]["code"] == "bad_credentials"
-
-
-def test_concurrent_failures_are_not_lost(client):
-    # Two requests that each read the count before either writes must not
-    # collapse into a single increment — register_failed_login uses an
-    # atomic F() update rather than a plain `+= 1` for exactly this.
-    ada = User.objects.create_user("ada@club.fr", "Ada", password=PASSWORD)
-    first = User.objects.get(pk=ada.pk)
-    second = User.objects.get(pk=ada.pk)
-
-    first.register_failed_login()
-    second.register_failed_login()
-
-    ada.refresh_from_db()
-    assert ada.failed_login_attempts == 2
 
 
 def test_the_session_route_hands_out_the_csrf_cookie(client):

@@ -5,7 +5,7 @@ the subject asks us to create, edit and delete is the team.
 """
 
 import unicodedata
-from datetime import date, timedelta
+from datetime import date
 from typing import Any
 
 from django.conf import settings
@@ -17,7 +17,7 @@ from django.contrib.auth.models import (
 from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator
 from django.db import models, transaction
-from django.db.models import F, Q
+from django.db.models import Q
 from django.db.models.signals import post_delete
 from django.dispatch import receiver
 from django.utils import timezone
@@ -111,15 +111,6 @@ class User(AbstractBaseUser, PermissionsMixin):
     stays, so what they wrote stays attributed, but nothing else about who
     they were does."""
 
-    # A wrong password this many times running locks the account for
-    # LOCK_DURATION (#60) — kept apart from `is_active`, a real suspension an
-    # admin alone lifts: reusing it let any member with a display name (every
-    # member, on every screen) suspend a classmate, a mentor, or the admin
-    # for good, with nobody able to undo it if the admin was the one locked
-    # out. A timed lock clears itself, so it needs no one to.
-    LOCK_AFTER_FAILURES = 5
-    LOCK_DURATION = timedelta(minutes=15)
-
     class ClubRole(models.TextChoices):
         STUDENT = "student", "élève"
         MENTOR = "mentor", "mentor"
@@ -164,10 +155,6 @@ class User(AbstractBaseUser, PermissionsMixin):
     is_club_admin = models.BooleanField("administrateur du club", default=False)
 
     is_active = models.BooleanField("actif", default=True)
-    failed_login_attempts = models.PositiveSmallIntegerField(
-        "tentatives de connexion échouées", default=0
-    )
-    locked_until = models.DateTimeField("verrouillé jusqu'à", null=True, blank=True)
     is_staff = models.BooleanField("accès à l'admin", default=False)
     date_joined = models.DateTimeField("date d'inscription", default=timezone.now)
 
@@ -216,32 +203,6 @@ class User(AbstractBaseUser, PermissionsMixin):
         if update_fields is not None and "display_name" in update_fields:
             kwargs["update_fields"] = {*update_fields, "display_name_folded"}
         super().save(*args, **kwargs)
-
-    def register_failed_login(self) -> None:
-        """`F()`, not a plain `+= 1`: a read-modify-write would let failed
-        attempts sent in parallel read the same starting count and lose all
-        but one of their increments, which is exactly the gap a script
-        trying more than LOCK_AFTER_FAILURES passwords at once would use."""
-        User.objects.filter(pk=self.pk).update(
-            failed_login_attempts=F("failed_login_attempts") + 1
-        )
-        self.refresh_from_db(fields=["failed_login_attempts"])
-        if self.failed_login_attempts >= self.LOCK_AFTER_FAILURES:
-            self.locked_until = timezone.now() + self.LOCK_DURATION
-            self.failed_login_attempts = 0
-            self.save(update_fields=["locked_until", "failed_login_attempts"])
-
-    @property
-    def is_locked(self) -> bool:
-        return self.locked_until is not None and self.locked_until > timezone.now()
-
-    def register_successful_login(self) -> None:
-        """The right password proves it was them: whatever came before stops
-        counting against the account."""
-        if self.failed_login_attempts or self.locked_until:
-            self.failed_login_attempts = 0
-            self.locked_until = None
-            self.save(update_fields=["failed_login_attempts", "locked_until"])
 
     @property
     def is_anonymized(self) -> bool:

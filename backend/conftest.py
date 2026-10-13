@@ -1,4 +1,14 @@
 import pytest
+from django.core.cache import cache
+
+
+# DRF's throttles (club/api/views.py, LoginView) count requests in the
+# default cache, which outlives any one test's own transaction rollback —
+# without this, a test that trips the throttle would leave it tripped for
+# whichever test runs next.
+@pytest.fixture(autouse=True)
+def clear_throttle_cache():
+    cache.clear()
 
 
 # Without this, any test touching the database fails unless it carries

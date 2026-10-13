@@ -168,6 +168,17 @@ REST_FRAMEWORK = {
     # answer 404 for any it does not know; the notebook export uses that
     # parameter for its own formats.
     "URL_FORMAT_OVERRIDE": None,
+    # Only LoginView asks for the "login" scope (#203) — a rate the rest of
+    # the API never opts into, so nothing else here needs a DEFAULT_THROTTLE_CLASSES.
+    "DEFAULT_THROTTLE_RATES": {"login": "10/min"},
+    # Caddy (deploy/Caddyfile) is the one proxy in front of this stack, and
+    # its own reverse_proxy always appends the real client to
+    # X-Forwarded-For — 1 says the last address in that header is the one
+    # to throttle by, not whatever an attacker prepends to it themselves.
+    # A direct connection with no such header (the dev compose, or a test)
+    # still falls back to REMOTE_ADDR: DRF only reads the header at all when
+    # one is actually present.
+    "NUM_PROXIES": 1,
 }
 
 # Django's defaults. They are what satisfies the subject's requirement that

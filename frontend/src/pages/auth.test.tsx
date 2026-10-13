@@ -279,9 +279,9 @@ it("stops mismatched passwords before sending an account request", async () => {
   expect(fetchMock).toHaveBeenCalledTimes(1);
 });
 
-it("shows the server's lockout explanation on the login form", async () => {
+it("shows the server's rate-limit explanation on the login form", async () => {
   const message =
-    "Compte temporairement verrouillé après plusieurs tentatives infructueuses. Réessayez dans quelques minutes.";
+    "Trop de tentatives de connexion. Réessayez dans quelques instants.";
   vi.stubGlobal(
     "fetch",
     vi.fn(async (path: string) => {
@@ -291,8 +291,8 @@ it("shows the server's lockout explanation on the login form", async () => {
       }
       if (path === "/api/auth/login/")
         return json(
-          { non_field_errors: [issue("account_locked", message)] },
-          400,
+          { non_field_errors: [issue("login_throttled", message)] },
+          429,
         );
       throw new Error(`Unexpected request: ${path}`);
     }),
