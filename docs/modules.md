@@ -16,9 +16,9 @@
 > your final score. **Non-functional or incomplete modules = 0 points.** »
 > — sujet, chapitre IV
 
-22 points déclarés pour 14 requis. Les seize modules figurent tous au barème du
-sujet ; aucun ne demande d'expliquer ce qu'il est avant de montrer qu'il
-fonctionne. Les numéros sont ceux des jalons : il n'y a donc ni 5, ni 12, ni 16.
+24 points déclarés pour 14 requis. Les dix-sept modules figurent tous au
+barème du sujet ; aucun ne demande d'expliquer ce qu'il est avant de montrer
+qu'il fonctionne. Les numéros sont ceux des jalons : il n'y a donc ni 5, ni 12.
 
 Les exigences sont **recopiées mot pour mot** du sujet, en anglais, pour qu'aucune
 traduction ne les adoucisse. Une case cochée veut dire « démontrable devant un
@@ -326,6 +326,26 @@ c'est la page qui les montre.
 
 **Démo (2 min)** — ouvrir la galerie de composants, compter au-delà de dix,
 montrer les jetons de couleur et de typographie.
+
+---
+
+## 16 · Gestion standard des comptes — Major, 2 pts
+
+- Users can update their profile information.
+- Users can upload an avatar (with a default avatar if none provided).
+- Users can add other users as friends and see their online status.
+- Users have a profile page displaying their information.
+
+**Chez nous** — l'avatar est déjà fait (#68, #78), avec repli sur une image par
+défaut. Restent à construire : modifier son nom d'affichage et son adresse de
+connexion (#178), ouvrir le profil d'un autre membre avec son équipe (#176), et
+une liste d'amis avec un simple indicateur « en ligne » (#267) — sans détail de
+dernière connexion, ni de restriction à sa propre équipe : le club tient dans
+une seule salle.
+
+**Démo (3 min)** — changer son nom d'affichage et se reconnecter avec, ouvrir le
+profil d'un camarade d'une autre équipe, l'ajouter en ami, et montrer son
+indicateur passer au vert pendant qu'il utilise l'application.
 
 ---
 
