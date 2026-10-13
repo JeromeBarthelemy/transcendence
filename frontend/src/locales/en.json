@@ -1,0 +1,31 @@
+{
+  "language": {
+    "label": "Language"
+  },
+  "app": {
+    "eyebrow": "Engineering notebook",
+    "name": "Fieldnotes",
+    "footer": "Fieldnotes · a private space for the club",
+    "privacy": "Privacy",
+    "terms": "Terms of use"
+  },
+  "nav": {
+    "main": "Main navigation",
+    "teams": "Teams",
+    "users": "Members",
+    "fieldbot": "Fieldbot",
+    "account": "Account menu ({{name}})",
+    "viewProfile": "View my profile",
+    "menu": "Menu",
+    "admin": "Administration"
+  },
+  "auth": {
+    "login": "Log in",
+    "signup": "Sign up",
+    "logout": "Log out",
+    "loggingOut": "Logging out…",
+    "checkingSession": "Checking session…",
+    "sideTitle": "A place for every club member.",
+    "sideDescription": "A personal account helps everyone find the work they contributed to."
+  }
+}

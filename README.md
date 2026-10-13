@@ -67,8 +67,18 @@ backend* module. Django's ORM separately satisfies the ORM minor module.
 
 ### Language and API errors
 
-The product interface is French, while source-code identifiers and API error
-codes are English.
+The interface defaults to a supported browser language (French, English or
+Spanish), with French as the fallback. The header's language selector is
+available before and after signing in. A selection takes effect immediately
+and is saved in local storage under `fieldnotes.language`; it survives signing
+out and takes precedence over browser preferences on later visits. If storage
+is unavailable, selection still works for the current visit. The document's
+`lang` attribute follows the selected language.
+
+English and Spanish currently cover the shared header and footer. Complete
+screen translations and locale-aware date and number formatting are tracked
+separately; untranslated text currently falls back to French. Source-code
+identifiers and API error codes are English.
 
 All user-facing frontend text belongs to the react-i18next French catalogue.
 The Django administration interface may keep its existing French labels. API

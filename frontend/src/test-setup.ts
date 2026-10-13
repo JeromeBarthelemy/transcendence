@@ -11,3 +11,9 @@ class SilentWebSocket {
 }
 
 globalThis.WebSocket = SilentWebSocket as unknown as typeof WebSocket;
+// Existing screen fixtures are French. Language detection tests override
+// these browser preferences explicitly.
+Object.defineProperty(navigator, "languages", {
+  configurable: true,
+  get: () => ["fr-FR"],
+});

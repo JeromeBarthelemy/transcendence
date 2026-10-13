@@ -1,4 +1,7 @@
 {
+  "language": {
+    "label": "Langue"
+  },
   "app": {
     "eyebrow": "Cahier d'ingénierie",
     "name": "Fieldnotes",
