@@ -1309,12 +1309,64 @@ it("deletes a work item opened by mistake, after a confirmation", async () => {
 
   await waitFor(() => expect(router.state.location.pathname).toBe("/"));
   expect(router.state.location.search).toBe("?team=7");
+  // Back never leads to the work item that is gone.
+  expect(router.state.historyAction).toBe("REPLACE");
   expect(
     fetchMock.mock.calls.some(
       ([path, options]) =>
         path === "/api/work-items/10/" && options?.method === "DELETE",
     ),
   ).toBe(true);
+});
+
+it("leaves a work item deleted elsewhere without reading it again", async () => {
+  const sockets: Socket[] = [];
+  class Socket {
+    static CONNECTING = 0;
+    static OPEN = 1;
+    readyState = Socket.OPEN;
+    onopen: (() => void) | null = null;
+    onmessage: ((event: { data: string }) => void) | null = null;
+    onclose: (() => void) | null = null;
+    constructor(readonly url: string) {
+      sockets.push(this);
+    }
+    close() {}
+  }
+  vi.stubGlobal("WebSocket", Socket);
+  const fetchMock = vi.fn(async (path: string): Promise<Response> => {
+    if (path === "/api/auth/me/") {
+      return json(identity());
+    }
+    if (path === "/api/work-items/10/") {
+      return json(untouched());
+    }
+    return json([]);
+  });
+  vi.stubGlobal("fetch", fetchMock);
+  const router = createMemoryRouter(routes, {
+    initialEntries: ["/work-items/10"],
+  });
+  render(
+    <QueryClientProvider client={new QueryClient()}>
+      <RouterProvider router={router} />
+    </QueryClientProvider>,
+  );
+  await screen.findByRole("button", { name: "Supprimer ce chantier" });
+  const reads = () =>
+    fetchMock.mock.calls.filter(([path]) => path === "/api/work-items/10/")
+      .length;
+  const before = reads();
+
+  await act(async () => {
+    sockets[0].onmessage?.({
+      data: JSON.stringify({ team_season: 7, work_item: 10, deleted: true }),
+    });
+  });
+
+  await waitFor(() => expect(router.state.location.pathname).toBe("/"));
+  expect(router.state.location.search).toBe("?team=7");
+  expect(reads()).toBe(before);
 });
 
 it("offers no deletion once the work item has a trace", async () => {

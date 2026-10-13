@@ -1,6 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useLocation, useNavigate } from "react-router-dom";
 import { notificationsQueryKey } from "../api/notifications";
 import { Notice } from "../components/Notice";
 
@@ -28,7 +29,15 @@ export function liveUrl(
  * drop, it may have missed messages. Returns whether the member is offline. */
 function useLive(): boolean {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
+  const { pathname } = useLocation();
+  // Read by the socket's handler, which outlives every page.
+  const shownPath = useRef(pathname);
   const [offline, setOffline] = useState(false);
+
+  useEffect(() => {
+    shownPath.current = pathname;
+  }, [pathname]);
 
   useEffect(() => {
     let socket: WebSocket | null = null;
@@ -59,16 +68,27 @@ function useLive(): boolean {
         }, RENEW_AFTER);
       };
       opened.onmessage = (event) => {
-        const { team_season, work_item } = JSON.parse(event.data) as {
+        const { team_season, work_item, deleted } = JSON.parse(event.data) as {
           team_season: number;
           work_item: number | null;
+          deleted: boolean;
         };
         queryClient.invalidateQueries({
           queryKey: ["team-seasons", team_season],
         });
         // The change may concern this member: their bell reads them again.
         queryClient.invalidateQueries({ queryKey: notificationsQueryKey });
-        if (work_item !== null) {
+        if (work_item === null) {
+          return;
+        }
+        if (deleted) {
+          // Read again, it would answer 404: its page is left, and it is
+          // forgotten.
+          if (shownPath.current === `/work-items/${work_item}`) {
+            navigate(`/?team=${team_season}`, { replace: true });
+          }
+          queryClient.removeQueries({ queryKey: ["work-items", work_item] });
+        } else {
           queryClient.invalidateQueries({
             queryKey: ["work-items", work_item],
           });
@@ -142,7 +162,7 @@ function useLive(): boolean {
       window.removeEventListener("pageshow", pageBack);
       shut();
     };
-  }, [queryClient]);
+  }, [queryClient, navigate]);
 
   return offline;
 }

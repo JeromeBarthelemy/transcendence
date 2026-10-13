@@ -801,7 +801,7 @@ function WorkItemScreen({
       await queryClient.invalidateQueries({
         queryKey: ["team-seasons", item.team_season, "work-items"],
       });
-      navigate(`/?team=${item.team_season}`);
+      navigate(`/?team=${item.team_season}`, { replace: true });
     },
   });
 

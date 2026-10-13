@@ -47,7 +47,11 @@ class PersonConsumer(JsonWebsocketConsumer):
 
     def board_changed(self, event: dict[str, Any]) -> None:
         self.send_json(
-            {"team_season": event["team_season"], "work_item": event["work_item"]}
+            {
+                "team_season": event["team_season"],
+                "work_item": event["work_item"],
+                "deleted": event["deleted"],
+            }
         )
 
 
@@ -58,11 +62,16 @@ websocket_urlpatterns = [
 ]
 
 
-def broadcast(team_season_id: int, work_item_id: int | None) -> None:
+def broadcast(
+    team_season_id: int, work_item_id: int | None, *, deleted: bool = False
+) -> None:
     """Once the write is committed: a screen told before then would reload
     the old state, and one told of a rolled-back write, a change that never
     happened. Robust, since the write stands either way: a failed notice is
-    logged, not answered as an error the client would retry."""
+    logged, not answered as an error the client would retry.
+
+    `deleted` says the work item is gone: a screen that read it again, as it
+    does after any other change, would get a 404."""
     layer = get_channel_layer()
     assert layer is not None
 
@@ -74,6 +83,7 @@ def broadcast(team_season_id: int, work_item_id: int | None) -> None:
                     "type": "board.changed",
                     "team_season": team_season_id,
                     "work_item": work_item_id,
+                    "deleted": deleted,
                 },
             )
 

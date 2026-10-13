@@ -271,23 +271,25 @@ def add_to_progress(board):
     )
 
 
-@pytest.mark.parametrize("write", WRITES.values(), ids=WRITES.keys())
+@pytest.mark.parametrize("write", WRITES.keys())
 def test_every_write_on_the_board_reaches_its_members_on_their_own_socket(
     board, write, django_capture_on_commit_callbacks
 ):
     outcome = {}
 
     def run():
-        response, expected = write(board)
+        response, expected = WRITES[write](board)
         outcome["status"] = response.status_code
         outcome["work_item"] = expected(response)
 
     _, heard = hears(board.lina, run, django_capture_on_commit_callbacks)
 
     assert outcome["status"] < 300
+    # Said so that no screen reads the deleted work item again: a 404.
     assert heard == {
         "team_season": board.team_season.id,
         "work_item": outcome["work_item"],
+        "deleted": write == "delete a work item",
     }
 
 
@@ -308,7 +310,11 @@ def test_a_mentor_hears_every_team(board, django_capture_on_commit_callbacks):
         mentor(), lambda: add_to_progress(board), django_capture_on_commit_callbacks
     )
 
-    assert heard == {"team_season": board.team_season.id, "work_item": board.intake.id}
+    assert heard == {
+        "team_season": board.team_season.id,
+        "work_item": board.intake.id,
+        "deleted": False,
+    }
 
 
 def test_a_member_taken_off_the_team_hears_nothing_more_of_it(
@@ -406,7 +412,11 @@ def test_another_members_progress_notifies_the_listener_and_updates_activity(
     after = board.client.get(analytics_url).json()["activity_by_day"]
 
     assert response.status_code == 201
-    assert heard == {"team_season": board.team_season.id, "work_item": board.empty.id}
+    assert heard == {
+        "team_season": board.team_season.id,
+        "work_item": board.empty.id,
+        "deleted": False,
+    }
     assert before == [{"day": str(day), "progress_entries": 2, "active_members": 2}]
     assert after == [{"day": str(day), "progress_entries": 3, "active_members": 3}]
 
