@@ -22,6 +22,7 @@ offline after its one-time download — nothing about the club's "tout
 tourne en local" posture changes, only what `embed()` does inside.
 """
 
+import json
 import logging
 import re
 import struct
@@ -84,16 +85,15 @@ if MODEL_NAME not in {m["model"] for m in TextEmbedding.list_supported_models()}
 FASTEMBED_CACHE_DIR = str(Path(settings.BASE_DIR) / ".cache" / "fastembed")
 DIMENSIONS = 768
 # How many passages a question keeps. A narrower cut (tried down to 1,
-# then 3) saves real time, but both #135's and #207's own reviews caught
-# it costing something worse than time: with only the top few candidates,
-# the right passage sometimes isn't among them, and the model answers
-# fluently from whatever it got anyway — a wrong-content answer with a
-# technically real citation, which the generation module's reference
-# check cannot catch, because nothing about the reference is wrong. 10
-# keeps that risk low. GENERATION_MAX_PASSAGE_CHARS (club/generation.py)
-# no longer cuts what reaches the model short for this either — #207's
-# own review found that cut, not the prompt's length, behind some of its
-# worst wrong-content answers, and correctness was asked for over speed.
+# then 3) saves real time but costs something worse: with only the top
+# few candidates, the right passage sometimes isn't among them, and the
+# model answers fluently from whatever it got anyway — a wrong-content
+# answer with a technically real citation, which a reference check alone
+# cannot catch, because nothing about the reference is wrong. 10 keeps
+# that risk low. GENERATION_MAX_PASSAGE_CHARS (club/generation.py) does
+# not cut what reaches the model short for this either: a cut passage,
+# not the prompt's length, was behind some of the worst wrong-content
+# answers, and correctness is worth more here than speed.
 TOP_K = 10
 # How weak a match may be and still count as one — cosine similarity
 # between two unit vectors, bounded in [-1, 1]. Calibrated against the
@@ -108,10 +108,8 @@ TOP_K = 10
 # the weakest real question and the strongest off-topic one both score
 # 0.808 — tied to the thousandth. Read 89/90 as what held on this one
 # question set, not as a robust guarantee: a different off-topic phrasing
-# scoring 0.809 would slip through, and this same question set scored the
-# boundary at 0.805/0.806 against the PDF-chunked manual (see the commit
-# that replaced it) — re-chunking the source moves this line even when the
-# threshold value doesn't change.
+# scoring 0.809 would slip through, and re-chunking the source alone has
+# moved this boundary before, even when the threshold value didn't.
 MIN_SCORE = 0.81
 
 AUTHORITY_OF: dict[str, str] = {
@@ -127,11 +125,10 @@ NO_ANSWER = (
 )
 
 # Read when something *did* clear MIN_SCORE but generate_answer still
-# couldn't produce a sentence (#207's own review: previously a silent ""
-# with nothing on screen explaining it, next to citations that look
-# unexplained without it). The passages below answer either way; this
-# only says why no sentence sits above them this time, same as NO_ANSWER
-# does for the no-passage case.
+# couldn't produce a sentence — a silent "" here would leave citations
+# on screen with nothing explaining why no sentence sits above them. The
+# passages below answer either way; this only says why no sentence does
+# this time, same as NO_ANSWER does for the no-passage case.
 GENERATION_UNAVAILABLE = (
     "La réponse rédigée n'a pas pu être produite cette fois. Les passages "
     "ci-dessous répondent tout de même à la question."
@@ -182,21 +179,6 @@ def _unpack(blob: bytes | memoryview) -> np.ndarray:
     other backend Django's stub allows for, never taken here."""
     return np.frombuffer(bytes(blob), dtype=np.float32)
 
-
-# A running header FIRST repeats on every page of a PDF export ("Section 11
-# Game Rules (G) V1 99 of 173"), never part of a Q&A entry itself — dropped
-# before `_QA_REFERENCE` gets a chance to misread it.
-_RUNNING_HEADER = re.compile(r"^Section \d+ .+ V\d+ \d+ of \d+$")
-# A table of contents lists entries in the same "number, title" shape a
-# real heading has — what tells them apart in a PDF export is the dot
-# leader pypdf keeps between a title and its page number.
-_TOC_LEADER = re.compile(r"\.{5,}")
-# A Q&A entry, opening a line the same way a rule does ("Q44 Blue robot
-# over their gate...", never "...as settled in Q44." mid-sentence, which
-# has no space before its punctuation) — FIRST's own public Q&A summary
-# (ftc-docs.firstinspires.org/.../ftcqa.html, no login needed; only asking
-# a *new* question requires a team account) numbers every entry this way.
-_QA_REFERENCE = re.compile(r"^(Q\d{1,4})\s+\*?[A-Z]")
 
 # The manual's own rule anchor, planted by Word's HTML export exactly once,
 # at the paragraph where the rule opens ("<a name=G101></a><b>G101 ...") —
@@ -343,18 +325,10 @@ def chunk_manual(html_text: str) -> list[tuple[str, str, str]]:
     over extracted text: the manual is built on these, and a passage cut
     across them couldn't say which one it was quoting.
 
-    Reads FIRST's own HTML export rather than the PDF pypdf used to read:
-    the PDF flattens the page into plain lines wherever it happens to wrap,
-    and anything shaped like "number, capital letter" at the start of one
-    of those lines was misread as a new section — a wrapped table row, a
-    cross-reference split across two lines, or a rule ID exported with a
-    stray space after its own asterisk all produced a wrong or missing
-    citation on the real manual, and each Team Update could reflow the page
-    differently. The HTML export needs none of this guessing: every rule
-    carries its own anchor, planted nowhere else in the document, and every
-    heading already is a real `<h1>`-`<h3>`, never confused with the table
-    of contents (its own, differently tagged, paragraphs) — see
-    `_ManualParser`.
+    Reads FIRST's own HTML export: every rule carries its own anchor,
+    planted nowhere else in the document, and every heading already is a
+    real `<h1>`-`<h3>`, never confused with the table of contents (its
+    own, differently tagged, paragraphs) — see `_ManualParser`.
 
     Returns `(reference, anchor, passage)` triples; `reference` and
     `anchor` are both "" for whatever precedes the first recognised rule
@@ -368,11 +342,8 @@ def chunk_manual(html_text: str) -> list[tuple[str, str, str]]:
     said.
 
     Nothing from the glossary chapter onward becomes a chunk (#136): its
-    table has no reference of its own, so every row used to fold into
-    one giant passage under the chapter's own heading, re-split by word
-    count into a handful of unreadable ones, term and definition running
-    together with no boundary a citation could show. `parse_glossary`
-    reads the same table properly instead."""
+    table has no reference of its own, and `parse_glossary` reads it
+    properly instead."""
     parser = _ManualParser()
     parser.feed(html_text)
     parser.close()
@@ -482,50 +453,122 @@ class _GlossaryParser(HTMLParser):
 
 def parse_glossary(html_text: str) -> list[tuple[str, str]]:
     """The manual's own glossary (#136): `(term, definition)` pairs read
-    straight off its table, in reading order, rather than the handful of
-    flattened passages `chunk_manual` used to cut it into — term and
-    definition run together there, with no boundary a citation could
-    show past the first row. A student picks a term here by its own
-    name, before they have a question's rest of the words yet."""
+    straight off its table, in reading order — term and definition kept
+    apart, with a clear boundary a citation could show, rather than
+    folded into a passage built for rules, not for this. A student picks
+    a term here by its own name, before they have a question's rest of
+    the words yet."""
     parser = _GlossaryParser()
     parser.feed(html_text)
     parser.close()
     return parser.terms
 
 
-def chunk_qa(text: str) -> list[tuple[str, str, str]]:
-    """One passage per Q&A entry, not run through `chunk_manual`: an answer
-    references a rule mid-sentence ("this would violate G410"), a shape
-    `chunk_manual` would read as a *new* rule opening — reusing it here
-    would slice a single entry apart at every rule it happens to mention.
-    Runs on the Q&A summary's own numbering instead.
+# A board answer is written through a rich-text editor, which renders a
+# paragraph, a list item or a line break as visibly separate text, never
+# running two words at their own boundary together — dropping the tag
+# without keeping that boundary as a space would glue them instead
+# ("wall?Only its intake.").
+_PLAIN_TEXT_BREAK_TAGS = frozenset({"p", "li", "div", "br"})
+
+
+class _PlainText(HTMLParser):
+    """Strips the tags from one rich-text fragment — a board question or
+    answer, both written through the same editor — keeping only the
+    words: neither carries a reference or a heading of its own to
+    track, unlike the manual's own markup."""
+
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self._parts: list[str] = []
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        if tag in _PLAIN_TEXT_BREAK_TAGS:
+            self._parts.append(" ")
+
+    def handle_startendtag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        self.handle_starttag(tag, attrs)
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag in _PLAIN_TEXT_BREAK_TAGS:
+            self._parts.append(" ")
+
+    def handle_data(self, data: str) -> None:
+        self._parts.append(data)
+
+    def text(self) -> str:
+        return _collapse_whitespace(self._parts)
+
+
+def _plain_text(html_fragment: str) -> str:
+    parser = _PlainText()
+    parser.feed(html_fragment)
+    parser.close()
+    return parser.text()
+
+
+_BOARD_DATA_MARKER = "Object.assign(window, "
+
+
+def _board_data(html_text: str) -> dict[str, Any] | None:
+    """The board hands its own page this way to its own script, not
+    through a separate endpoint — reading it here needs no request of
+    its own. `raw_decode` rather than a regex for the object's own
+    extent: a `}` inside a question's or an answer's own rich text
+    would otherwise end the match early."""
+    start = html_text.find(_BOARD_DATA_MARKER)
+    if start == -1:
+        return None
+    try:
+        data, _ = json.JSONDecoder().raw_decode(
+            html_text, start + len(_BOARD_DATA_MARKER)
+        )
+    except json.JSONDecodeError:
+        return None
+    return data if isinstance(data, dict) else None
+
+
+def chunk_qa(html_text: str) -> list[tuple[str, str, str]]:
+    """One passage per answered question on FIRST's own live Q&A board
+    (game-qa.firstinspires.org). A question still waiting for one is
+    shown on the board too, but cited from nothing yet, so it is never
+    read into a passage here.
 
     Returns `(reference, anchor, passage)` triples exactly like
     `chunk_manual`, so a citation is shown the same way regardless of
-    source — "Q44" alongside "G420" — rather than adding a field only
-    one source's citations would ever use. `anchor` is always "": the
-    Q&A summary is plain text, with no page of its own to jump to."""
+    source — "Q44" alongside "G420". `anchor` is always "": a citation
+    does not yet link anywhere of its own on the board, only to its
+    text."""
+    data = _board_data(html_text)
+    if data is None:
+        return []
+
     open_chunks: list[tuple[str, str, list[str]]] = []
-    for raw_line in text.splitlines():
-        line = raw_line.strip()
-        if not line or _RUNNING_HEADER.match(line) or _TOC_LEADER.search(line):
+    for question in data.get("questions", []):
+        answer = question.get("answer")
+        number = question.get("number")
+        if question.get("status") != "ANSWERED" or not answer or number is None:
             continue
-        match = _QA_REFERENCE.match(line)
-        if match:
-            open_chunks.append((match.group(1), "", [line]))
-        elif open_chunks:
-            open_chunks[-1][2].append(line)
-        else:
-            open_chunks.append(("", "", [line]))
+        reference = f"Q{number}"
+        text = " ".join(
+            part
+            for part in (
+                _plain_text(question.get("title", "")),
+                _plain_text(question.get("content", "")),
+                _plain_text(answer.get("content", "")),
+            )
+            if part
+        )
+        open_chunks.append((reference, "", [text]))
 
     return _finalize_chunks(open_chunks)
 
 
-# Dispatched on ingestion: a Q&A document and a manual are structured
+# Dispatched on ingestion: a manual and the Q&A board are structured
 # differently enough (§ above) that neither chunker reads the other's
-# source correctly. `chunk_manual` also only reads HTML, never a PDF (see
-# its own docstring) — `ingest_document.py` refuses a PDF for the manual
-# rather than let this dispatch feed it one silently.
+# source correctly — both read HTML only, never a PDF or plain text.
+# `ingest_document.py` refuses anything else up front rather than let
+# this dispatch feed one in silently.
 _CHUNKER_OF: dict[str, Callable[[str], list[tuple[str, str, str]]]] = {
     Document.Source.GAME_MANUAL: chunk_manual,
     Document.Source.OFFICIAL_QA: chunk_qa,
@@ -552,7 +595,7 @@ def ingest_document(
 
     `authority` is read off `source`, never asked for on its own — a
     typo could otherwise file the Q&A as binding. Chunked by `_CHUNKER_OF`:
-    a manual and a Q&A summary are structured too differently for one
+    a manual and the Q&A board are structured too differently for one
     chunker to read both correctly (see `chunk_manual`, `chunk_qa`). A
     manual also carries its own glossary (#136), read the same way, in
     the same transaction — not a `Chunk`, so not chunked or embedded."""
@@ -618,19 +661,19 @@ _AUTHORITY_RANK: dict[str, int] = {
 
 def ask(question: str, season: Season, asker: User) -> RuleQuery:
     """The passages closest to the question, for this season only — the
-    game changes every year, and a rule from last season's manual is not a
-    rule — and a French answer written only from them. `answer` holds the
-    system's own refusal when none cleared `MIN_SCORE`, and nothing is
-    generated for that case: with only the manual and the Q&A left as
-    sources, a citation existing at all already means it came from one of
-    the two, but no citation means there is nothing to write from either.
-    A model that cannot be reached, or answers with nothing readable,
-    leaves `answer` as `GENERATION_UNAVAILABLE` instead of failing the
-    question: the citations still stand on their own under it, with a
-    sentence saying why no generated one sits above them this time
-    (#207's own review: previously silent, which a student reading only
-    citations with no sentence couldn't tell apart from the question
-    simply having a less certain source).
+    game changes every year, and a rule from last season's manual is not
+    a rule — and an answer, in English, written only from them. `answer`
+    holds the system's own refusal when none cleared `MIN_SCORE`, and
+    nothing is generated for that case: with only the manual and the Q&A
+    left as sources, a citation existing at all already means it came
+    from one of the two, but no citation means there is nothing to write
+    from either. A model that cannot be reached, or answers with nothing
+    readable, leaves `answer` as `GENERATION_UNAVAILABLE` instead of
+    failing the question: the citations still stand on their own under
+    it, with a sentence saying why no generated one sits above them this
+    time — a silent "" here would leave a student reading only citations
+    with no way to tell that apart from the question simply having a
+    less certain source.
 
     Only the latest `Document` per (season, source) is searched: FIRST
     republishes the manual with every Team Update (§1.7.3), and citing an

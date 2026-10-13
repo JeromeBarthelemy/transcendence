@@ -357,3 +357,29 @@ def test_an_id_past_what_the_database_holds_is_refused(client, db):
 def test_a_visitor_has_no_notifications(client, db):
     assert client.get("/api/notifications/").status_code == 403
     assert client.post("/api/notifications/read/").status_code == 403
+
+
+def test_reading_the_list_deletes_read_notifications_past_the_latest_shown(client, db):
+    rouages = team_season()
+    lina, tom = member_of(rouages, "lina"), member_of(rouages, "tom")
+
+    def told(recipient, read):
+        return Notification.objects.create(
+            recipient=recipient,
+            actor=lina,
+            team_season=rouages,
+            verb=Notification.Verb.ENTRY_ADDED,
+            read_at=timezone.now() if read else None,
+        )
+
+    old_unread = [told(tom, read=False), told(tom, read=False)]
+    old_read = told(tom, read=True)
+    linas = told(lina, read=True)
+    latest = [told(tom, read=True) for _ in range(20)]
+    client.force_login(tom)
+
+    client.get("/api/notifications/")
+
+    left = set(Notification.objects.values_list("pk", flat=True))
+    assert old_read.pk not in left
+    assert {n.pk for n in old_unread + latest + [linas]} <= left

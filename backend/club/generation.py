@@ -1,4 +1,4 @@
-"""Writing a French answer around the rulebook's cited passages (#135).
+"""Writing an answer around the rulebook's cited passages (#135).
 
 Retrieval (`rag.py`) stays the judge of what is cited: this module only
 drafts the sentence around passages `ask` already decided are relevant,
@@ -21,64 +21,57 @@ from .models import Chunk
 # The hard ceiling on how long a question may wait — past this, urlopen's
 # own timeout fires (a plain OSError, already caught below) and the
 # question falls back to its citations alone, same path as a bad citation
-# or an unreachable server. Raised well past what #207's own review first
-# shipped (10s): read by hand, a cut-short passage or a narrowed TOP_K
-# produced wrong answers as often as a slow one was ever actually a
-# problem — a club member asking a rules question is not latency-
-# sensitive the way gameplay is, and a correct answer worth waiting 30s
-# for beats a fast, confident, wrong one every time.
+# or an unreachable server. Set well past a tight 10s budget: a cut-short
+# passage or a narrowed TOP_K produced wrong answers as often as a slow
+# one was ever actually a problem — a club member asking a rules question
+# is not latency-sensitive the way gameplay is, and a correct answer
+# worth waiting 30s for beats a fast, confident, wrong one every time.
 GENERATION_TIMEOUT_SECONDS = 90
 # Room enough that a longer answer, or a model partway through
 # enumerating a passage's own lettered list (A., B., C., …), finishes
-# rather than being cut mid-item — #207's own review found exactly that:
-# cut at "D." with nothing after, which the old, narrower token budget
-# made the everyday case rather than the rare one.
+# rather than being cut mid-item — a narrower budget made that the
+# everyday case rather than the rare one, cutting at "D." with nothing
+# after it.
 GENERATION_MAX_TOKENS = 500
 # A real passage runs 653 characters at the median, some past 2000.
-# Cutting it — at 150 chars or even 700 — means the model answers from a
-# fragment rather than the passage, which #207's own review measured as a
-# real, repeated cause of a correct citation next to wrong content. Set
-# high enough that no real passage in this manual is ever actually cut;
-# this is a ceiling against a pathological one, not a lever tuned for
-# speed any more now that speed is not what's being tuned for.
+# Cutting it means the model answers from a fragment rather than the
+# passage — a real, repeated cause of a correct citation next to wrong
+# content. Set high enough that no real passage in this manual is ever
+# actually cut; this is a ceiling against a pathological one, not a
+# lever tuned for speed.
 GENERATION_MAX_PASSAGE_CHARS = 3000
 # The model is not deterministic: the same question against the same
 # passages sampled again can cite the right reference where the first
-# draft cited an unrelated one, or the other way round (#207's own
-# review, read by hand — the NECTAR question's own answer went from a
-# confidently wrong citation to a correct one on a second sample, same
-# inputs both times). One bad sample used to mean a refusal; now it
-# means another sample, since nothing here is checking a clock anymore.
-# 3 was the first value tried; `_relevant` alone measured a 75% false-
-# refusal rate on one real, longer passage (G401, read by hand against
-# this manual) against 25% on a shorter one (G410) — at 75%, 3 attempts
-# clear it only 58% of the time, 5 clear it 76% of the time.
+# draft cited an unrelated one, or the other way round. One bad sample
+# does not mean a refusal; it means another sample. `_relevant` alone
+# measured a 75% false-refusal rate on one real, longer passage (G401,
+# against this manual) against 25% on a shorter one (G410) — at 75%, 3
+# attempts clear it only 58% of the time, 5 clear it 76% of the time.
 GENERATION_MAX_ATTEMPTS = 5
 
 SYSTEM_PROMPT = (
-    "Tu es Fieldbot, l'assistant du cahier de bord d'un club de robotique "
-    "FIRST. Réponds uniquement à partir des passages du règlement fournis "
-    "ci-dessous, en français, en trois phrases maximum. Pour chaque "
-    "affirmation que tu fais, cite la référence exacte du passage qui la "
-    "justifie (reproduis-la à l'identique, par exemple [G102] ou "
-    "[11.3.4] — jamais raccourcie, jamais approximée, jamais inventée, "
-    "et jamais omise). N'ajoute aucun chiffre, condition ou exception "
-    "que le passage cité ne mentionne pas lui-même. En cas de "
-    "contradiction, le manuel de jeu fait autorité sur le Q&A officiel. "
-    "Si les passages fournis ne permettent pas de répondre avec "
-    "certitude, dis-le clairement au lieu d'inventer une réponse."
+    "You are Fieldbot, the logbook assistant for a FIRST robotics club. "
+    "Answer only from the rulebook passages given below, in English, in "
+    "three sentences at most. For every claim you make, cite the exact "
+    "reference of the passage that supports it (reproduce it exactly, "
+    "for example [G102] or [11.3.4] — never shortened, never "
+    "approximated, never invented, and never omitted). Do not add any "
+    "number, condition or exception the cited passage does not itself "
+    "mention. When they conflict, the game manual takes precedence over "
+    "the official Q&A. If the passages given do not let you answer with "
+    "certainty, say so plainly instead of making an answer up."
 )
 
 # The system prompt asks for a reference inside [brackets] and nothing
 # else, so any token found inside one is trusted to be an attempted
-# citation — same as the old, narrower check. (parentheses), unasked for,
-# get a model's ordinary French aside as often as a drifted citation; only
-# a token carrying a digit is trusted there (every real reference in this
-# manual does — G102, 11.3.4, Q45 — a bare word never does), which is what
-# keeps "(sauf exception)" from being misread as one. A citation is only
-# ever trusted when it names a reference `ask` actually retrieved *and*
-# clears `_relevant` against that reference's own stored text below —
-# never the model's word for either (see `generate_answer`).
+# citation. (parentheses), unasked for, get a model's ordinary aside as
+# often as a drifted citation; only a token carrying a digit is trusted
+# there (every real reference in this manual does — G102, 11.3.4, Q45 —
+# a bare word never does), which is what keeps "(except as noted)" from
+# being misread as one. A citation is only ever trusted when it names a
+# reference `ask` actually retrieved *and* clears `_relevant` against
+# that reference's own stored text below — never the model's word for
+# either (see `generate_answer`).
 _BRACKET_GROUP_RE = re.compile(r"\[([^\]]*)\]")
 _PAREN_GROUP_RE = re.compile(r"\(([^)]*)\)")
 _TOKEN_RE = re.compile(r"[A-Za-z0-9](?:[A-Za-z0-9.\-]*[A-Za-z0-9])?")
@@ -87,50 +80,61 @@ _TOKEN_RE = re.compile(r"[A-Za-z0-9](?:[A-Za-z0-9.\-]*[A-Za-z0-9])?")
 # reference like [6.1.2] would otherwise be mistaken for mid-citation.
 _SENTENCE_END_RE = re.compile(r"[.!?](?=\s|$)")
 # A lone letter right before the stop ("A.", "D.") is a passage's own
-# lettered list running out of room, not a sentence of its own (#207's
-# own review: trimming stopped at exactly this and showed "…D." with
-# nothing after it, read back as if it were the answer's last word).
+# lettered list running out of room, not a sentence of its own —
+# trimming back to the previous sentence would otherwise read "…D." back
+# as if it were the answer's last word.
 _LIST_MARKER_RE = re.compile(r"(?:^|\s)[A-Za-z]\.$")
-# #207's own review, reading real generated answers by hand: a 3B model
-# asked for French sometimes answers in English instead — not a typo in
-# one word, the *whole* passage copied verbatim. Requiring a French word
-# to be *present* flagged real, terse, jargon-heavy answers that happen
-# to have none ("AUTO dure 30 secondes [6.1.2]", "Vrai.") — this instead
-# requires *both* a common English word and the absence of a French one,
-# which only the actual failure (a whole passage copied as-is) manages:
-# a French sentence, however short, essentially never contains "the" or
-# "and" at all, English or not.
+# Reading real generated answers by hand: a 3B model asked for English
+# sometimes answers in French instead — not a typo in one word, the
+# *whole* passage copied verbatim in some cases. Requiring an English
+# word to be *present* flagged real, terse, jargon-heavy answers that
+# happen to have none ("AUTO lasts 30 seconds [6.1.2]", "True."); this
+# instead requires *both* a common French word and the absence of an
+# English one, which only the actual failure (a whole answer drifted
+# into French) manages: an English sentence, however short, essentially
+# never contains "le" or "de" at all, French or not.
+_ENGLISH_WORD_RE = re.compile(
+    r"\b(?:the|and|with|from|is|are|this|that|must|shall|not|of|to)\b",
+    re.IGNORECASE,
+)
 _FRENCH_WORD_RE = re.compile(
     r"\b(?:le|la|les|de|du|des|un|une|est|sont|dans|pour|avec|sur|pas|"
     r"ne|que|qui|cette|ces|son|sa|ses|et|en|selon)\b",
     re.IGNORECASE,
 )
-_ENGLISH_WORD_RE = re.compile(
-    r"\b(?:the|and|with|from|is|are|this|that|must|shall|not|of|to)\b",
-    re.IGNORECASE,
-)
-# Asking the model to reproduce the passage verbatim (an earlier version
-# of this check) measurably caught a real citation with a fabricated
-# quote attached — but also measurably refused good answers over a
-# formatting slip rather than a wrong one: read by hand, the NECTAR
-# rule's own multi-sentence text was one the model kept paraphrasing
-# rather than copying exactly, failing a check that had nothing to do
-# with whether the answer was right. The citations panel already shows
-# this season's own stored text for every reference regardless of what
-# the model writes, so a visitor reading it gets the real passage either
-# way — checking relevance against *that* stored text instead of asking
-# the model to reproduce it drops the formatting failure without losing
-# the check it was guarding against: measured against the known "cited
-# a real but wrong passage" failure (NECTAR -> a passage about match
-# timing instead), a plain yes/no call to the model never once passed
+# An answer can carry enough English words to clear the check above
+# while part of it is written in a different script entirely — neither
+# function-word check can catch that on its own. Covers the scripts
+# actually seen drifted into (Cyrillic, Arabic, Devanagari, CJK,
+# Hangul); Latin-script accents (French, or anything else) are untouched.
+_NON_LATIN_RE = re.compile(r"[Ѐ-ӿ؀-ۿऀ-ॿ　-鿿가-퟿]")
+# Checking relevance against the passage's own stored text, not the
+# model's reproduction of it, drops a failure a verbatim-copy check
+# would catch instead: a model that paraphrases a passage rather than
+# quoting it exactly is not thereby wrong about whether it answers the
+# question — read by hand, the NECTAR rule's own multi-sentence text was
+# one the model kept paraphrasing, failing a check that had nothing to
+# do with whether the answer was right. The citations panel already
+# shows this season's own stored text for every reference regardless of
+# what the model writes, so a visitor reading it gets the real passage
+# either way. Measured against a known "cited a real but wrong passage"
+# failure (a passage about match timing, cited for a scoring-window
+# question it does not answer), a plain yes/no call never once passed
 # the wrong passage (0/8) and passed the right one often but not always
 # (6/8) — short of reliable alone, which is why `generate_answer`'s
 # retry absorbs the miss rather than this blocking on one sample of it.
+#
+# The prompt's own wording matters as much as the check itself: asking
+# the model to act as a strict verifier answered NO to a right passage
+# as often as a wrong one, unable to tell them apart at all; a neutral
+# yes/no question ("does this passage help answer this question?") told
+# them apart reliably instead (24/24 yes on right pairs, 12/12 no on
+# wrong ones, three samples each).
 _RELEVANCE_PROMPT = (
-    "Tu es un vérificateur strict. Question : {question}\n\n"
-    'Passage de règlement : "{passage}"\n\n'
-    "Est-ce que ce passage répond à la question ? Réponds par un seul "
-    "mot, OUI ou NON."
+    "Question: {question}\n\n"
+    'Rulebook passage: "{passage}"\n\n'
+    "Does the passage contain information that helps answer the "
+    "question? Answer YES or NO."
 )
 
 
@@ -179,7 +183,7 @@ def _prompt(question: str, chunks: list[Chunk]) -> str:
     passages = "\n\n".join(
         f"[{chunk.reference}] {_truncated(chunk.text)}" for chunk in chunks
     )
-    return f"Passages :\n{passages}\n\nQuestion : {question}"
+    return f"Passages:\n{passages}\n\nQuestion: {question}"
 
 
 def _sample(question: str, chunks: list[Chunk]) -> str:
@@ -228,7 +232,7 @@ def _relevant(question: str, passage: str) -> bool:
     stored text, not anything the model wrote, so a model that cites the
     right reference but garbles its own summary of it is judged on what
     the passage actually says. Fails open (treated as relevant) on
-    anything but a clear "OUI"/"NON": a server error here is not grounds
+    anything but a clear "YES"/"NO": a server error here is not grounds
     to refuse an otherwise-real citation on its own."""
     body = json.dumps(
         {
@@ -258,29 +262,38 @@ def _relevant(question: str, passage: str) -> bool:
         return True
     if not isinstance(verdict, str):
         return True
-    return "non" not in verdict.strip().lower()
+    return not re.search(r"\bno\b", verdict, re.IGNORECASE)
 
 
 def _checked(question: str, answer: str, chunks: list[Chunk]) -> str:
-    """The ways of being wrong that reading real answers by hand found
-    (#207's own review), none of which a check on the reference alone
-    could ever catch: answering in English because a retrieved passage
-    was, answering with no citation at all — not a wrong one, just none
-    — a citation the model gets wrong — shortened, misspelled, made up
-    outright — and, the one even a real reference cannot rule out on its
+    """The ways of being wrong that reading real answers by hand found,
+    none of which a check on the reference alone could ever catch:
+    answering in French because a retrieved passage led the model that
+    way, drifting into another script partway through, and a citation
+    the model gets wrong — shortened, misspelled, made up outright. An
+    answer naming no reference at all is not one of these: it is
+    accepted once it clears the same relevance check a named citation
+    would, against the top-ranked passage — most of these, read by
+    hand, turned out correct anyway.
+
+    Measured on the real manual (100 questions): about one matched
+    answer in five cited something that was not in `chunks` — the one
+    way of being wrong even a real reference cannot rule out on its
     own, a citation that's entirely genuine and simply not an answer to
-    the question asked. Measured on the real manual (100 questions,
-    #135's own review): about one matched answer in five cited something
-    that was not in `chunks`. A looser check (fuzzy match, drop the bad
+    the question asked. A looser check (fuzzy match, drop the bad
     reference and keep the rest) would still let a wrong one through
-    sometimes; refusing outright is the only guarantee strict enough for
-    a rule a robot could be disqualified over."""
-    if _ENGLISH_WORD_RE.search(answer) and not _FRENCH_WORD_RE.search(answer):
-        raise GenerationError("réponse qui ne semble pas être en français")
+    sometimes; refusing outright is the only guarantee strict enough
+    for a rule a robot could be disqualified over."""
+    if _NON_LATIN_RE.search(answer):
+        raise GenerationError("réponse contenant une écriture inattendue")
+    if _FRENCH_WORD_RE.search(answer) and not _ENGLISH_WORD_RE.search(answer):
+        raise GenerationError("réponse qui ne semble pas être en anglais")
 
     cited = _cited_references(answer)
     if not cited:
-        raise GenerationError("réponse sans aucune référence citée")
+        if not _relevant(question, chunks[0].text):
+            raise GenerationError("réponse sans rapport avec la question")
+        return answer
     known = {chunk.reference: chunk for chunk in chunks if chunk.reference}
     stray = cited - known.keys()
     if stray:
@@ -302,11 +315,11 @@ def generate_answer(question: str, chunks: list[Chunk]) -> str:
 
     The model is not deterministic: read by hand against this manual,
     the same question against the same passages sampled again drew a
-    correct citation where the first draft drew an unrelated one (#207's
-    own review). `GENERATION_MAX_ATTEMPTS` asks again rather than
-    settling for the first draft's bad luck — `ask`'s caller still has a
-    clean fallback once every attempt fails the same way: the citations
-    below stand on their own, same as any other `GenerationError`."""
+    correct citation where the first draft drew an unrelated one.
+    `GENERATION_MAX_ATTEMPTS` asks again rather than settling for the
+    first draft's bad luck — `ask`'s caller still has a clean fallback
+    once every attempt fails the same way: the citations below stand on
+    their own, same as any other `GenerationError`."""
     last_error: GenerationError | None = None
     for _ in range(GENERATION_MAX_ATTEMPTS):
         answer = _sample(question, chunks)

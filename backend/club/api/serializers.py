@@ -72,10 +72,10 @@ class SignUpSerializer(serializers.Serializer[User]):
     )
     # Not a field: nobody declares their own role. Sign-up is open to whoever
     # has the address, so a role declared here would be a role granted by
-    # asking for it — and #52 is about to build permissions on top of it. The
-    # AssoConnect export confirms names, never roles, so nothing downstream
-    # would ever catch the claim. A mentor is made by the club admin, who
-    # knows who the mentors are: one club, one room.
+    # asking for it, and permissions are built on it. The AssoConnect export
+    # confirms names, never roles, so nothing downstream would ever catch the
+    # claim. A mentor is made by the club admin, who knows who the mentors
+    # are: one club, one room.
     # Only ever written to the verification request: the club trusts what is
     # declared here exactly as far as the AssoConnect export confirms it.
     last_name = serializers.CharField(max_length=80)
@@ -137,18 +137,16 @@ class SignUpSerializer(serializers.Serializer[User]):
         try:
             return self._create(validated_data)
         except IntegrityError:
-            # Another sign-up passed the same checks at the same moment and
-            # wrote first. Its account is committed now, so running the checks
-            # again finds it and refuses this one as they would a second later.
-            checks = {
-                "email": self.validate_email,
-                "display_name": self.validate_display_name,
-            }
-            for field, check in checks.items():
-                try:
-                    check(validated_data.get(field, ""))
-                except serializers.ValidationError as taken:
-                    raise serializers.ValidationError({field: taken.detail}) from None
+            recheck(
+                {
+                    "email": lambda: self.validate_email(
+                        validated_data.get("email", "")
+                    ),
+                    "display_name": lambda: self.validate_display_name(
+                        validated_data["display_name"]
+                    ),
+                }
+            )
             raise
 
     @transaction.atomic
@@ -687,16 +685,19 @@ class UserRoleSerializer(serializers.Serializer[User]):
 
 class AddSourceSerializer(serializers.Serializer[None]):
     # `source` is also a Field attribute in DRF; the typing clash is harmless here.
-    source = serializers.ChoiceField(choices=[Document.Source.GAME_MANUAL])  # type: ignore[assignment]
+    source = serializers.ChoiceField(choices=Document.Source.choices)  # type: ignore[assignment]
     url = serializers.URLField(max_length=500)
 
-    def validate_url(self, value: str) -> str:
+    def validate(self, attrs: dict[str, Any]) -> dict[str, Any]:
+        # Which host is allowed depends on `source` — a per-field
+        # `validate_url` has no way to read it, only `attrs` here does.
         try:
-            return check_source_url(value)
+            check_source_url(attrs["url"], attrs["source"])
         except ValueError as error:
             raise serializers.ValidationError(
-                str(error), code="source_not_allowed"
+                {"url": str(error)}, code="source_not_allowed"
             ) from error
+        return attrs
 
 
 class AskSerializer(serializers.Serializer[None]):

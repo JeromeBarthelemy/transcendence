@@ -8,10 +8,21 @@ import { type FormEvent, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useSearchParams } from "react-router-dom";
 
-import type { Identity, TeamSeasonSummary } from "../api/auth";
+import type { Identity } from "../api/auth";
+import {
+  getRuleSources,
+  isDismissed,
+  ruleSourcesQueryKey,
+} from "../api/ruleSources";
 import { createTeamNote, getWorkday, type Workday } from "../api/workdays";
 import { getWorkItems, type WorkItem } from "../api/workItems";
-import { formatWorkdayDate, nameFormatter } from "../app/formatters";
+import { fetchFreshEntry } from "../app/entries";
+import {
+  formatActivityDate,
+  formatWorkdayDate,
+  nameFormatter,
+  teamLabel,
+} from "../app/formatters";
 import { RequestError } from "../components/ApiErrors";
 import { AvatarStack } from "../components/Avatar";
 import { Button, buttonClass } from "../components/Button";
@@ -38,46 +49,10 @@ const SECTION_ICONS: Record<TeamSection, IconName> = {
   activity: "chart",
 };
 
-const dateFormatter = new Intl.DateTimeFormat("fr-FR", {
-  dateStyle: "long",
-  timeZone: "UTC",
-});
-const weekdayFormatter = new Intl.DateTimeFormat("fr-FR", {
-  weekday: "long",
-  timeZone: "UTC",
-});
-const relativeFormatter = new Intl.RelativeTimeFormat("fr-FR", {
-  numeric: "auto",
-});
 const noteTimeFormatter = new Intl.DateTimeFormat("fr-FR", {
   hour: "2-digit",
   minute: "2-digit",
 });
-
-function formatActivityDate(day: string, currentWorkday?: string) {
-  const date = new Date(`${day}T12:00:00Z`);
-  if (!currentWorkday) {
-    return dateFormatter.format(date);
-  }
-  const elapsedDays = Math.round(
-    (new Date(`${currentWorkday}T12:00:00Z`).getTime() - date.getTime()) /
-      (24 * 60 * 60 * 1000),
-  );
-
-  if (elapsedDays < 0) {
-    return dateFormatter.format(date);
-  }
-  if (elapsedDays < 2) {
-    return relativeFormatter.format(-elapsedDays, "day");
-  }
-  if (elapsedDays < 7) {
-    return weekdayFormatter.format(date);
-  }
-  if (elapsedDays < 28) {
-    return relativeFormatter.format(-Math.floor(elapsedDays / 7), "week");
-  }
-  return dateFormatter.format(date);
-}
 
 function WorkItemCard({
   item,
@@ -236,13 +211,16 @@ function TodaySummary({
     queryClient.invalidateQueries({ queryKey: daysQueryKey });
 
   async function currentBody(entryId: number) {
-    const fresh = await queryClient.fetchQuery({
-      queryKey: ["team-seasons", teamSeasonId, "days", "today"],
-      queryFn: () => getWorkday(teamSeasonId, "today"),
-      // The cache is what the refusal says is out of date.
-      staleTime: 0,
-    });
-    return fresh.entries.find((other) => other.id === entryId)?.body ?? null;
+    const entry = await fetchFreshEntry(
+      queryClient,
+      {
+        queryKey: ["team-seasons", teamSeasonId, "days", "today"],
+        queryFn: () => getWorkday(teamSeasonId, "today"),
+      },
+      (day) => day.entries,
+      entryId,
+    );
+    return entry?.body ?? null;
   }
 
   function submitNote(event: FormEvent<HTMLFormElement>) {
@@ -449,10 +427,6 @@ function NotebookExport({ teamSeasonId }: { teamSeasonId: number }) {
   );
 }
 
-function teamLabel(teamSeason: TeamSeasonSummary) {
-  return `${teamSeason.team.number} · ${teamSeason.team.name}`;
-}
-
 export function TeamHomePage({ identity }: { identity: Identity }) {
   const { t } = useTranslation();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -482,6 +456,16 @@ export function TeamHomePage({ identity }: { identity: Identity }) {
         : getWorkday(teamSeasonId, "today"),
     enabled: teamSeasonId !== null,
   });
+  // Never fetched for anyone who cannot open the review screen it badges.
+  const ruleSources = useQuery({
+    queryKey: ruleSourcesQueryKey,
+    queryFn: getRuleSources,
+    enabled: identity.is_club_admin,
+  });
+  const hasSourceUpdate =
+    ruleSources.data?.some(
+      (row) => row.pending !== null && !isDismissed(row),
+    ) ?? false;
 
   if (!selectedTeamSeason) {
     return (
@@ -516,7 +500,14 @@ export function TeamHomePage({ identity }: { identity: Identity }) {
           {t("teamHome.welcome", { name: identity.display_name })}
         </IconLabel>
       </Eyebrow>
-
+      {hasSourceUpdate && (
+        <Link
+          to="/rules/sources"
+          className="mt-3 inline-flex items-center gap-2 rounded-full border border-warning/40 bg-warning-tint px-4 py-2 text-sm font-semibold text-warning-ink transition hover:brightness-95"
+        >
+          {t("teamHome.sourceUpdateBadge")}
+        </Link>
+      )}
       <div className="mt-3 flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
         <div>
           <Heading size="page">

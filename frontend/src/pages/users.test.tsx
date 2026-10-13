@@ -1,6 +1,8 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
+  act,
   cleanup,
+  fireEvent,
   render,
   screen,
   waitFor,
@@ -11,6 +13,7 @@ import { createMemoryRouter, RouterProvider } from "react-router-dom";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
 import { routes } from "../app/router";
+import { photoChanged } from "../components/Avatar";
 import "../i18n";
 
 function json(body: unknown, status = 200): Response {
@@ -188,6 +191,35 @@ it("changes a member's role, admin flag and suspension in one save", async () =>
   expect(new Headers(init?.headers).get("X-CSRFToken")).toBe("test-token");
   expect(screen.getByText("Suspendu")).toBeTruthy();
 });
+
+it.each(["/users", "/users/2"])(
+  "refreshes changed photos and falls back to initials for broken photos on %s",
+  async (path) => {
+    const elodie = { ...ELODIE, avatar: "/api/users/2/avatar/" };
+    stubApi((url) => {
+      if (url === "/api/users/") return json([elodie]);
+      if (url === "/api/users/2/") return json(elodie);
+      return undefined;
+    });
+    renderAt(path);
+    await screen.findByText("Élodie");
+    const main = screen.getByRole("main");
+    const image = main.querySelector("img");
+    expect(image).not.toBeNull();
+    const original = image?.getAttribute("src");
+
+    act(() => photoChanged());
+    expect(image?.getAttribute("src")).not.toBe(original);
+    fireEvent.error(image as HTMLImageElement);
+    expect(main.querySelector("img")).toBeNull();
+    expect(within(main).getByText("É").getAttribute("aria-hidden")).toBe(
+      "true",
+    );
+
+    act(() => photoChanged());
+    expect(main.querySelector("img")).not.toBeNull();
+  },
+);
 
 it("drops the admin flag when a mentor is made a student again", async () => {
   const user = userEvent.setup();

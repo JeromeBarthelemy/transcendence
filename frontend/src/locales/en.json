@@ -13,6 +13,7 @@
     "main": "Main navigation",
     "teams": "Teams",
     "users": "Members",
+    "ruleSources": "Rule sources",
     "fieldbot": "Fieldbot",
     "account": "Account menu ({{name}})",
     "viewProfile": "View my profile",
@@ -74,6 +75,7 @@
   },
   "teamHome": {
     "welcome": "Hello, {{name}}.",
+    "sourceUpdateBadge": "A rulebook update is available",
     "teamTitle": "Team {{number}} · {{name}}",
     "season": "Season {{start}}–{{end}} · {{game}}",
     "chooseTeam": "Switch teams",
@@ -340,6 +342,29 @@
       "student": "student",
       "mentor": "mentor"
     }
+  },
+  "ruleSources": {
+    "eyebrow": "Club administration",
+    "title": "Rule sources",
+    "checkNow": "Check now",
+    "checking": "Checking…",
+    "loading": "Loading sources…",
+    "noSeason": "No season is open yet.",
+    "notIngested": "Nothing has been ingested for this source yet.",
+    "checkedAt": "Checked on {{date}}",
+    "neverChecked": "Never checked",
+    "sources": {
+      "game_manual": "Game manual",
+      "official_qa": "Official Q&A"
+    },
+    "pendingTitle": "A new version was found, detected on {{date}}",
+    "changes": "{{added}} passage(s) added, {{removed}} removed, {{changed}} changed",
+    "references": "References concerned: {{list}}.",
+    "referencesMore": "and {{count}} more.",
+    "accept": "Accept the update",
+    "accepting": "Updating…",
+    "dismiss": "Dismiss for now",
+    "checkError": "Check failed: {{detail}}"
   },
   "users": {
     "title": "Club members",

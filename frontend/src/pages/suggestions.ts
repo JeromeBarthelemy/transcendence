@@ -1,4 +1,5 @@
 import type { WorkItem } from "../api/workItems";
+import { foldText } from "../app/text";
 import en from "../locales/en.json";
 import es from "../locales/es.json";
 import fr from "../locales/fr.json";
@@ -42,19 +43,8 @@ export function matchesSuggestion(suggestion: Suggestion, title: string) {
   );
 }
 
-/** The backend's `fold_title`, so the screen hides what the server would
- * refuse as taken. It stays the judge: this only spares a round trip. */
-export function foldTitle(title: string) {
-  return title
-    .normalize("NFKD")
-    .replace(/\p{M}/gu, "")
-    .toLowerCase()
-    .trim()
-    .replace(/\s+/g, " ");
-}
-
 export function sameTitle(a: string, b: string) {
-  return foldTitle(a) === foldTitle(b);
+  return foldText(a) === foldText(b);
 }
 
 /** Whatever the team already has, open or closed, is not suggested again:

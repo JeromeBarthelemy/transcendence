@@ -7,7 +7,7 @@ export const routes: RouteObject[] = [
     element: <AppLayout />,
     // Opened first, a lazy page leaves the router nothing to draw while its
     // code arrives, and it warns in the console unless told what to show:
-    // nothing, for those few milliseconds, as before.
+    // nothing, for those few milliseconds.
     HydrateFallback: () => null,
     children: [
       { path: "/", element: <HomePage /> },
@@ -33,6 +33,12 @@ export const routes: RouteObject[] = [
         path: "/teams",
         lazy: async () => ({
           Component: (await import("../pages/TeamsPage")).TeamsPage,
+        }),
+      },
+      {
+        path: "/rules/sources",
+        lazy: async () => ({
+          Component: (await import("../pages/RuleSourcesPage")).RuleSourcesPage,
         }),
       },
       {

@@ -13,6 +13,7 @@
     "main": "Navegación principal",
     "teams": "Equipos",
     "users": "Miembros",
+    "ruleSources": "Fuentes del reglamento",
     "fieldbot": "Fieldbot",
     "account": "Menú de la cuenta ({{name}})",
     "viewProfile": "Ver mi perfil",
@@ -75,6 +76,7 @@
   },
   "teamHome": {
     "welcome": "Hola, {{name}}.",
+    "sourceUpdateBadge": "Hay una actualización del reglamento disponible",
     "teamTitle": "Equipo {{number}} · {{name}}",
     "season": "Temporada {{start}}–{{end}} · {{game}}",
     "chooseTeam": "Cambiar de equipo",
@@ -346,6 +348,29 @@
       "mentor": "mentor"
     },
     "memberCount_many": "{{count}} miembros"
+  },
+  "ruleSources": {
+    "eyebrow": "Administración del club",
+    "title": "Fuentes del reglamento",
+    "checkNow": "Comprobar ahora",
+    "checking": "Comprobando…",
+    "loading": "Cargando las fuentes…",
+    "noSeason": "Todavía no hay ninguna temporada abierta.",
+    "notIngested": "Todavía no se ha incorporado nada para esta fuente.",
+    "checkedAt": "Comprobado el {{date}}",
+    "neverChecked": "Nunca comprobado",
+    "sources": {
+      "game_manual": "Manual del juego",
+      "official_qa": "Q&A oficial"
+    },
+    "pendingTitle": "Se encontró una nueva versión, detectada el {{date}}",
+    "changes": "{{added}} pasaje(s) añadido(s), {{removed}} eliminado(s), {{changed}} modificado(s)",
+    "references": "Referencias afectadas: {{list}}.",
+    "referencesMore": "y {{count}} más.",
+    "accept": "Aceptar la actualización",
+    "accepting": "Actualizando…",
+    "dismiss": "Ignorar por ahora",
+    "checkError": "Error al comprobar: {{detail}}"
   },
   "users": {
     "title": "Miembros del club",
