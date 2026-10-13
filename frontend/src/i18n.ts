@@ -33,11 +33,6 @@ export function getInitialLanguage(): Language {
 
 i18n.on("languageChanged", (language) => {
   document.documentElement.lang = language;
-  try {
-    localStorage.setItem(languageStorageKey, language);
-  } catch {
-    // Keep the selection for this visit when persistence is unavailable.
-  }
 });
 
 void i18n.use(initReactI18next).init({

@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
+  act,
   cleanup,
   render,
   screen,
@@ -12,7 +13,8 @@ import { afterEach, expect, it, vi } from "vitest";
 
 import type { Identity } from "../api/auth";
 import { routes } from "../app/router";
-import i18n, { languageStorageKey } from "../i18n";
+import i18n, { getInitialLanguage, languageStorageKey } from "../i18n";
+import { LanguageSwitcher } from "./LanguageSwitcher";
 
 function renderAt(path: string, identity: Identity | null = null) {
   let signedIn = identity;
@@ -49,6 +51,7 @@ function renderAt(path: string, identity: Identity | null = null) {
 afterEach(async () => {
   cleanup();
   vi.unstubAllGlobals();
+  vi.restoreAllMocks();
   await i18n.changeLanguage("fr");
   localStorage.clear();
   // biome-ignore lint/suspicious/noDocumentCookie: jsdom has no Cookie Store API.
@@ -62,6 +65,7 @@ it("offers all languages in a keyboard-focusable native select while signed out"
     name: "Langue",
   });
   expect(select.tagName).toBe("SELECT");
+  expect(localStorage.getItem(languageStorageKey)).toBeNull();
   expect(
     within(select)
       .getAllByRole("option")
@@ -81,6 +85,8 @@ it("offers all languages in a keyboard-focusable native select while signed out"
     expect(document.documentElement.lang).toBe(language);
     expect(localStorage.getItem(languageStorageKey)).toBe(language);
   }
+  vi.spyOn(navigator, "languages", "get").mockReturnValue(["es-ES"]);
+  expect(getInitialLanguage()).toBe("fr");
 });
 
 it.each([
@@ -141,4 +147,38 @@ it("keeps the selected language after signing out", async () => {
   ).toBe("es");
   expect(document.documentElement.lang).toBe("es");
   expect(localStorage.getItem(languageStorageKey)).toBe("es");
+});
+
+it("shows the resolved option for a regional language without saving it", async () => {
+  render(<LanguageSwitcher />);
+
+  await act(() => i18n.changeLanguage("es-MX"));
+
+  expect(i18n.resolvedLanguage).toBe("es");
+  expect(
+    (screen.getByRole("combobox", { name: "Idioma" }) as HTMLSelectElement)
+      .value,
+  ).toBe("es");
+  expect(localStorage.getItem(languageStorageKey)).toBeNull();
+});
+
+it("still changes the language when saving the selection is denied", async () => {
+  const user = userEvent.setup();
+  vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+    throw new DOMException("Storage full", "QuotaExceededError");
+  });
+  render(<LanguageSwitcher />);
+
+  await user.selectOptions(
+    screen.getByRole("combobox", { name: "Langue" }),
+    "es",
+  );
+
+  expect(i18n.language).toBe("es");
+  expect(document.documentElement.lang).toBe("es");
+  expect(
+    (screen.getByRole("combobox", { name: "Idioma" }) as HTMLSelectElement)
+      .value,
+  ).toBe("es");
+  expect(localStorage.getItem(languageStorageKey)).toBeNull();
 });
