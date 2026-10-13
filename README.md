@@ -562,6 +562,7 @@ anyone else gets a `403` with the code `not_a_member`.
 | `GET /api/team-seasons/{id}/analytics/activity/?since=&until=` | progress activity by workday and member over the inclusive period, plus a current work-item snapshot |
 | `GET /api/team-seasons/{id}/analytics/activity/?since=&until=&format=csv` | download the same daily activity values as CSV (`day`, `progress_entries`, `active_members`), with the same period validation and team access |
 | `GET /api/team-seasons/{id}/analytics/activity/?since=&until=&format=csv&report=full` | download the complete activity report: period summary, days, weeks, categories, work items, members and current snapshot |
+| `GET /api/team-seasons/{id}/search/` | search the team's traces, a page at a time, with `count` (every match), `page`, `page_size` and `results`, plus the `people` the participant filter offers — see [Notebook search](#notebook-search) |
 | `GET /api/team-seasons/{id}/export/?format=markdown` | the season's notebook as a `.zip`, one Markdown file per category; `category` (`robot`, `outreach`, `team-life`) and `work_item` narrow it |
 
 A day runs from 4 a.m. to 4 a.m., in Paris time: a late session belongs to
@@ -681,6 +682,39 @@ attachments on the same rule, under "Refus dans l'équipe": a list to read
 before publishing, not one to empty. A mentor corrects a wrong answer on
 recognisable people there, but never clears it because the member who
 refuses is not on the photo: someone else on it may refuse later.
+
+### Notebook search
+
+"Rechercher dans les chantiers", on the team home, opens
+`/team-seasons/{id}/search`: the selected team for a mentor, their own for a
+student, under the same access rule as every route above. Every filter is
+optional, and those given combine:
+
+| parameter | keeps the traces |
+| --- | --- |
+| `q` | whose text, handover or work item title contains every word, in any order, ignoring case and accents |
+| `work_item` | of that work item, which must be the team's (`work_item_not_in_team`) |
+| `on_robot` | `true` on the robot, `false` off it: the subsystem filter, since the robot's work items are its subsystems |
+| `step` | at that step |
+| `participant` | a user who took part in the progress, attended the decision, or wrote the trace |
+| `since`, `until` | within those workdays, both included and either one open (`period_reversed` if they cross) |
+| `type` | `progress`, `note` or `decision` |
+| `order` | `newest` (default) or `oldest` first |
+| `page`, `page_size` | from 1, 20 per page by default and 50 at most; a page past the end is empty, `count` still says how many match |
+
+SQLite's `lower()` only folds ASCII, so « élodie » would miss « Élodie ».
+The search folds both sides with `fold_title`, the function behind the stored
+`display_name_folded` and `title_folded` columns, registered as a SQLite
+function on each connection (`club/search.py`). The text is folded on reading
+rather than stored: progress additions and corrections rewrite it with
+`UPDATE`s that a stored copy would fall behind. A full scan of one team's
+traces is cheap at a club's size.
+
+The filters live in the page's URL, so a link, a reload or the back button
+shows the same results. The form applies them on "Rechercher"; each applied
+filter shows as a chip that removes it alone, and any change of filter, order
+or page size returns to the first page. Each result links to its workday and
+its work item.
 
 The members a route lists — a progress's participants, who was there on a
 day — each come as `{"display_name", "avatar"}`, so the interface can put a

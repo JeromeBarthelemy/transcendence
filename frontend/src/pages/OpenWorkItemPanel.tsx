@@ -178,15 +178,17 @@ function OpenWorkItemForm({
   );
 }
 
-/** The button sits in the list's toolbar, `children` on its right; the panel
- * opens under the whole row. */
+/** The button sits in the list's toolbar, `beside` next to it and
+ * `children` on its right; the panel opens under the whole row. */
 export function OpenWorkItemPanel({
   teamSeasonId,
   workItems,
+  beside,
   children,
 }: {
   teamSeasonId: number;
   workItems: WorkItem[];
+  beside?: ReactNode;
   children: ReactNode;
 }) {
   const { t } = useTranslation();
@@ -195,14 +197,16 @@ export function OpenWorkItemPanel({
   return (
     <div>
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <Button
-          variant="dark"
-          className="self-start sm:self-auto"
-          aria-expanded={isOpen}
-          onClick={() => setIsOpen((open) => !open)}
-        >
-          {t("openWorkItem.action")}
-        </Button>
+        <div className="flex flex-wrap items-center gap-3">
+          <Button
+            variant="dark"
+            aria-expanded={isOpen}
+            onClick={() => setIsOpen((open) => !open)}
+          >
+            {t("openWorkItem.action")}
+          </Button>
+          {beside}
+        </div>
         {children}
       </div>
       {isOpen && (

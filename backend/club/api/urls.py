@@ -26,6 +26,7 @@ from .views import (
     RuleSourceAcceptView,
     RuleSourcesCheckView,
     RuleSourcesView,
+    SearchView,
     SignUpView,
     TeamDetailView,
     TeamListView,
@@ -107,6 +108,11 @@ urlpatterns = [
         "team-seasons/<int:team_season_id>/analytics/activity/",
         ActivityAnalyticsView.as_view(),
         name="activity-analytics",
+    ),
+    path(
+        "team-seasons/<int:team_season_id>/search/",
+        SearchView.as_view(),
+        name="search",
     ),
     path(
         "team-seasons/<int:team_season_id>/export/",

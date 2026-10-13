@@ -574,6 +574,44 @@ class ExportSerializer(serializers.Serializer[None]):
         return value
 
 
+class SearchSerializer(serializers.Serializer[None]):
+    """The notebook search's query string (club/search.py). Every filter is
+    optional; a period may be open on either end."""
+
+    q = serializers.CharField(required=False, allow_blank=True, max_length=200)
+    work_item = serializers.PrimaryKeyRelatedField(
+        queryset=WorkItem.objects.all(), required=False
+    )
+    on_robot = serializers.BooleanField(required=False)
+    step = serializers.ChoiceField(choices=Entry.Step.choices, required=False)
+    participant = serializers.PrimaryKeyRelatedField(
+        queryset=User.objects.all(), required=False
+    )
+    since = serializers.DateField(required=False)
+    until = serializers.DateField(required=False)
+    type = serializers.ChoiceField(choices=Entry.Type.choices, required=False)
+    order = serializers.ChoiceField(choices=["newest", "oldest"], default="newest")
+    page = serializers.IntegerField(min_value=1, default=1)
+    page_size = serializers.IntegerField(min_value=1, max_value=50, default=20)
+
+    def validate_work_item(self, value: WorkItem) -> WorkItem:
+        if value.team_season != self.context["team_season"]:
+            raise serializers.ValidationError(
+                "Ce chantier n'est pas celui de l'équipe.",
+                code="work_item_not_in_team",
+            )
+        return value
+
+    def validate(self, attrs: dict[str, Any]) -> dict[str, Any]:
+        since, until = attrs.get("since"), attrs.get("until")
+        if since and until and since > until:
+            raise serializers.ValidationError(
+                "La date de début doit précéder la date de fin.",
+                code="period_reversed",
+            )
+        return attrs
+
+
 class AnswerField(serializers.BooleanField):
     """A yes or no that must be given: a form leaves an unticked box out, so
     DRF reads a missing boolean as False, and a forgotten answer would pass
