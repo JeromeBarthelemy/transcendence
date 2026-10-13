@@ -9,7 +9,7 @@ import {
   getDaySummary,
   type SummaryEntry,
 } from "../api/workdays";
-import { formatWorkdayDate, nameFormatter } from "../app/formatters";
+import { useFormatters } from "../app/formatters";
 import { useCurrentUser } from "../app/useCurrentUser";
 import { ActivityCalendar } from "../components/ActivityCalendar";
 import { RequestError } from "../components/ApiErrors";
@@ -39,6 +39,7 @@ function attachmentCounts(entry: SummaryEntry, t: TFunction) {
 
 function Progress({ entry }: { entry: SummaryEntry }) {
   const { t } = useTranslation();
+  const { nameFormatter } = useFormatters();
   const attachments = attachmentCounts(entry, t);
 
   return (
@@ -79,6 +80,7 @@ function DayLink({
   direction: "previous" | "next";
 }) {
   const { t } = useTranslation();
+  const { formatWorkdayDate } = useFormatters();
   return (
     <Link
       to={`/team-seasons/${teamSeasonId}/days/${day}`}
@@ -133,6 +135,7 @@ function DatePicker({
 
 export function DaySummaryPage() {
   const { t } = useTranslation();
+  const { formatWorkdayDate } = useFormatters();
   const navigate = useNavigate();
   const params = useParams();
   const teamSeasonId = Number(params.teamSeasonId);

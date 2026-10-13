@@ -26,6 +26,7 @@ import {
   type TeamList,
   type UserSearchResult,
 } from "../api/teams";
+import { useFormatters } from "../app/formatters";
 import { currentUserQueryKey } from "../app/useCurrentUser";
 import { AdminOnly } from "../components/AdminOnly";
 import {
@@ -45,7 +46,6 @@ import { Eyebrow, Heading } from "../components/Typography";
 
 const teamsQueryKey = ["teams"] as const;
 const SEARCH_DELAY_MS = 250;
-const nameCollator = new Intl.Collator("fr-FR", { sensitivity: "base" });
 
 const dropdownClass =
   "absolute z-10 mt-1 max-h-64 w-full overflow-y-auto rounded-xl border border-primary/15 bg-white py-2 shadow-lg";
@@ -346,6 +346,7 @@ function MemberRow({
 
 function TeamCard({ team }: { team: ManagedTeam }) {
   const { t } = useTranslation();
+  const { nameCollator } = useFormatters();
   const invalidateTeams = useInvalidateTeams();
   const titleId = useId();
   const deleteHintId = useId();

@@ -7,12 +7,19 @@ function hasTranslation(code: string): code is keyof typeof fr.errors {
   return Object.hasOwn(fr.errors, code);
 }
 
+function hasServerTranslation(
+  code: string,
+): code is keyof typeof fr.serverErrors {
+  return Object.hasOwn(fr.serverErrors, code);
+}
+
 export function fieldIssues(error: unknown, field: string): ApiIssue[] {
   return error instanceof ApiRequestError ? error.forField(field) : [];
 }
 
-/** Prefer a code's translation; otherwise keep the server's own sentence.
- * React renders that sentence as text, never as HTML or a translation key. */
+/** French can retain a server's precise explanation (a variable size limit,
+ * for example). Other languages use a known code or a localized fallback;
+ * never pass a server sentence through the translation template parser. */
 export function FieldErrors({
   id,
   message,
@@ -22,7 +29,7 @@ export function FieldErrors({
   message?: string;
   issues?: ApiIssue[];
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   if (!message && issues.length === 0) {
     return null;
   }
@@ -37,9 +44,11 @@ export function FieldErrors({
         <p key={key}>
           {hasTranslation(issue.code)
             ? t(`errors.${issue.code}`)
-            : issue.message.trim()
+            : i18n.language === "fr" && issue.message.trim()
               ? issue.message
-              : t("errors.unknown")}
+              : hasServerTranslation(issue.code)
+                ? t(`serverErrors.${issue.code}`)
+                : t("errors.unknown")}
         </p>
       ))}
     </div>

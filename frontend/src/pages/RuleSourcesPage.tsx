@@ -11,7 +11,7 @@ import {
   ruleSourcesQueryKey,
   type SourceRow,
 } from "../api/ruleSources";
-import { formatNoticeTime } from "../app/formatters";
+import { useFormatters } from "../app/formatters";
 import { AdminOnly } from "../components/AdminOnly";
 import { RequestError } from "../components/ApiErrors";
 import { Button } from "../components/Button";
@@ -35,6 +35,7 @@ function SourceCard({
   acceptError: unknown;
 }) {
   const { t } = useTranslation();
+  const { formatNoticeTime } = useFormatters();
   const headingId = `rule-source-${row.source}`;
   const moreReferences = row.pending
     ? row.pending.summary.references_total -

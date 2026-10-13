@@ -66,6 +66,18 @@ def test_a_work_item_can_move_back_a_step():
     assert intake.current_step == Step.PROTOTYPING
 
 
+def test_of_two_progresses_at_the_same_instant_the_later_recorded_is_the_latest():
+    intake = work_item()
+    first = record_progress(intake, student(), "Monté.", step=Step.BUILDING)
+    second = record_progress(
+        intake, student("tom"), "Autre rouleau.", step=Step.PROTOTYPING
+    )
+    Entry.objects.filter(pk=second.pk).update(occurred_at=first.occurred_at)
+
+    assert intake.latest_progress == second
+    assert intake.current_step == Step.PROTOTYPING
+
+
 def test_a_work_item_with_no_progress_has_no_current_step():
     assert work_item().current_step is None
 

@@ -8,7 +8,7 @@ import { type FormEvent, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useSearchParams } from "react-router-dom";
 
-import type { Identity } from "../api/auth";
+import type { Identity, TeamSeasonSummary } from "../api/auth";
 import {
   getRuleSources,
   isDismissed,
@@ -17,12 +17,7 @@ import {
 import { createTeamNote, getWorkday, type Workday } from "../api/workdays";
 import { getWorkItems, type WorkItem } from "../api/workItems";
 import { fetchFreshEntry } from "../app/entries";
-import {
-  formatActivityDate,
-  formatWorkdayDate,
-  nameFormatter,
-  teamLabel,
-} from "../app/formatters";
+import { useFormatters } from "../app/formatters";
 import { RequestError } from "../components/ApiErrors";
 import { AvatarStack } from "../components/Avatar";
 import { Button, ButtonLink, buttonClass } from "../components/Button";
@@ -49,10 +44,9 @@ const SECTION_ICONS: Record<TeamSection, IconName> = {
   activity: "chart",
 };
 
-const noteTimeFormatter = new Intl.DateTimeFormat("fr-FR", {
-  hour: "2-digit",
-  minute: "2-digit",
-});
+function teamLabel(teamSeason: TeamSeasonSummary) {
+  return `${teamSeason.team.number} · ${teamSeason.team.name}`;
+}
 
 function WorkItemCard({
   item,
@@ -62,6 +56,7 @@ function WorkItemCard({
   currentWorkday?: string;
 }) {
   const { t } = useTranslation();
+  const { nameFormatter, formatActivityDate } = useFormatters();
   const participants = item.last_progress
     ? nameFormatter.format(
         item.last_progress.participants.map((person) => person.display_name),
@@ -188,6 +183,7 @@ function TodaySummary({
   day: UseQueryResult<Workday, Error>;
 }) {
   const { t } = useTranslation();
+  const { formatWorkdayDate, noteTimeFormatter } = useFormatters();
   const queryClient = useQueryClient();
   const [isNoteOpen, setIsNoteOpen] = useState(false);
   const [noteBody, setNoteBody] = useState("");

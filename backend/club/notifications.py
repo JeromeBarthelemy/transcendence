@@ -37,7 +37,11 @@ def record_change(
         )
         for recipient in _recipients(actor, verb, team_season, work_item)
     )
-    broadcast(team_season.id, work_item.id if work_item else None)
+    broadcast(
+        team_season.id,
+        work_item.id if work_item else None,
+        deleted=verb == Notification.Verb.WORK_ITEM_DELETED,
+    )
 
 
 def _recipients(

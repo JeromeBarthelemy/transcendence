@@ -508,11 +508,7 @@ class MembershipDetailView(APIView):
 
 
 def _work_item(item: WorkItem) -> dict[str, object]:
-    latest = (
-        item.entries.filter(type=Entry.Type.PROGRESS)
-        .order_by("-occurred_at", "-id")
-        .first()
-    )
+    latest = item.latest_progress
     handover = item.last_handover
     return {
         "id": item.id,
@@ -1030,7 +1026,9 @@ def _notifications_open_to(user: User) -> QuerySet[Notification]:
 
 class NotificationListView(APIView):
     """The member's own, newest first: the unread count and the latest few,
-    for the header (#151)."""
+    for the header (#151). A read one past those can no longer be seen
+    anywhere, so it is deleted here, on a read the member makes anyway; an
+    unread one is kept, however old."""
 
     LATEST = 20
 
@@ -1038,10 +1036,12 @@ class NotificationListView(APIView):
         user = request.user
         assert isinstance(user, User)
         mine = _notifications_open_to(user).select_related("actor")
+        latest = list(mine[: self.LATEST])
+        mine.exclude(read_at=None).exclude(pk__in=[n.pk for n in latest]).delete()
         return Response(
             {
                 "unread": mine.filter(read_at=None).count(),
-                "items": [_notification(notice) for notice in mine[: self.LATEST]],
+                "items": [_notification(notice) for notice in latest],
             }
         )
 

@@ -11,7 +11,7 @@ import {
   type MemberActivity,
 } from "../api/activityAnalytics";
 import type { TeamSeasonSummary } from "../api/auth";
-import { dayDate, formatDay } from "../app/formatters";
+import { useFormatters } from "../app/formatters";
 import { ActivityWorkItems } from "./ActivityWorkItems";
 import { RequestError } from "./ApiErrors";
 import { Avatar } from "./Avatar";
@@ -41,7 +41,7 @@ const ActivityByCategoryChart = lazy(async () => {
 });
 
 function shiftDay(day: string, amount: number) {
-  const date = dayDate(day);
+  const date = new Date(`${day}T12:00:00Z`);
   date.setUTCDate(date.getUTCDate() + amount);
   return date.toISOString().slice(0, 10);
 }
@@ -69,6 +69,7 @@ function seasonPeriod(startYear: number, today: string): ActivityPeriod {
 
 function ParticipationTable({ members }: { members: MemberActivity[] }) {
   const { t } = useTranslation();
+  const { formatDay, formatNumber } = useFormatters();
 
   if (members.length === 0) {
     return <p className="mt-4 text-sm text-muted">{t("activity.noMembers")}</p>;
@@ -117,13 +118,13 @@ function ParticipationTable({ members }: { members: MemberActivity[] }) {
                 </span>
               </th>
               <td className="px-3 py-4 text-right text-body">
-                {member.active_days}
+                {formatNumber(member.active_days)}
               </td>
               <td className="px-3 py-4 text-right text-body">
-                {member.progress_entries}
+                {formatNumber(member.progress_entries)}
               </td>
               <td className="px-3 py-4 text-right text-body">
-                {member.work_items}
+                {formatNumber(member.work_items)}
               </td>
               <td className="px-3 py-4 text-right text-body">
                 {member.last_progress_day
@@ -146,6 +147,7 @@ export function TeamActivity({
   currentWorkday?: string;
 }) {
   const { t } = useTranslation();
+  const { formatNumber } = useFormatters();
   const today = currentWorkday ?? parisToday();
   const defaultPeriod = useMemo<ActivityPeriod>(
     () => ({ since: shiftDay(today, -29), until: today }),
@@ -310,7 +312,7 @@ export function TeamActivity({
                     {t(`activity.${label}`)}
                   </dt>
                   <dd className="brand-title mt-1 text-3xl text-ink">
-                    {analytics.data.summary[key]}
+                    {formatNumber(analytics.data.summary[key])}
                   </dd>
                 </div>
               ))}
@@ -391,7 +393,7 @@ export function TeamActivity({
                       : t(`teamHome.statuses.${item.key}`)}
                   </dt>
                   <dd className="brand-title mt-1 text-3xl text-ink">
-                    {item.value}
+                    {formatNumber(item.value)}
                   </dd>
                 </div>
               ))}

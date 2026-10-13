@@ -22,7 +22,7 @@ import {
   workItemSteps,
 } from "../api/workItems";
 import { fetchFreshEntry } from "../app/entries";
-import { nameFormatter, teamLabel } from "../app/formatters";
+import { useFormatters } from "../app/formatters";
 import { useCurrentUser } from "../app/useCurrentUser";
 import { fieldIssues, RequestError } from "../components/ApiErrors";
 import { AvatarStack } from "../components/Avatar";
@@ -37,13 +37,15 @@ import { Page } from "../components/Page";
 import { Panel } from "../components/Panel";
 import { Eyebrow, Heading } from "../components/Typography";
 
-const dateFormatter = new Intl.DateTimeFormat("fr-FR", {
-  dateStyle: "long",
-});
-const dateTimeFormatter = new Intl.DateTimeFormat("fr-FR", {
-  dateStyle: "long",
-  timeStyle: "short",
-});
+function teamLabel(identity: Identity, teamSeasonId: number) {
+  const teamSeason = identity.team_seasons.find(
+    (candidate) => candidate.id === teamSeasonId,
+  );
+  return teamSeason
+    ? `${teamSeason.team.number} · ${teamSeason.team.name}`
+    : null;
+}
+
 function useInvalidateWorkItem(item: WorkItemDetail) {
   const queryClient = useQueryClient();
   return async () => {
@@ -340,6 +342,7 @@ function TodayPanel({
   identity: Identity;
 }) {
   const { t } = useTranslation();
+  const { nameFormatter } = useFormatters();
   const invalidateWorkItem = useInvalidateWorkItem(item);
   const liveStep =
     item.current_progress?.step ?? item.current_step ?? workItemSteps[0];
@@ -548,6 +551,7 @@ function HistoryEntry({
   entry: WorkItemEntry;
 }) {
   const { t } = useTranslation();
+  const { nameFormatter, dateTimeFormatter } = useFormatters();
   const queryClient = useQueryClient();
   const invalidateWorkItem = useInvalidateWorkItem(item);
   const participantNames = nameFormatter.format(
@@ -768,13 +772,11 @@ function WorkItemScreen({
   identity: Identity;
 }) {
   const { t } = useTranslation();
+  const { dateFormatter, dateTimeFormatter } = useFormatters();
   const progressCount = item.thread.filter(
     (entry) => entry.type === "progress",
   ).length;
-  const teamSeason = identity.team_seasons.find(
-    (candidate) => candidate.id === item.team_season,
-  );
-  const team = teamSeason ? teamLabel(teamSeason) : null;
+  const team = teamLabel(identity, item.team_season);
   const invalidateWorkItem = useInvalidateWorkItem(item);
   // The status being changed, its form open until it is saved or cancelled.
   const [statusChange, setStatusChange] = useState<WorkItemStatus | null>(null);
@@ -801,7 +803,7 @@ function WorkItemScreen({
       await queryClient.invalidateQueries({
         queryKey: ["team-seasons", item.team_season, "work-items"],
       });
-      navigate(`/?team=${item.team_season}`);
+      navigate(`/?team=${item.team_season}`, { replace: true });
     },
   });
 

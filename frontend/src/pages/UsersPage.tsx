@@ -12,6 +12,7 @@ import {
   type UserChanges,
   updateUser,
 } from "../api/users";
+import { useFormatters } from "../app/formatters";
 import { foldText } from "../app/text";
 import { AdminOnly } from "../components/AdminOnly";
 import {
@@ -43,8 +44,6 @@ const STATUS_FILTERS: StatusFilter[] = [
   "all",
 ];
 const ROLE_FILTERS: RoleFilter[] = ["all", "student", "mentor", "admin"];
-
-const nameCollator = new Intl.Collator("fr-FR", { sensitivity: "base" });
 
 function userStatus(user: ClubUser): "active" | "suspended" | "anonymized" {
   if (user.is_anonymized) return "anonymized";
@@ -91,6 +90,7 @@ function Badges({ user }: { user: ClubUser }) {
 
 function UserList({ identity }: { identity: Identity }) {
   const { t } = useTranslation();
+  const { nameCollator } = useFormatters();
   const location = useLocation();
   const deletedName = (location.state as { deleted?: string } | null)?.deleted;
   const [search, setSearch] = useState("");
