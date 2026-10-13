@@ -54,8 +54,25 @@ it("still detects a browser language when reading storage is denied", () => {
   expect(getInitialLanguage()).toBe("es");
 });
 
+it("does not save a detected browser preference during initialization", async () => {
+  vi.spyOn(navigator, "languages", "get").mockReturnValue(["en-US"]);
+  const save = vi.spyOn(Storage.prototype, "setItem");
+  vi.resetModules();
+  const { default: initialized, getInitialLanguage: detect } = await import(
+    "./i18n"
+  );
+
+  expect(initialized.language).toBe("en");
+  expect(document.documentElement.lang).toBe("en");
+  expect(save).not.toHaveBeenCalled();
+  expect(localStorage.getItem(languageStorageKey)).toBeNull();
+
+  vi.spyOn(navigator, "languages", "get").mockReturnValue(["es-ES"]);
+  expect(detect()).toBe("es");
+});
+
 it("restores the saved language when the application initializes again", async () => {
-  await i18n.changeLanguage("es");
+  localStorage.setItem(languageStorageKey, "es");
   vi.spyOn(navigator, "languages", "get").mockReturnValue(["en-US"]);
   vi.resetModules();
   const { default: restarted } = await import("./i18n");
@@ -64,14 +81,14 @@ it("restores the saved language when the application initializes again", async (
   expect(restarted.t("language.label")).toBe("Idioma");
 });
 
-it("updates the document and translations even when writing storage is denied", async () => {
-  vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
-    throw new DOMException("Storage full", "QuotaExceededError");
-  });
+it("updates the document and translations without persisting programmatic changes", async () => {
+  const save = vi.spyOn(Storage.prototype, "setItem");
   await i18n.changeLanguage("en");
   expect(document.documentElement.lang).toBe("en");
   expect(i18n.t("language.label")).toBe("Language");
   expect(i18n.t("home.title")).toBe("Every step forward deserves a record.");
+  expect(save).not.toHaveBeenCalled();
+  expect(localStorage.getItem(languageStorageKey)).toBeNull();
 });
 
 it.each([

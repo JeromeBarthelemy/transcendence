@@ -2,7 +2,7 @@ import { useId } from "react";
 import { useTranslation } from "react-i18next";
 
 import { focusRing } from "../app/menu";
-import { supportedLanguages } from "../i18n";
+import { languageStorageKey, supportedLanguages } from "../i18n";
 
 const languageNames = { fr: "Français", en: "English", es: "Español" };
 
@@ -17,8 +17,16 @@ export function LanguageSwitcher() {
       </label>
       <select
         id={id}
-        value={i18n.language}
-        onChange={(event) => void i18n.changeLanguage(event.target.value)}
+        value={i18n.resolvedLanguage ?? i18n.language}
+        onChange={(event) => {
+          const language = event.currentTarget.value;
+          try {
+            localStorage.setItem(languageStorageKey, language);
+          } catch {
+            // Keep the selection for this visit when persistence is unavailable.
+          }
+          void i18n.changeLanguage(language);
+        }}
         className={`w-24 cursor-pointer rounded-full border border-primary/15 bg-white px-2 py-2 text-sm text-ink md:w-auto ${focusRing}`}
       >
         {supportedLanguages.map((language) => (

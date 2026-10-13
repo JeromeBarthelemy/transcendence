@@ -238,8 +238,8 @@ def _snapshot(
 ) -> tuple[Snapshot, list[WorkItemActivity]]:
     """Current work-item state, independently of the requested period."""
     latest_progress = Entry.objects.filter(
-        work_item_id=models.OuterRef("pk"), type=Entry.Type.PROGRESS
-    ).order_by("-occurred_at", "-id")
+        work_item_id=models.OuterRef("pk")
+    ).progress_newest_first()
     selected_items = WorkItem.objects.filter(team_season=team_season)
     if on_robot is not None:
         selected_items = selected_items.filter(on_robot=on_robot)

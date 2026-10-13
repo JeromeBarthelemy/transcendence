@@ -47,19 +47,19 @@ def _content(text, done_reason="stop"):
 
 def _is_relevance_call(request) -> bool:
     body = json.loads(request.data)
-    return "Est-ce que ce passage répond" in body["messages"][0]["content"]
+    return "Does the passage contain information" in body["messages"][0]["content"]
 
 
 def mock_ollama(monkeypatch, answer, done_reason="stop", relevant=True):
     """Routes the main generation call to `answer` and any relevance
     check (a separate urlopen call `_relevant` makes for each citation,
-    against the cited chunk's own stored text) to a fixed OUI/NON —
+    against the cited chunk's own stored text) to a fixed YES/NO —
     tests that aren't about relevance itself don't need to know it
     runs."""
 
     def fake_urlopen(request, timeout):
         if _is_relevance_call(request):
-            return _content("OUI" if relevant else "NON")
+            return _content("YES" if relevant else "NO")
         return _content(answer, done_reason=done_reason)
 
     monkeypatch.setattr("club.generation.urlopen", fake_urlopen)
@@ -71,7 +71,7 @@ def test_generate_answer_reads_the_models_own_message(monkeypatch):
 
     def fake_urlopen(request, timeout):
         if _is_relevance_call(request):
-            return _content("OUI")
+            return _content("YES")
         captured["url"] = request.full_url
         captured["body"] = json.loads(request.data)
         captured["timeout"] = timeout
@@ -103,7 +103,7 @@ def test_generate_answer_truncates_a_passage_longer_than_the_cap(monkeypatch):
 
     def fake_urlopen(request, timeout):
         if _is_relevance_call(request):
-            return _content("OUI")
+            return _content("YES")
         captured["body"] = json.loads(request.data)
         return FakeResponse(json.dumps({"message": {"content": cited()}}).encode())
 
@@ -229,7 +229,7 @@ def test_generate_answer_does_not_trim_an_answer_that_finished_on_its_own(monkey
     # final full stop, is a common and legitimate way to finish — not a
     # sign of a cut. done_reason "stop" (or anything but "length") must
     # leave it alone rather than go looking for a sentence to "complete".
-    answer_text = "Interdit, selon [6.1.2]"
+    answer_text = "Interdit, cf. [6.1.2]"
     mock_ollama(monkeypatch, answer_text, done_reason="stop")
 
     assert generate_answer("Une question ?", [chunk(reference="6.1.2")]) == answer_text
@@ -242,7 +242,7 @@ def test_generate_answer_trims_without_mistaking_a_dotted_reference_for_the_cut(
     # inside [11.3.4] itself and sliced the citation in half. The real
     # sentence boundary is the one after "Vrai.", not inside the
     # reference's own dots.
-    kept = "Vrai, selon [11.3.4]."
+    kept = "Vrai, cf. [11.3.4]."
     mock_ollama(
         monkeypatch, kept + " Autre chose non complète apre", done_reason="length"
     )
@@ -268,7 +268,7 @@ def test_generate_answer_refuses_several_references_packed_in_one_bracket(
     # that only reads the first token in each pair of brackets.
     monkeypatch.setattr(
         "club.generation.urlopen",
-        lambda request, timeout: _content("Selon [G102, 9.9.9]."),
+        lambda request, timeout: _content("According to [G102, 9.9.9]."),
     )
 
     with pytest.raises(GenerationError):
@@ -302,52 +302,77 @@ def test_generate_answer_does_not_mistake_an_ordinary_parenthetical_for_a_citati
 ):
     # No digit, no reference: an aside in parentheses must not be read as
     # an attempted citation and refused for failing to match one.
-    answer_text = f"{cited()} (sauf exception)"
+    answer_text = f"{cited()} (except noted)"
     mock_ollama(monkeypatch, answer_text)
 
     assert generate_answer("Une question ?", [chunk()]) == answer_text
 
 
-def test_generate_answer_refuses_an_answer_with_no_citation_at_all(monkeypatch):
-    # #207's own review, reading real answers: a correct, well-formed
-    # French answer that simply never names a reference is just as
-    # unchecked as a wrong one — Jerome's own "leads to measure" list
-    # names this directly.
-    monkeypatch.setattr(
-        "club.generation.urlopen",
-        lambda request, timeout: _content("C'est interdit selon le règlement."),
-    )
+def test_generate_answer_accepts_an_answer_with_no_citation_when_relevant(
+    monkeypatch,
+):
+    # F: an answer naming no reference is no longer retried outright —
+    # read by hand against the real manual, most of these turned out
+    # correct anyway. It still has to clear the same relevance check a
+    # named citation would, against the top-ranked passage.
+    answer_text = "It is not allowed under the rules."
+    mock_ollama(monkeypatch, answer_text)
+
+    assert generate_answer("A question?", [chunk()]) == answer_text
+
+
+def test_generate_answer_refuses_an_answer_with_no_citation_when_not_relevant(
+    monkeypatch,
+):
+    mock_ollama(monkeypatch, "It is not allowed.", relevant=False)
 
     with pytest.raises(GenerationError):
-        generate_answer("Une question ?", [chunk()])
+        generate_answer("A question?", [chunk()])
 
 
-def test_generate_answer_refuses_an_english_copy_of_the_passage(monkeypatch):
-    # #207's own review, reading real answers against the real manual:
-    # a 3B model asked for French sometimes copies the English passage
-    # verbatim instead — not a typo, the whole thing.
+def test_generate_answer_refuses_a_french_copy_of_the_passage(monkeypatch):
+    # Reading real answers against the real manual: a 3B model asked for
+    # English sometimes answers in French instead — not a typo, the
+    # whole thing.
     monkeypatch.setattr(
         "club.generation.urlopen",
         lambda request, timeout: _content(
-            f"[G102] {CHUNK_TEXT} and this is not allowed at all."
+            "[G102] Il est interdit de grimper sur les éléments de l'arène."
         ),
     )
 
     with pytest.raises(GenerationError):
-        generate_answer("Une question ?", [chunk()])
+        generate_answer("A question?", [chunk()])
 
 
-def test_generate_answer_does_not_mistake_a_terse_french_answer_for_english(
+def test_generate_answer_refuses_an_answer_that_drifts_into_another_script(
+    monkeypatch,
+):
+    # An answer can carry enough English words to pass the check above
+    # while part of it is written in a different script entirely —
+    # neither function-word check can catch that on its own.
+    monkeypatch.setattr(
+        "club.generation.urlopen",
+        lambda request, timeout: _content(
+            "[G102] This is not allowed under 禁止 the rules."
+        ),
+    )
+
+    with pytest.raises(GenerationError):
+        generate_answer("A question?", [chunk()])
+
+
+def test_generate_answer_does_not_mistake_a_terse_english_answer_for_french(
     monkeypatch,
 ):
     # A short, jargon-heavy answer ("AUTO", "ROBOT") can lack every common
-    # French function word without being English — only answers that
-    # also carry a positive sign of English (a word like "the" or "and")
+    # English function word without being French — only answers that
+    # also carry a positive sign of French (a word like "le" or "de")
     # are refused for it.
-    answer_text = "AUTO dure 30 secondes [6.1.2]."
+    answer_text = "AUTO lasts 30 seconds [6.1.2]."
     mock_ollama(monkeypatch, answer_text)
 
-    assert generate_answer("Une question ?", [chunk(reference="6.1.2")]) == answer_text
+    assert generate_answer("A question?", [chunk(reference="6.1.2")]) == answer_text
 
 
 def test_generate_answer_refuses_a_list_cut_off_with_nothing_complete_before_it(
@@ -394,7 +419,7 @@ def test_generate_answer_retries_after_a_bad_sample(monkeypatch):
 
     def fake_urlopen(request, timeout):
         if _is_relevance_call(request):
-            return _content("OUI")
+            return _content("YES")
         attempts.append(1)
         content = cited(ref="UNDISCLOSED") if len(attempts) == 1 else cited()
         return _content(content)

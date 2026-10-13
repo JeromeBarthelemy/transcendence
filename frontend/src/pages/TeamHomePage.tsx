@@ -9,8 +9,14 @@ import { useTranslation } from "react-i18next";
 import { Link, useSearchParams } from "react-router-dom";
 
 import type { Identity, TeamSeasonSummary } from "../api/auth";
+import {
+  getRuleSources,
+  isDismissed,
+  ruleSourcesQueryKey,
+} from "../api/ruleSources";
 import { createTeamNote, getWorkday, type Workday } from "../api/workdays";
 import { getWorkItems, type WorkItem } from "../api/workItems";
+import { fetchFreshEntry } from "../app/entries";
 import { useFormatters } from "../app/formatters";
 import { RequestError } from "../components/ApiErrors";
 import { AvatarStack } from "../components/Avatar";
@@ -37,6 +43,10 @@ const SECTION_ICONS: Record<TeamSection, IconName> = {
   "work-items": "wrench",
   activity: "chart",
 };
+
+function teamLabel(teamSeason: TeamSeasonSummary) {
+  return `${teamSeason.team.number} · ${teamSeason.team.name}`;
+}
 
 function WorkItemCard({
   item,
@@ -197,13 +207,16 @@ function TodaySummary({
     queryClient.invalidateQueries({ queryKey: daysQueryKey });
 
   async function currentBody(entryId: number) {
-    const fresh = await queryClient.fetchQuery({
-      queryKey: ["team-seasons", teamSeasonId, "days", "today"],
-      queryFn: () => getWorkday(teamSeasonId, "today"),
-      // The cache is what the refusal says is out of date.
-      staleTime: 0,
-    });
-    return fresh.entries.find((other) => other.id === entryId)?.body ?? null;
+    const entry = await fetchFreshEntry(
+      queryClient,
+      {
+        queryKey: ["team-seasons", teamSeasonId, "days", "today"],
+        queryFn: () => getWorkday(teamSeasonId, "today"),
+      },
+      (day) => day.entries,
+      entryId,
+    );
+    return entry?.body ?? null;
   }
 
   function submitNote(event: FormEvent<HTMLFormElement>) {
@@ -410,10 +423,6 @@ function NotebookExport({ teamSeasonId }: { teamSeasonId: number }) {
   );
 }
 
-function teamLabel(teamSeason: TeamSeasonSummary) {
-  return `${teamSeason.team.number} · ${teamSeason.team.name}`;
-}
-
 export function TeamHomePage({ identity }: { identity: Identity }) {
   const { t } = useTranslation();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -443,6 +452,16 @@ export function TeamHomePage({ identity }: { identity: Identity }) {
         : getWorkday(teamSeasonId, "today"),
     enabled: teamSeasonId !== null,
   });
+  // Never fetched for anyone who cannot open the review screen it badges.
+  const ruleSources = useQuery({
+    queryKey: ruleSourcesQueryKey,
+    queryFn: getRuleSources,
+    enabled: identity.is_club_admin,
+  });
+  const hasSourceUpdate =
+    ruleSources.data?.some(
+      (row) => row.pending !== null && !isDismissed(row),
+    ) ?? false;
 
   if (!selectedTeamSeason) {
     return (
@@ -477,7 +496,14 @@ export function TeamHomePage({ identity }: { identity: Identity }) {
           {t("teamHome.welcome", { name: identity.display_name })}
         </IconLabel>
       </Eyebrow>
-
+      {hasSourceUpdate && (
+        <Link
+          to="/rules/sources"
+          className="mt-3 inline-flex items-center gap-2 rounded-full border border-warning/40 bg-warning-tint px-4 py-2 text-sm font-semibold text-warning-ink transition hover:brightness-95"
+        >
+          {t("teamHome.sourceUpdateBadge")}
+        </Link>
+      )}
       <div className="mt-3 flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
         <div>
           <Heading size="page">

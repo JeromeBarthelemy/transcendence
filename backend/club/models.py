@@ -511,14 +511,14 @@ class WorkItem(models.Model):
         super().save(*args, **kwargs)
 
     @property
+    def latest_progress(self) -> "Entry | None":
+        return Entry.objects.filter(work_item=self).progress_newest_first().first()
+
+    @property
     def current_step(self) -> "str | None":
         """Never stored: the step of the latest progress, so moving back a
         step is an entry like any other."""
-        latest = (
-            self.entries.filter(type=Entry.Type.PROGRESS)
-            .order_by("-occurred_at", "-id")
-            .first()
-        )
+        latest = self.latest_progress
         return latest.step if latest else None
 
     @property
@@ -527,11 +527,18 @@ class WorkItem(models.Model):
         carries who left it and when; a progress with nothing to hand over
         leaves the previous one in place."""
         return (
-            self.entries.filter(type=Entry.Type.PROGRESS)
+            Entry.objects.filter(work_item=self)
+            .progress_newest_first()
             .exclude(handover="")
-            .order_by("-occurred_at", "-id")
             .first()
         )
+
+
+class EntryQuerySet(models.QuerySet["Entry"]):
+    def progress_newest_first(self) -> "EntryQuerySet":
+        """What "the latest progress" means everywhere: two recorded at the
+        same instant are told apart by which was written last."""
+        return self.filter(type=Entry.Type.PROGRESS).order_by("-occurred_at", "-id")
 
 
 class Entry(models.Model):
@@ -555,10 +562,13 @@ class Entry(models.Model):
         TUNING = "tuning", "optimisation"
         REPAIR = "repair", "réparation"
 
+    objects = EntryQuerySet.as_manager()
+
     team_season = models.ForeignKey(
         TeamSeason, on_delete=models.PROTECT, related_name="entries"
     )
-    # PROTECT until the GDPR module decides what a deleted member's traces become.
+    # PROTECT: a member who leaves is anonymized, never deleted (club/gdpr.py),
+    # so a trace always keeps its author.
     author = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="entries"
     )
@@ -622,7 +632,8 @@ class EntryParticipant(models.Model):
     nothing."""
 
     entry = models.ForeignKey(Entry, on_delete=models.CASCADE)
-    # PROTECT until the GDPR module decides what a deleted member's traces become.
+    # PROTECT: a member who leaves is anonymized, never deleted (club/gdpr.py),
+    # so a progress keeps everyone who took part in it.
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
 
     class Meta:

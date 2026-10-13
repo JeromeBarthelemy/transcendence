@@ -40,6 +40,11 @@ function AdminLinks({
           {t("nav.users")}
         </IconLabel>
       </Link>
+      <Link to="/rules/sources" className={linkClass} onClick={onNavigate}>
+        <IconLabel icon="scroll" before>
+          {t("nav.ruleSources")}
+        </IconLabel>
+      </Link>
     </>
   );
 }

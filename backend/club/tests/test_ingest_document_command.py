@@ -4,6 +4,8 @@ from django.core.management.base import CommandError
 
 from club.models import Document, Season
 
+from .test_rag import REAL_QA_BOARD_EXCERPT
+
 
 def season(start_year=2026, game_name="BioBuzz"):
     return Season.objects.create(start_year=start_year, game_name=game_name)
@@ -55,12 +57,13 @@ def test_ingesting_a_non_html_manual_is_refused(tmp_path):
         )
 
 
-def test_ingesting_a_qa_text_file_is_not_refused(tmp_path):
-    # The HTML-only constraint is specific to game_manual (chunk_manual) —
-    # official_qa still reads plain text (chunk_qa).
+def test_ingesting_a_qa_board_creates_its_chunks(tmp_path):
+    # chunk_qa reads the live board's own HTML (its embedded JSON), the
+    # same shape fetch_page gets from game-qa.firstinspires.org — not a
+    # hand-written transcript.
     season(2026, "BioBuzz")
-    path = tmp_path / "qa.txt"
-    path.write_text("Q1 A question? Ruling: Yes.", encoding="utf-8")
+    path = tmp_path / "qa.html"
+    path.write_text(REAL_QA_BOARD_EXCERPT, encoding="utf-8")
 
     call_command(
         "ingest_document",
@@ -75,6 +78,28 @@ def test_ingesting_a_qa_text_file_is_not_refused(tmp_path):
 
     document = Document.objects.get(title="Q&A officiel")
     assert document.chunks.exists()
+
+
+def test_ingesting_a_non_html_qa_is_refused(tmp_path):
+    # chunk_qa reads the board's embedded JSON, not extracted or plain
+    # text: a PDF or a .txt would silently ingest as zero chunks rather
+    # than fail loudly, so this is refused up front, the same as the
+    # manual.
+    season(2026, "BioBuzz")
+    path = tmp_path / "qa.txt"
+    path.write_text("Q1 A question? Ruling: Yes.", encoding="utf-8")
+
+    with pytest.raises(CommandError, match="HTML"):
+        call_command(
+            "ingest_document",
+            str(path),
+            "--season",
+            "2026",
+            "--source",
+            "official_qa",
+            "--title",
+            "Q&A officiel",
+        )
 
 
 def test_ingesting_a_missing_file_is_refused(tmp_path):

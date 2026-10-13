@@ -21,6 +21,7 @@ import {
   type WorkItemStep,
   workItemSteps,
 } from "../api/workItems";
+import { fetchFreshEntry } from "../app/entries";
 import { useFormatters } from "../app/formatters";
 import { useCurrentUser } from "../app/useCurrentUser";
 import { fieldIssues, RequestError } from "../components/ApiErrors";
@@ -148,12 +149,14 @@ function AttachmentUploader({
       {upload.isPending && (
         <div className="mt-4">
           <label className="text-xs text-muted" htmlFor="upload-progress">
-            {t("workItem.uploading", { progress: uploadProgress })}
+            {t("workItem.uploading", {
+              progress: Math.round(uploadProgress * 100),
+            })}
           </label>
           <progress
             id="upload-progress"
             className="mt-1 block w-full accent-accent"
-            max={100}
+            max={1}
             value={uploadProgress}
           />
         </div>
@@ -193,6 +196,7 @@ function ProgressEditor({
   const [handoverWas, setHandoverWas] = useState(entry.handover);
   // The handover someone else saved meanwhile, once a save was refused.
   const [theirs, setTheirs] = useState<string | null>(null);
+  const [refreshError, setRefreshError] = useState<unknown>(null);
   const [saved, setSaved] = useState(false);
 
   const changes: ProgressChanges = {};
@@ -207,6 +211,10 @@ function ProgressEditor({
 
   const save = useMutation({
     mutationFn: () => updateProgress(entry.id, changes),
+    onMutate: () => {
+      setTheirs(null);
+      setRefreshError(null);
+    },
     onSuccess: async (savedEntry) => {
       setAddition("");
       setHandover(savedEntry.handover);
@@ -219,16 +227,22 @@ function ProgressEditor({
       if (fieldIssues(error, "detail")[0]?.code !== "progress_changed") {
         return;
       }
-      const fresh = await queryClient.fetchQuery({
-        queryKey: ["work-items", item.id],
-        queryFn: () => getWorkItem(item.id),
-        // The cache is what the refusal says is out of date.
-        staleTime: 0,
-      });
-      const current = fresh.thread.find((other) => other.id === entry.id);
-      if (current) {
-        setTheirs(current.handover);
-        setHandoverWas(current.handover);
+      try {
+        const current = await fetchFreshEntry(
+          queryClient,
+          {
+            queryKey: ["work-items", item.id],
+            queryFn: () => getWorkItem(item.id),
+          },
+          (item) => item.thread,
+          entry.id,
+        );
+        if (current) {
+          setTheirs(current.handover);
+          setHandoverWas(current.handover);
+        }
+      } catch (error) {
+        setRefreshError(error);
       }
     },
   });
@@ -296,7 +310,9 @@ function ProgressEditor({
           </div>
         )}
 
-        {save.isError && theirs === null && <RequestError error={save.error} />}
+        {save.isError && theirs === null && (
+          <RequestError error={refreshError ?? save.error} />
+        )}
         {saved && (
           <SuccessMessage className="mt-3">
             {t("workItem.progressSaved")}
@@ -543,13 +559,16 @@ function HistoryEntry({
   );
 
   async function currentBody() {
-    const fresh = await queryClient.fetchQuery({
-      queryKey: ["work-items", item.id],
-      queryFn: () => getWorkItem(item.id),
-      // The cache is what the refusal says is out of date.
-      staleTime: 0,
-    });
-    return fresh.thread.find((other) => other.id === entry.id)?.body ?? null;
+    const current = await fetchFreshEntry(
+      queryClient,
+      {
+        queryKey: ["work-items", item.id],
+        queryFn: () => getWorkItem(item.id),
+      },
+      (item) => item.thread,
+      entry.id,
+    );
+    return current?.body ?? null;
   }
 
   return (
@@ -784,7 +803,7 @@ function WorkItemScreen({
       await queryClient.invalidateQueries({
         queryKey: ["team-seasons", item.team_season, "work-items"],
       });
-      navigate(`/?team=${item.team_season}`);
+      navigate(`/?team=${item.team_season}`, { replace: true });
     },
   });
 

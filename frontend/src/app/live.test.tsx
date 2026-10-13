@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, cleanup, render, screen } from "@testing-library/react";
+import { createMemoryRouter, RouterProvider } from "react-router-dom";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { activityAnalyticsQueryKey } from "../api/activityAnalytics";
 
@@ -52,7 +53,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-function renderBoard() {
+function renderBoard(path = "/") {
   const queryClient = new QueryClient();
   // As freshly loaded: setting the data clears an earlier invalidation.
   const fresh = () => {
@@ -80,14 +81,17 @@ function renderBoard() {
     }
   };
   fresh();
+  const router = createMemoryRouter([{ path: "*", element: <LiveStatus /> }], {
+    initialEntries: [path],
+  });
   const view = render(
     <QueryClientProvider client={queryClient}>
-      <LiveStatus />
+      <RouterProvider router={router} />
     </QueryClientProvider>,
   );
   const invalidated = (key: unknown[]) =>
     queryClient.getQueryState(key)?.isInvalidated;
-  return { ...view, invalidated, fresh };
+  return { ...view, invalidated, fresh, queryClient, router };
 }
 
 const offline =
@@ -168,6 +172,49 @@ it("reloads the team season and the work item a message names", () => {
   ).toBe(false);
   expect(invalidated(["work-items", 10])).toBe(true);
   expect(invalidated(["work-items", 11])).toBe(false);
+});
+
+it("forgets a deleted work item instead of reading it again, which would answer 404", () => {
+  const { invalidated, fresh, queryClient } = renderBoard();
+  latest().open();
+  fresh();
+
+  latest().receive({ team_season: 7, work_item: 10, deleted: true });
+
+  expect(queryClient.getQueryState(["work-items", 10])).toBeUndefined();
+  expect(invalidated(["work-items", 11])).toBe(false);
+  expect(invalidated(["team-seasons", 7, "work-items"])).toBe(true);
+  expect(invalidated(["notifications"])).toBe(true);
+});
+
+it("sends a page open on a deleted work item to its team's home", () => {
+  const { router } = renderBoard("/work-items/10");
+  latest().open();
+
+  latest().receive({ team_season: 7, work_item: 10, deleted: true });
+
+  expect(router.state.location.pathname).toBe("/");
+  expect(router.state.location.search).toBe("?team=7");
+});
+
+it("keeps its one socket from page to page", async () => {
+  const { router } = renderBoard("/");
+  latest().open();
+
+  await act(() => router.navigate("/work-items/11"));
+  await act(() => router.navigate("/fieldbot"));
+
+  expect(FakeSocket.all).toHaveLength(1);
+  expect(latest().closed).toBe(false);
+});
+
+it("leaves a page on another work item where it is", () => {
+  const { router } = renderBoard("/work-items/11");
+  latest().open();
+
+  latest().receive({ team_season: 7, work_item: 10, deleted: true });
+
+  expect(router.state.location.pathname).toBe("/work-items/11");
 });
 
 it("reloads on its first connection what changed while it was connecting", () => {

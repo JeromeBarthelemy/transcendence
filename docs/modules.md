@@ -16,9 +16,9 @@
 > your final score. **Non-functional or incomplete modules = 0 points.** »
 > — sujet, chapitre IV
 
-23 points déclarés pour 20 comptés — 3 d'assurance. Les seize modules figurent
-tous au barème du sujet ; aucun ne demande d'expliquer ce qu'il est avant de
-montrer qu'il fonctionne.
+22 points déclarés pour 14 requis. Les seize modules figurent tous au barème du
+sujet ; aucun ne demande d'expliquer ce qu'il est avant de montrer qu'il
+fonctionne. Les numéros sont ceux des jalons : il n'y a donc ni 5, ni 12, ni 16.
 
 Les exigences sont **recopiées mot pour mot** du sujet, en anglais, pour qu'aucune
 traduction ne les adoucisse. Une case cochée veut dire « démontrable devant un
@@ -109,7 +109,7 @@ sans écrire une jointure.
 **Chez nous** — le club, ses quatre équipes, les saisons. L'import de rentrée ne
 coche aucune de ces cases : il lit l'export AssoConnect de la saison (`.xlsx`) pour
 *vérifier* des comptes qui existent déjà, il n'en crée aucun et ne touche à aucune
-équipe. Les écrans restent entièrement à faire.
+équipe.
 
 **Démo (3 min)** — créer une équipe, y ajouter deux membres, en retirer un,
 renommer l'équipe, la supprimer.
@@ -149,36 +149,6 @@ la table de jointure.
 Se connecter en mentor : le sélecteur d'équipe apparaît, avec toutes les équipes.
 Se connecter en administrateur du club : l'écran d'admin en plus. Basculer un
 rôle, montrer l'action qui disparaît côté élève.
-
----
-
-## 5 · API publique — Major, 2 pts
-
-- A public API to interact with the database with a secured API key
-- rate limiting
-- documentation
-- at least 5 endpoints: `GET`, `POST`, `PUT`, `DELETE`
-
-**Chez nous**
-
-| Verbe | Endpoint | Ce qu'il fait |
-|---|---|---|
-| `GET` | `/api/events` | le rayonnement, portée chiffrée comprise |
-| `GET` | `/api/teams/{n}/notebook` | les blocs de cahier marqués publics |
-| `POST` | `/api/media` | versement en masse depuis un poste de la salle |
-| `PUT` | `/api/media/{id}` | la légende et les personnes reconnaissables, remplacées d'un bloc |
-| `DELETE` | `/api/media/{id}` | le retrait sur demande |
-
-**Avec Django** — DRF fournit les trois pièces : une classe d'authentification par
-clé pour les appels machine, le *throttling* (`DEFAULT_THROTTLE_CLASSES` et
-`DEFAULT_THROTTLE_RATES`, taux exprimés en `/s`, `/m`, `/h`, `/d`) qui rend le 429
-sans code maison, et un schéma OpenAPI dont drf-spectacular sert le Swagger UI. La
-documentation exigée n'est donc pas un document à écrire à côté : elle se dérive
-des vues et des sérialiseurs, à condition de les annoter.
-
-**Démo (3 min)** — appeler sans clé → 401. Avec une clé → 200. Marteler → 429.
-Ouvrir Swagger UI servi par l'application. Rejouer deux fois le même `PUT` et
-montrer que le média est dans le même état qu'après le premier.
 
 ---
 
@@ -314,20 +284,6 @@ ligne et montrer que la file a survécu.
 
 ---
 
-## 12 · Modération IA — Minor, 1 pt
-
-- Content moderation AI (auto moderation, auto deletion, auto warning, etc.)
-
-**Lecture assumée** — notre dispositif ne supprime rien et n'agit jamais seul : il
-avertit celui qui publie. C'est l'*auto warning*, et il faut le dire ainsi plutôt
-que de laisser croire à un filtre qui tranche.
-
-**Démo (2 min)** — écrire une description d'événement contenant un numéro de
-téléphone, la passer en public, montrer l'avertissement avec le passage surligné,
-le journal auditable, et le fait que rien n'a été supprimé.
-
----
-
 ## 13 · Notifications — Minor, 1 pt
 
 - A complete notification system for **all** creation, update, and deletion actions
@@ -373,35 +329,57 @@ montrer les jetons de couleur et de typographie.
 
 ---
 
-## 16 · Multilingue — Minor, 1 pt
+## 17 · Santé et sauvegardes — Minor, 1 pt
 
-- Support for multiple languages (at least 3 languages).
-- Implement i18n (internationalization) system.
-- At least 3 complete language translations.
-- Language switcher in the UI.
-- All user-facing text must be translatable.
+- Health check and status page system with automated backups and disaster recovery
+  procedures
 
-**Chez nous** — français, anglais et espagnol. Le sélecteur est disponible avant
-et après connexion ; le choix reste dans le navigateur (`fieldnotes.language`),
-y compris après déconnexion. Sans choix enregistré, on suit une langue prise en
-charge par le navigateur, avec repli sur le français. Le compte ne porte pas de
-préférence de langue.
+**Chez nous** — `GET /api/health/` répond déjà. Restent à poser : un service de
+sauvegarde planifiée dans le `docker compose`, une page d'état qui dit quand a eu
+lieu la dernière, et la restauration écrite pas à pas.
 
-**Démo (3 min)** — ouvrir la connexion et passer du français à l'anglais puis à
-l'espagnol. Montrer les messages de validation en conservant une saisie. Connecté,
-changer de langue sur le tableau d'équipe, le calendrier et les graphiques : les
-dates, nombres et listes de participants suivent, les dates sélectionnées et les
-liens restent les mêmes. Ouvrir les notifications, puis sélectionner une photo
-dans le profil pour montrer les tailles de fichiers localisées. Recharger et se
-déconnecter : le choix reste enregistré.
+**À dire au correcteur** : une procédure de reprise qui n'a jamais été rejouée n'est
+qu'une intention. La démo la rejoue.
 
-**À préciser** — les textes saisis par les membres, les citations du règlement,
-le glossaire et les réponses générées par Fieldbot restent dans leur langue
-d'origine. Les exports conservent leur format serveur. Les règles de journée
-de travail et de fuseau horaire ne dépendent pas de la langue de l'interface.
+**Démo (3 min)** — ouvrir la page d'état, montrer la dernière sauvegarde, détruire la
+base de l'instance de démonstration et la restaurer en suivant le document, puis
+retrouver les données.
 
-Le parcours mobile/desktop et les commandes de vérification figurent dans
-[docs/multilingual.md](multilingual.md).
+---
+
+## 18 · Navigateurs supplémentaires — Minor, 1 pt
+
+- Full compatibility with at least 2 additional browsers (Firefox, Safari, Edge, etc.)
+- Test and fix all features in each browser
+- Document any browser-specific limitations
+- Consistent UI/UX across all supported browsers
+
+**Chez nous** — Firefox et Edge, qui tournent sous Linux ; Edge repose sur Chromium,
+donc Safari n'est qu'un renfort si un Mac ou un iPhone est à portée. « All
+features » veut dire chaque écran, pas la page d'accueil.
+
+**Démo (2 min)** — ouvrir le même écran dans les trois navigateurs, enregistrer une
+avancée dans chacun, puis montrer la liste des limites documentées.
+
+---
+
+## 19 · Plusieurs langues — Minor, 1 pt
+
+- Implement i18n (internationalization) system
+- At least 3 complete language translations
+- Language switcher in the UI
+- All user-facing text must be translatable
+
+**Chez nous** — français, anglais, espagnol, avec react-i18next. Le dernier point
+est le piège : depuis que l'interface affiche les messages d'erreur du serveur,
+écrits en français, « all » oblige à les traduire aussi, ainsi que les pages
+légales. Les dates, nombres et listes de participants suivent aussi la langue
+choisie, avec `fr-FR`, `en-GB` et `es-ES` comme formats régionaux ; le parcours
+de vérification complet figure dans [docs/multilingual.md](multilingual.md).
+
+**Démo (2 min)** — changer de langue depuis le sélecteur, parcourir trois écrans,
+provoquer une erreur de validation et la lire dans la langue choisie, montrer une
+date ou un total qui change de format, recharger la page et retrouver la langue.
 
 ---
 
@@ -434,9 +412,9 @@ commit à la mauvaise personne si on ne l'écrit pas.
 
 | surnom | compte GitHub | rôle |
 |---|---|---|
-| vous | `JeromeBarthelemy` | le back |
-| qrios | `Nitwee` | le front, et Tech Lead |
+| vous | `JeromeBarthelemy` | PO |
 | qbourine | `quentinbourinet-max` | PM |
-| Enelsep | `Enelsep` | — |
+| qrios | `Nitwee` | Tech Lead |
+| Enelsep | `Enelsep` | Developer |
 
 C'est au README qu'il reviendra de le dire en anglais, à la soutenance : #6.

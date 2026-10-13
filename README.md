@@ -74,7 +74,6 @@ and is saved in local storage under `fieldnotes.language`; it survives signing
 out and takes precedence over browser preferences on later visits. If storage
 is unavailable, selection still works for the current visit. The document's
 `lang` attribute follows the selected language.
-
 French, English and Spanish catalogues cover interface text, including legal
 pages, work-item suggestions, notifications and validation errors. Dates, times,
 relative dates, numbers, file sizes and lists of names follow the selected
@@ -82,7 +81,8 @@ language immediately, including calendars, chart axes, tooltips and their
 accessible tables. Regional display formats are `fr-FR`, `en-GB` and `es-ES`.
 Member-written content,
 rulebook citations, glossary definitions and generated Fieldbot answers retain
-their original text; Fieldbot currently generates answers in French.
+their original text; Fieldbot currently generates answers in English,
+regardless of the interface language (#215).
 Source-code identifiers and API error codes are English.
 
 Frontend translation keys are typed from the French react-i18next catalogue.
@@ -737,8 +737,9 @@ goes through the same session as the API and only from the site's own pages
 still goes through the API. Each write on the board — opening, closing or
 deleting a work item, ticking, adding to a progress, a note, a decision, a
 file added or removed — sends, once committed,
-`{"team_season": id, "work_item": id}` (`work_item` is `null` for a note to
-the whole team) to everyone who may read that team season at that moment:
+`{"team_season": id, "work_item": id, "deleted": false}` (`work_item` is
+`null` for a note to the whole team, `deleted` is `true` once a work item is
+deleted) to everyone who may read that team season at that moment:
 its members and every mentor, by the API's own rule. Worked out at each write
 rather than when the socket opens, so a member taken off a team stops
 hearing about it at once.
@@ -746,8 +747,11 @@ hearing about it at once.
 The screens then reload through the API what the message names, and the bell
 reads the member's notices again: the message says what changed, never what
 it now holds, so nothing is serialized twice. Only what is on screen is
-fetched again; the rest is marked stale. On connecting or reconnecting,
-everything is reloaded, since messages may have been missed.
+fetched again; the rest is marked stale. A deleted work item is the one
+exception: read again, it would answer 404 in the console, so it is
+forgotten instead, and a page open on it goes to its team's home. On
+connecting or reconnecting, everything is reloaded, since messages may have
+been missed.
 
 The channel layer lives in memory, which holds for the single Daphne process
 the stack runs. A second process would not see the first one's listeners: it
@@ -827,7 +831,7 @@ the entry it belongs to, leaves the disk once the deletion is committed.
 A member asks the current season's game manual a question. Retrieval finds
 the passages that answer it, ranked first by how much they may be trusted,
 then by how well they answer it; a local model (`club/generation.py`, Ollama,
-`compose.yml`'s `ollama` service) then writes a short French answer from
+`compose.yml`'s `ollama` service) then writes a short English answer from
 those passages alone, naming the references it relies on. No passage above
 the retrieval threshold means no generation either — the system's own
 refusal stands instead, so nothing is ever invented past what the source
@@ -846,24 +850,34 @@ given don't say". `qwen2.5:3b` hedges in exactly that case instead, which
 no citation check can tell apart from a model confidently wrong, so the
 choice rests on reading its answers, not just counting its citations.
 
-Reading real answers by hand (#207's own review, both Jerome's and a
-sweep of my own) found two more ways of being wrong no citation check
-alone catches: answering in English because the retrieved passage was,
-and citing nothing at all. Both now refuse the same way a wrong
-reference does (`generation.py`), and the model is asked again —
-sampled fresh, not deterministic — rather than settling for one bad
-draft, now that correctness matters more than how long an answer takes
-to arrive. Passages reach the model whole; `GENERATION_TIMEOUT_SECONDS`
-is 90 s per attempt, up to `GENERATION_MAX_ATTEMPTS` (3) attempts, so a
-hard failure (the model unreachable) is bounded at 90 s but three bad
-samples in a row can take several minutes. Read by hand against the
-real manual, this reliably turned confidently wrong answers (a real
-citation next to the wrong meaning, or a different rule entirely cited
-with the model's own text admitting it doesn't fit) into either a
-correct one on a later sample or a safe refusal — never, in this
-reading, a wrong one reaching the screen. Flash attention and a
-quantized KV cache (`compose.yml`'s `ollama` service) still cost nothing
-in accuracy and still help, just no longer the main lever.
+Reading real answers by hand found two more ways of being wrong no
+citation check alone catches: a 3B model asked for English sometimes
+answers in French instead, or drifts into a different script partway
+through — and citing nothing at all, which is no longer refused
+outright (#215). A drifted language or script, and a wrong reference,
+are refused the same way a model that cannot be reached is
+(`generation.py`); an answer naming no reference is kept instead, once
+it clears the same relevance check a named citation would, against the
+top-ranked passage — most of these, read by hand, turned out correct
+rather than wrong. Refused or not, the model is asked again — sampled
+fresh, not deterministic — rather than settling for one bad draft, now
+that correctness matters more than how long an answer takes to arrive.
+Passages reach the model whole; `GENERATION_TIMEOUT_SECONDS` is 90 s per
+attempt, up to `GENERATION_MAX_ATTEMPTS` (5) attempts, so a hard failure
+(the model unreachable) is bounded at 90 s but several bad samples in a
+row can take a few minutes. Read by hand against the real manual, this
+reliably turned confidently wrong answers (a real citation next to the
+wrong meaning, or a different rule entirely cited with the model's own
+text admitting it doesn't fit) into either a correct one on a later
+sample or a safe refusal. Flash attention and a quantized KV cache
+(`compose.yml`'s `ollama` service) still cost nothing in accuracy and
+still help, just not the main lever.
+
+The relevance check depends on how it is asked as much as on what it is
+asked about: a wording that asked the model to act as a strict verifier
+answered no to a right passage as often as a wrong one, unable to tell
+them apart at all; asking plainly whether the passage helps answer the
+question told them apart reliably instead.
 
 Retrieval itself runs on the question as asked. It once ran on French
 questions against an English manual, which measurably found the right
@@ -881,12 +895,24 @@ laptop nearer the lower end of what the club has.
 
 | route | does |
 | --- | --- |
-| `POST /api/rules/ask/` | a question, answered with a generated French answer and up to ten cited passages from this season's ingested documents |
+| `POST /api/rules/ask/` | a question, answered with a generated English answer and up to ten cited passages from this season's ingested documents |
 | `GET /api/rules/glossary/` | the current season's glossary — its latest manual's own terms and definitions, read at ingestion (#136); quietly `[]` without one |
 | `GET /api/rules/sources/` | administrators only: per source, the copy searched, when it was checked, and any change waiting for acceptance with its summary |
-| `POST /api/rules/sources/` | administrators only: `source` (`game_manual`) and `url` on FIRST's own site (`https`, `ftc-resources.firstinspires.org`) — fetches the page, ingests it as the new copy, and the checks follow that URL from now on; `400` with `source_not_allowed`, `fetch_failed` (also when a redirect leaves FIRST's site) or `no_passage` (a page with nothing to index) otherwise |
-| `POST /api/rules/sources/check/` | administrators only: check the game manual against its page now, the same check the `sources-check` service runs every 24 hours (the Q&A is not checked yet) |
+| `POST /api/rules/sources/` | administrators only: `source` (`game_manual` or `official_qa`) and `url` on FIRST's own site for that source (`https`, `ftc-resources.firstinspires.org` for the manual, `game-qa.firstinspires.org` for the Q&A board) — fetches the page, ingests it as the new copy, and the checks follow that URL from now on; `400` with `source_not_allowed`, `fetch_failed` (also when a redirect leaves FIRST's site) or `no_passage` (a page with nothing to index) otherwise |
+| `POST /api/rules/sources/check/` | administrators only: check every source's page against its searched copy now, the same check the `sources-check` service runs every 24 hours |
 | `POST /api/rules/sources/{source}/accept/` | administrators only: replace the searched copy with the fetched change; `404` when nothing is waiting |
+
+The last four routes have a screen of their own: a club admin sees a small
+badge on the team home page the moment a check finds a change waiting, and
+opens it into a review listing each source, when it was last checked, and
+— if one is waiting — what changed (passages added, removed, changed, and
+up to the first 20 references touched), with "Accepter la mise à jour" and
+"Ignorer pour l'instant". Accepting calls the accept route above;
+dismissing writes nothing to the server, only to the browser's own
+storage, keyed by the change's own `detected_at` — a newer change brings
+the badge and the review back by themselves, with nothing to clear by
+hand. Adding a source's very first URL still needs the management command
+below, run once a season.
 
 "Current season" here means `Season.objects.first()` — the whole route has
 no `team_season_id` to read it from, unlike everything else in this API, so
@@ -895,8 +921,10 @@ one asked. A season with nothing ingested yet is refused by name ("Le manuel
 de la saison 2026-2027 n'est pas encore chargé"), distinct from an ingested
 manual simply not answering a question.
 
-Ingesting a document is a management command, not a route — there is no
-screen for uploading a manual, only for asking it questions:
+Ingesting a document for the first time is a management command, not a
+route — there is no screen for uploading a brand-new manual, only for
+asking it questions and reviewing the updates to one already ingested
+(above):
 
 ```sh
 python manage.py ingest_document "BIOBUZZ Competition Manual - TU02.htm" \
@@ -917,6 +945,21 @@ apart from a real rule or section opening. The HTML export needs no such
 guessing — every rule carries its own anchor, and every heading already is
 a real `<h1>`-`<h3>`. The command refuses a `.pdf` file for `game_manual`
 outright rather than silently ingest one undifferentiated passage.
+
+The Q&A board (`game-qa.firstinspires.org/boards/<year>/FTC/QA`) is read
+the same way, from its own HTML: the page is a JavaScript application,
+but it embeds every question and its answer as one JSON object right in
+the markup (`Object.assign(window, {...})`), declared utf-8 in its own
+`<meta>` tag — the one encoding difference from the manual, which is
+windows-1252. An answered question (`status: "ANSWERED"`) becomes one
+passage, named `Q<n>` by its own number; a question still awaiting a
+ruling is shown on the board but never indexed — a citation naming a
+question without its answer would point a student at nothing (#163).
+`chunk_qa` reads that embedded JSON directly rather than scanning rendered
+text, so a page that is not the real board — stripped down, or redirected
+to a sign-in page if FIRST ever makes it private again — yields no passage
+and is refused up front (`NoPassage`/`no_passage`), the same guarantee the
+manual already had.
 
 `--source` is one of `game_manual` or `official_qa`, and decides the
 document's authority (respectively `binding`, `ruling`) — never asked for on
@@ -1201,7 +1244,7 @@ in French. `docs/` is the one exception, and a deliberate one — see below.
   full, the build order and what is deliberately out of scope.
 - [`docs/schema-socle.svg`](docs/schema-socle.svg) — the database schema of what
   is built so far, which the subject requires documented.
-- [`docs/modules.md`](docs/modules.md) — the fifteen declared modules: what the
+- [`docs/modules.md`](docs/modules.md) — the sixteen declared modules: what the
   club has in front of each requirement, and how each will be demonstrated.
   It is the defence rehearsal, not a specification — the README is what says
   what was built, and a milestone is what says it is done.
