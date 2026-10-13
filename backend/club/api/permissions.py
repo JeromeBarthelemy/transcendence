@@ -83,8 +83,7 @@ def not_staff_target(request: Request, target: User) -> None:
     Superuser is a second, stricter boundary layered on top of it rather
     than folded into the same check: `is_staff` alone opens the Django
     admin, but says nothing about `is_superuser` — a staff club admin who
-    is not a superuser could otherwise still demote or deactivate one,
-    found reviewing #88."""
+    is not a superuser could otherwise still demote or deactivate one."""
     if target.is_staff and not request.user.is_staff:
         raise PermissionDenied(
             "Ce compte a accès à l'admin Django ; seul un accès équivalent "
