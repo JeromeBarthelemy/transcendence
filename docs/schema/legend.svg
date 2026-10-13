@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 980 235" role="img"
+     aria-labelledby="t d" font-family="IBM Plex Mono, ui-monospace, monospace">
+  <title id="t">Legend</title>
+  <desc id="d">How to read the schema diagrams: keys, constraints, delete rules, types and link ends.</desc>
+
+  <style>
+    .bg   { fill:#ffffff }
+    .bx   { fill:#ffffff; stroke:#1f2933; stroke-width:1.3 }
+    .sep  { stroke:#1f2933; stroke-width:1; opacity:.45 }
+    .ttl  { font-family:"IBM Plex Sans Condensed",system-ui,sans-serif;
+            font-size:15px; font-weight:700; fill:#1f2933 }
+    .col  { font-size:12px; fill:#1f2933 }
+    .typ  { font-size:11px; fill:#3e6aa8 }
+    .ann  { font-size:11px; fill:#1f2933; opacity:.6 }
+    .lnk  { stroke:#1f2933; stroke-width:1.3; fill:none }
+    .cap  { font-family:"IBM Plex Sans Condensed",system-ui,sans-serif;
+            font-size:11.5px; fill:#1f2933; opacity:.75 }
+    .head { font-family:"IBM Plex Sans Condensed",system-ui,sans-serif;
+            font-size:18px; font-weight:700; fill:#1f2933 }
+    .lgt  { font-size:11.5px; fill:#1f2933; font-weight:600 }
+    .lgd  { font-size:11.5px; fill:#1f2933; opacity:.75 }
+  </style>
+
+  <rect class="bg" width="980" height="235"/>
+  <text class="head" x="30" y="34">Legend</text>
+
+  <text class="lgt" x="30" y="70">PK</text>
+  <text class="lgd" x="130" y="70">identifies a row</text>
+  <text class="lgt" x="30" y="89">FK → Table</text>
+  <text class="lgd" x="130" y="89">points to the primary key of Table</text>
+  <text class="lgt" x="30" y="108">null</text>
+  <text class="lgd" x="130" y="108">the column may hold no value</text>
+  <text class="lgt" x="30" y="127">UNIQUE</text>
+  <text class="lgd" x="130" y="127">no two rows share the value</text>
+  <text class="lgt" x="30" y="146">CHECK</text>
+  <text class="lgd" x="130" y="146">a condition every row must meet</text>
+  <text class="lgt" x="470" y="70">CASCADE</text>
+  <text class="lgd" x="560" y="70">deleting the target deletes the rows pointing to it</text>
+  <text class="lgt" x="470" y="89">PROTECT</text>
+  <text class="lgd" x="560" y="89">the target cannot be deleted while rows point to it</text>
+  <text class="lgt" x="470" y="108">SET_NULL</text>
+  <text class="lgd" x="560" y="108">the column is emptied, the row is kept</text>
+  <text class="lgt" x="470" y="127">_folded</text>
+  <text class="lgd" x="560" y="127">lowercased (name); also without accents or spaces (title)</text>
+  <text class="typ" x="470" y="146">blue</text>
+  <text class="lgd" x="560" y="146">the column's type, simplified from its Django field</text>
+  <line class="lnk" x1="30" y1="185" x2="70" y2="185"/>
+  <line class="lnk" x1="36" y1="178" x2="36" y2="192"/>
+  <text class="lgd" x="80" y="189">exactly one on this side</text>
+  <line class="lnk" x1="470" y1="185" x2="510" y2="185"/>
+  <path class="lnk" d="M498,185 L510,177 M498,185 L510,185 M498,185 L510,193"/>
+  <text class="lgd" x="520" y="189">many on this side: one Season, many TeamSeasons</text>
+  <line class="lnk" x1="30" y1="209" x2="70" y2="209"/>
+  <line class="lnk" x1="36" y1="202" x2="36" y2="216"/>
+  <line class="lnk" x1="64" y1="202" x2="64" y2="216"/>
+  <text class="lgd" x="80" y="213">one on each side: an account, at most one verification request</text>
+</svg>

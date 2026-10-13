@@ -1221,8 +1221,10 @@ in French. `docs/` is the one exception, and a deliberate one — see below.
 - [`docs/fieldnotes.html`](docs/fieldnotes.html) — the concept note: the
   problem, the architecture, what the club's practice corrected, the schema in
   full, the build order and what is deliberately out of scope.
-- [`docs/schema-socle.svg`](docs/schema-socle.svg) — the database schema of what
-  is built so far, which the subject requires documented.
+- [`docs/schema/`](docs/schema/) — the database schema, which the subject
+  requires documented: one diagram per area (club and accounts, notebook and
+  notifications, rulebook) and a shared legend, to be laid out in the README's
+  *Database Schema* section.
 - [`docs/modules.md`](docs/modules.md) — the sixteen declared modules: what the
   club has in front of each requirement, and how each will be demonstrated.
   It is the defence rehearsal, not a specification — the README is what says
