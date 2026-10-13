@@ -1188,7 +1188,7 @@ in French. `docs/` is the one exception, and a deliberate one — see below.
   full, the build order and what is deliberately out of scope.
 - [`docs/schema-socle.svg`](docs/schema-socle.svg) — the database schema of what
   is built so far, which the subject requires documented.
-- [`docs/modules.md`](docs/modules.md) — the fifteen declared modules: what the
+- [`docs/modules.md`](docs/modules.md) — the sixteen declared modules: what the
   club has in front of each requirement, and how each will be demonstrated.
   It is the defence rehearsal, not a specification — the README is what says
   what was built, and a milestone is what says it is done.
