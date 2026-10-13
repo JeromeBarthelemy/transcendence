@@ -789,7 +789,7 @@ the entry it belongs to, leaves the disk once the deletion is committed.
 A member asks the current season's game manual a question. Retrieval finds
 the passages that answer it, ranked first by how much they may be trusted,
 then by how well they answer it; a local model (`club/generation.py`, Ollama,
-`compose.yml`'s `ollama` service) then writes a short French answer from
+`compose.yml`'s `ollama` service) then writes a short English answer from
 those passages alone, naming the references it relies on. No passage above
 the retrieval threshold means no generation either — the system's own
 refusal stands instead, so nothing is ever invented past what the source
@@ -808,24 +808,34 @@ given don't say". `qwen2.5:3b` hedges in exactly that case instead, which
 no citation check can tell apart from a model confidently wrong, so the
 choice rests on reading its answers, not just counting its citations.
 
-Reading real answers by hand (#207's own review, both Jerome's and a
-sweep of my own) found two more ways of being wrong no citation check
-alone catches: answering in English because the retrieved passage was,
-and citing nothing at all. Both now refuse the same way a wrong
-reference does (`generation.py`), and the model is asked again —
-sampled fresh, not deterministic — rather than settling for one bad
-draft, now that correctness matters more than how long an answer takes
-to arrive. Passages reach the model whole; `GENERATION_TIMEOUT_SECONDS`
-is 90 s per attempt, up to `GENERATION_MAX_ATTEMPTS` (3) attempts, so a
-hard failure (the model unreachable) is bounded at 90 s but three bad
-samples in a row can take several minutes. Read by hand against the
-real manual, this reliably turned confidently wrong answers (a real
-citation next to the wrong meaning, or a different rule entirely cited
-with the model's own text admitting it doesn't fit) into either a
-correct one on a later sample or a safe refusal — never, in this
-reading, a wrong one reaching the screen. Flash attention and a
-quantized KV cache (`compose.yml`'s `ollama` service) still cost nothing
-in accuracy and still help, just no longer the main lever.
+Reading real answers by hand found two more ways of being wrong no
+citation check alone catches: a 3B model asked for English sometimes
+answers in French instead, or drifts into a different script partway
+through — and citing nothing at all, which is no longer refused
+outright (#215). A drifted language or script, and a wrong reference,
+are refused the same way a model that cannot be reached is
+(`generation.py`); an answer naming no reference is kept instead, once
+it clears the same relevance check a named citation would, against the
+top-ranked passage — most of these, read by hand, turned out correct
+rather than wrong. Refused or not, the model is asked again — sampled
+fresh, not deterministic — rather than settling for one bad draft, now
+that correctness matters more than how long an answer takes to arrive.
+Passages reach the model whole; `GENERATION_TIMEOUT_SECONDS` is 90 s per
+attempt, up to `GENERATION_MAX_ATTEMPTS` (5) attempts, so a hard failure
+(the model unreachable) is bounded at 90 s but several bad samples in a
+row can take a few minutes. Read by hand against the real manual, this
+reliably turned confidently wrong answers (a real citation next to the
+wrong meaning, or a different rule entirely cited with the model's own
+text admitting it doesn't fit) into either a correct one on a later
+sample or a safe refusal. Flash attention and a quantized KV cache
+(`compose.yml`'s `ollama` service) still cost nothing in accuracy and
+still help, just not the main lever.
+
+The relevance check depends on how it is asked as much as on what it is
+asked about: a wording that asked the model to act as a strict verifier
+answered no to a right passage as often as a wrong one, unable to tell
+them apart at all; asking plainly whether the passage helps answer the
+question told them apart reliably instead.
 
 Retrieval itself runs on the question as asked. It once ran on French
 questions against an English manual, which measurably found the right
@@ -843,7 +853,7 @@ laptop nearer the lower end of what the club has.
 
 | route | does |
 | --- | --- |
-| `POST /api/rules/ask/` | a question, answered with a generated French answer and up to ten cited passages from this season's ingested documents |
+| `POST /api/rules/ask/` | a question, answered with a generated English answer and up to ten cited passages from this season's ingested documents |
 | `GET /api/rules/glossary/` | the current season's glossary — its latest manual's own terms and definitions, read at ingestion (#136); quietly `[]` without one |
 | `GET /api/rules/sources/` | administrators only: per source, the copy searched, when it was checked, and any change waiting for acceptance with its summary |
 | `POST /api/rules/sources/` | administrators only: `source` (`game_manual` or `official_qa`) and `url` on FIRST's own site for that source (`https`, `ftc-resources.firstinspires.org` for the manual, `game-qa.firstinspires.org` for the Q&A board) — fetches the page, ingests it as the new copy, and the checks follow that URL from now on; `400` with `source_not_allowed`, `fetch_failed` (also when a redirect leaves FIRST's site) or `no_passage` (a page with nothing to index) otherwise |
