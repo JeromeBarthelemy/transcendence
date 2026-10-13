@@ -13,7 +13,7 @@ import { createMemoryRouter, RouterProvider } from "react-router-dom";
 import { afterEach, expect, it, vi } from "vitest";
 
 import { routes } from "../app/router";
-import "../i18n";
+import i18n from "../i18n";
 
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -144,8 +144,9 @@ function listItemWith(text: string | RegExp): HTMLElement {
   return item;
 }
 
-afterEach(() => {
+afterEach(async () => {
   cleanup();
+  await i18n.changeLanguage("fr");
   vi.unstubAllGlobals();
   vi.useRealTimers();
 });
@@ -784,4 +785,63 @@ it("does not silently display a response for the wrong month", async () => {
   expect(
     within(calendar).queryByRole("list", { name: "Jours du mois" }),
   ).toBeNull();
+});
+
+it("switches summary dates, names and calendar labels without changing the selected date or month", async () => {
+  const { fetchMock, router } = renderSummary(
+    day({
+      entries: [
+        entry({
+          work_item: { id: 10, title: "Intake" },
+          participants: [member("Lina"), member("Tom")],
+        }),
+      ],
+    }),
+  );
+  await screen.findByRole("heading", { name: "Mercredi 30 septembre" });
+  await userEvent.click(
+    await screen.findByRole("button", { name: "Mois suivant" }),
+  );
+  await screen.findByRole("heading", { name: "octobre 2026" });
+  const initialRequests = fetchMock.mock.calls.length;
+  const language = screen.getByRole("combobox", { name: "Langue" });
+
+  for (const [code, title, month, people, dayLabel] of [
+    [
+      "en",
+      "Wednesday 30 September",
+      "October 2026",
+      "Lina and Tom",
+      /Monday 5 October/,
+    ],
+    [
+      "es",
+      "Miércoles, 30 de septiembre",
+      "octubre de 2026",
+      "Lina y Tom",
+      /lunes, 5 de octubre/,
+    ],
+    [
+      "fr",
+      "Mercredi 30 septembre",
+      "octobre 2026",
+      "Lina et Tom",
+      /lundi 5 octobre/,
+    ],
+  ] as const) {
+    await userEvent.selectOptions(language, code);
+    expect(screen.getByRole("heading", { name: title })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: month })).toBeTruthy();
+    expect(screen.getByText(people)).toBeTruthy();
+    expect(
+      screen.getByRole("link", { name: dayLabel }).getAttribute("href"),
+    ).toBe("/team-seasons/7/days/2026-10-05");
+    expect(router.state.location.pathname).toBe(
+      "/team-seasons/7/days/2026-09-30",
+    );
+    expect(
+      (screen.getByDisplayValue("2026-09-30") as HTMLInputElement).value,
+    ).toBe("2026-09-30");
+  }
+  expect(fetchMock.mock.calls).toHaveLength(initialRequests);
 });

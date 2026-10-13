@@ -1,12 +1,13 @@
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import type { WorkItemActivity } from "../api/activityAnalytics";
-import { formatDay } from "../app/formatters";
+import { useFormatters } from "../app/formatters";
 import { EmptyState } from "./EmptyState";
 
 /** Period counts alongside explicitly current status/step, not a historical snapshot. */
 export function ActivityWorkItems({ items }: { items: WorkItemActivity[] }) {
   const { t } = useTranslation();
+  const { formatMediumDay, formatNumber } = useFormatters();
   if (items.length === 0) {
     return (
       <EmptyState className="mt-4">{t("activity.noWorkItems")}</EmptyState>
@@ -67,17 +68,17 @@ export function ActivityWorkItems({ items }: { items: WorkItemActivity[] }) {
                 )}
               </td>
               <td className="px-3 py-4 text-right text-body">
-                {item.progress_entries}
+                {formatNumber(item.progress_entries)}
               </td>
               <td className="px-3 py-4 text-right text-body">
-                {item.active_days}
+                {formatNumber(item.active_days)}
               </td>
               <td className="px-3 py-4 text-right text-body">
-                {item.active_members}
+                {formatNumber(item.active_members)}
               </td>
               <td className="px-3 py-4 text-right text-body">
                 {item.last_progress_day
-                  ? formatDay(item.last_progress_day, "medium")
+                  ? formatMediumDay(item.last_progress_day)
                   : t("activity.noParticipation")}
               </td>
             </tr>

@@ -61,22 +61,18 @@ ne traîne là où un script pourrait le lire. Le prix est le CSRF, payé
 explicitement — la page appelle `GET /api/auth/me/` au démarrage, ce qui lui pose
 le cookie `csrftoken` qu'elle renverra en en-tête `X-CSRFToken`.
 
-**Une erreur d'API se dit deux fois** : un `code` stable en anglais, sur lequel le
-front branche, et un `message` en français, qu'il affiche. Aucune des deux options
-envisagées ne tenait seule — faire correspondre des phrases françaises aurait fait
-de chaque reformulation un bug côté front, et des codes seuls auraient imposé un
-catalogue de traduction à un projet qui sert un club dans une langue. Les deux
-voyagent donc ensemble :
+**Une erreur d'API se dit deux fois** : un `code` stable en anglais, que le front
+traduit dans la langue choisie, et un `message` en français, conservé pour les
+explications détaillées lorsque l'interface est en français. Les deux voyagent
+ensemble :
 
 ```json
 {"display_name": [{"code": "display_name_taken",
                    "message": "Ce nom d'affichage est déjà pris. Ajoutez une initiale."}]}
 ```
 
-Ce n'est pas une entorse à la règle du dépôt — anglais pour le code, français pour
-ce qui s'affiche — mais son application : un code *est* du code, on y branche, on
-ne le lit pas. Et il ne coûte presque rien, DRF portant déjà un `.code` sur chacun
-de ses messages.
+Les codes restent indépendants de la langue : reformuler une traduction ne
+change pas le contrat d'API. DRF porte déjà un `.code` sur chacun de ses messages.
 
 **Démo (2 min)** — montrer l'arborescence des applications, nommer le framework des
 deux côtés, ouvrir un `urls.py` et un middleware.
@@ -377,11 +373,13 @@ avancée dans chacun, puis montrer la liste des limites documentées.
 **Chez nous** — français, anglais, espagnol, avec react-i18next. Le dernier point
 est le piège : depuis que l'interface affiche les messages d'erreur du serveur,
 écrits en français, « all » oblige à les traduire aussi, ainsi que les pages
-légales.
+légales. Les dates, nombres et listes de participants suivent aussi la langue
+choisie, avec `fr-FR`, `en-GB` et `es-ES` comme formats régionaux ; le parcours
+de vérification complet figure dans [docs/multilingual.md](multilingual.md).
 
 **Démo (2 min)** — changer de langue depuis le sélecteur, parcourir trois écrans,
-provoquer une erreur de validation et la lire dans la langue choisie, recharger la
-page et retrouver la langue.
+provoquer une erreur de validation et la lire dans la langue choisie, montrer une
+date ou un total qui change de format, recharger la page et retrouver la langue.
 
 ---
 

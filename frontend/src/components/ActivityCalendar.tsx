@@ -4,20 +4,14 @@ import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 
 import { getActivityCalendar } from "../api/workdays";
-import { dayDate, formatWorkdayDate } from "../app/formatters";
+import { useFormatters } from "../app/formatters";
 import { RequestError } from "./ApiErrors";
 import { Button } from "./Button";
 import { Panel } from "./Panel";
 import { Heading } from "./Typography";
 
-const monthFormatter = new Intl.DateTimeFormat("fr-FR", {
-  month: "long",
-  year: "numeric",
-  timeZone: "UTC",
-});
-
 function adjacentMonth(month: string, offset: number) {
-  const date = dayDate(`${month}-01`);
+  const date = new Date(`${month}-01T12:00:00Z`);
   date.setUTCMonth(date.getUTCMonth() + offset);
   return `${String(date.getUTCFullYear()).padStart(4, "0")}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
 }
@@ -32,12 +26,13 @@ export function ActivityCalendar({
   day: string;
 }) {
   const { t } = useTranslation();
+  const { monthFormatter, formatWorkdayDate, formatNumber } = useFormatters();
   const [month, setMonth] = useState(day.slice(0, 7));
   const calendar = useQuery({
     queryKey: ["team-seasons", teamSeasonId, "calendar", month],
     queryFn: () => getActivityCalendar(teamSeasonId, month),
   });
-  const first = dayDate(`${month}-01`);
+  const first = new Date(`${month}-01T12:00:00Z`);
   const last = new Date(first);
   last.setUTCMonth(last.getUTCMonth() + 1, 0);
   const offset = (first.getUTCDay() + 6) % 7;
@@ -148,7 +143,7 @@ export function ActivityCalendar({
                     title={label}
                     className={`relative flex h-11 w-full items-center justify-center rounded-xl border text-sm font-semibold transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lagoon ${isSelected ? "border-accent bg-accent text-white hover:bg-primary" : "border-primary/20 bg-white text-ink hover:bg-tint"} ${isToday ? "ring-2 ring-mint-deep ring-inset" : ""}`}
                   >
-                    {index + 1}
+                    {formatNumber(index + 1)}
                     {hasActivity && (
                       <span
                         aria-hidden="true"

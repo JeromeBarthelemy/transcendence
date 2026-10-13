@@ -20,6 +20,7 @@ import {
   uploadAvatar,
 } from "../api/auth";
 import { ApiRequestError } from "../api/client";
+import { useFormatters } from "../app/formatters";
 import { currentUserQueryKey, useCurrentUser } from "../app/useCurrentUser";
 import {
   FieldErrors,
@@ -34,14 +35,6 @@ import { SuccessMessage } from "../components/Notice";
 import { Page } from "../components/Page";
 import { Panel } from "../components/Panel";
 import { Eyebrow, Heading } from "../components/Typography";
-
-const sizeFormatter = new Intl.NumberFormat("fr-FR", {
-  maximumFractionDigits: 1,
-});
-
-function formatSize(bytes: number): string {
-  return `${sizeFormatter.format(bytes / (1024 * 1024))} Mo`;
-}
 
 /** A local address for the chosen file, released once it is no longer shown. */
 function usePreview(file: File | null): string | null {
@@ -60,6 +53,7 @@ function usePreview(file: File | null): string | null {
 
 function PhotoForm({ identity }: { identity: Identity }) {
   const { t } = useTranslation();
+  const { formatFileSize } = useFormatters();
   const queryClient = useQueryClient();
   const inputId = useId();
   const [file, setFile] = useState<File | null>(null);
@@ -175,7 +169,7 @@ function PhotoForm({ identity }: { identity: Identity }) {
               <p className="text-sm text-body">
                 <span className="font-semibold">{file.name}</span>
                 {" · "}
-                {formatSize(file.size)}
+                {formatFileSize(file.size)}
               </p>
               <div className="mt-4 flex flex-wrap gap-3">
                 <Button

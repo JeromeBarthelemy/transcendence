@@ -11,7 +11,7 @@ import { createMemoryRouter, RouterProvider } from "react-router-dom";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
 import { routes } from "../app/router";
-import "../i18n";
+import i18n from "../i18n";
 
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -121,8 +121,9 @@ beforeEach(() => {
   URL.revokeObjectURL = vi.fn();
 });
 
-afterEach(() => {
+afterEach(async () => {
   cleanup();
+  await i18n.changeLanguage("fr");
   vi.unstubAllGlobals();
   setDocumentCookie("csrftoken=; Max-Age=0; path=/");
 });
@@ -317,4 +318,36 @@ it("removes the photo and falls back to the initials", async () => {
   expect(new Headers(remove?.[1]?.headers).get("X-CSRFToken")).toBe(
     "test-token",
   );
+});
+
+it("localizes the chosen photo's size without losing the file or preview", async () => {
+  stubApi((path) =>
+    path === "/api/auth/me/" ? json(identity(null)) : undefined,
+  );
+  renderAt("/profile");
+  const input = await screen.findByLabelText("Choisir une photo");
+  await userEvent.upload(
+    input,
+    photo("portrait.png", "image/png", 1.5 * 1024 ** 2),
+  );
+  const preview = screen.getByRole("img", {
+    name: "Aperçu de la nouvelle photo",
+  });
+  for (const [language, size] of [
+    ["en", "1.5 MB"],
+    ["es", "1,5 MB"],
+    ["fr", "1,5\u202fMo"],
+  ] as const) {
+    await userEvent.selectOptions(screen.getByRole("combobox"), language);
+    expect(screen.getByText("portrait.png")).toBeTruthy();
+    expect(
+      screen.getByText(
+        (_, node) =>
+          node?.tagName === "P" &&
+          node.textContent === `portrait.png · ${size}`,
+      ),
+    ).toBeTruthy();
+    expect(document.querySelector('img[src="blob:preview"]')).toBe(preview);
+  }
+  expect(FakeXhr.last).toBeNull();
 });

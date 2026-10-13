@@ -28,8 +28,8 @@
   "notifications": {
     "title": "Notifications",
     "labelNone": "Notifications, aucune non lue",
-    "label_one": "Notifications, {{count}} non lue",
-    "label_other": "Notifications, {{count}} non lues",
+    "label_one": "Notifications, {{count, number}} non lue",
+    "label_other": "Notifications, {{count, number}} non lues",
     "empty": "Rien de nouveau.",
     "new": "Nouveau",
     "team": "Toute l'équipe",
@@ -48,7 +48,7 @@
       "note": "une remarque",
       "decision": "une décision"
     },
-    "label_many": "Notifications, {{count}} non lues"
+    "label_many": "Notifications, {{count, number}} non lues"
   },
   "home": {
     "eyebrow": "La mémoire du club",
@@ -79,10 +79,10 @@
     "loading": "Chargement des chantiers…",
     "today": "Aujourd'hui",
     "loadingDay": "Chargement de la séance…",
-    "advancedWorkItemCount_one": "{{count}} chantier avancé",
-    "advancedWorkItemCount_other": "{{count}} chantiers avancés",
-    "presentCount_one": "{{count}} présent sur {{roster}}",
-    "presentCount_other": "{{count}} présents sur {{roster}}",
+    "advancedWorkItemCount_one": "{{count, number}} chantier avancé",
+    "advancedWorkItemCount_other": "{{count, number}} chantiers avancés",
+    "presentCount_one": "{{count, number}} présent sur {{roster, number}}",
+    "presentCount_other": "{{count, number}} présents sur {{roster, number}}",
     "addNote": "+ remarque",
     "daySummaryLink": "Résumé de la journée",
     "previousDayLink": "Séance précédente",
@@ -96,8 +96,8 @@
     "noteMeta": "{{author}} · {{time}}",
     "robot": "Robot",
     "offRobot": "Hors robot",
-    "workItemCount_one": "{{count}} chantier",
-    "workItemCount_other": "{{count}} chantiers",
+    "workItemCount_one": "{{count, number}} chantier",
+    "workItemCount_other": "{{count, number}} chantiers",
     "filterByStatus": "Filtrer par statut",
     "allStatuses": "Tous les statuts",
     "noWorkItems": "Aucun chantier correspondant dans cette catégorie.",
@@ -132,9 +132,9 @@
       "tuning": "Optimisation",
       "repair": "Réparation"
     },
-    "advancedWorkItemCount_many": "{{count}} chantiers avancés",
-    "presentCount_many": "{{count}} présents sur {{roster}}",
-    "workItemCount_many": "{{count}} chantiers"
+    "advancedWorkItemCount_many": "{{count, number}} chantiers avancés",
+    "presentCount_many": "{{count, number}} présents sur {{roster, number}}",
+    "workItemCount_many": "{{count, number}} chantiers"
   },
   "activity": {
     "eyebrow": "Vue d'ensemble",
@@ -241,8 +241,8 @@
     "closedDroppedUndated": "Chantier abandonné — rouvrez-le pour le reprendre.",
     "closedDoneUndated": "Chantier terminé — rouvrez-le pour le reprendre.",
     "closing": "Mise à jour…",
-    "progressCount_one": "{{count}} avancée",
-    "progressCount_other": "{{count}} avancées",
+    "progressCount_one": "{{count, number}} avancée",
+    "progressCount_other": "{{count, number}} avancées",
     "handover": "À reprendre",
     "today": "Séance en cours",
     "todayProgress": "L'avancée d'aujourd'hui",
@@ -278,7 +278,7 @@
     "yes": "Oui",
     "no": "Non",
     "upload": "Ajouter le fichier",
-    "uploading": "Envoi : {{progress}} %",
+    "uploading": "Envoi : {{progress, number}} %",
     "attachmentSaved": "Fichier ajouté.",
     "addNote": "Ajouter une remarque",
     "noteHint": "Consignez une observation liée à ce chantier sans modifier l'avancée en cours.",
@@ -298,7 +298,7 @@
       "note": "Remarque",
       "decision": "Décision"
     },
-    "progressCount_many": "{{count}} avancées"
+    "progressCount_many": "{{count, number}} avancées"
   },
   "teams": {
     "eyebrow": "Administration du club",
@@ -322,8 +322,8 @@
     "deleteConfirm": "Supprimer définitivement l'équipe {{team}} ?",
     "confirmDelete": "Supprimer l'équipe",
     "deleting": "Suppression…",
-    "memberCount_one": "{{count}} membre",
-    "memberCount_other": "{{count}} membres",
+    "memberCount_one": "{{count, number}} membre",
+    "memberCount_other": "{{count, number}} membres",
     "noMembers": "Aucun membre pour l'instant.",
     "removeMember": "Retirer",
     "removeMemberLabel": "Retirer {{name}} de l'équipe {{team}}",
@@ -338,7 +338,7 @@
       "student": "élève",
       "mentor": "mentor"
     },
-    "memberCount_many": "{{count}} membres"
+    "memberCount_many": "{{count, number}} membres"
   },
   "ruleSources": {
     "eyebrow": "Administration du club",
@@ -384,8 +384,8 @@
       "mentor": "Mentors",
       "admin": "Administrateurs"
     },
-    "count_one": "{{count}} membre",
-    "count_other": "{{count}} membres",
+    "count_one": "{{count, number}} membre",
+    "count_other": "{{count, number}} membres",
     "noMatch": "Aucun membre ne correspond à ces critères.",
     "you": "(vous)",
     "roles": {
@@ -419,7 +419,7 @@
     "deleting": "Suppression…",
     "cancel": "Annuler",
     "deleted": "Le compte de {{name}} a été supprimé.",
-    "count_many": "{{count}} membres"
+    "count_many": "{{count, number}} membres"
   },
   "auth": {
     "login": "Se connecter",
@@ -449,7 +449,7 @@
     "sending": "Envoi…",
     "cancel": "Annuler",
     "progressLabel": "Progression de l'envoi",
-    "progress": "Envoi… {{percent}} %",
+    "progress": "Envoi… {{percent, number}} %",
     "processing": "Photo reçue, traitement en cours…",
     "uploaded": "Votre nouvelle photo est enregistrée.",
     "remove": "Supprimer la photo",
@@ -497,7 +497,7 @@
     "placeholder": "How long is AUTO?",
     "hint": "Posez votre question en anglais, avec les termes du manuel en majuscules (HIVE, AUTO…).",
     "send": "Envoyer la question",
-    "counter": "{{count}} / {{max}}",
+    "counter": "{{count, number}} / {{max, number}}",
     "conversation": "Conversation avec Fieldbot",
     "botName": "Fieldbot",
     "thinking": "Fieldbot cherche dans le règlement…",
@@ -559,17 +559,17 @@
     "empty": "Rien n'a été écrit ce jour-là.",
     "decision": "Décision",
     "note": "Remarque",
-    "photos_one": "{{count}} photo",
-    "photos_other": "{{count}} photos",
-    "videos_one": "{{count}} vidéo",
-    "videos_other": "{{count}} vidéos",
-    "files_one": "{{count}} fichier",
-    "files_other": "{{count}} fichiers",
-    "present": "Présents · {{count}} sur {{roster}}",
+    "photos_one": "{{count, number}} photo",
+    "photos_other": "{{count, number}} photos",
+    "videos_one": "{{count, number}} vidéo",
+    "videos_other": "{{count, number}} vidéos",
+    "files_one": "{{count, number}} fichier",
+    "files_other": "{{count, number}} fichiers",
+    "present": "Présents · {{count, number}} sur {{roster, number}}",
     "presentFrom": "déduits des chantiers",
-    "photos_many": "{{count}} photos",
-    "videos_many": "{{count}} vidéos",
-    "files_many": "{{count}} fichiers"
+    "photos_many": "{{count, number}} photos",
+    "videos_many": "{{count, number}} vidéos",
+    "files_many": "{{count, number}} fichiers"
   },
   "calendar": {
     "title": "Calendrier des séances",
@@ -582,12 +582,12 @@
     "selected": "Jour affiché",
     "noActivity": "Sans activité enregistrée",
     "empty": "Aucune activité enregistrée ce mois-ci.",
-    "progress_one": "{{count}} avancée",
-    "progress_other": "{{count}} avancées",
-    "notes_one": "{{count}} remarque",
-    "notes_other": "{{count}} remarques",
-    "decisions_one": "{{count}} décision",
-    "decisions_other": "{{count}} décisions",
+    "progress_one": "{{count, number}} avancée",
+    "progress_other": "{{count, number}} avancées",
+    "notes_one": "{{count, number}} remarque",
+    "notes_other": "{{count, number}} remarques",
+    "decisions_one": "{{count, number}} décision",
+    "decisions_other": "{{count, number}} décisions",
     "weekdays": {
       "monday": "Lun",
       "tuesday": "Mar",
@@ -597,9 +597,9 @@
       "saturday": "Sam",
       "sunday": "Dim"
     },
-    "progress_many": "{{count}} avancées",
-    "notes_many": "{{count}} remarques",
-    "decisions_many": "{{count}} décisions"
+    "progress_many": "{{count, number}} avancées",
+    "notes_many": "{{count, number}} remarques",
+    "decisions_many": "{{count, number}} décisions"
   },
   "validation": {
     "required": "Ce champ est obligatoire.",
@@ -667,7 +667,7 @@
     "unknown": "Une erreur inattendue est survenue."
   },
   "legal": {
-    "updated": "Dernière mise à jour : 8 octobre 2026",
+    "updated": "Dernière mise à jour : {{date}}",
     "privacy": {
       "title": "Politique de confidentialité",
       "intro": "Fieldnotes est le cahier de bord des équipes de robotique de Robotique CIV. Cette page explique quelles données l'application enregistre, pourquoi, qui peut les voir, combien de temps elles sont gardées et comment exercer vos droits.",

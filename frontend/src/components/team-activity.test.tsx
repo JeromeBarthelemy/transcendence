@@ -17,7 +17,7 @@ import {
 } from "../api/activityAnalytics";
 import type { TeamSeasonSummary } from "../api/auth";
 import { LiveStatus } from "../app/live";
-import "../i18n";
+import i18n from "../i18n";
 import { TeamActivity } from "./TeamActivity";
 
 function json(body: object, status = 200): Response {
@@ -193,8 +193,9 @@ function renderActivity(fetchMock: ReturnType<typeof vi.fn>, live = false) {
   return { ...view, queryClient, firstTeam };
 }
 
-afterEach(() => {
+afterEach(async () => {
   cleanup();
+  await i18n.changeLanguage("fr");
   vi.unstubAllGlobals();
 });
 
@@ -706,4 +707,71 @@ it("rejects malformed enriched analytics before rendering misleading charts", as
   await expect(
     getActivityAnalytics(7, { since: "2026-10-01", until: "2026-10-05" }),
   ).rejects.toThrow("The activity analytics response is invalid");
+});
+
+it("updates analytics dates and quantities in all languages without changing the period or export", async () => {
+  const fetchMock = vi.fn(async (path: string) =>
+    json(
+      analytics(path, {
+        summary: {
+          progress_entries: 12345,
+          active_days: 2,
+          active_members: 2,
+          work_items: 2,
+        },
+        activity_by_day: [
+          { day: "2026-10-05", progress_entries: 12345, active_members: 2 },
+        ],
+      }),
+    ),
+  );
+  renderActivity(fetchMock);
+  await screen.findByRole("link", { name: "Exporter en CSV" });
+  const before = fetchMock.mock.calls.length;
+  const exportHref = screen
+    .getByRole("link", { name: "Exporter en CSV" })
+    .getAttribute("href");
+
+  for (const [code, table, date, chart, shortDate, exportLabel, count] of [
+    [
+      "en",
+      "Member participation",
+      "5 October 2026",
+      "Activity over time data",
+      "5 Oct",
+      "Export as CSV",
+      "12,345",
+    ],
+    [
+      "es",
+      "Participación de los miembros",
+      "5 de octubre de 2026",
+      "Datos de actividad a lo largo del tiempo",
+      "5 oct",
+      "Exportar como CSV",
+      "12.345",
+    ],
+    [
+      "fr",
+      "Participation des membres",
+      "5 octobre 2026",
+      "Données de l'activité dans le temps",
+      "5 oct.",
+      "Exporter en CSV",
+      "12\u202f345",
+    ],
+  ] as const) {
+    await act(() => i18n.changeLanguage(code));
+    expect(
+      within(screen.getByRole("table", { name: table })).getByText(date),
+    ).toBeTruthy();
+    const chartTable = await screen.findByRole("table", { name: chart });
+    expect(
+      within(chartTable).getByRole("row", { name: `${shortDate} ${count} 2` }),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole("link", { name: exportLabel }).getAttribute("href"),
+    ).toBe(exportHref);
+  }
+  expect(fetchMock.mock.calls).toHaveLength(before);
 });

@@ -97,7 +97,7 @@ it.each([
   ["en", 0, "0 progress entries"],
   ["en", 1, "1 progress entry"],
   ["es", 1, "1 avance"],
-  ["es", 1000000, "1000000 avances"],
+  ["es", 1000000, "1.000.000 avances"],
 ])(
   "uses the plural rules for %s with count %i",
   async (language, count, expected) => {
