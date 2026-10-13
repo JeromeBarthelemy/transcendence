@@ -86,7 +86,22 @@ it("updates the document and translations without persisting programmatic change
   await i18n.changeLanguage("en");
   expect(document.documentElement.lang).toBe("en");
   expect(i18n.t("language.label")).toBe("Language");
-  expect(i18n.t("home.title")).toBe("Chaque avancée mérite une trace.");
+  expect(i18n.t("home.title")).toBe("Every step forward deserves a record.");
   expect(save).not.toHaveBeenCalled();
   expect(localStorage.getItem(languageStorageKey)).toBeNull();
 });
+
+it.each([
+  ["fr", 0, "0 avancée"],
+  ["fr", 2, "2 avancées"],
+  ["en", 0, "0 progress entries"],
+  ["en", 1, "1 progress entry"],
+  ["es", 1, "1 avance"],
+  ["es", 1000000, "1000000 avances"],
+])(
+  "uses the plural rules for %s with count %i",
+  async (language, count, expected) => {
+    await i18n.changeLanguage(language);
+    expect(i18n.t("workItem.progressCount", { count })).toBe(expected);
+  },
+);

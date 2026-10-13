@@ -8,6 +8,7 @@ import { z } from "zod";
 
 import { type SignUpInput, signUp } from "../api/auth";
 import { useCurrentUser } from "../app/useCurrentUser";
+import { useTranslatedValidation } from "../app/useTranslatedValidation";
 import {
   FieldErrors,
   fieldIssues,
@@ -72,6 +73,7 @@ export function SignUpPage() {
   const {
     register,
     handleSubmit,
+    trigger,
     formState: { errors },
   } = useForm({
     resolver: zodResolver(schema),
@@ -85,6 +87,7 @@ export function SignUpPage() {
       password_confirmation: "",
     },
   });
+  useTranslatedValidation(Object.keys(errors).length > 0, trigger);
   const signup = useMutation({ mutationFn: signUp });
   const firstNameIssues = fieldIssues(signup.error, "first_name");
   const lastNameIssues = fieldIssues(signup.error, "last_name");

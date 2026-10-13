@@ -8,6 +8,7 @@ import { z } from "zod";
 
 import { logIn } from "../api/auth";
 import { resetSession, useCurrentUser } from "../app/useCurrentUser";
+import { useTranslatedValidation } from "../app/useTranslatedValidation";
 import {
   FieldErrors,
   fieldIssues,
@@ -47,6 +48,7 @@ export function LoginPage() {
   const {
     register,
     handleSubmit,
+    trigger,
     formState: { errors },
   } = useForm({
     resolver: zodResolver(schema),
@@ -55,6 +57,7 @@ export function LoginPage() {
       password: "",
     },
   });
+  useTranslatedValidation(Object.keys(errors).length > 0, trigger);
   const login = useMutation({
     mutationFn: logIn,
     onSuccess: (identity) => {

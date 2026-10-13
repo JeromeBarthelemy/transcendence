@@ -4,7 +4,7 @@ import { createMemoryRouter, RouterProvider } from "react-router-dom";
 import { afterEach, expect, it, vi } from "vitest";
 
 import { routes } from "../app/router";
-import "../i18n";
+import i18n from "../i18n";
 
 // The subject rejects the project without these pages, reachable from every
 // page: "Missing or inadequate Privacy Policy/Terms of Service pages will
@@ -60,10 +60,45 @@ async function footerLinks() {
     .map((link) => [link.textContent, link.getAttribute("href")]);
 }
 
-afterEach(() => {
+afterEach(async () => {
   cleanup();
   vi.unstubAllGlobals();
+  await i18n.changeLanguage("fr");
+  localStorage.clear();
 });
+
+it.each([
+  ["en", "Privacy policy", "Your rights", "Terms of use", "privacy policy"],
+  [
+    "es",
+    "Política de privacidad",
+    "Tus derechos",
+    "Condiciones de uso",
+    "política de privacidad",
+  ],
+])(
+  "translates legal pages and retains real links and contact details in %s",
+  async (language, privacyTitle, rights, termsTitle, policyLink) => {
+    await i18n.changeLanguage(language);
+    renderAt("/privacy", anonymous);
+    await screen.findByRole("heading", { level: 1, name: privacyTitle });
+    expect(screen.getByRole("heading", { name: rights })).toBeTruthy();
+    const main = screen.getByRole("main");
+    expect(
+      within(main).getAllByText("robotique.civ@gmail.com").length,
+    ).toBeGreaterThan(0);
+    const terms = within(main).getByRole("link");
+    expect(terms.getAttribute("href")).toBe("/terms");
+    cleanup();
+    renderAt("/terms", anonymous);
+    await screen.findByRole("heading", { level: 1, name: termsTitle });
+    expect(
+      within(screen.getByRole("main"))
+        .getByRole("link", { name: policyLink })
+        .getAttribute("href"),
+    ).toBe("/privacy");
+  },
+);
 
 it("links both pages from the footer before signing in", async () => {
   renderAt("/", anonymous);

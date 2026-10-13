@@ -1,11 +1,11 @@
 import type { ReactNode } from "react";
+import { Trans, useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import { Page } from "../components/Page";
 import { Heading } from "../components/Typography";
 
 // Written from what the application stores and does, not from a template:
 // a change to what it collects, shows or keeps changes these pages too.
-const UPDATED_ON = "8 octobre 2026";
 const CONTACT = "robotique.civ@gmail.com";
 
 function LegalPage({
@@ -15,391 +15,320 @@ function LegalPage({
   title: string;
   children: ReactNode;
 }) {
+  const { t } = useTranslation();
   return (
     <Page width="3xl" className="legal text-body">
       <Heading size="page">{title}</Heading>
-      <p className="mt-2 text-sm text-muted">
-        Dernière mise à jour : {UPDATED_ON}
-      </p>
+      <p className="mt-2 text-sm text-muted">{t("legal.updated")}</p>
       {children}
     </Page>
   );
 }
 
 export function PrivacyPage() {
+  const { t } = useTranslation();
   return (
-    <LegalPage title="Politique de confidentialité">
+    <LegalPage title={t("legal.privacy.title")}>
+      <p>{t("legal.privacy.intro")}</p>
+
+      <h2>{t("legal.privacy.controllerTitle")}</h2>
       <p>
-        Fieldnotes est le cahier de bord des équipes de robotique de Robotique
-        CIV. Cette page explique quelles données l'application enregistre,
-        pourquoi, qui peut les voir, combien de temps elles sont gardées et
-        comment exercer vos droits.
+        <Trans
+          i18nKey="legal.privacy.controller"
+          values={{ contact: CONTACT }}
+          components={{ strong: <strong />, br: <br /> }}
+        />
       </p>
 
-      <h2>Qui est responsable de vos données</h2>
+      <h2>{t("legal.privacy.locationTitle")}</h2>
       <p>
-        <strong>Robotique CIV</strong>, association loi 1901
-        <br />
-        190 rue Frédéric Mistral, 06560 Valbonne
-        <br />
-        Contact : <strong>{CONTACT}</strong>
+        <Trans
+          i18nKey="legal.privacy.location"
+          components={{ strong: <strong /> }}
+        />
       </p>
 
-      <h2>Où sont vos données</h2>
-      <p>
-        L'application est installée{" "}
-        <strong>sur une machine du club, dans ses locaux</strong>. Vos données
-        ne sont ni hébergées chez un prestataire, ni vendues, ni transmises à
-        des tiers. La seule sortie est l'envoi des courriels de confirmation.
-      </p>
-
-      <h2>Ce que nous enregistrons, et pourquoi</h2>
-      <h3>Votre compte</h3>
+      <h2>{t("legal.privacy.collectedTitle")}</h2>
+      <h3>{t("legal.privacy.accountTitle")}</h3>
       <ul>
         <li>
-          votre <strong>identifiant de connexion</strong> (votre adresse e-mail
-          ; si vous n'en avez pas, une adresse fictive est créée pour vous et ne
-          reçoit jamais rien) ;
+          <Trans
+            i18nKey="legal.privacy.loginIdentifier"
+            components={{ strong: <strong /> }}
+          />
         </li>
         <li>
-          votre <strong>nom d'affichage</strong>, visible des autres membres ;
+          <Trans
+            i18nKey="legal.privacy.displayName"
+            components={{ strong: <strong /> }}
+          />
         </li>
         <li>
-          votre <strong>mot de passe</strong>, enregistré sous une forme
-          chiffrée et irréversible : personne, y compris les responsables du
-          club, ne peut le lire ;
+          <Trans
+            i18nKey="legal.privacy.password"
+            components={{ strong: <strong /> }}
+          />
         </li>
-        <li>
-          votre date d'inscription et votre rôle (élève, mentor, administrateur)
-          ;
-        </li>
-        <li>
-          le nombre de mots de passe erronés saisis à la suite, et, s'il en
-          atteint cinq, l'heure jusqu'à laquelle la connexion est bloquée.
-        </li>
+        <li>{t("legal.privacy.joinedAndRole")}</li>
+        <li>{t("legal.privacy.failedLogins")}</li>
       </ul>
-      <p className="legal-why">
-        Pourquoi : vous permettre de vous connecter et de travailler avec votre
-        équipe, et empêcher qu'on devine votre mot de passe en essayant à la
-        chaîne.
-      </p>
+      <p className="legal-why">{t("legal.privacy.accountWhy")}</p>
 
-      <h3>La vérification de votre adhésion</h3>
+      <h3>{t("legal.privacy.membershipTitle")}</h3>
       <p>
-        À l'inscription, vous indiquez votre nom, votre prénom et votre date de
-        naissance. Ils servent <strong>uniquement</strong> à retrouver votre
-        adhésion dans le fichier des adhérents du club (AssoConnect), puis ils
-        sont <strong>supprimés</strong>. Nous recopions alors depuis AssoConnect
-        votre numéro d'adhérent, votre date de naissance et une adresse de
-        contact : la vôtre si vous êtes majeur, celle de votre représentant
-        légal si vous êtes mineur.
+        <Trans
+          i18nKey="legal.privacy.membership"
+          components={{ strong: <strong /> }}
+        />
       </p>
-      <p className="legal-why">
-        Pourquoi : réserver l'application aux adhérents et savoir si un membre
-        est mineur. C'est la date d'AssoConnect qui fait foi, pas celle saisie à
-        l'inscription.
-      </p>
+      <p className="legal-why">{t("legal.privacy.membershipWhy")}</p>
 
-      <h3>Le droit à l'image</h3>
+      <h3>{t("legal.privacy.consentTitle")}</h3>
+      <p>{t("legal.privacy.consent")}</p>
+
+      <h3>{t("legal.privacy.workTitle")}</h3>
+      <p>{t("legal.privacy.work")}</p>
+      <p className="legal-why">{t("legal.privacy.workWhy")}</p>
+
+      <h3>{t("legal.privacy.filesTitle")}</h3>
       <p>
-        Nous gardons l'historique daté de vos décisions (accord ou refus), avec
-        la qualité de la personne qui a signé (vous ou votre représentant
-        légal). Le document signé reste dans AssoConnect. Ces décisions sont
-        consultées par le club avant toute publication, et un refus s'applique
-        dès sa date. Quand un fichier est déposé dans l'application, on indique
-        si des personnes y sont reconnaissables ; le club s'en sert pour savoir
-        quoi vérifier avant une publication.
+        <Trans
+          i18nKey="legal.privacy.files"
+          components={{ strong: <strong /> }}
+        />
       </p>
+      <p className="legal-why">{t("legal.privacy.filesWhy")}</p>
 
-      <h3>Le travail de l'équipe</h3>
+      <h3>{t("legal.privacy.photoTitle")}</h3>
       <p>
-        Les notes, avancées, décisions et passations que vous écrivez, avec leur
-        date, leur auteur et leurs participants. Votre présence un jour
-        d'atelier se déduit des avancées auxquelles vous avez participé.
-      </p>
-      <p className="legal-why">
-        Pourquoi : c'est l'objet même de l'outil, garder la trace du travail de
-        l'équipe d'une séance à l'autre et d'une saison à l'autre.
+        <Trans
+          i18nKey="legal.privacy.photo"
+          components={{ strong: <strong /> }}
+        />
       </p>
 
-      <h3>Les fichiers déposés</h3>
+      <h3>{t("legal.privacy.questionsTitle")}</h3>
+      <p>{t("legal.privacy.questions")}</p>
+
+      <h3>{t("legal.privacy.cookiesTitle")}</h3>
       <p>
-        Les photos, vidéos, plans et fichiers de CAO ajoutés à une trace. Une
-        photo ou une vidéo est <strong>débarrassée de ses métadonnées</strong>,
-        dont la position où elle a été prise, et une photo d'iPhone (HEIC) est
-        convertie en JPEG. Ils ne sont visibles que de l'équipe et des mentors ;
-        celui qui a déposé un fichier, ou un mentor, peut le retirer.
-      </p>
-      <p className="legal-why">
-        Pourquoi : une photo du prototype ou la vidéo d'un essai est souvent la
-        trace la plus utile d'une séance, et le portfolio a besoin du fichier
-        lui-même.
+        <Trans
+          i18nKey="legal.privacy.cookies"
+          components={{ strong: <strong /> }}
+        />
       </p>
 
-      <h3>Votre photo (facultative)</h3>
-      <p>
-        Si vous ajoutez une photo de profil, elle est redimensionnée et{" "}
-        <strong>débarrassée de ses métadonnées</strong>, dont la position où
-        elle a été prise. Elle n'est visible que des membres connectés. Vous
-        pouvez la supprimer à tout moment.
-      </p>
-
-      <h3>Vos questions sur le règlement</h3>
-      <p>
-        Chaque question posée à l'assistant sur le règlement est enregistrée
-        avec son auteur, sa date et les passages du règlement qu'il a cités
-        (voir plus bas).
-      </p>
-
-      <h3>Les cookies</h3>
-      <p>
-        L'application utilise deux cookies techniques, indispensables à son
-        fonctionnement : un cookie de <strong>session</strong>, qui vous garde
-        connecté, et un cookie de <strong>sécurité</strong> (CSRF), qui empêche
-        un autre site d'agir en votre nom. Il n'y a{" "}
-        <strong>aucun cookie publicitaire ni de mesure d'audience</strong>.
-      </p>
-
-      <h2>Qui voit quoi</h2>
+      <h2>{t("legal.privacy.accessTitle")}</h2>
       <ul>
         <li>
-          <strong>Les élèves</strong> voient le travail de leur équipe et les
-          membres qui y participent.
+          <Trans
+            i18nKey="legal.privacy.students"
+            components={{ strong: <strong /> }}
+          />
         </li>
         <li>
-          <strong>Les mentors</strong> voient le travail de toutes les équipes
-          du club, pour les accompagner.
+          <Trans
+            i18nKey="legal.privacy.mentors"
+            components={{ strong: <strong /> }}
+          />
         </li>
         <li>
-          <strong>Les administrateurs du club</strong> gèrent les équipes, les
-          membres et les rôles.
+          <Trans
+            i18nKey="legal.privacy.administrators"
+            components={{ strong: <strong /> }}
+          />
         </li>
         <li>
-          <strong>L'export du cahier</strong> est, comme l'application, un
-          document de travail interne au club, qui sert de matière aux dossiers
-          de compétition. Rien n'est publié depuis l'application : c'est au
-          moment de rédiger un dossier ou une publication que le club consulte
-          les décisions de droit à l'image et écarte les images des membres qui
-          l'ont refusé.
+          <Trans
+            i18nKey="legal.privacy.notebook"
+            components={{ strong: <strong /> }}
+          />
         </li>
       </ul>
 
-      <h2>Les mineurs</h2>
+      <h2>{t("legal.privacy.minorsTitle")}</h2>
       <p>
-        La plupart de nos membres sont mineurs. L'utilisation de l'application
-        est couverte par l'
-        <strong>adhésion au club, signée par le représentant légal</strong> dans
-        AssoConnect. Les droits d'un membre mineur peuvent être exercés par
-        lui-même ou par son représentant légal, et les confirmations sont
-        envoyées à l'adresse de ce dernier.
+        <Trans
+          i18nKey="legal.privacy.minors"
+          components={{ strong: <strong /> }}
+        />
       </p>
 
-      <h2>L'assistant sur le règlement</h2>
+      <h2>{t("legal.privacy.assistantTitle")}</h2>
       <p>
-        L'assistant qui répond aux questions sur le règlement de la compétition{" "}
-        <strong>tourne entièrement sur la machine du club</strong> : il cherche
-        la réponse dans le manuel officiel et ses questions officielles, chargés
-        sur cette machine, et aucune question n'est envoyée à un service
-        extérieur. Vos questions ne sont pas montrées aux autres membres ; elles
-        font partie de vos données, et donc de votre export.
+        <Trans
+          i18nKey="legal.privacy.assistant"
+          components={{ strong: <strong /> }}
+        />
       </p>
 
-      <h2>Combien de temps nous gardons vos données</h2>
+      <h2>{t("legal.privacy.retentionTitle")}</h2>
       <table>
         <thead>
           <tr>
-            <th scope="col">Donnée</th>
-            <th scope="col">Durée</th>
+            <th scope="col">{t("legal.privacy.dataColumn")}</th>
+            <th scope="col">{t("legal.privacy.durationColumn")}</th>
           </tr>
         </thead>
         <tbody>
           <tr>
-            <td>Votre compte</td>
-            <td>tant que vous êtes adhérent</td>
+            <td>{t("legal.privacy.accountData")}</td>
+            <td>{t("legal.privacy.accountDuration")}</td>
           </tr>
           <tr>
-            <td>Le compte d'un membre qui quitte le club</td>
+            <td>{t("legal.privacy.departedData")}</td>
             <td>
-              <strong>anonymisé à son départ</strong> : son nom devient « Ancien
-              membre » ; sa photo, ses adresses, sa date de naissance et son
-              numéro d'adhérent sont effacés, et il ne permet plus de se
-              connecter
+              <Trans
+                i18nKey="legal.privacy.departedDuration"
+                components={{ strong: <strong /> }}
+              />
             </td>
           </tr>
           <tr>
-            <td>Les cahiers des équipes et les questions sur le règlement</td>
+            <td>{t("legal.privacy.archivesData")}</td>
             <td>
-              conservés comme <strong>archives du club</strong> ; après
-              l'anonymisation, ils ne sont plus rattachés à votre identité
+              <Trans
+                i18nKey="legal.privacy.archivesDuration"
+                components={{ strong: <strong /> }}
+              />
             </td>
           </tr>
           <tr>
-            <td>Les informations de vérification</td>
-            <td>
-              supprimées dès que votre adhésion est retrouvée, ou avec le compte
-              s'il n'est jamais rapproché d'une adhésion
-            </td>
+            <td>{t("legal.privacy.verificationData")}</td>
+            <td>{t("legal.privacy.verificationDuration")}</td>
           </tr>
           <tr>
-            <td>Les décisions de droit à l'image</td>
-            <td>tant que des contenus vous concernant existent</td>
+            <td>{t("legal.privacy.consentData")}</td>
+            <td>{t("legal.privacy.consentDuration")}</td>
           </tr>
           <tr>
-            <td>Le blocage après cinq mots de passe erronés</td>
-            <td>
-              quinze minutes ; le compte d'essais repart de zéro à la connexion
-              suivante
-            </td>
+            <td>{t("legal.privacy.lockoutData")}</td>
+            <td>{t("legal.privacy.lockoutDuration")}</td>
           </tr>
         </tbody>
       </table>
       <p>
-        Une suspension temporaire du compte, décidée par le club (voir les{" "}
-        <Link to="/terms">conditions d'utilisation</Link>), n'entraîne pas son
-        anonymisation.
+        <Trans
+          i18nKey="legal.privacy.suspension"
+          components={{ terms: <Link to="/terms" /> }}
+        />
       </p>
 
-      <h2>Vos droits</h2>
+      <h2>{t("legal.privacy.rightsTitle")}</h2>
       <p>
-        Vous pouvez à tout moment <strong>accéder</strong> à vos données, les{" "}
-        <strong>rectifier</strong>, en demander l'<strong>effacement</strong> ou
-        en recevoir une <strong>copie</strong> dans un format lisible.
-        L'application permet de demander l'export et la suppression de vos
-        données, avec une confirmation envoyée par courriel. Pour toute autre
-        demande, écrivez à <strong>{CONTACT}</strong>.
+        <Trans
+          i18nKey="legal.privacy.rights"
+          values={{ contact: CONTACT }}
+          components={{ strong: <strong /> }}
+        />
       </p>
+      <p>{t("legal.privacy.erasure")}</p>
       <p>
-        Un effacement est une anonymisation, la même qu'au départ du club :
-        votre identité disparaît de l'application, et les textes écrits pour
-        votre équipe restent dans ses archives, sans votre nom.
-      </p>
-      <p>
-        Si vous estimez que vos droits ne sont pas respectés, vous pouvez
-        adresser une réclamation à la <strong>CNIL</strong> (www.cnil.fr).
+        <Trans
+          i18nKey="legal.privacy.complaint"
+          components={{ strong: <strong /> }}
+        />
       </p>
 
-      <h2>Sécurité</h2>
-      <p>
-        Les échanges avec l'application sont chiffrés (HTTPS), les mots de passe
-        ne sont jamais stockés en clair, cinq mots de passe erronés à la suite
-        bloquent la connexion au compte pendant quinze minutes, et chaque accès
-        aux données vérifie que vous êtes connecté et autorisé à les voir.
-      </p>
+      <h2>{t("legal.privacy.securityTitle")}</h2>
+      <p>{t("legal.privacy.security")}</p>
     </LegalPage>
   );
 }
 
 export function TermsPage() {
+  const { t } = useTranslation();
   return (
-    <LegalPage title="Conditions d'utilisation">
+    <LegalPage title={t("legal.terms.title")}>
       <p>
-        Fieldnotes est le cahier de bord des équipes de robotique de{" "}
-        <strong>Robotique CIV</strong>, association loi 1901, 190 rue Frédéric
-        Mistral, 06560 Valbonne (contact : {CONTACT}). En créant un compte, vous
-        acceptez les conditions ci-dessous.
+        <Trans
+          i18nKey="legal.terms.intro"
+          values={{ contact: CONTACT }}
+          components={{ strong: <strong /> }}
+        />
       </p>
 
-      <h2>À quoi sert l'outil</h2>
+      <h2>{t("legal.terms.purposeTitle")}</h2>
       <p>
-        Fieldnotes sert à garder la trace du travail des équipes : ce qui a
-        avancé à chaque séance, ce qu'il reste à faire, ce qu'on transmet à ceux
-        qui prennent le relais. Il sert aussi à générer le cahier d'ingénierie
-        qui permet de rédiger le portfolio pour les compétitions.{" "}
-        <strong>Il est réservé à cet usage.</strong>
+        <Trans
+          i18nKey="legal.terms.purpose"
+          components={{ strong: <strong /> }}
+        />
       </p>
 
-      <h2>Qui peut l'utiliser</h2>
+      <h2>{t("legal.terms.eligibilityTitle")}</h2>
       <p>
-        L'application est réservée aux <strong>adhérents du club</strong>.
-        Chaque compte est rapproché de l'adhésion correspondante dans
-        AssoConnect. Pour un membre mineur, l'adhésion signée par son
-        représentant légal vaut accord pour l'utilisation de l'outil.
+        <Trans
+          i18nKey="legal.terms.eligibility"
+          components={{ strong: <strong /> }}
+        />
       </p>
 
-      <h2>Votre compte</h2>
+      <h2>{t("legal.terms.accountTitle")}</h2>
       <ul>
         <li>
-          Un compte est <strong>personnel</strong> : ne le prêtez pas et ne
-          partagez pas votre mot de passe.
+          <Trans
+            i18nKey="legal.terms.personalAccount"
+            components={{ strong: <strong /> }}
+          />
         </li>
-        <li>
-          Choisissez un nom d'affichage qui permet aux autres de vous
-          reconnaître, sans être moqueur ni offensant.
-        </li>
-        <li>
-          Si vous oubliez votre mot de passe, adressez-vous à un administrateur
-          du club, qui vous en donnera un provisoire.
-        </li>
+        <li>{t("legal.terms.displayName")}</li>
+        <li>{t("legal.terms.forgottenPassword")}</li>
       </ul>
 
-      <h2>Bonne conduite</h2>
+      <h2>{t("legal.terms.conductTitle")}</h2>
       <p>
-        Les règles sont simples :{" "}
-        <strong>
-          rester courtois et utiliser l'outil pour ce à quoi il est destiné.
-        </strong>{" "}
-        Concrètement :
+        <Trans
+          i18nKey="legal.terms.conduct"
+          components={{ strong: <strong /> }}
+        />
       </p>
       <ul>
+        <li>{t("legal.terms.respectfulWriting")}</li>
         <li>
-          écrivez avec respect : pas d'insulte, de moquerie ni de propos
-          blessants envers un membre, dans les notes comme dans les passations ;
+          <Trans
+            i18nKey="legal.terms.ownPhoto"
+            components={{ strong: <strong /> }}
+          />
         </li>
-        <li>
-          n'ajoutez comme photo de profil qu'<strong>une photo de vous</strong>,
-          jamais celle de quelqu'un d'autre ;
-        </li>
-        <li>
-          n'écrivez rien qui n'ait sa place dans le cahier d'une équipe : pas
-          d'informations personnelles sur d'autres membres, pas de contenu sans
-          rapport avec le club ;
-        </li>
-        <li>
-          ne cherchez pas à accéder à ce qui ne vous est pas destiné, comme le
-          travail d'une autre équipe ou le compte d'un autre membre.
-        </li>
+        <li>{t("legal.terms.appropriateContent")}</li>
+        <li>{t("legal.terms.authorizedAccess")}</li>
       </ul>
       <p>
-        Le <strong>règlement intérieur du club</strong> s'applique par ailleurs
-        à la vie au club et aux ateliers.
+        <Trans
+          i18nKey="legal.terms.clubRules"
+          components={{ strong: <strong /> }}
+        />
       </p>
 
-      <h2>Ce qui appartient à qui</h2>
+      <h2>{t("legal.terms.ownershipTitle")}</h2>
       <p>
-        Ce que vous écrivez dans le cahier de votre équipe fait partie de son{" "}
-        <strong>histoire</strong> : il reste dans les archives du club après
-        votre départ, mais sans votre nom, puisque votre compte est alors
-        anonymisé (voir la politique de confidentialité). Le club peut en
-        reprendre des extraits dans ses dossiers de compétition, en respectant
-        toujours les décisions de droit à l'image.
+        <Trans
+          i18nKey="legal.terms.ownership"
+          components={{ strong: <strong /> }}
+        />
       </p>
 
-      <h2>Ce que le club peut faire</h2>
+      <h2>{t("legal.terms.moderationTitle")}</h2>
       <p>
-        En cas de manquement à ces règles, un administrateur du club peut{" "}
-        <strong>modifier ou retirer un contenu</strong>, et{" "}
-        <strong>suspendre un compte</strong>. Une suspension est temporaire et
-        n'efface rien. Ces décisions sont prises en lien avec les responsables
-        du club, comme pour toute question de comportement.
+        <Trans
+          i18nKey="legal.terms.moderation"
+          components={{ strong: <strong /> }}
+        />
       </p>
 
-      <h2>Disponibilité</h2>
-      <p>
-        L'application tourne sur une machine du club. Elle est fournie telle
-        quelle, par des bénévoles, sans garantie de disponibilité permanente :
-        une panne ou une maintenance peut la rendre temporairement inaccessible.
-      </p>
+      <h2>{t("legal.terms.availabilityTitle")}</h2>
+      <p>{t("legal.terms.availability")}</p>
 
-      <h2>Changements</h2>
-      <p>
-        Ces conditions peuvent évoluer. La date de mise à jour en haut de page
-        indique la dernière version.
-      </p>
+      <h2>{t("legal.terms.changesTitle")}</h2>
+      <p>{t("legal.terms.changes")}</p>
 
-      <h2>Vos données</h2>
+      <h2>{t("legal.terms.dataTitle")}</h2>
       <p>
-        Ce que l'application enregistre, et vos droits sur ces données, sont
-        décrits dans la <Link to="/privacy">politique de confidentialité</Link>.
+        <Trans
+          i18nKey="legal.terms.data"
+          components={{ privacy: <Link to="/privacy" /> }}
+        />
       </p>
     </LegalPage>
   );

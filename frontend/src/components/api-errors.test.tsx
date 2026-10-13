@@ -1,10 +1,14 @@
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, expect, it } from "vitest";
 import { ApiRequestError } from "../api/client";
-import "../i18n";
+import i18n from "../i18n";
 import { FieldErrors, RequestError } from "./ApiErrors";
 
-afterEach(cleanup);
+afterEach(async () => {
+  cleanup();
+  await i18n.changeLanguage("fr");
+  localStorage.clear();
+});
 
 it("keeps the catalogue translation when the code is known", () => {
   render(
@@ -135,5 +139,62 @@ it("keeps a network failure distinct from a server refusal", () => {
   render(<RequestError error={new TypeError("Failed to fetch")} />);
   expect(screen.getByRole("alert").textContent).toBe(
     "Impossible de joindre le serveur. Réessayez dans un instant.",
+  );
+});
+
+it.each([
+  [
+    "en",
+    "This file exceeds the size limit for its format.",
+    "An unexpected error occurred.",
+  ],
+  [
+    "es",
+    "Este archivo supera el tamaño permitido para su formato.",
+    "Se produjo un error inesperado.",
+  ],
+])(
+  "localizes documented and unknown server refusals in %s",
+  async (language, known, unknown) => {
+    await i18n.changeLanguage(language);
+    const { rerender, container } = render(
+      <FieldErrors
+        id="file-error"
+        issues={[
+          {
+            code: "attachment_too_large",
+            message: "Ce fichier dépasse 50 Mo.",
+          },
+        ]}
+      />,
+    );
+    expect(screen.getByRole("alert").textContent).toBe(known);
+    rerender(
+      <FieldErrors
+        id="file-error"
+        issues={[
+          {
+            code: "new_refusal",
+            message: "<img src=x> Texte français {{name}}",
+          },
+        ]}
+      />,
+    );
+    expect(screen.getByRole("alert").textContent).toBe(unknown);
+    expect(container.querySelector("img")).toBeNull();
+  },
+);
+
+it("preserves a detailed French file refusal", () => {
+  render(
+    <FieldErrors
+      id="file-error"
+      issues={[
+        { code: "attachment_too_large", message: "Ce fichier dépasse 50 Mo." },
+      ]}
+    />,
+  );
+  expect(screen.getByRole("alert").textContent).toBe(
+    "Ce fichier dépasse 50 Mo.",
   );
 });

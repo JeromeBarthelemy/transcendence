@@ -11,7 +11,7 @@ import { createMemoryRouter, RouterProvider } from "react-router-dom";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
 import { routes } from "../app/router";
-import "../i18n";
+import i18n from "../i18n";
 
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -139,10 +139,53 @@ beforeEach(() => {
   setDocumentCookie("csrftoken=test; path=/");
 });
 
-afterEach(() => {
+afterEach(async () => {
   cleanup();
   vi.unstubAllGlobals();
+  await i18n.changeLanguage("fr");
+  localStorage.clear();
   setDocumentCookie("csrftoken=; Max-Age=0; path=/");
+});
+
+it("keeps a suggestion selected when the language changes and saves its translated title", async () => {
+  const fetchMock = serve([], () =>
+    json(workItem(44, "Brazo", true, "open"), 201),
+  );
+  const router = renderHome();
+  const panel = await openPanel();
+  const select = choice(panel);
+  await userEvent.selectOptions(select, "Bras");
+  await userEvent.selectOptions(
+    screen.getByRole("combobox", { name: "Langue" }),
+    "es",
+  );
+  expect(select.value).toBe("arm");
+  expect(
+    within(select).getByRole<HTMLOptionElement>("option", { name: "Brazo" })
+      .selected,
+  ).toBe(true);
+  await userEvent.click(within(panel).getByRole("button", { name: "Abrir" }));
+  await waitFor(() =>
+    expect(router.state.location.pathname).toBe("/work-items/44"),
+  );
+  expect(posted(fetchMock)).toEqual({ title: "Brazo", on_robot: true });
+});
+
+it("recognizes existing suggestions in another language without renaming team content", async () => {
+  const fetchMock = serve([workItem(5, "Arm", true, "dropped")]);
+  renderHome();
+  const panel = await openPanel();
+  expect(
+    within(choice(panel)).queryByRole("option", { name: "Bras" }),
+  ).toBeNull();
+  await typeOther(panel, "Brazo");
+  expect(
+    within(panel)
+      .getByRole("link", { name: "Aller au chantier Arm" })
+      .getAttribute("href"),
+  ).toBe("/work-items/5");
+  expect(submitButton(panel).disabled).toBe(true);
+  expect(posted(fetchMock)).toBeUndefined();
 });
 
 async function typeOther(panel: HTMLElement, name: string) {
