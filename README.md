@@ -529,13 +529,15 @@ Neither goes to the login address: it identifies an account without being
 assumed to deliver, and the youngest members have none that does. Both go to
 `contact_email` instead — the member's own for an adult, their legal
 guardian's for a minor — and both are refused with `no_contact_email` when
-that column is empty, before anything changes. A request is confirmed by
-e-mail or not carried out: when the mail cannot go out (the relay refuses,
-or there is none to reach), both are refused with `mail_unavailable` and
-nothing changes. `DELETE` also takes the
-account's own `password` in its body and refuses a missing or wrong one with
-`wrong_password`, nothing changed — a session left open on a shared club
-computer must not delete the account in one click.
+that column is empty, before anything changes. The export is confirmed by
+e-mail or not carried out at all: when the mail cannot go out (the relay
+refuses, or there is none to reach), it is refused with `mail_unavailable`
+and nothing changes. A deletion's confirmation instead goes out only once
+the account is already anonymized (below) — a down relay there is logged,
+not refused, since there is nothing left to undo by then. `DELETE` also
+takes the account's own `password` in its body and refuses a missing or
+wrong one with `wrong_password`, nothing changed — a session left open on a
+shared club computer must not delete the account in one click.
 
 `DELETE` anonymizes rather than deletes the row (`club/gdpr.py`,
 `anonymize`): `Entry.author` and `EntryParticipant.user` are `PROTECT`, so
@@ -543,16 +545,18 @@ what a member wrote stays in the team's notebook, attributed — what goes is
 the identity (name, address, birth date, AssoConnect id, avatar, password),
 and the notifications the member received, which the export carries.
 The consent log stays, since it still decides whether past content may be
-published. The whole thing is one transaction, the confirmation e-mail last,
-so a failed send leaves the account exactly as it was rather than deleted
-with nobody told. The sole club admin is refused with
-`last_admin_cannot_leave` — the club has no password-reset-by-email
-fallback, so another admin is the only recovery path for everyone else, and
-there has to be one left. That check is re-read inside the same
-transaction, so two admins leaving at the same instant still serialize
-correctly — `config/settings.py` takes the database's write lock the moment
-the transaction opens, not through row locking (SQLite ignores
-`select_for_update()` outright).
+published. The sole club admin is refused with `last_admin_cannot_leave` —
+the club has no password-reset-by-email fallback, so another admin is the
+only recovery path for everyone else, and there has to be one left. That
+check is re-read inside the same transaction as the anonymization, so two
+admins leaving at the same instant still serialize correctly —
+`config/settings.py` takes the database's write lock the moment the
+transaction opens, not through row locking (SQLite ignores
+`select_for_update()` outright). The confirmation e-mail is sent only once
+that transaction commits (`transaction.on_commit`), never from inside it:
+held for however long the SMTP relay takes to answer, that same write lock
+would otherwise stall every other write in the club behind one member's
+deletion.
 
 A club admin anonymizes a member who has left through the Django admin's own
 "Anonymiser les membres sélectionnés" action on the user list — a

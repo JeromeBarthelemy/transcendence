@@ -267,11 +267,14 @@ def test_an_anonymous_caller_cannot_request_an_export(client):
 # --- deleting one's own account ---
 
 
-def test_a_member_deletes_their_own_account(client, mailoutbox):
+def test_a_member_deletes_their_own_account(
+    client, mailoutbox, django_capture_on_commit_callbacks
+):
     lina = student(contact_email="parent.lina@club.fr")
     client.force_login(lina)
 
-    response = delete(client)
+    with django_capture_on_commit_callbacks(execute=True):
+        response = delete(client)
 
     assert response.status_code == 200
     lina.refresh_from_db()
@@ -370,22 +373,30 @@ def test_deletion_leaves_the_password_unusable(client, mailoutbox):
     assert lina.has_usable_password() is False
 
 
-def test_a_deletion_the_mail_cannot_confirm_leaves_the_account_as_it_was(
-    client, mail_down
+def test_a_deletion_still_succeeds_when_the_mail_cannot_confirm_it(
+    client, mail_down, django_capture_on_commit_callbacks, caplog
 ):
+    # The confirmation is sent after the transaction commits
+    # (club/gdpr.py, request_deletion): there is no account left to leave
+    # "as it was" by the time a down relay would refuse it, so the
+    # deletion stands and the failure is only logged.
     lina = student(contact_email="parent.lina@club.fr")
-    original_email = lina.email
     client.force_login(lina)
 
-    response = delete(client)
+    with (
+        caplog.at_level("ERROR", logger="django.db.backends.base"),
+        django_capture_on_commit_callbacks(execute=True),
+    ):
+        response = delete(client)
 
-    assert response.status_code == 400
-    assert response.json()["detail"]["code"] == "mail_unavailable"
+    assert response.status_code == 200
     lina.refresh_from_db()
-    assert lina.is_active is True
-    assert lina.email == original_email
-    assert lina.has_usable_password() is True
-    assert client.get("/api/auth/me/").json() is not None
+    assert lina.is_active is False
+    assert lina.has_usable_password() is False
+    assert client.get("/api/auth/me/").json() is None
+    assert any(
+        "ne peut pas être envoyé" in record.getMessage() for record in caplog.records
+    )
 
 
 def test_a_deleted_account_still_exists_and_keeps_its_traces(client, mailoutbox):

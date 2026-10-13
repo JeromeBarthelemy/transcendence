@@ -201,13 +201,21 @@ def request_deletion(user: User, *, password: str | None) -> str:
     anonymized. `password=None` skips that check — only the Django admin
     action passes it, since a staff sign-in already confirms who is acting.
 
-    Atomic, the e-mail sent last: a failed send leaves the account exactly
-    as it was. `not_the_last_admin` is checked inside this same
-    transaction rather than before it, so two admins leaving at once are
-    ordered by the database's own write lock (`transaction_mode:
-    "IMMEDIATE"`, config/settings.py) instead of a stale read —
-    `select_for_update()` would say the same thing but SQLite ignores it.
-    Returns the address the confirmation went to."""
+    `not_the_last_admin` is checked inside this same transaction rather
+    than before it, so two admins leaving at once are ordered by the
+    database's own write lock (`transaction_mode: "IMMEDIATE"`,
+    config/settings.py) instead of a stale read — `select_for_update()`
+    would say the same thing but SQLite ignores it.
+
+    The confirmation is sent after the transaction commits
+    (`transaction.on_commit`), not from inside it: `IMMEDIATE` takes
+    SQLite's write lock the moment this transaction opens, and every other
+    write in the club would otherwise wait behind however long the SMTP
+    relay takes to answer. `robust=True` logs a failed send rather than
+    raising it — unlike `send_export`'s own call to `_send`, there is
+    nothing left to undo by the time it would run: the anonymization is
+    already committed. Returns the address the confirmation is being sent
+    to, whether or not it arrives."""
     if password is not None and not user.check_password(password):
         raise ValidationError(
             "Mot de passe incorrect : le compte n'a pas été supprimé.",
@@ -217,17 +225,20 @@ def request_deletion(user: User, *, password: str | None) -> str:
     not_the_last_admin(user)
     display_name = user.display_name
     anonymize(user)
-    _send(
-        EmailMessage(
-            subject="Suppression de compte confirmée — Fieldnotes",
-            body=(
-                "Bonjour,\n\n"
-                f"Le compte « {display_name} » a été supprimé à sa demande : son "
-                "identité a été effacée. Ce qu'il a écrit reste dans le classeur "
-                "de l'équipe.\n"
-            ),
-            from_email=settings.DEFAULT_FROM_EMAIL,
-            to=[to],
-        )
+    transaction.on_commit(
+        lambda: _send(
+            EmailMessage(
+                subject="Suppression de compte confirmée — Fieldnotes",
+                body=(
+                    "Bonjour,\n\n"
+                    f"Le compte « {display_name} » a été supprimé à sa demande : "
+                    "son identité a été effacée. Ce qu'il a écrit reste dans le "
+                    "classeur de l'équipe.\n"
+                ),
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                to=[to],
+            )
+        ),
+        robust=True,
     )
     return to
