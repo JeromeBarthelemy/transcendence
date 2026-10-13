@@ -17,3 +17,10 @@ def enable_db_access_for_all_tests(db):
 @pytest.fixture(autouse=True)
 def stub_rag_generation(monkeypatch):
     monkeypatch.setattr("club.rag.generate_answer", lambda question, chunks: "")
+
+
+# Production's hasher is slow on purpose, against guessing; tests sign
+# hundreds of members up and in, and would spend most of their time on it.
+@pytest.fixture(autouse=True)
+def fast_password_hasher(settings):
+    settings.PASSWORD_HASHERS = ["django.contrib.auth.hashers.MD5PasswordHasher"]
