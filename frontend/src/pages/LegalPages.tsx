@@ -206,8 +206,8 @@ export function PrivacyPage() {
             <td>{t("legal.privacy.consentDuration")}</td>
           </tr>
           <tr>
-            <td>{t("legal.privacy.lockoutData")}</td>
-            <td>{t("legal.privacy.lockoutDuration")}</td>
+            <td>{t("legal.privacy.throttleData")}</td>
+            <td>{t("legal.privacy.throttleDuration")}</td>
           </tr>
         </tbody>
       </table>

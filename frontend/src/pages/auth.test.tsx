@@ -290,10 +290,10 @@ it("shows the server's rate-limit explanation on the login form", async () => {
         return json(null, 200);
       }
       if (path === "/api/auth/login/")
-        return json(
-          { non_field_errors: [issue("login_throttled", message)] },
-          429,
-        );
+        // DRF's own Throttled exception, raised before the serializer ever
+        // runs, answers under "detail" as one object — never the list under
+        // "non_field_errors" a serializer's own validate() raises.
+        return json({ detail: issue("login_throttled", message) }, 429);
       throw new Error(`Unexpected request: ${path}`);
     }),
   );

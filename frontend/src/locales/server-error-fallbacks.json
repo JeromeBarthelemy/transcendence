@@ -14,7 +14,7 @@
   "edit_not_progress": "Use the server's explanation when progress editing targets another kind of trace.",
   "fetch_failed": "Use the server's explanation of a rule-source fetch failure.",
   "join_not_progress": "Use the server's explanation when participation targets another kind of trace.",
-  "login_throttled": "The server already answers in French; DRF's own Throttled exception otherwise defaults to English.",
+  "login_throttled": "The server already answers in French (LoginView.throttled); English and Spanish read their own entry under serverErrors instead of DRF's default English message.",
   "no_passage": "Use the server's explanation that a rule source has no indexable passages.",
   "period_reversed": "Use the server's date-range validation sentence.",
   "slot_ends_before_it_starts": "Workshop-slot model validation: keep the sentence supplied by validation.",

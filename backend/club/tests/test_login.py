@@ -117,7 +117,7 @@ def test_the_refusal_does_not_say_which_of_the_two_was_wrong(client):
     assert unknown["non_field_errors"][0]["code"] == "bad_credentials"
 
 
-# --- throttling repeated failures (#203) ---
+# --- throttling repeated login attempts (#203) ---
 
 
 def throttled_at(monkeypatch, rate):
@@ -128,7 +128,9 @@ def throttled_at(monkeypatch, rate):
     monkeypatch.setitem(ScopedRateThrottle.THROTTLE_RATES, "login", rate)
 
 
-def test_repeated_failed_logins_are_throttled(client, monkeypatch):
+def test_repeated_login_attempts_are_throttled(client, monkeypatch):
+    # ScopedRateThrottle counts every request to the route, wrong passwords
+    # included, but not only them — a correct one counts too (see below).
     throttled_at(monkeypatch, "3/min")
     User.objects.create_user("ada@club.fr", "Ada", password=PASSWORD)
 
@@ -141,6 +143,50 @@ def test_repeated_failed_logins_are_throttled(client, monkeypatch):
 
     assert response.status_code == 429
     assert response.json()["detail"]["code"] == "login_throttled"
+
+
+def test_a_successful_login_counts_against_the_throttle_too(monkeypatch):
+    # A fresh, anonymous Client per request, not the same one throughout:
+    # ScopedRateThrottle.get_cache_key switches from the client's address to
+    # its account once signed in, so reusing one client across a successful
+    # and a following request would no longer share the same counter —
+    # a quirk of the key, not of what is being tested here.
+    throttled_at(monkeypatch, "2/min")
+    User.objects.create_user("ada@club.fr", "Ada", password=PASSWORD)
+
+    first = login(Client(), "Ada", REMOTE_ADDR="10.0.0.3")
+    assert first.status_code == 200
+    second = login(Client(), "Ada", "pas-le-bon", REMOTE_ADDR="10.0.0.3")
+    assert second.status_code == 400
+
+    third = login(Client(), "Ada", REMOTE_ADDR="10.0.0.3")
+
+    assert third.status_code == 429
+
+
+def test_num_proxies_discards_an_attacker_forged_prefix(monkeypatch):
+    # NUM_PROXIES = 1 (settings.py) keeps only the last address in
+    # X-Forwarded-For — the one Caddy, the one proxy in front of this stack,
+    # appends itself — and discards whatever an attacker prepends there.
+    # Without it, varying that prefix would pick a fresh throttle key on
+    # every request and defeat #203 entirely.
+    throttled_at(monkeypatch, "1/min")
+    User.objects.create_user("ada@club.fr", "Ada", password=PASSWORD)
+
+    guessed = login(
+        Client(), "Ada", "pas-le-bon", HTTP_X_FORWARDED_FOR="1.2.3.4, 10.0.0.9"
+    )
+    assert guessed.status_code == 400
+
+    still_throttled = login(
+        Client(), "Ada", "pas-le-bon", HTTP_X_FORWARDED_FOR="9.9.9.9, 10.0.0.9"
+    )
+    assert still_throttled.status_code == 429
+
+    a_different_real_client = login(
+        Client(), "Ada", "pas-le-bon", HTTP_X_FORWARDED_FOR="1.2.3.4, 10.0.0.10"
+    )
+    assert a_different_real_client.status_code == 400
 
 
 def test_the_throttle_is_per_client_not_per_account(client, monkeypatch):
