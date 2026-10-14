@@ -339,13 +339,13 @@ montrer les jetons de couleur et de typographie.
 **Chez nous** — l'avatar est déjà fait (#68, #78), avec repli sur une image par
 défaut. Restent à construire : modifier son nom d'affichage et son adresse de
 connexion (#178), ouvrir le profil d'un autre membre avec son équipe (#176), et
-une liste d'amis avec un simple indicateur « en ligne » (#267) — sans détail de
-dernière connexion, ni de restriction à sa propre équipe : le club tient dans
-une seule salle.
+le statut « en ligne » d'un coéquipier (#267) — un simple rond vert sur l'équipe
+de la saison en cours, sans détail de dernière connexion ni système d'amis
+séparé : la relation qui compte ici, c'est l'équipe.
 
 **Démo (3 min)** — changer son nom d'affichage et se reconnecter avec, ouvrir le
-profil d'un camarade d'une autre équipe, l'ajouter en ami, et montrer son
-indicateur passer au vert pendant qu'il utilise l'application.
+profil d'un coéquipier et montrer son indicateur passer au vert pendant qu'il
+utilise l'application, puis s'éteindre une fois déconnecté.
 
 ---
 
