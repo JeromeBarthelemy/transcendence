@@ -17,6 +17,8 @@ import {
   deleteAvatar,
   type Identity,
   requestDataExport,
+  type UpdateProfileInput,
+  updateProfile,
   uploadAvatar,
 } from "../api/auth";
 import { ApiRequestError } from "../api/client";
@@ -417,6 +419,157 @@ function PersonalData() {
   );
 }
 
+/** One's own display name and login address (#178) — minors included.
+ * `email` is never pre-filled: `_identity()` never carries it, so the
+ * current address stays unknown to this screen. */
+function EditProfileForm({ identity }: { identity: Identity }) {
+  const { t } = useTranslation();
+  const queryClient = useQueryClient();
+  const displayNameId = useId();
+  const emailId = useId();
+  const passwordId = useId();
+  const [displayName, setDisplayName] = useState(identity.display_name);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [saved, setSaved] = useState(false);
+
+  const changingEmail = email.trim() !== "";
+  const changes: UpdateProfileInput = {};
+  if (displayName !== identity.display_name) changes.display_name = displayName;
+  if (changingEmail) {
+    changes.email = email;
+    changes.current_password = password;
+  }
+  const isDirty = Object.keys(changes).length > 0;
+
+  const save = useMutation({
+    mutationFn: () => updateProfile(changes),
+    onSuccess: (next) => {
+      queryClient.setQueryData(currentUserQueryKey, next);
+      setEmail("");
+      setPassword("");
+      setSaved(true);
+    },
+  });
+  const wrongPassword =
+    save.error instanceof ApiRequestError &&
+    save.error
+      .forField("non_field_errors")
+      .some((issue) => issue.code === "current_password_wrong");
+
+  function submit(event: FormEvent) {
+    event.preventDefault();
+    setSaved(false);
+    if (isDirty) save.mutate();
+  }
+
+  function reset() {
+    setDisplayName(identity.display_name);
+    setEmail("");
+    setPassword("");
+    setSaved(false);
+    save.reset();
+  }
+
+  return (
+    <Panel
+      as="form"
+      padding="lg"
+      aria-labelledby="edit-profile-title"
+      className="mt-8"
+      onSubmit={submit}
+    >
+      <Heading size="section" id="edit-profile-title">
+        {t("profile.editTitle")}
+      </Heading>
+      <fieldset disabled={save.isPending} className="mt-4 space-y-5">
+        <div>
+          <Label htmlFor={displayNameId}>{t("profile.displayNameLabel")}</Label>
+          <TextInput
+            id={displayNameId}
+            value={displayName}
+            onChange={(event) => {
+              setDisplayName(event.target.value);
+              setSaved(false);
+            }}
+          />
+          <FieldErrors
+            id={`${displayNameId}-errors`}
+            issues={fieldIssues(save.error, "display_name")}
+          />
+        </div>
+
+        <div>
+          <Label htmlFor={emailId}>{t("profile.emailLabel")}</Label>
+          <TextInput
+            id={emailId}
+            type="email"
+            autoComplete="email"
+            placeholder={t("profile.emailPlaceholder")}
+            value={email}
+            onChange={(event) => {
+              setEmail(event.target.value);
+              setSaved(false);
+            }}
+          />
+          <p className="mt-1 text-xs text-muted">{t("profile.emailHint")}</p>
+          <FieldErrors
+            id={`${emailId}-errors`}
+            issues={fieldIssues(save.error, "email")}
+          />
+        </div>
+
+        {changingEmail && (
+          <div>
+            <Label htmlFor={passwordId}>
+              {t("profile.currentPasswordLabel")}
+            </Label>
+            <TextInput
+              tone={wrongPassword ? "danger" : undefined}
+              id={passwordId}
+              type="password"
+              autoComplete="current-password"
+              aria-invalid={wrongPassword}
+              value={password}
+              onChange={(event) => {
+                setPassword(event.target.value);
+                setSaved(false);
+              }}
+            />
+          </div>
+        )}
+      </fieldset>
+
+      {save.isError && (
+        <RequestError
+          error={save.error}
+          handledFields={["display_name", "email"]}
+        />
+      )}
+      {saved && !isDirty && (
+        <SuccessMessage className="mt-4">
+          {t("profile.profileSaved")}
+        </SuccessMessage>
+      )}
+
+      <div className="mt-5 flex justify-end gap-3">
+        <Button disabled={!isDirty || save.isPending} onClick={reset}>
+          {t("profile.cancel")}
+        </Button>
+        <Button
+          variant="primary"
+          type="submit"
+          disabled={!isDirty || save.isPending}
+        >
+          {save.isPending
+            ? t("profile.savingProfile")
+            : t("profile.saveProfile")}
+        </Button>
+      </div>
+    </Panel>
+  );
+}
+
 export function ProfilePage() {
   const { t } = useTranslation();
   const currentUser = useCurrentUser();
@@ -452,6 +605,7 @@ export function ProfilePage() {
         {t(`teams.roles.${identity.club_role}`)}
         {identity.is_club_admin && ` · ${t("profile.clubAdmin")}`}
       </p>
+      <EditProfileForm identity={identity} />
       <PhotoForm identity={identity} />
       <PersonalData />
     </Page>

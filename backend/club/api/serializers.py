@@ -58,6 +58,38 @@ def recheck(checks: dict[str, Callable[[], object]]) -> None:
             raise serializers.ValidationError({field: taken.detail}) from None
 
 
+def _check_display_name_available(value: str, *, excluding: User | None = None) -> None:
+    """Shared by sign-up and the two places an account's own name changes
+    later (#178): one's own profile and the admin's account screen. On the
+    stored folded column, not a Lower() computed in the database: SQLite's
+    lower() is ASCII-only, so Élodie would fold to itself and this check
+    would miss a duplicate the model's own constraint then catches as a 500."""
+    candidates = User.objects.filter(display_name_folded=value.casefold())
+    if excluding is not None:
+        candidates = candidates.exclude(pk=excluding.pk)
+    if candidates.exists():
+        # Same code and same sentence as the database constraint, which
+        # stays underneath as the backstop for two callers racing past
+        # this check.
+        raise serializers.ValidationError(
+            "Ce nom d'affichage est déjà pris. Ajoutez une initiale, "
+            "par exemple « Marie D. ».",
+            code="display_name_taken",
+        )
+
+
+def _check_email_available(value: str, *, excluding: User | None = None) -> None:
+    """Shared by sign-up and one's own profile (#178): a login address is
+    unique the same way regardless of who is choosing it."""
+    candidates = User.objects.filter(email=value)
+    if excluding is not None:
+        candidates = candidates.exclude(pk=excluding.pk)
+    if candidates.exists():
+        raise serializers.ValidationError(
+            "Cette adresse est déjà utilisée.", code="email_taken"
+        )
+
+
 class SignUpSerializer(serializers.Serializer[User]):
     """The six things sign-up asks, plus the address, which is optional
     because the youngest members have none."""
@@ -84,27 +116,12 @@ class SignUpSerializer(serializers.Serializer[User]):
     def validate_email(self, value: str) -> str:
         # Stored lowercased, so a duplicate must be caught lowercased too.
         value = value.lower()
-        if value and User.objects.filter(email=value).exists():
-            raise serializers.ValidationError(
-                "Cette adresse est déjà utilisée.", code="email_taken"
-            )
+        if value:
+            _check_email_available(value)
         return value
 
     def validate_display_name(self, value: str) -> str:
-        # On the stored folded column, not on a Lower() computed in the
-        # database: SQLite's lower() is ASCII-only, so Élodie would fold to
-        # itself and this check would miss a duplicate the constraint then
-        # catches as a 500.
-        taken = User.objects.filter(display_name_folded=value.casefold()).exists()
-        if taken:
-            # Same code and same sentence as the database constraint, which
-            # stays underneath as the backstop for two callers racing past
-            # this check (see `create`).
-            raise serializers.ValidationError(
-                "Ce nom d'affichage est déjà pris. Ajoutez une initiale, "
-                "par exemple « Marie D. ».",
-                code="display_name_taken",
-            )
+        _check_display_name_available(value)
         return value
 
     def validate(self, attrs: dict[str, Any]) -> dict[str, Any]:
@@ -212,6 +229,75 @@ class DeleteAccountSerializer(serializers.Serializer[None]):
     password = serializers.CharField(
         required=False, default="", write_only=True, style={"input_type": "password"}
     )
+
+
+class UpdateProfileSerializer(serializers.Serializer[User]):
+    """One's own display name and login address (#178) — a minor's own to
+    change, unlike `contact_email` (`UserRoleSerializer`): a minor who could
+    redirect that one would send their own deletion confirmation to
+    themselves instead of their guardian. `current_password` is optional at
+    the field level, so a display-name-only edit needs none, but checked
+    (and, blank, refused) whenever the address itself actually changes."""
+
+    display_name = serializers.CharField(
+        max_length=80,
+        required=False,
+        validators=[no_at_sign, not_an_anonymized_name],
+    )
+    email = serializers.EmailField(required=False)
+    current_password = serializers.CharField(
+        required=False, default="", write_only=True, style={"input_type": "password"}
+    )
+
+    def validate_display_name(self, value: str) -> str:
+        instance = self.instance
+        assert isinstance(instance, User)
+        _check_display_name_available(value, excluding=instance)
+        return value
+
+    def validate_email(self, value: str) -> str:
+        value = value.lower()
+        instance = self.instance
+        assert isinstance(instance, User)
+        _check_email_available(value, excluding=instance)
+        return value
+
+    def validate(self, attrs: dict[str, Any]) -> dict[str, Any]:
+        instance = self.instance
+        assert isinstance(instance, User)
+        # A session left open on the club's shared computer must not hand
+        # the account to whoever sits there next, just by retyping a name
+        # that already shows on screen — the address is the one that
+        # matters, since it is what the next sign-in is checked against.
+        if (
+            "email" in attrs
+            and attrs["email"] != instance.email
+            and not instance.check_password(attrs.get("current_password", ""))
+        ):
+            # Its own code, not `wrong_password` (club/gdpr.py): that one's
+            # own catalogue entry reads "...the account was not deleted",
+            # which would misreport what this refusal is actually about.
+            raise serializers.ValidationError(
+                "Mot de passe incorrect.", code="current_password_wrong"
+            )
+        return attrs
+
+    def update(self, instance: User, validated_data: dict[str, Any]) -> User:
+        validated_data.pop("current_password", None)
+        checks = {
+            "display_name": lambda: self.validate_display_name(
+                validated_data["display_name"]
+            ),
+            "email": lambda: self.validate_email(validated_data["email"]),
+        }
+        try:
+            for field, value in validated_data.items():
+                setattr(instance, field, value)
+            instance.save(update_fields=list(validated_data))
+        except IntegrityError:
+            recheck({field: checks[field] for field in validated_data})
+            raise
+        return instance
 
 
 class CreateTeamSerializer(serializers.Serializer[Team]):
@@ -663,13 +749,29 @@ class AvatarSerializer(serializers.Serializer[User]):
 
 class UserRoleSerializer(serializers.Serializer[User]):
     """What an admin manages about another account: making them a mentor,
-    making them an administrator, and lifting or imposing a suspension.
-    Everything else — the name, the password — stays where it already is,
-    the Django admin (README, "Sessions")."""
+    making them an administrator, lifting or imposing a suspension, and
+    correcting a display name or contact address (#178). The password
+    stays where it already is, the Django admin (README, "Sessions") — and
+    so does a minor's own login address and display name, theirs to change
+    from their own profile instead (`UpdateProfileSerializer`).
+    `contact_email` carries no uniqueness of its own: siblings share one
+    mailbox (`club/models.py`, `User.contact_email`)."""
 
     club_role = serializers.ChoiceField(choices=User.ClubRole.choices, required=False)
     is_club_admin = serializers.BooleanField(required=False)
     is_active = serializers.BooleanField(required=False)
+    display_name = serializers.CharField(
+        max_length=80,
+        required=False,
+        validators=[no_at_sign, not_an_anonymized_name],
+    )
+    contact_email = serializers.EmailField(required=False, allow_blank=True)
+
+    def validate_display_name(self, value: str) -> str:
+        instance = self.instance
+        assert isinstance(instance, User)
+        _check_display_name_available(value, excluding=instance)
+        return value
 
     def validate(self, attrs: dict[str, Any]) -> dict[str, Any]:
         # Checked against the account's *resulting* state, not just the
@@ -687,9 +789,20 @@ class UserRoleSerializer(serializers.Serializer[User]):
         return attrs
 
     def update(self, instance: User, validated_data: dict[str, Any]) -> User:
-        for field, value in validated_data.items():
-            setattr(instance, field, value)
-        instance.save(update_fields=list(validated_data))
+        try:
+            for field, value in validated_data.items():
+                setattr(instance, field, value)
+            instance.save(update_fields=list(validated_data))
+        except IntegrityError:
+            if "display_name" in validated_data:
+                recheck(
+                    {
+                        "display_name": lambda: self.validate_display_name(
+                            validated_data["display_name"]
+                        )
+                    }
+                )
+            raise
         return instance
 
 

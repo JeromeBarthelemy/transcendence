@@ -112,6 +112,7 @@ from .serializers import (
     SearchSerializer,
     SignUpSerializer,
     TickSerializer,
+    UpdateProfileSerializer,
     UserRoleSerializer,
     UserSearchSerializer,
     WorkItemStatusSerializer,
@@ -206,6 +207,16 @@ class MeView(APIView):
             # DRF sends an empty body for None; the page expects JSON `null`.
             return JsonResponse(None, safe=False)
         return Response(_identity(request.user))
+
+    def patch(self, request: Request) -> Response:
+        """One's own display name and login address (#178) — a minor's own
+        to change, unlike `contact_email`, the admin's own
+        (`UserDetailView`)."""
+        user = request.user
+        assert isinstance(user, User)
+        serializer = UpdateProfileSerializer(user, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        return Response(_identity(serializer.save()))
 
     def delete(self, request: Request) -> Response:
         """The right to erasure, for one's own account only — an admin
@@ -306,6 +317,7 @@ def _user(user: User) -> dict[str, object]:
         "id": user.id,
         "display_name": user.display_name,
         "email": user.email,
+        "contact_email": user.contact_email,
         "club_role": user.club_role,
         "is_club_admin": user.is_club_admin,
         "is_active": user.is_active,
