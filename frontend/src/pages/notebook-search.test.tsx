@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
+  act,
   cleanup,
   render,
   screen,
@@ -11,7 +12,7 @@ import { createMemoryRouter, RouterProvider } from "react-router-dom";
 import { afterEach, expect, it, vi } from "vitest";
 
 import { routes } from "../app/router";
-import "../i18n";
+import i18n from "../i18n";
 
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -118,9 +119,11 @@ function renderSearch(
   };
 }
 
-afterEach(() => {
+afterEach(async () => {
   cleanup();
   vi.unstubAllGlobals();
+  await i18n.changeLanguage("fr");
+  localStorage.clear();
 });
 
 it("lists the whole notebook, newest first, before any filter", async () => {
@@ -267,4 +270,32 @@ it("is opened from the team home", async () => {
   });
   expect(link.getAttribute("href")).toBe("/team-seasons/7/search");
   expect(link.querySelector('[data-icon="search"]')).toBeTruthy();
+});
+
+it("follows the selected language, filters and results kept", async () => {
+  const { searches } = renderSearch(
+    () => page([result(1)], { count: 1234, page_size: 20 }),
+    "/team-seasons/7/search?q=moteur&since=2026-11-01",
+  );
+  expect(await screen.findByText("1 234 traces")).toBeTruthy();
+
+  await act(() => i18n.changeLanguage("en"));
+
+  expect(
+    screen.getByRole("heading", { name: "Search the work items" }),
+  ).toBeTruthy();
+  expect(screen.getByText("1,234 entries")).toBeTruthy();
+  expect(screen.getByText("Page 1 of 62")).toBeTruthy();
+  expect(
+    screen.getByRole("button", { name: "Remove filter: “moteur”" }),
+  ).toBeTruthy();
+  expect(
+    screen.getByRole("button", {
+      name: "Remove filter: From 1 November 2026",
+    }),
+  ).toBeTruthy();
+  expect(screen.getByRole("link", { name: "18 November 2026" })).toBeTruthy();
+  expect(screen.getByLabelText<HTMLInputElement>("Text").value).toBe("moteur");
+  // Presentation only: nothing is asked of the server again.
+  expect(searches).toHaveLength(1);
 });

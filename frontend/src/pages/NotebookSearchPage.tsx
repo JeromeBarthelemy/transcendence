@@ -14,7 +14,7 @@ import {
   searchQuery,
 } from "../api/search";
 import { getWorkItems, type WorkItem, workItemSteps } from "../api/workItems";
-import { formatDay, nameFormatter, teamLabel } from "../app/formatters";
+import { useFormatters } from "../app/formatters";
 import { useCurrentUser } from "../app/useCurrentUser";
 import { FieldErrors, RequestError } from "../components/ApiErrors";
 import { AvatarStack } from "../components/Avatar";
@@ -101,6 +101,7 @@ function ResultCard({
   teamSeasonId: number;
 }) {
   const { t } = useTranslation();
+  const { formatDay, nameFormatter } = useFormatters();
   // A decision's attendees were there, they did not do it: its author is.
   const people = result.type === "progress" ? result.participants : [];
   const { photos, others } = attachmentCount(result);
@@ -332,8 +333,9 @@ function ActiveFilters({
   onClear: () => void;
 }) {
   const { t } = useTranslation();
+  const { formatDay } = useFormatters();
   const labels: Partial<Record<FilterKey, string>> = {
-    q: filters.q && `« ${filters.q} »`,
+    q: filters.q && t("search.textChip", { text: filters.q }),
     work_item:
       filters.work_item !== undefined
         ? (workItems.find((item) => item.id === filters.work_item)?.title ??
@@ -500,7 +502,7 @@ export function NotebookSearchPage() {
         {teamSeason && (
           <Eyebrow size="sm">
             <IconLabel icon="team" before>
-              {teamLabel(teamSeason)}
+              {`${teamSeason.team.number} · ${teamSeason.team.name}`}
             </IconLabel>
           </Eyebrow>
         )}
