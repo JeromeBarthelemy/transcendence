@@ -465,6 +465,9 @@
     "loading": "Cargando perfil…",
     "noTeam": "Todavía sin equipo esta temporada"
   },
+  "presence": {
+    "online": "En línea"
+  },
   "live": {
     "offline": "Sin conexión: los cambios de otras personas llegarán cuando vuelvas a conectarte."
   },

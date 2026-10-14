@@ -80,6 +80,9 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    # After AuthenticationMiddleware, which is what gives request.user its
+    # meaning (#267).
+    "club.presence.TrackLastSeenMiddleware",
 ]
 
 ROOT_URLCONF = "config.urls"

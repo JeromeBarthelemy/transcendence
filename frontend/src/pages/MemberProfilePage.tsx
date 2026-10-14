@@ -4,13 +4,15 @@ import { useParams } from "react-router-dom";
 
 import { getMemberProfile } from "../api/members";
 import { RequestError } from "../components/ApiErrors";
-import { Avatar } from "../components/Avatar";
+import { Avatar, OnlineDot } from "../components/Avatar";
 import { Page } from "../components/Page";
 import { Eyebrow, Heading } from "../components/Typography";
 
 /** Any signed-in member may open this (#176): the club works in one room.
  * Never shows an address nor a birth date — only a name, a photo and the
- * current season's team, same as the server sends. */
+ * current season's team, same as the server sends. `online` (#267) stays
+ * `null` unless the viewer may see it, which is why the dot only ever
+ * appears when the server actually sent a value. */
 export function MemberProfilePage() {
   const { t } = useTranslation();
   const userId = Number(useParams().userId);
@@ -18,6 +20,9 @@ export function MemberProfilePage() {
     queryKey: ["members", "profile", userId],
     queryFn: () => getMemberProfile(userId),
     enabled: Number.isInteger(userId),
+    // Online status has no WebSocket to tell it when the dot should turn
+    // off — a poll slow enough to not matter.
+    refetchInterval: 30_000,
   });
 
   return (
@@ -37,8 +42,11 @@ export function MemberProfilePage() {
           <Avatar person={profile.data} size="detail" />
           <div className="min-w-0 flex-1">
             <Eyebrow size="sm">{t("memberProfile.eyebrow")}</Eyebrow>
-            <Heading size="page" className="mt-1">
+            <Heading size="page" className="mt-1 flex items-center gap-2">
               {profile.data.display_name}
+              {profile.data.online !== null && (
+                <OnlineDot online={profile.data.online} />
+              )}
             </Heading>
             <p className="mt-1 text-sm text-muted">
               {profile.data.club_role === "mentor"

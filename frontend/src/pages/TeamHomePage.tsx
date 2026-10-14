@@ -20,7 +20,7 @@ import { getWorkItems, type WorkItem } from "../api/workItems";
 import { fetchFreshEntry } from "../app/entries";
 import { useFormatters } from "../app/formatters";
 import { RequestError } from "../components/ApiErrors";
-import { Avatar, AvatarStack } from "../components/Avatar";
+import { Avatar, AvatarStack, OnlineDot } from "../components/Avatar";
 import { Button, ButtonLink, buttonClass } from "../components/Button";
 import { StatusChip } from "../components/Chip";
 import { EmptyState } from "../components/EmptyState";
@@ -431,6 +431,10 @@ function TeamRoster({ teamSeasonId }: { teamSeasonId: number }) {
   const roster = useQuery({
     queryKey: ["team-seasons", teamSeasonId, "roster"],
     queryFn: () => getTeamSeasonRoster(teamSeasonId),
+    // Online status (#267) has no WebSocket to tell it when a dot should
+    // turn off — a poll slow enough to not matter, next to the minute-long
+    // window a visit already keeps someone "online" for.
+    refetchInterval: 30_000,
   });
   if (!roster.data || roster.data.length === 0) {
     return null;
@@ -445,6 +449,7 @@ function TeamRoster({ teamSeasonId }: { teamSeasonId: number }) {
           >
             <Avatar person={member} size="sm" />
             {member.display_name}
+            <OnlineDot online={member.online} />
           </Link>
         </li>
       ))}
