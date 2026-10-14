@@ -4,7 +4,7 @@ tenant to resolve: every route below is about the person calling it."""
 import tempfile
 from http.client import InvalidURL
 from itertools import islice
-from typing import Any
+from typing import Any, NoReturn
 
 from django.contrib.auth import login, logout
 from django.core.exceptions import ValidationError as DjangoValidationError
@@ -16,10 +16,11 @@ from django.utils import timezone
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_protect, ensure_csrf_cookie
 from rest_framework import status
-from rest_framework.exceptions import PermissionDenied
+from rest_framework.exceptions import PermissionDenied, Throttled
 from rest_framework.permissions import AllowAny, IsAuthenticatedOrReadOnly
 from rest_framework.request import Request
 from rest_framework.response import Response
+from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 
 from club.analytics.activity import summarize_activity, to_csv, to_report_csv
@@ -145,9 +146,17 @@ class LoginView(APIView):
     caller skips the check entirely — and this is the route that hands out a
     session. Without it a third-party page can log a member into an account
     that is not theirs, and everything they write next is readable by whoever
-    set the trap."""
+    set the trap.
+
+    Throttled per client, not per account (#203): a wrong password used to
+    lock the *account* for 15 minutes, which kept the real member out just
+    as well as whoever was guessing, and anyone with a display name — every
+    member, on every screen — could set one running against anyone else's
+    account, including an admin's, with nobody able to lift it early."""
 
     permission_classes = [AllowAny]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "login"
 
     def post(self, request: Request) -> Response:
         serializer = LoginSerializer(data=request.data, context={"request": request})
@@ -156,6 +165,16 @@ class LoginView(APIView):
         # Rotates the session key, which is what makes session fixation fail.
         login(request, user)
         return Response(_identity(user))
+
+    def throttled(self, request: Request, wait: float | None) -> NoReturn:
+        # DRF's own message is in English; every other refusal here answers
+        # in French (club/api/errors.py), and this is the one DRF raises
+        # itself rather than this app, so it needs saying explicitly.
+        raise Throttled(
+            wait,
+            detail="Trop de tentatives de connexion. Réessayez dans quelques instants.",
+            code="login_throttled",
+        )
 
 
 class LogoutView(APIView):

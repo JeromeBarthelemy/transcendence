@@ -386,7 +386,7 @@ The frontend uses these four routes from `/`, `/signup` and `/login`:
 | route | answers |
 | --- | --- |
 | `POST /api/auth/signup/` | `201` with `email` and `display_name` |
-| `POST /api/auth/login/` | `200` with the identity below; the same account is locked for 15 minutes after 5 wrong passwords running, told apart from a wrong password while it is |
+| `POST /api/auth/login/` | `200` with the identity below; `429` after 10 attempts/minute from the same client (#203), told apart from a wrong password while it is — guesses spread across addresses are not slowed further, a deliberate trade-off against locking out the targeted account's own owner |
 | `POST /api/auth/logout/` | `204` |
 | `GET /api/auth/me/` | `200` with the identity, or `null` when nobody is signed in |
 | `PUT /api/auth/me/avatar/` | `200` with the identity — one's own photo, as `multipart/form-data` field `avatar` |

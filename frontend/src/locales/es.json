@@ -722,15 +722,15 @@
       "verificationDuration": "se elimina cuando se encuentra tu inscripción o con la cuenta si nunca se vincula a una inscripción",
       "consentData": "Las decisiones sobre el derecho a la imagen",
       "consentDuration": "mientras exista contenido que te concierna",
-      "lockoutData": "El bloqueo tras cinco contraseñas incorrectas",
-      "lockoutDuration": "quince minutos; el contador de intentos se reinicia en el siguiente inicio de sesión correcto",
+      "throttleData": "El contador de intentos de inicio de sesión por dirección",
+      "throttleDuration": "un minuto móvil; se reinicia un minuto después del último intento",
       "suspension": "La suspensión temporal de una cuenta decidida por el club (véanse las <terms>condiciones de uso</terms>) no implica su anonimización.",
       "rightsTitle": "Tus derechos",
       "rights": "Puedes <strong>acceder</strong> a tus datos, <strong>rectificarlos</strong>, solicitar su <strong>supresión</strong> o recibir una <strong>copia</strong> en un formato legible en cualquier momento. La aplicación permite solicitar la exportación y eliminación de tus datos, con una confirmación por correo. Para cualquier otra solicitud, escribe a <strong>{{contact}}</strong>.",
       "erasure": "La supresión consiste en una anonimización, como al dejar el club: tu identidad desaparece de la aplicación y los textos escritos para tu equipo permanecen en sus archivos sin tu nombre.",
       "complaint": "Si consideras que no se respetan tus derechos, puedes presentar una reclamación ante la <strong>CNIL</strong> (www.cnil.fr).",
       "securityTitle": "Seguridad",
-      "security": "Las comunicaciones con la aplicación están cifradas (HTTPS), las contraseñas nunca se almacenan en texto plano, cinco contraseñas incorrectas consecutivas bloquean el acceso a la cuenta durante quince minutos y cada acceso a los datos comprueba que hayas iniciado sesión y tengas permiso para verlos."
+      "security": "Las comunicaciones con la aplicación están cifradas (HTTPS), las contraseñas nunca se almacenan en texto plano, diez intentos de inicio de sesión por dirección y por minuto provocan una pausa antes del siguiente en lugar de bloquear la cuenta objetivo, y cada acceso a los datos comprueba que hayas iniciado sesión y tengas permiso para verlos."
     },
     "terms": {
       "title": "Condiciones de uso",
@@ -763,7 +763,6 @@
     }
   },
   "serverErrors": {
-    "account_locked": "Demasiados intentos de acceso. Inténtalo de nuevo en unos minutos.",
     "already_participant": "Ya participas en este avance.",
     "attachment_too_large": "Este archivo supera el tamaño permitido para su formato.",
     "attachment_too_many_pixels": "Esta imagen tiene demasiados píxeles.",
@@ -779,6 +778,7 @@
     "edit_not_progress": "Solo un avance puede completarse de esta forma.",
     "fetch_failed": "No se pudo obtener la fuente del reglamento.",
     "join_not_progress": "Solo puedes unirte a un avance.",
+    "login_throttled": "Demasiados intentos de inicio de sesión. Vuelve a intentarlo en un momento.",
     "no_passage": "La fuente no contiene pasajes que indexar.",
     "period_reversed": "La fecha de inicio debe ser anterior a la fecha de fin.",
     "slot_ends_before_it_starts": "La fecha de fin no puede ser anterior a la fecha de inicio.",

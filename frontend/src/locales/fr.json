@@ -722,15 +722,15 @@
       "verificationDuration": "supprimées dès que votre adhésion est retrouvée, ou avec le compte s'il n'est jamais rapproché d'une adhésion",
       "consentData": "Les décisions de droit à l'image",
       "consentDuration": "tant que des contenus vous concernant existent",
-      "lockoutData": "Le blocage après cinq mots de passe erronés",
-      "lockoutDuration": "quinze minutes ; le compte d'essais repart de zéro à la connexion suivante",
+      "throttleData": "Le compteur de tentatives de connexion par adresse",
+      "throttleDuration": "une minute glissante ; il repart de zéro une minute après la dernière tentative",
       "suspension": "Une suspension temporaire du compte, décidée par le club (voir les <terms>conditions d'utilisation</terms>), n'entraîne pas son anonymisation.",
       "rightsTitle": "Vos droits",
       "rights": "Vous pouvez à tout moment <strong>accéder</strong> à vos données, les <strong>rectifier</strong>, en demander l'<strong>effacement</strong> ou en recevoir une <strong>copie</strong> dans un format lisible. L'application permet de demander l'export et la suppression de vos données, avec une confirmation envoyée par courriel. Pour toute autre demande, écrivez à <strong>{{contact}}</strong>.",
       "erasure": "Un effacement est une anonymisation, la même qu'au départ du club : votre identité disparaît de l'application, et les textes écrits pour votre équipe restent dans ses archives, sans votre nom.",
       "complaint": "Si vous estimez que vos droits ne sont pas respectés, vous pouvez adresser une réclamation à la <strong>CNIL</strong> (www.cnil.fr).",
       "securityTitle": "Sécurité",
-      "security": "Les échanges avec l'application sont chiffrés (HTTPS), les mots de passe ne sont jamais stockés en clair, cinq mots de passe erronés à la suite bloquent la connexion au compte pendant quinze minutes, et chaque accès aux données vérifie que vous êtes connecté et autorisé à les voir."
+      "security": "Les échanges avec l'application sont chiffrés (HTTPS), les mots de passe ne sont jamais stockés en clair, dix tentatives de connexion par adresse et par minute imposent une pause avant la suivante plutôt que de bloquer le compte visé, et chaque accès aux données vérifie que vous êtes connecté et autorisé à les voir."
     },
     "terms": {
       "title": "Conditions d'utilisation",
@@ -763,7 +763,6 @@
     }
   },
   "serverErrors": {
-    "account_locked": "Trop de tentatives de connexion. Réessayez dans quelques minutes.",
     "already_participant": "Vous participez déjà à cette avancée.",
     "attachment_too_large": "Ce fichier dépasse la taille autorisée pour son format.",
     "attachment_too_many_pixels": "Cette image compte trop de pixels.",
@@ -779,6 +778,7 @@
     "edit_not_progress": "Seule une avancée peut être complétée de cette façon.",
     "fetch_failed": "La source du règlement n'a pas pu être récupérée.",
     "join_not_progress": "Vous ne pouvez participer qu'à une avancée.",
+    "login_throttled": "Trop de tentatives de connexion. Réessayez dans quelques instants.",
     "no_passage": "La source ne contient aucun passage à indexer.",
     "period_reversed": "La date de début doit précéder la date de fin.",
     "slot_ends_before_it_starts": "La date de fin ne peut pas précéder la date de début.",

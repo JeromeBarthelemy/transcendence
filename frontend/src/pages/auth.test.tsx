@@ -279,9 +279,9 @@ it("stops mismatched passwords before sending an account request", async () => {
   expect(fetchMock).toHaveBeenCalledTimes(1);
 });
 
-it("shows the server's lockout explanation on the login form", async () => {
+it("shows the server's rate-limit explanation on the login form", async () => {
   const message =
-    "Compte temporairement verrouillé après plusieurs tentatives infructueuses. Réessayez dans quelques minutes.";
+    "Trop de tentatives de connexion. Réessayez dans quelques instants.";
   vi.stubGlobal(
     "fetch",
     vi.fn(async (path: string) => {
@@ -290,10 +290,10 @@ it("shows the server's lockout explanation on the login form", async () => {
         return json(null, 200);
       }
       if (path === "/api/auth/login/")
-        return json(
-          { non_field_errors: [issue("account_locked", message)] },
-          400,
-        );
+        // DRF's own Throttled exception, raised before the serializer ever
+        // runs, answers under "detail" as one object — never the list under
+        // "non_field_errors" a serializer's own validate() raises.
+        return json({ detail: issue("login_throttled", message) }, 429);
       throw new Error(`Unexpected request: ${path}`);
     }),
   );

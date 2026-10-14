@@ -709,15 +709,15 @@
       "verificationDuration": "deleted once your membership is found, or with the account if no membership is ever matched",
       "consentData": "Image-consent decisions",
       "consentDuration": "for as long as content concerning you exists",
-      "lockoutData": "Lockout after five incorrect passwords",
-      "lockoutDuration": "fifteen minutes; the attempt count resets at the next successful sign-in",
+      "throttleData": "The per-address login-attempt counter",
+      "throttleDuration": "a rolling minute; it resets a minute after the last attempt",
       "suspension": "A temporary account suspension decided by the club (see the <terms>terms of use</terms>) does not anonymise the account.",
       "rightsTitle": "Your rights",
       "rights": "You can at any time <strong>access</strong> your data, <strong>rectify</strong> it, request its <strong>erasure</strong> or receive a <strong>copy</strong> in a readable format. The application lets you request data export and deletion, with confirmation sent by email. For any other request, write to <strong>{{contact}}</strong>.",
       "erasure": "Erasure means anonymisation, just as when leaving the club: your identity disappears from the application, while your team's written records remain in its archives without your name.",
       "complaint": "If you believe your rights are not respected, you can lodge a complaint with the <strong>CNIL</strong> (www.cnil.fr).",
       "securityTitle": "Security",
-      "security": "Communication with the application is encrypted (HTTPS), passwords are never stored in plain text, five consecutive incorrect passwords block account sign-in for fifteen minutes, and every data access checks that you are signed in and authorised to view it."
+      "security": "Communication with the application is encrypted (HTTPS), passwords are never stored in plain text, ten sign-in attempts per address per minute trigger a pause before the next one rather than blocking the targeted account, and every data access checks that you are signed in and authorised to view it."
     },
     "terms": {
       "title": "Terms of use",
@@ -750,7 +750,6 @@
     }
   },
   "serverErrors": {
-    "account_locked": "Too many sign-in attempts. Try again in a few minutes.",
     "already_participant": "You are already participating in this progress entry.",
     "attachment_too_large": "This file exceeds the size limit for its format.",
     "attachment_too_many_pixels": "This image has too many pixels.",
@@ -766,6 +765,7 @@
     "edit_not_progress": "Only a progress entry can be extended this way.",
     "fetch_failed": "The rulebook source could not be fetched.",
     "join_not_progress": "You can only join a progress entry.",
+    "login_throttled": "Too many sign-in attempts. Try again in a moment.",
     "no_passage": "The source contains no passages to index.",
     "period_reversed": "The start date must precede the end date.",
     "slot_ends_before_it_starts": "The end date cannot precede the start date.",
