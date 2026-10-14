@@ -69,7 +69,7 @@ function useLive(): boolean {
       };
       opened.onmessage = (event) => {
         const { team_season, work_item, deleted } = JSON.parse(event.data) as {
-          team_season: number;
+          team_season: number | null;
           work_item: number | null;
           deleted: boolean;
         };

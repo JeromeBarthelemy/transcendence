@@ -32,6 +32,7 @@
     "label_other": "Notifications, {{count, number}} non lues",
     "empty": "Rien de nouveau.",
     "new": "Nouveau",
+    "account": "Votre compte",
     "team": "Toute l'équipe",
     "verbs": {
       "work_item_opened": "{{actor}} a ouvert un chantier",
@@ -41,7 +42,13 @@
       "work_item_deleted": "{{actor}} a supprimé un chantier",
       "entry_added": "{{actor}} a ajouté {{entry}}",
       "entry_updated": "{{actor}} a modifié {{entry}}",
-      "entry_removed": "{{actor}} a retiré {{entry}}"
+      "entry_removed": "{{actor}} a retiré {{entry}}",
+      "membership_added": "{{actor}} vous a donné accès à l'équipe {{team}}",
+      "membership_removed": "{{actor}} vous a retiré l'accès à l'équipe {{team}}",
+      "made_mentor": "{{actor}} vous a donné le rôle de mentor",
+      "made_student": "{{actor}} vous a donné le rôle d'élève",
+      "admin_granted": "{{actor}} vous a donné les droits d'administration",
+      "admin_revoked": "{{actor}} vous a retiré les droits d'administration"
     },
     "entries": {
       "progress": "une avancée",

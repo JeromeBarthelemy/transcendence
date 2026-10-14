@@ -127,12 +127,21 @@ function NoticeLine({
 }) {
   const { t } = useTranslation();
   const { formatNoticeTime } = useFormatters();
+  // With no work item: the team a member was added to or removed from, their
+  // account for a new role, or the whole team for a trace about no work item.
+  const where =
+    notice.verb === "membership_added" || notice.verb === "membership_removed"
+      ? notice.team
+      : notice.team_season === null
+        ? t("notifications.account")
+        : t("notifications.team");
   const content = (
     <>
       <span className="flex items-start justify-between gap-2">
         <span className="text-sm font-semibold text-ink">
           {t(`notifications.verbs.${notice.verb}`, {
             actor: notice.actor.display_name,
+            team: notice.team,
             entry: notice.entry
               ? t(`notifications.entries.${notice.entry.type}`)
               : "",
@@ -145,7 +154,7 @@ function NoticeLine({
         )}
       </span>
       <span className="mt-0.5 block text-xs text-muted">
-        {notice.work_item?.title ?? t("notifications.team")} ·{" "}
+        {notice.work_item?.title ?? where} ·{" "}
         {formatNoticeTime(notice.created_at)}
       </span>
     </>
