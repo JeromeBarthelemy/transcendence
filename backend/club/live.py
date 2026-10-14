@@ -88,3 +88,24 @@ def broadcast(
             )
 
     transaction.on_commit(send, robust=True)
+
+
+def tell(user_id: int, team_season_id: int | None) -> None:
+    """Like `broadcast`, once committed, but to one person: what an
+    administrator did to them (#242), about a team they may no longer open,
+    or about none."""
+    layer = get_channel_layer()
+    assert layer is not None
+
+    def send() -> None:
+        async_to_sync(layer.group_send)(
+            person_group(user_id),
+            {
+                "type": "board.changed",
+                "team_season": team_season_id,
+                "work_item": None,
+                "deleted": False,
+            },
+        )
+
+    transaction.on_commit(send, robust=True)

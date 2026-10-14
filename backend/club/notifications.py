@@ -1,15 +1,27 @@
 """Who is told of a change on the board (module 13), and the open screens
 with it: one call per write, from the views. A write that forgets it shows at
-once, since its screens stop being live too."""
+once, since its screens stop being live too. What an administrator does to a
+member is told to that member alone."""
 
 from django.db.models import Q, QuerySet
 
-from club.live import broadcast
+from club.live import broadcast, tell
 from club.models import Entry, Notification, TeamSeason, User, WorkItem
 
 # Nobody follows a work item yet when it opens, nor once it is deleted
 # (only one without traces can be): both are the whole team's news.
 TEAM_NEWS = {Notification.Verb.WORK_ITEM_OPENED, Notification.Verb.WORK_ITEM_DELETED}
+
+# About the recipient themselves, not a board: kept in their bell even once the
+# team is no longer theirs to open.
+PERSONAL = {
+    Notification.Verb.MEMBERSHIP_ADDED,
+    Notification.Verb.MEMBERSHIP_REMOVED,
+    Notification.Verb.MADE_MENTOR,
+    Notification.Verb.MADE_STUDENT,
+    Notification.Verb.ADMIN_GRANTED,
+    Notification.Verb.ADMIN_REVOKED,
+}
 
 
 def record_change(
@@ -63,3 +75,19 @@ def _recipients(
             Q(club_role=User.ClubRole.MENTOR) | Q(memberships__team_season=team_season)
         )
     return users.filter(is_active=True).exclude(pk=actor.pk).distinct()
+
+
+def notify_member(
+    actor: User,
+    recipient: User,
+    verb: Notification.Verb,
+    team_season: TeamSeason | None = None,
+) -> None:
+    """What an administrator did to one member, told to them alone. Inside
+    the write's transaction, as `record_change`."""
+    if recipient == actor or not recipient.is_active:
+        return
+    Notification.objects.create(
+        recipient=recipient, actor=actor, team_season=team_season, verb=verb
+    )
+    tell(recipient.pk, team_season.id if team_season else None)

@@ -331,6 +331,67 @@ def test_a_member_taken_off_the_team_hears_nothing_more_of_it(
     assert heard is None
 
 
+def as_admin():
+    client = Client()
+    client.force_login(
+        User.objects.create_user(
+            "admin@example.org",
+            "admin",
+            club_role=User.ClubRole.MENTOR,
+            is_club_admin=True,
+        )
+    )
+    return client
+
+
+def test_a_member_added_to_a_team_hears_it_on_their_own_socket(
+    db, django_capture_on_commit_callbacks
+):
+    rouages = team_season()
+    sam = User.objects.create_user("sam@example.org", "sam")
+    admin = as_admin()
+
+    _, heard = hears(
+        sam,
+        lambda: admin.post(
+            "/api/memberships/", **as_json(user=sam.id, team_season=rouages.id)
+        ),
+        django_capture_on_commit_callbacks,
+    )
+
+    assert heard == {"team_season": rouages.id, "work_item": None, "deleted": False}
+
+
+def test_a_member_removed_from_a_team_hears_it_though_it_is_no_longer_theirs(
+    db, django_capture_on_commit_callbacks
+):
+    rouages = team_season()
+    sam = member_of(rouages, "sam")
+    membership = Membership.objects.get(user=sam)
+    admin = as_admin()
+
+    _, heard = hears(
+        sam,
+        lambda: admin.delete(f"/api/memberships/{membership.id}/"),
+        django_capture_on_commit_callbacks,
+    )
+
+    assert heard == {"team_season": rouages.id, "work_item": None, "deleted": False}
+
+
+def test_a_new_role_is_heard_about_no_team(db, django_capture_on_commit_callbacks):
+    sam = User.objects.create_user("sam@example.org", "sam")
+    admin = as_admin()
+
+    _, heard = hears(
+        sam,
+        lambda: admin.patch(f"/api/users/{sam.id}/", **as_json(club_role="mentor")),
+        django_capture_on_commit_callbacks,
+    )
+
+    assert heard == {"team_season": None, "work_item": None, "deleted": False}
+
+
 def test_a_deactivated_member_hears_nothing_more(
     board, django_capture_on_commit_callbacks
 ):
