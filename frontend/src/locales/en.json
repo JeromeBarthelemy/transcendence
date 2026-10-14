@@ -449,7 +449,14 @@
     "removing": "Deleting…",
     "removed": "Your photo was deleted.",
     "avatarType": "This file was not uploaded: choose a JPEG, PNG, WebP or HEIC photo.",
-    "avatarSize": "This file was not uploaded: the photo exceeds 10 MB."
+    "avatarSize": "This file was not uploaded: the photo exceeds 10 MB.",
+    "team": "Team: {{team}}",
+    "allTeams": "All teams"
+  },
+  "memberProfile": {
+    "eyebrow": "Member profile",
+    "loading": "Loading profile…",
+    "noTeam": "No team yet this season"
   },
   "live": {
     "offline": "Offline: other people's changes will arrive when you reconnect."

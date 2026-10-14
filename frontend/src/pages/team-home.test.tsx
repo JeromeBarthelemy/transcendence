@@ -771,6 +771,36 @@ it("removes a team note its author left by mistake", async () => {
   );
 });
 
+it("opens a teammate's profile from the roster", async () => {
+  const fetchMock = vi.fn(async (path: string) => {
+    if (path === "/api/auth/me/") {
+      return json(identity([teamSeason(7, 1796, "Les Rouages")]));
+    }
+    if (path === "/api/team-seasons/7/work-items/") return json([]);
+    if (path === "/api/team-seasons/7/days/today/") return workday(path);
+    if (path === "/api/team-seasons/7/roster/") {
+      return json([{ id: 9, display_name: "Lina", avatar: null }]);
+    }
+    if (path === "/api/users/9/profile/") {
+      return json({
+        id: 9,
+        display_name: "Lina",
+        avatar: null,
+        club_role: "student",
+        team: { id: 7, number: 1796, name: "Les Rouages" },
+      });
+    }
+    throw new Error(`Unexpected request: ${path}`);
+  });
+  vi.stubGlobal("fetch", fetchMock);
+  renderHome();
+
+  await userEvent.click(await screen.findByRole("link", { name: "Lina" }));
+
+  expect(await screen.findByRole("heading", { name: "Lina" })).toBeTruthy();
+  expect(await screen.findByText("Équipe : 1796 · Les Rouages")).toBeTruthy();
+});
+
 it("tells a club admin a rulebook source has an update waiting, linking to its review", async () => {
   const user = userEvent.setup();
   const fetchMock = vi.fn(async (path: string) => {

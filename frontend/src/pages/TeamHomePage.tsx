@@ -9,6 +9,7 @@ import { useTranslation } from "react-i18next";
 import { Link, useSearchParams } from "react-router-dom";
 
 import type { Identity, TeamSeasonSummary } from "../api/auth";
+import { getTeamSeasonRoster } from "../api/members";
 import {
   getRuleSources,
   isDismissed,
@@ -19,7 +20,7 @@ import { getWorkItems, type WorkItem } from "../api/workItems";
 import { fetchFreshEntry } from "../app/entries";
 import { useFormatters } from "../app/formatters";
 import { RequestError } from "../components/ApiErrors";
-import { AvatarStack } from "../components/Avatar";
+import { Avatar, AvatarStack } from "../components/Avatar";
 import { Button, ButtonLink, buttonClass } from "../components/Button";
 import { StatusChip } from "../components/Chip";
 import { EmptyState } from "../components/EmptyState";
@@ -423,6 +424,34 @@ function NotebookExport({ teamSeasonId }: { teamSeasonId: number }) {
   );
 }
 
+/** A teammate's name or avatar, opening their profile (#176) — the students
+ * this team counts on; mentors are left out, same as the roster count
+ * `TodaySummary` already shows for the day. */
+function TeamRoster({ teamSeasonId }: { teamSeasonId: number }) {
+  const roster = useQuery({
+    queryKey: ["team-seasons", teamSeasonId, "roster"],
+    queryFn: () => getTeamSeasonRoster(teamSeasonId),
+  });
+  if (!roster.data || roster.data.length === 0) {
+    return null;
+  }
+  return (
+    <ul className="mt-4 flex flex-wrap gap-2">
+      {roster.data.map((member) => (
+        <li key={member.id}>
+          <Link
+            to={`/members/${member.id}`}
+            className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-white px-3 py-1.5 text-sm font-medium text-ink transition hover:bg-tint"
+          >
+            <Avatar person={member} size="sm" />
+            {member.display_name}
+          </Link>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 export function TeamHomePage({ identity }: { identity: Identity }) {
   const { t } = useTranslation();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -546,6 +575,11 @@ export function TeamHomePage({ identity }: { identity: Identity }) {
           </Label>
         )}
       </div>
+
+      <TeamRoster
+        key={selectedTeamSeason.id}
+        teamSeasonId={selectedTeamSeason.id}
+      />
 
       <TodaySummary
         key={selectedTeamSeason.id}

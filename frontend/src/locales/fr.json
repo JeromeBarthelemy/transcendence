@@ -456,7 +456,14 @@
     "removing": "Suppression…",
     "removed": "Votre photo a été supprimée.",
     "avatarType": "Ce fichier n'a pas été envoyé : choisissez une photo JPEG, PNG, WebP ou HEIC.",
-    "avatarSize": "Ce fichier n'a pas été envoyé : la photo dépasse 10 Mo."
+    "avatarSize": "Ce fichier n'a pas été envoyé : la photo dépasse 10 Mo.",
+    "team": "Équipe : {{team}}",
+    "allTeams": "Toutes les équipes"
+  },
+  "memberProfile": {
+    "eyebrow": "Profil du membre",
+    "loading": "Chargement du profil…",
+    "noTeam": "Pas encore d'équipe cette saison"
   },
   "live": {
     "offline": "Hors ligne : les changements des autres arriveront à la reconnexion."
