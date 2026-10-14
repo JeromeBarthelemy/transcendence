@@ -20,7 +20,7 @@ import { fetchFreshEntry } from "../app/entries";
 import { useFormatters } from "../app/formatters";
 import { RequestError } from "../components/ApiErrors";
 import { AvatarStack } from "../components/Avatar";
-import { Button, buttonClass } from "../components/Button";
+import { Button, ButtonLink, buttonClass } from "../components/Button";
 import { StatusChip } from "../components/Chip";
 import { EmptyState } from "../components/EmptyState";
 import { EntryActions } from "../components/EntryActions";
@@ -593,6 +593,16 @@ export function TeamHomePage({ identity }: { identity: Identity }) {
                 key={selectedTeamSeason.id}
                 teamSeasonId={selectedTeamSeason.id}
                 workItems={workItems.data}
+                beside={
+                  <ButtonLink
+                    variant="secondary"
+                    to={`/team-seasons/${selectedTeamSeason.id}/search`}
+                  >
+                    <IconLabel icon="search" before>
+                      {t("search.open")}
+                    </IconLabel>
+                  </ButtonLink>
+                }
               >
                 <Label>
                   {t("teamHome.filterByStatus")}

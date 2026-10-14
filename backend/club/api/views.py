@@ -61,6 +61,7 @@ from club.progress import (
     record_progress,
 )
 from club.rag import ask, glossary_for, serialize
+from club.search import people_of, search_entries
 from club.sources import (
     CheckOutcome,
     NoPassage,
@@ -108,6 +109,7 @@ from .serializers import (
     PeriodSerializer,
     ReadNotificationsSerializer,
     RenameTeamSerializer,
+    SearchSerializer,
     SignUpSerializer,
     TickSerializer,
     UserRoleSerializer,
@@ -1177,6 +1179,55 @@ class ActivityAnalyticsView(APIView):
             response["Content-Disposition"] = f'attachment; filename="{name}"'
             return response
         return Response(data)
+
+
+class SearchView(APIView):
+    """The notebook search (club/search.py), a page at a time. `count` is
+    every match, not just this page's, and `people` is what the participant
+    filter offers: read here so the search page needs one request."""
+
+    def get(self, request: Request, team_season_id: int) -> Response:
+        user = request.user
+        assert isinstance(user, User)
+        team_season = team_season_acted_on(user, team_season_id)
+        # A missing query filter is not an unchecked HTML checkbox (False).
+        serializer = SearchSerializer(
+            data=request.query_params.dict(), context={"team_season": team_season}
+        )
+        serializer.is_valid(raise_exception=True)
+        query = serializer.validated_data
+        matches = search_entries(
+            team_season,
+            text=query.get("q", ""),
+            work_item=query.get("work_item"),
+            on_robot=query.get("on_robot"),
+            step=query.get("step"),
+            participant=query.get("participant"),
+            since=query.get("since"),
+            until=query.get("until"),
+            entry_type=query.get("type"),
+            has_photo=query.get("has_photo"),
+            newest_first=query["order"] == "newest",
+        )
+        page, size = query["page"], query["page_size"]
+        results = matches.select_related("author", "work_item").prefetch_related(
+            "participants", "attachments__uploaded_by"
+        )[(page - 1) * size : page * size]
+        return Response(
+            {
+                "count": matches.count(),
+                "page": page,
+                "page_size": size,
+                "results": [
+                    {**_entry(entry, user), "day": workday(entry.occurred_at)}
+                    for entry in results
+                ],
+                "people": [
+                    {"id": person.id, **_member(person)}
+                    for person in people_of(team_season)
+                ],
+            }
+        )
 
 
 class ExportView(APIView):

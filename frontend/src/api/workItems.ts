@@ -58,7 +58,7 @@ const attachmentSchema = z.object({
   can_remove: z.boolean(),
 });
 
-const entrySchema = z.object({
+export const entrySchema = z.object({
   id: z.number(),
   work_item: z.nullable(
     z.object({
