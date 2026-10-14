@@ -1,4 +1,5 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import type { TFunction } from "i18next";
 import { type ChangeEvent, type FormEvent, useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, Navigate, useParams, useSearchParams } from "react-router-dom";
@@ -39,6 +40,7 @@ const FILTER_KEYS = [
   "since",
   "until",
   "type",
+  "has_photo",
 ] as const;
 type FilterKey = (typeof FILTER_KEYS)[number];
 type Draft = Record<FilterKey, string>;
@@ -62,18 +64,21 @@ function readFilters(params: URLSearchParams): SearchFilters {
     const value = params.get(key);
     return value && DAY.test(value) ? value : undefined;
   };
-  const onRobot = params.get("on_robot");
+  const flag = (key: string) => {
+    const value = params.get(key);
+    return value === "true" ? true : value === "false" ? false : undefined;
+  };
   const pageSize = positive(params.get("page_size"));
   return {
     q: params.get("q")?.trim() || undefined,
     work_item: positive(params.get("work_item")),
-    on_robot:
-      onRobot === "true" ? true : onRobot === "false" ? false : undefined,
+    on_robot: flag("on_robot"),
     step: oneOf(params.get("step"), workItemSteps),
     participant: positive(params.get("participant")),
     since: day("since"),
     until: day("until"),
     type: oneOf(params.get("type"), entryTypes),
+    has_photo: flag("has_photo"),
     order: oneOf(params.get("order"), searchOrders) ?? "newest",
     page: positive(params.get("page")) ?? 1,
     page_size: pageSizes.find((size) => size === pageSize) ?? DEFAULT_PAGE_SIZE,
@@ -302,6 +307,20 @@ function FiltersForm({
           </Label>
         </fieldset>
       </div>
+      <label className="mt-5 flex items-center gap-2 text-sm font-semibold text-ink">
+        <input
+          type="checkbox"
+          className="size-4 accent-accent"
+          checked={draft.has_photo === "true"}
+          onChange={(event) =>
+            setDraft((current) => ({
+              ...current,
+              has_photo: event.target.checked ? "true" : "",
+            }))
+          }
+        />
+        {t("search.hasPhoto")}
+      </label>
       {reversed && (
         <FieldErrors id={periodErrorId} message={t("search.periodReversed")} />
       )}
@@ -317,24 +336,17 @@ function FiltersForm({
   );
 }
 
-/** What is applied, one chip each: removing one is a click, and leaves the
- * others in place. */
-function ActiveFilters({
-  filters,
-  workItems,
-  people,
-  onRemove,
-  onClear,
-}: {
-  filters: SearchFilters;
-  workItems: WorkItem[];
-  people: SearchPage["people"];
-  onRemove: (key: FilterKey) => void;
-  onClear: () => void;
-}) {
-  const { t } = useTranslation();
-  const { formatDay } = useFormatters();
-  const labels: Partial<Record<FilterKey, string>> = {
+type Labels = Partial<Record<FilterKey, string>>;
+
+/** Each applied filter in words, as its chip says it. */
+function filterLabels(
+  filters: SearchFilters,
+  workItems: WorkItem[],
+  people: SearchPage["people"],
+  t: TFunction,
+  formatDay: (day: string) => string,
+): Labels {
+  return {
     q: filters.q && t("search.textChip", { text: filters.q }),
     work_item:
       filters.work_item !== undefined
@@ -360,7 +372,27 @@ function ActiveFilters({
       filters.until &&
       t("search.untilChip", { date: formatDay(filters.until) }),
     type: filters.type && t(`search.types.${filters.type}`),
+    has_photo:
+      filters.has_photo === undefined
+        ? undefined
+        : filters.has_photo
+          ? t("search.withPhoto")
+          : t("search.withoutPhoto"),
   };
+}
+
+/** What is applied, one chip each: removing one is a click, and leaves the
+ * others in place. */
+function ActiveFilters({
+  labels,
+  onRemove,
+  onClear,
+}: {
+  labels: Labels;
+  onRemove: (key: FilterKey) => void;
+  onClear: () => void;
+}) {
+  const { t } = useTranslation();
   const active = FILTER_KEYS.filter((key) => labels[key]);
   if (active.length === 0) return null;
 
@@ -427,6 +459,7 @@ export function NotebookSearchPage() {
   const teamSeasonId = Number(params.teamSeasonId);
   const [searchParams, setSearchParams] = useSearchParams();
   const currentUser = useCurrentUser();
+  const { formatDay } = useFormatters();
   const filters = readFilters(searchParams);
   const query = searchQuery(filters);
   const signedIn = Boolean(currentUser.data);
@@ -468,6 +501,15 @@ export function NotebookSearchPage() {
   );
   const people = results.data?.people ?? [];
   const items = workItems.data ?? [];
+  const labels = filterLabels(filters, items, people, t, formatDay);
+  // The filter added last is the last in the URL: applying the form keeps
+  // the filters already there in place and adds the new ones after them.
+  const lastFilter = [...searchParams.keys()]
+    .filter(
+      (key): key is FilterKey =>
+        key in labels && Boolean(labels[key as FilterKey]),
+    )
+    .at(-1);
 
   /** Changing what is searched starts again from the first page. */
   function update(changes: Partial<Record<string, string>>, keepPage = false) {
@@ -528,9 +570,7 @@ export function NotebookSearchPage() {
       />
 
       <ActiveFilters
-        filters={filters}
-        workItems={items}
-        people={people}
+        labels={labels}
         onRemove={(key) => update({ [key]: "" })}
         onClear={() =>
           update(Object.fromEntries(FILTER_KEYS.map((key) => [key, ""])))
@@ -589,6 +629,15 @@ export function NotebookSearchPage() {
             {results.data.count > 0
               ? t("search.pastTheEnd")
               : t("search.empty")}
+            {results.data.count === 0 && lastFilter && (
+              <Button
+                size="sm"
+                className="mt-3 flex"
+                onClick={() => update({ [lastFilter]: "" })}
+              >
+                {t("search.removeLast", { filter: labels[lastFilter] })}
+              </Button>
+            )}
           </EmptyState>
         ) : (
           <ol

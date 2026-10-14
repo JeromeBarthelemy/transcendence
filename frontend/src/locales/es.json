@@ -691,6 +691,10 @@
     "sinceChip": "Desde el {{date}}",
     "untilChip": "Hasta el {{date}}",
     "textChip": "«{{text}}»",
+    "hasPhoto": "Con al menos una foto",
+    "withPhoto": "Con foto",
+    "withoutPhoto": "Sin foto",
+    "removeLast": "Quitar el último filtro: {{filter}}",
     "types": {
       "progress": "Avance",
       "note": "Nota",

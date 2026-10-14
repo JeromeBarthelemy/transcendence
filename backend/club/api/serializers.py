@@ -588,6 +588,7 @@ class SearchSerializer(serializers.Serializer[None]):
     since = serializers.DateField(required=False)
     until = serializers.DateField(required=False)
     type = serializers.ChoiceField(choices=Entry.Type.choices, required=False)
+    has_photo = serializers.BooleanField(required=False)
     order = serializers.ChoiceField(choices=["newest", "oldest"], default="newest")
     page = serializers.IntegerField(min_value=1, default=1)
     page_size = serializers.IntegerField(min_value=1, max_value=50, default=20)

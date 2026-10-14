@@ -1,6 +1,6 @@
 """Searching a team's notebook: its traces, filtered by what they say, which
 work item they belong to, its side of the robot, the step, who took part,
-when, and what kind of trace they are. Every filter given narrows the
+when, what kind of trace they are, and whether a photo is attached. Every filter given narrows the
 results; none given is the whole notebook."""
 
 from datetime import date
@@ -9,7 +9,15 @@ from typing import Any
 from django.db.backends.base.base import BaseDatabaseWrapper
 from django.db.models import Exists, Func, OuterRef, Q, QuerySet, TextField
 
-from club.models import Entry, EntryParticipant, TeamSeason, User, WorkItem, fold_title
+from club.models import (
+    Attachment,
+    Entry,
+    EntryParticipant,
+    TeamSeason,
+    User,
+    WorkItem,
+    fold_title,
+)
 from club.workdays import workday_bounds
 
 
@@ -48,13 +56,15 @@ def search_entries(
     since: date | None = None,
     until: date | None = None,
     entry_type: str | None = None,
+    has_photo: bool | None = None,
     newest_first: bool = True,
 ) -> QuerySet[Entry]:
     """Each word of `text` must appear, in any order, in the trace's text, its
-    handover or its work item's title: « intake moteur » finds the intake
-    progress that mentions the motor. `participant` is whoever took part in a
-    progress or attended a decision, or wrote the trace. Dates are workdays,
-    both included, so a late evening counts for the day it started."""
+        handover or its work item's title: « intake moteur » finds the intake
+        progress that mentions the motor. `participant` is whoever took part in a
+        progress or attended a decision, or wrote the trace. Dates are workdays,
+        both included, so a late evening counts for the day it started. A photo is
+    an attached image, as the result cards count them: a video is not one."""
     entries = Entry.objects.filter(team_season=team_season)
     words = fold_title(text).split()
     if words:
@@ -84,6 +94,11 @@ def search_entries(
         entries = entries.filter(occurred_at__lt=workday_bounds(until)[1])
     if entry_type is not None:
         entries = entries.filter(type=entry_type)
+    if has_photo is not None:
+        photo = Attachment.objects.filter(
+            entry=OuterRef("pk"), content_type__startswith="image/"
+        )
+        entries = entries.filter(Exists(photo) if has_photo else ~Exists(photo))
     order = ("-occurred_at", "-id") if newest_first else ("occurred_at", "id")
     return entries.order_by(*order)
 

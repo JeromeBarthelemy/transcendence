@@ -18,6 +18,7 @@ export interface SearchFilters {
   since?: string;
   until?: string;
   type?: (typeof entryTypes)[number];
+  has_photo?: boolean;
   order?: (typeof searchOrders)[number];
   page?: number;
   page_size?: number;

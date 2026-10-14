@@ -299,3 +299,58 @@ it("follows the selected language, filters and results kept", async () => {
   // Presentation only: nothing is asked of the server again.
   expect(searches).toHaveLength(1);
 });
+
+it("finds the photos of the intake in November", async () => {
+  const user = userEvent.setup();
+  const { last } = renderSearch();
+  await screen.findByText("Trace 1");
+
+  await user.selectOptions(await screen.findByLabelText("Chantier"), "3");
+  await user.type(screen.getByLabelText("Du"), "2026-11-01");
+  await user.type(screen.getByLabelText("Au"), "2026-11-30");
+  await user.click(screen.getByLabelText("Avec au moins une photo"));
+  await user.click(screen.getByRole("button", { name: "Rechercher" }));
+
+  await waitFor(() =>
+    expect(last()).toMatchObject({
+      work_item: "3",
+      since: "2026-11-01",
+      until: "2026-11-30",
+      has_photo: "true",
+    }),
+  );
+  await user.click(
+    screen.getByRole("button", { name: "Retirer le filtre Avec photo" }),
+  );
+  await waitFor(() => expect(last().has_photo).toBeUndefined());
+  expect(last()).toMatchObject({ work_item: "3" });
+});
+
+it("offers to remove the filter added last when nothing matches", async () => {
+  const user = userEvent.setup();
+  const { last } = renderSearch(
+    (params) => page(params.has("step") ? [] : [result(1)]),
+    "/team-seasons/7/search?q=intake&step=building",
+  );
+
+  await user.click(
+    await screen.findByRole("button", {
+      name: "Retirer le dernier filtre : Construction",
+    }),
+  );
+
+  expect(await screen.findByText("Trace 1")).toBeTruthy();
+  expect(last()).toMatchObject({ q: "intake" });
+  expect(last().step).toBeUndefined();
+});
+
+it("offers nothing to remove when no filter is applied", async () => {
+  renderSearch(() => page([]));
+
+  expect(
+    await screen.findByText("Aucune trace ne correspond à ces filtres."),
+  ).toBeTruthy();
+  expect(
+    screen.queryByRole("button", { name: /Retirer le dernier filtre/ }),
+  ).toBeNull();
+});

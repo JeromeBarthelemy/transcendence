@@ -1,7 +1,10 @@
 from datetime import date, datetime, time
 from zoneinfo import ZoneInfo
 
+from django.core.files.base import ContentFile
+
 from club.models import (
+    Attachment,
     Entry,
     EntryParticipant,
     Membership,
@@ -126,6 +129,41 @@ def test_filters_by_work_item_side_step_and_type(client):
     assert ids(search(client, team, on_robot="false")) == [letter.id]
     assert ids(search(client, team, step="dry_tests")) == [tested.id]
     assert ids(search(client, team, type="note")) == [note.id]
+
+
+def attach(entry, content_type):
+    Attachment.objects.create(
+        entry=entry,
+        uploaded_by=entry.author,
+        file=ContentFile(b"x", name="f"),
+        name="f",
+        content_type=content_type,
+    )
+
+
+def test_the_photos_of_the_intake_in_november(client, settings, tmp_path):
+    settings.MEDIA_ROOT = tmp_path
+    # The module's demo: a photo filter, a work item and a month, combined.
+    team, lina, intake = scene(client)
+    photo = trace(team, lina, item=intake, body="Prise de la balle")
+    attach(photo, "image/jpeg")
+    filmed = trace(team, lina, item=intake, body="Essai filmé")
+    attach(filmed, "video/mp4")
+    trace(team, lina, item=intake, body="Rien de joint")
+    october = trace(team, lina, item=intake, when=at(date(2026, 10, 14)))
+    attach(october, "image/png")
+
+    body = search(
+        client,
+        team,
+        has_photo="true",
+        work_item=intake.id,
+        since="2026-11-01",
+        until="2026-11-30",
+    )
+
+    assert ids(body) == [photo.id]
+    assert len(ids(search(client, team, has_photo="false"))) == 2
 
 
 def test_a_participant_is_who_took_part_or_who_wrote(client):

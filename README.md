@@ -725,6 +725,10 @@ before publishing, not one to empty. A mentor corrects a wrong answer on
 recognisable people there, but never clears it because the member who
 refuses is not on the photo: someone else on it may refuse later.
 
+The members a route lists — a progress's participants, who was there on a
+day — each come as `{"display_name", "avatar"}`, so the interface can put a
+face next to a name without asking again.
+
 ### Notebook search
 
 "Rechercher dans les chantiers", on the team home, opens
@@ -741,6 +745,7 @@ optional, and those given combine:
 | `participant` | a user who took part in the progress, attended the decision, or wrote the trace |
 | `since`, `until` | within those workdays, both included and either one open (`period_reversed` if they cross) |
 | `type` | `progress`, `note` or `decision` |
+| `has_photo` | `true` with at least one photo attached, `false` with none; a video is not a photo |
 | `order` | `newest` (default) or `oldest` first |
 | `page`, `page_size` | from 1, 20 per page by default and 50 at most; a page past the end is empty, `count` still says how many match |
 
@@ -755,12 +760,9 @@ traces is cheap at a club's size.
 The filters live in the page's URL, so a link, a reload or the back button
 shows the same results. The form applies them on "Rechercher"; each applied
 filter shows as a chip that removes it alone, and any change of filter, order
-or page size returns to the first page. Each result links to its workday and
-its work item.
-
-The members a route lists — a progress's participants, who was there on a
-day — each come as `{"display_name", "avatar"}`, so the interface can put a
-face next to a name without asking again.
+or page size returns to the first page. When nothing matches, the empty
+result offers to remove the filter added last, the one most likely to have
+emptied it. Each result links to its workday and its work item.
 
 ### Live board
 

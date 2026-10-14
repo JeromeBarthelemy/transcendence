@@ -1187,6 +1187,7 @@ class SearchView(APIView):
             since=query.get("since"),
             until=query.get("until"),
             entry_type=query.get("type"),
+            has_photo=query.get("has_photo"),
             newest_first=query["order"] == "newest",
         )
         page, size = query["page"], query["page_size"]
