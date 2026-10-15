@@ -68,11 +68,19 @@ function useLive(): boolean {
         }, RENEW_AFTER);
       };
       opened.onmessage = (event) => {
-        const { team_season, work_item, deleted } = JSON.parse(event.data) as {
-          team_season: number;
-          work_item: number | null;
-          deleted: boolean;
-        };
+        const data = JSON.parse(event.data) as
+          | { presence: true; team_season: number }
+          | { team_season: number; work_item: number | null; deleted: boolean };
+        if ("presence" in data) {
+          // A teammate's dot (#267) — the roster re-reads it; so does
+          // whichever profile is open, whoever it is showing.
+          queryClient.invalidateQueries({
+            queryKey: ["team-seasons", data.team_season, "roster"],
+          });
+          queryClient.invalidateQueries({ queryKey: ["members", "profile"] });
+          return;
+        }
+        const { team_season, work_item, deleted } = data;
         queryClient.invalidateQueries({
           queryKey: ["team-seasons", team_season],
         });

@@ -431,10 +431,6 @@ function TeamRoster({ teamSeasonId }: { teamSeasonId: number }) {
   const roster = useQuery({
     queryKey: ["team-seasons", teamSeasonId, "roster"],
     queryFn: () => getTeamSeasonRoster(teamSeasonId),
-    // Online status (#267) has no WebSocket to tell it when a dot should
-    // turn off — a poll slow enough to not matter, next to the minute-long
-    // window a visit already keeps someone "online" for.
-    refetchInterval: 30_000,
   });
   if (!roster.data || roster.data.length === 0) {
     return null;

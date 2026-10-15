@@ -1,11 +1,8 @@
 """A team's roster (#176): the students it counts on, a page reached from
 their name or avatar — mentors supervise and are never in it."""
 
-from datetime import timedelta
-
-from django.utils import timezone
-
 from club.models import Membership, Season, Team, TeamSeason, User
+from club.presence import connected, disconnected
 
 PASSWORD = "rouage-bleu-2026"
 
@@ -39,9 +36,9 @@ def test_a_teammate_sees_the_roster(client):
     response = roster(client, theirs)
 
     assert response.status_code == 200
-    # ada's own request already touched her own last_seen (club/presence.py).
+    # A plain HTTP request carries no socket of its own: nobody is online.
     assert response.json() == [
-        {"id": ada.id, "display_name": "ada", "avatar": None, "online": True}
+        {"id": ada.id, "display_name": "ada", "avatar": None, "online": False}
     ]
 
 
@@ -56,24 +53,40 @@ def test_the_roster_shows_whether_a_teammate_is_currently_online(client):
     first = {member["id"]: member for member in roster(client, theirs).json()}
     assert first[ada.id]["online"] is False
 
-    ada.last_seen = timezone.now()
-    ada.save(update_fields=["last_seen"])
+    connected(ada.pk)
 
     second = {member["id"]: member for member in roster(client, theirs).json()}
     assert second[ada.id]["online"] is True
 
 
-def test_the_roster_stops_showing_a_teammate_online_once_they_are_gone(client):
+def test_the_roster_stops_showing_a_teammate_online_once_their_socket_closes(client):
     theirs = team_season(111)
-    ada = person("ada", last_seen=timezone.now() - timedelta(minutes=5))
+    ada = person("ada")
     tom = person("tom")
     Membership.objects.create(user=ada, team_season=theirs)
     Membership.objects.create(user=tom, team_season=theirs)
     client.force_login(tom)
+    connected(ada.pk)
+    disconnected(ada.pk)
 
     members = {member["id"]: member for member in roster(client, theirs).json()}
 
     assert members[ada.id]["online"] is False
+
+
+def test_the_roster_hides_online_status_for_a_past_season(client):
+    last_year = team_season(111, start_year=2025)
+    team_season(222, start_year=2026)
+    ada = person("ada")
+    tom = person("tom")
+    Membership.objects.create(user=ada, team_season=last_year)
+    Membership.objects.create(user=tom, team_season=last_year)
+    client.force_login(tom)
+    connected(ada.pk)
+
+    members = {member["id"]: member for member in roster(client, last_year).json()}
+
+    assert members[ada.id]["online"] is None
 
 
 def test_the_roster_leaves_out_mentors(client):

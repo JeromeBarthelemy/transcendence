@@ -1,9 +1,8 @@
 """Opening another member's profile (#176): any signed-in member may, and
 never sees more than a display name, a photo and a current-season team."""
 
-from django.utils import timezone
-
 from club.models import Membership, Season, Team, TeamSeason, User
+from club.presence import connected
 
 PASSWORD = "rouage-bleu-2026"
 
@@ -131,14 +130,14 @@ def test_a_teammate_sees_whether_ada_is_online(client):
 
     assert profile(client, ada).json()["online"] is False
 
-    ada.last_seen = timezone.now()
-    ada.save(update_fields=["last_seen"])
+    connected(ada.pk)
 
     assert profile(client, ada).json()["online"] is True
 
 
 def test_a_non_teammate_never_sees_online_status(client):
-    ada = person("ada", last_seen=timezone.now())
+    ada = person("ada")
+    connected(ada.pk)
     Membership.objects.create(user=ada, team_season=team_season(111))
     client.force_login(person("tom"))
 
@@ -146,7 +145,8 @@ def test_a_non_teammate_never_sees_online_status(client):
 
 
 def test_a_mentor_always_sees_online_status(client):
-    ada = person("ada", last_seen=timezone.now())
+    ada = person("ada")
+    connected(ada.pk)
     client.force_login(person("paul", User.ClubRole.MENTOR))
 
     assert profile(client, ada).json()["online"] is True

@@ -20,9 +20,6 @@ export function MemberProfilePage() {
     queryKey: ["members", "profile", userId],
     queryFn: () => getMemberProfile(userId),
     enabled: Number.isInteger(userId),
-    // Online status has no WebSocket to tell it when the dot should turn
-    // off — a poll slow enough to not matter.
-    refetchInterval: 30_000,
   });
 
   return (

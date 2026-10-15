@@ -25,8 +25,9 @@ const rosterMemberSchema = z.object({
   id: z.number(),
   display_name: z.string(),
   avatar: z.nullable(z.string()),
-  // Always known here: the roster itself is already team-scoped (#267).
-  online: z.boolean(),
+  // null for a past season's roster: #267's own rule is the viewer's
+  // *current* team, and a roster may be reopened for an earlier one.
+  online: z.nullable(z.boolean()),
 });
 
 export type MemberProfile = z.infer<typeof memberProfileSchema>;

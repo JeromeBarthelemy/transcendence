@@ -157,11 +157,6 @@ class User(AbstractBaseUser, PermissionsMixin):
     is_active = models.BooleanField("actif", default=True)
     is_staff = models.BooleanField("accès à l'admin", default=False)
     date_joined = models.DateTimeField("date d'inscription", default=timezone.now)
-    # Online status (#267): the request that last reached the API, bumped at
-    # most once a minute (club/presence.py) rather than on every one — a
-    # club's worth of members browsing the board would otherwise mean a
-    # write on every single request.
-    last_seen = models.DateTimeField("dernière activité", null=True, blank=True)
 
     objects = UserManager()
 

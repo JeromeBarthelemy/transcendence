@@ -346,20 +346,26 @@ class TeamSeasonRosterView(APIView):
     """The students a team counts on (#176) — a page reached from a
     teammate's name or avatar opens their profile. Mentors supervise, so
     `.roster()` already leaves them out, the same convention `DayView`'s
-    own roster count already relies on. Already scoped to the team by
-    `team_season_acted_on`, so every entry's `online` (#267) is shown —
-    unlike `_member_profile`, which still has to ask."""
+    own roster count already relies on. `team_season_acted_on` lets a
+    student reopen a past season's team they were on, same as any other
+    board screen — but #267's own rule is "their own *current* team", so
+    `online` stays `None` there, same as `_member_profile` for someone not
+    on the viewer's current team."""
 
     def get(self, request: Request, team_season_id: int) -> Response:
         assert isinstance(request.user, User)
         team_season = team_season_acted_on(request.user, team_season_id)
+        current_season = Season.objects.first()
+        is_current = (
+            current_season is not None and team_season.season_id == current_season.pk
+        )
         roster = team_season.memberships.roster().select_related("user")
         return Response(
             [
                 {
                     "id": membership.user.id,
                     **_member(membership.user),
-                    "online": is_online(membership.user),
+                    "online": is_online(membership.user) if is_current else None,
                 }
                 for membership in roster.order_by("user__display_name_folded")
             ]

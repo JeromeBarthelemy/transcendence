@@ -6,9 +6,10 @@ export interface Person {
   avatar: string | null;
 }
 
-/** Nothing when offline: the dot turns off once a teammate stops using the
- * app (#267), rather than turning grey. */
-export function OnlineDot({ online }: { online: boolean }) {
+/** Nothing when offline or unknown (`null`: not the viewer's to see,
+ * #267's own scoping rule): the dot turns off once a teammate stops using
+ * the app, rather than turning grey. */
+export function OnlineDot({ online }: { online: boolean | null }) {
   const { t } = useTranslation();
   if (!online) {
     return null;

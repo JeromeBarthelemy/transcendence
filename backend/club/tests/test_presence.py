@@ -1,13 +1,20 @@
-"""A teammate's online status (#267): a green dot, nothing else."""
+"""A teammate's online status (#267): a green dot, nothing else — derived
+from the WebSocket every signed-in member already holds, not from a stored
+timestamp (reviewed on #272)."""
 
-from datetime import timedelta
-
-from django.utils import timezone
+from asgiref.sync import async_to_sync
+from channels.testing import WebsocketCommunicator
+from config.asgi import application
+from django.test import Client
 
 from club.models import Membership, Season, Team, TeamSeason, User
-from club.presence import is_online, shares_current_team, touch_last_seen
-
-NOW = timezone.now()
+from club.presence import (
+    connected,
+    current_team_season_ids,
+    disconnected,
+    is_online,
+    shares_current_team,
+)
 
 
 def person(name, club_role=User.ClubRole.STUDENT, **extra):
@@ -26,60 +33,43 @@ def team_season(number, start_year=2026):
     return TeamSeason.objects.create(team=team, season=season)
 
 
-# --- is_online ---
+# --- is_online / connected / disconnected ---
 
 
-def test_a_member_never_seen_is_offline():
+def test_a_member_with_no_open_socket_is_offline():
     assert is_online(person("ada")) is False
 
 
-def test_a_recently_seen_member_is_online(monkeypatch):
-    monkeypatch.setattr("club.presence.timezone.now", lambda: NOW)
-    ada = person("ada", last_seen=NOW - timedelta(minutes=1))
+def test_connecting_once_makes_a_member_online():
+    ada = person("ada")
 
+    assert connected(ada.pk) is True
     assert is_online(ada) is True
 
 
-def test_a_member_seen_long_ago_is_offline(monkeypatch):
-    monkeypatch.setattr("club.presence.timezone.now", lambda: NOW)
-    ada = person("ada", last_seen=NOW - timedelta(minutes=5))
-
-    assert is_online(ada) is False
-
-
-# --- touch_last_seen ---
-
-
-def test_touch_last_seen_sets_it_the_first_time(monkeypatch):
-    monkeypatch.setattr("club.presence.timezone.now", lambda: NOW)
+def test_a_second_tab_does_not_double_count_as_a_fresh_connection():
     ada = person("ada")
+    connected(ada.pk)
 
-    touch_last_seen(ada)
-
-    ada.refresh_from_db()
-    assert ada.last_seen == NOW
-
-
-def test_touch_last_seen_does_nothing_within_the_interval(monkeypatch):
-    seen_at = NOW - timedelta(seconds=30)
-    ada = person("ada", last_seen=seen_at)
-    monkeypatch.setattr("club.presence.timezone.now", lambda: NOW)
-
-    touch_last_seen(ada)
-
-    ada.refresh_from_db()
-    assert ada.last_seen == seen_at
+    assert connected(ada.pk) is False
+    assert is_online(ada) is True
 
 
-def test_touch_last_seen_updates_again_once_the_interval_has_passed(monkeypatch):
-    seen_at = NOW - timedelta(minutes=2)
-    ada = person("ada", last_seen=seen_at)
-    monkeypatch.setattr("club.presence.timezone.now", lambda: NOW)
+def test_disconnecting_one_of_two_tabs_leaves_the_member_online():
+    ada = person("ada")
+    connected(ada.pk)
+    connected(ada.pk)
 
-    touch_last_seen(ada)
+    assert disconnected(ada.pk) is False
+    assert is_online(ada) is True
 
-    ada.refresh_from_db()
-    assert ada.last_seen == NOW
+
+def test_disconnecting_the_last_tab_makes_a_member_offline():
+    ada = person("ada")
+    connected(ada.pk)
+
+    assert disconnected(ada.pk) is True
+    assert is_online(ada) is False
 
 
 # --- shares_current_team ---
@@ -130,20 +120,144 @@ def test_a_student_with_no_team_shares_nothing():
     assert shares_current_team(tom, ada) is False
 
 
-# --- the middleware, end to end ---
+# --- current_team_season_ids ---
 
 
-def test_a_signed_in_requests_own_visit_sets_last_seen(client):
+def test_a_students_current_team_season_ids_are_their_own():
     ada = person("ada")
-    assert ada.last_seen is None
-    client.force_login(ada)
+    theirs = team_season(111)
+    Membership.objects.create(user=ada, team_season=theirs)
 
-    client.get("/api/auth/me/")
-
-    ada.refresh_from_db()
-    assert ada.last_seen is not None
+    assert current_team_season_ids(ada) == [theirs.id]
 
 
-def test_an_anonymous_visit_raises_nothing(client):
-    # isinstance(user, User) must hold for AnonymousUser too.
-    assert client.get("/api/auth/me/").status_code == 200
+def test_a_past_seasons_team_is_not_a_current_team_season_id():
+    ada = person("ada")
+    last_year = team_season(111, start_year=2025)
+    team_season(222, start_year=2026)
+    Membership.objects.create(user=ada, team_season=last_year)
+
+    assert current_team_season_ids(ada) == []
+
+
+def test_a_mentor_has_no_current_team_season_ids():
+    paul = person("paul", User.ClubRole.MENTOR)
+
+    assert current_team_season_ids(paul) == []
+
+
+# --- the socket, end to end ---
+
+
+def headers(user):
+    client = Client()
+    client.force_login(user)
+    session = client.cookies["sessionid"].value
+    return [
+        (b"origin", b"http://localhost"),
+        (b"cookie", f"sessionid={session}".encode()),
+    ]
+
+
+def test_connecting_a_socket_makes_a_member_online(db):
+    ada = person("ada")
+    sent = headers(ada)
+
+    async def scenario():
+        communicator = WebsocketCommunicator(application, "/ws/me/", sent)
+        await communicator.connect()
+        during = is_online(ada)
+        await communicator.disconnect()
+        return during
+
+    during = async_to_sync(scenario)()
+
+    assert during is True
+    assert is_online(ada) is False
+
+
+def test_a_teammate_hears_a_socket_open_and_close(db):
+    theirs = team_season(111)
+    ada = person("ada")
+    tom = person("tom")
+    Membership.objects.create(user=ada, team_season=theirs)
+    Membership.objects.create(user=tom, team_season=theirs)
+    toms_headers = headers(tom)
+    adas_headers = headers(ada)
+
+    async def scenario():
+        listener = WebsocketCommunicator(application, "/ws/me/", toms_headers)
+        await listener.connect()
+
+        arriving = WebsocketCommunicator(application, "/ws/me/", adas_headers)
+        await arriving.connect()
+        opened = await listener.receive_json_from()
+
+        await arriving.disconnect()
+        closed = await listener.receive_json_from()
+
+        await listener.disconnect()
+        return opened, closed
+
+    opened, closed = async_to_sync(scenario)()
+
+    assert opened == {"presence": True, "team_season": theirs.id}
+    assert closed == {"presence": True, "team_season": theirs.id}
+
+
+def test_a_member_of_another_team_hears_nothing_of_a_sockets_open_or_close(db):
+    theirs = team_season(111)
+    other = team_season(222)
+    tom = person("tom")
+    Membership.objects.create(user=tom, team_season=other)
+    ada = person("ada")
+    Membership.objects.create(user=ada, team_season=theirs)
+    toms_headers = headers(tom)
+    adas_headers = headers(ada)
+
+    async def scenario():
+        listener = WebsocketCommunicator(application, "/ws/me/", toms_headers)
+        await listener.connect()
+
+        arriving = WebsocketCommunicator(application, "/ws/me/", adas_headers)
+        await arriving.connect()
+        heard = await listener.receive_nothing(timeout=0.2)
+
+        await arriving.disconnect()
+        await listener.disconnect()
+        return heard
+
+    heard_nothing = async_to_sync(scenario)()
+
+    assert heard_nothing
+
+
+def test_a_second_tab_tells_nobody_again(db):
+    theirs = team_season(111)
+    ada = person("ada")
+    tom = person("tom")
+    Membership.objects.create(user=ada, team_season=theirs)
+    Membership.objects.create(user=tom, team_season=theirs)
+    toms_headers = headers(tom)
+    adas_headers = headers(ada)
+
+    async def scenario():
+        listener = WebsocketCommunicator(application, "/ws/me/", toms_headers)
+        await listener.connect()
+
+        first_tab = WebsocketCommunicator(application, "/ws/me/", adas_headers)
+        await first_tab.connect()
+        await listener.receive_json_from()
+
+        second_tab = WebsocketCommunicator(application, "/ws/me/", adas_headers)
+        await second_tab.connect()
+        heard_again = await listener.receive_nothing(timeout=0.2)
+
+        await first_tab.disconnect()
+        await second_tab.disconnect()
+        await listener.disconnect()
+        return heard_again
+
+    heard_nothing = async_to_sync(scenario)()
+
+    assert heard_nothing
