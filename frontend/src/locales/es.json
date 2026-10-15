@@ -462,7 +462,14 @@
     "removing": "Eliminando…",
     "removed": "Tu foto fue eliminada.",
     "avatarType": "Este archivo no se envió: elige una foto JPEG, PNG, WebP o HEIC.",
-    "avatarSize": "Este archivo no se envió: la foto supera los 10 MB."
+    "avatarSize": "Este archivo no se envió: la foto supera los 10 MB.",
+    "team": "Equipo: {{team}}",
+    "allTeams": "Todos los equipos"
+  },
+  "memberProfile": {
+    "eyebrow": "Perfil del miembro",
+    "loading": "Cargando perfil…",
+    "noTeam": "Todavía sin equipo esta temporada"
   },
   "live": {
     "offline": "Sin conexión: los cambios de otras personas llegarán cuando vuelvas a conectarte."

@@ -301,6 +301,59 @@ class MemberAvatarView(APIView):
         return response
 
 
+def _member_profile(user: User) -> dict[str, object]:
+    """What any signed-in member may see of another (#176): never an
+    address nor a birth date. A mentor isn't on one team, so `team` stays
+    `None` for them — the front end says "all teams" instead, the same way
+    it already does on one's own profile (`_identity`)."""
+    team = None
+    if user.club_role == User.ClubRole.STUDENT:
+        season = Season.objects.first()
+        membership = (
+            Membership.objects.filter(user=user, team_season__season=season)
+            .select_related("team_season__team")
+            .first()
+            if season is not None
+            else None
+        )
+        if membership is not None:
+            team = _team(membership.team_season.team)
+    return {
+        "id": user.id,
+        "display_name": user.display_name,
+        "avatar": _avatar_url(user),
+        "club_role": user.club_role,
+        "team": team,
+    }
+
+
+class MemberProfileView(APIView):
+    """Any signed-in member may open another's (#176): the club works in
+    one room, and every active member is as reachable as the one asking."""
+
+    def get(self, request: Request, pk: int) -> Response:
+        user = get_object_or_404(User, pk=pk, is_active=True)
+        return Response(_member_profile(user))
+
+
+class TeamSeasonRosterView(APIView):
+    """The students a team counts on (#176) — a page reached from a
+    teammate's name or avatar opens their profile. Mentors supervise, so
+    `.roster()` already leaves them out, the same convention `DayView`'s
+    own roster count already relies on."""
+
+    def get(self, request: Request, team_season_id: int) -> Response:
+        assert isinstance(request.user, User)
+        team_season = team_season_acted_on(request.user, team_season_id)
+        roster = team_season.memberships.roster().select_related("user")
+        return Response(
+            [
+                {"id": membership.user.id, **_member(membership.user)}
+                for membership in roster.order_by("user__display_name_folded")
+            ]
+        )
+
+
 def _user(user: User) -> dict[str, object]:
     return {
         "id": user.id,

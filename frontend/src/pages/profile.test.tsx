@@ -25,13 +25,25 @@ function setDocumentCookie(value: string) {
   document.cookie = value;
 }
 
-function identity(avatar: string | null) {
+function identity(
+  avatar: string | null,
+  extra: { club_role?: string; team_seasons?: unknown[] } = {},
+) {
   return {
     display_name: "Marie Durand",
     club_role: "student",
     is_club_admin: false,
     avatar,
     team_seasons: [],
+    ...extra,
+  };
+}
+
+function teamSeason(id: number, number: number, name: string) {
+  return {
+    id,
+    team: { id: number, number, name },
+    season: { start_year: 2026, game_name: "Jeu 2026" },
   };
 }
 
@@ -149,6 +161,32 @@ it("opens the profile from the signed-in member's name", async () => {
     name: "Pas de photo : vos initiales s'affichent à la place",
   });
   expect(placeholder.textContent).toBe("MD");
+});
+
+it("shows the current season's team on one's own profile", async () => {
+  stubApi((path) =>
+    path === "/api/auth/me/"
+      ? json(
+          identity(null, { team_seasons: [teamSeason(1, 111, "Les Rouages")] }),
+        )
+      : undefined,
+  );
+
+  renderAt("/profile");
+
+  expect(await screen.findByText("Équipe : 111 · Les Rouages")).toBeTruthy();
+});
+
+it("shows all teams instead on a mentor's own profile", async () => {
+  stubApi((path) =>
+    path === "/api/auth/me/"
+      ? json(identity(null, { club_role: "mentor" }))
+      : undefined,
+  );
+
+  renderAt("/profile");
+
+  expect(await screen.findByText("Toutes les équipes")).toBeTruthy();
 });
 
 it("refuses a file in a forbidden format or too heavy without sending it", async () => {
