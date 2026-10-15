@@ -371,3 +371,22 @@ it("lists the manual's glossary and inserts a clicked term into the question", a
   );
   expect((box as HTMLTextAreaElement).value).toBe("Can a HIVE AUTO");
 });
+
+it("shows the large sphere only until the conversation starts", async () => {
+  const user = userEvent.setup();
+  stubApi(() =>
+    json({ question: "Quelle heure ?", answer: "Midi.", citations: [] }, 201),
+  );
+
+  renderAt("/fieldbot");
+  const field = await screen.findByLabelText("Votre question sur le règlement");
+  expect(document.querySelector(".fieldbot-sphere-lg")).not.toBeNull();
+
+  await user.type(field, "Quelle heure ?");
+  await user.click(screen.getByRole("button", { name: "Envoyer la question" }));
+
+  expect(await screen.findByText("Midi.")).toBeTruthy();
+  expect(document.querySelector(".fieldbot-sphere-lg")).toBeNull();
+  // Each answer keeps its own small one.
+  expect(document.querySelector(".fieldbot-sphere-sm")).not.toBeNull();
+});
