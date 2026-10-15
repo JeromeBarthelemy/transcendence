@@ -41,8 +41,14 @@ class PersonConsumer(JsonWebsocketConsumer):
             return
         self.group = person_group(user.pk)
         async_to_sync(self.channel_layer.group_add)(self.group, self.channel_name)
+        # Before accept(): it sends "websocket.accept" straight through a
+        # thread-safe queue, which a test's `await communicator.connect()`
+        # can observe before this method's own thread goes on to run the
+        # next line — a caller must never be able to see "connected" before
+        # is_online() agrees.
+        first = connected(user.pk)
         self.accept()
-        if connected(user.pk):
+        if first:
             notify_presence_changed(user)
 
     def disconnect(self, code: int) -> None:
