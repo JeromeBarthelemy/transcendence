@@ -1,4 +1,4 @@
-.PHONY: check check-error-codes format test
+.PHONY: check check-error-codes e2e format test
 
 check: check-error-codes
 	ruff check backend
@@ -18,3 +18,7 @@ format:
 test:
 	pytest
 	npm --prefix frontend test
+
+# Not part of `test`: it builds and starts a whole production stack.
+e2e:
+	scripts/e2e.sh

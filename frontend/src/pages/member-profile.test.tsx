@@ -33,6 +33,7 @@ function profile(extra: Record<string, unknown> = {}) {
     id: 2,
     display_name: "Élodie",
     avatar: null,
+    online: null,
     club_role: "student",
     team: { id: 1, number: 111, name: "Les Rouages" },
     ...extra,
@@ -90,6 +91,33 @@ it("shows a student's name, photo and current team", async () => {
   expect(await screen.findByRole("heading", { name: "Élodie" })).toBeTruthy();
   expect(await screen.findByText("Équipe : 111 · Les Rouages")).toBeTruthy();
 });
+
+it("shows a green dot when a teammate is online", async () => {
+  stubApi((path) =>
+    path === "/api/users/2/profile/"
+      ? json(profile({ online: true }))
+      : undefined,
+  );
+
+  renderAt("/members/2");
+
+  await screen.findByRole("heading", { name: /Élodie/ });
+  expect(screen.getByRole("img", { name: "En ligne" })).toBeTruthy();
+});
+
+it.each([false, null])(
+  "shows no dot when online status is %s",
+  async (online) => {
+    stubApi((path) =>
+      path === "/api/users/2/profile/" ? json(profile({ online })) : undefined,
+    );
+
+    renderAt("/members/2");
+
+    await screen.findByRole("heading", { name: /Élodie/ });
+    expect(screen.queryByRole("img", { name: "En ligne" })).toBeNull();
+  },
+);
 
 it("shows all teams for a mentor instead of a single one", async () => {
   stubApi((path) =>

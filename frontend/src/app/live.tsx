@@ -70,11 +70,23 @@ function useLive(): boolean {
         }, RENEW_AFTER);
       };
       opened.onmessage = (event) => {
-        const { team_season, work_item, deleted } = JSON.parse(event.data) as {
-          team_season: number | null;
-          work_item: number | null;
-          deleted: boolean;
-        };
+        const data = JSON.parse(event.data) as
+          | { presence: true; team_season: number }
+          | {
+              team_season: number | null;
+              work_item: number | null;
+              deleted: boolean;
+            };
+        if ("presence" in data) {
+          // A teammate's dot (#267) — the roster re-reads it; so does
+          // whichever profile is open, whoever it is showing.
+          queryClient.invalidateQueries({
+            queryKey: ["team-seasons", data.team_season, "roster"],
+          });
+          queryClient.invalidateQueries({ queryKey: ["members", "profile"] });
+          return;
+        }
+        const { team_season, work_item, deleted } = data;
         // The change may concern this member: their bell reads them again.
         queryClient.invalidateQueries({ queryKey: notificationsQueryKey });
         if (team_season === null) {
@@ -151,10 +163,18 @@ function useLive(): boolean {
     }
 
     // Closed before the page goes, or Firefox reports the socket as
-    // interrupted; opened again if the page comes back from the cache.
-    function pageBack(event: PageTransitionEvent) {
-      if (event.persisted) {
+    // interrupted; opened again whichever way the page comes back. A phone
+    // puts a tab away with pagehide and brings it back by just showing it
+    // again, neither from the cache nor with a pageshow of its own.
+    function pageBack() {
+      if (socket === null) {
         connect();
+      }
+    }
+
+    function shownAgain() {
+      if (document.visibilityState === "visible") {
+        pageBack();
       }
     }
 
@@ -162,12 +182,14 @@ function useLive(): boolean {
     window.addEventListener("online", backOnline);
     window.addEventListener("pagehide", shut);
     window.addEventListener("pageshow", pageBack);
+    document.addEventListener("visibilitychange", shownAgain);
     connect();
     return () => {
       window.removeEventListener("offline", goneOffline);
       window.removeEventListener("online", backOnline);
       window.removeEventListener("pagehide", shut);
       window.removeEventListener("pageshow", pageBack);
+      document.removeEventListener("visibilitychange", shownAgain);
       shut();
     };
   }, [queryClient, navigate]);

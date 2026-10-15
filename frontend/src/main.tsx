@@ -1,3 +1,4 @@
+import { registerSW } from "virtual:pwa-register";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
@@ -21,3 +22,11 @@ createRoot(root).render(
     </QueryClientProvider>
   </StrictMode>,
 );
+
+// Chrome refuses a service worker without a certificate it trusts, and logs
+// the refusal as a console error even once caught. On localhost the
+// certificate is the stack's own self-signed one, so it is not even tried
+// there; elsewhere a refusal leaves the app working without offline support.
+if (window.location.hostname !== "localhost") {
+  registerSW({ onRegisterError: () => {} });
+}

@@ -21,7 +21,7 @@ import { fetchFreshEntry } from "../app/entries";
 import { useFormatters } from "../app/formatters";
 import { trySave } from "../app/offlineQueue";
 import { RequestError } from "../components/ApiErrors";
-import { Avatar, AvatarStack } from "../components/Avatar";
+import { Avatar, AvatarStack, OnlineDot } from "../components/Avatar";
 import { Button, ButtonLink, buttonClass } from "../components/Button";
 import { StatusChip } from "../components/Chip";
 import { EmptyState } from "../components/EmptyState";
@@ -458,6 +458,7 @@ function TeamRoster({ teamSeasonId }: { teamSeasonId: number }) {
           >
             <Avatar person={member} size="sm" />
             {member.display_name}
+            <OnlineDot online={member.online} />
           </Link>
         </li>
       ))}
@@ -589,10 +590,9 @@ export function TeamHomePage({ identity }: { identity: Identity }) {
         )}
       </div>
 
-      <TeamRoster
-        key={selectedTeamSeason.id}
-        teamSeasonId={selectedTeamSeason.id}
-      />
+      {/* No key: it would repeat its sibling's, and React draws a second
+          roster on the next update. Its query already follows the team. */}
+      <TeamRoster teamSeasonId={selectedTeamSeason.id} />
 
       <TodaySummary
         key={selectedTeamSeason.id}

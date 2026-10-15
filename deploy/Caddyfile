@@ -12,6 +12,11 @@
 	# literals from it), so Caddy would otherwise have no certificate to
 	# pick for it — only a request naming `localhost` carries SNI here.
 	default_sni {$FIELDNOTES_HOST:localhost}
+	# No HTTP/3: it runs over UDP, which compose.prod.yml doesn't publish, and
+	# Firefox, once told about it, can wait half a minute before falling back.
+	servers {
+		protocols h1 h2
+	}
 }
 
 https://{$FIELDNOTES_HOST:localhost} {
@@ -40,6 +45,16 @@ https://{$FIELDNOTES_HOST:localhost} {
 	# "static/admin/...".
 	handle_path /static/* {
 		root * /srv/static
+		file_server
+	}
+
+	# The manifest's own extension (#155) isn't in every base image's default
+	# MIME table — Go falls back to octet-stream for one it does not
+	# recognise — and the browser's install prompt is pickier about this
+	# file's content type than about any other static one.
+	handle /manifest.webmanifest {
+		header Content-Type "application/manifest+json"
+		root * /srv/frontend
 		file_server
 	}
 

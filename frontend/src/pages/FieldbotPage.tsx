@@ -250,9 +250,13 @@ function Conversation({ identity }: { identity: Identity }) {
         started ? "pt-6" : "justify-center py-10"
       }`}
     >
-      <div className="flex shrink-0 flex-col items-center">
-        <Sphere size="lg" thinking={ask.isPending} />
-      </div>
+      {/* The welcome only: once a conversation starts, each answer has its
+          own small sphere, and the large one would take the log's room. */}
+      {!started && (
+        <div className="flex shrink-0 flex-col items-center">
+          <Sphere size="lg" />
+        </div>
+      )}
       {/* Hidden rather than removed once the conversation starts: the page
           keeps its heading for whoever navigates by them. */}
       <h1
@@ -270,7 +274,7 @@ function Conversation({ identity }: { identity: Identity }) {
           ref={logRef}
           role="log"
           aria-label={t("fieldbot.conversation")}
-          className="mt-6 min-h-48 flex-1 space-y-6 overflow-y-auto overscroll-contain rounded-3xl border border-primary/10 bg-white/60 p-4 sm:p-6"
+          className="min-h-48 flex-1 space-y-6 overflow-y-auto overscroll-contain rounded-3xl border border-primary/10 bg-transparent p-4 sm:p-6"
         >
           {exchanges.map((exchange) => (
             <li key={exchange.id} className="space-y-6">

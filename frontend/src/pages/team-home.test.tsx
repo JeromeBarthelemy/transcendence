@@ -781,13 +781,16 @@ it("opens a teammate's profile from the roster", async () => {
     if (path === "/api/team-seasons/7/work-items/") return json([]);
     if (path === "/api/team-seasons/7/days/today/") return workday(path);
     if (path === "/api/team-seasons/7/roster/") {
-      return json([{ id: 9, display_name: "Lina", avatar: null }]);
+      return json([
+        { id: 9, display_name: "Lina", avatar: null, online: true },
+      ]);
     }
     if (path === "/api/users/9/profile/") {
       return json({
         id: 9,
         display_name: "Lina",
         avatar: null,
+        online: true,
         club_role: "student",
         team: { id: 7, number: 1796, name: "Les Rouages" },
       });
@@ -797,10 +800,32 @@ it("opens a teammate's profile from the roster", async () => {
   vi.stubGlobal("fetch", fetchMock);
   renderHome();
 
-  await userEvent.click(await screen.findByRole("link", { name: "Lina" }));
+  await userEvent.click(await screen.findByRole("link", { name: /Lina/ }));
 
-  expect(await screen.findByRole("heading", { name: "Lina" })).toBeTruthy();
+  expect(await screen.findByRole("heading", { name: /Lina/ })).toBeTruthy();
   expect(await screen.findByText("Équipe : 1796 · Les Rouages")).toBeTruthy();
+  expect(screen.getByRole("img", { name: "En ligne" })).toBeTruthy();
+});
+
+it("shows no dot for a teammate who is offline", async () => {
+  const fetchMock = vi.fn(async (path: string) => {
+    if (path === "/api/auth/me/") {
+      return json(identity([teamSeason(7, 1796, "Les Rouages")]));
+    }
+    if (path === "/api/team-seasons/7/work-items/") return json([]);
+    if (path === "/api/team-seasons/7/days/today/") return workday(path);
+    if (path === "/api/team-seasons/7/roster/") {
+      return json([
+        { id: 9, display_name: "Lina", avatar: null, online: false },
+      ]);
+    }
+    throw new Error(`Unexpected request: ${path}`);
+  });
+  vi.stubGlobal("fetch", fetchMock);
+  renderHome();
+
+  await screen.findByRole("link", { name: "Lina" });
+  expect(screen.queryByRole("img", { name: "En ligne" })).toBeNull();
 });
 
 it("tells a club admin a rulebook source has an update waiting, linking to its review", async () => {
@@ -971,4 +996,40 @@ it("shows no rulebook badge to an admin when nothing is pending", async () => {
       name: "Une mise à jour du règlement est disponible",
     }),
   ).toBeNull();
+});
+
+it("keeps a single roster row when the page draws again", async () => {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (path: string) => {
+      if (path === "/api/auth/me/") {
+        return json(identity([teamSeason(7, 1796, "Les Rouages")]));
+      }
+      if (path === "/api/team-seasons/7/work-items/") return json([]);
+      if (path === "/api/team-seasons/7/days/today/") return workday(path);
+      if (path === "/api/team-seasons/7/roster/") {
+        return json([
+          { id: 9, display_name: "Lina", avatar: null, online: false },
+          { id: 10, display_name: "Tom", avatar: null, online: false },
+        ]);
+      }
+      throw new Error(`Unexpected request: ${path}`);
+    }),
+  );
+  renderHome();
+  await screen.findByRole("link", { name: "Lina" });
+
+  // Any state change redraws the page: the roster used to share a sibling's
+  // key, and React drew it a second time.
+  await userEvent.selectOptions(
+    await screen.findByLabelText("Filtrer par statut"),
+    "all",
+  );
+  await userEvent.selectOptions(
+    screen.getByLabelText("Filtrer par statut"),
+    "open",
+  );
+
+  expect(screen.getAllByRole("link", { name: "Lina" })).toHaveLength(1);
+  expect(screen.getAllByRole("link", { name: "Tom" })).toHaveLength(1);
 });

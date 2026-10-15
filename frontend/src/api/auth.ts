@@ -1,6 +1,6 @@
 import { z } from "zod/mini";
 
-import { del, get, post, upload } from "./client";
+import { del, get, patch, post, upload } from "./client";
 
 const teamSeasonSchema = z.object({
   id: z.number(),
@@ -90,6 +90,22 @@ export async function logIn(input: LoginInput): Promise<Identity> {
 
 export async function logOut(): Promise<void> {
   await post("/api/auth/logout/");
+}
+
+/** One's own display name and login address (#178) — minors included.
+ * `current_password` only matters when `email` changes; omit it for a
+ * display-name-only edit. */
+export interface UpdateProfileInput {
+  display_name?: string;
+  email?: string;
+  current_password?: string;
+}
+
+export async function updateProfile(
+  input: UpdateProfileInput,
+): Promise<Identity> {
+  const { body } = await patch("/api/auth/me/", input);
+  return parseIdentity(body, "profile update");
 }
 
 /** Mirrors the server's own checks (AvatarSerializer), so a file it would

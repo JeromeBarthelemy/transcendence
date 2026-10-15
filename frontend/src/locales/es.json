@@ -7,7 +7,8 @@
     "name": "Fieldnotes",
     "footer": "Fieldnotes · un espacio privado para el club",
     "privacy": "Privacidad",
-    "terms": "Condiciones de uso"
+    "terms": "Condiciones de uso",
+    "install": "Instalar"
   },
   "nav": {
     "main": "Navegación principal",
@@ -435,6 +436,9 @@
     "backToList": "← Todos los miembros",
     "selfNotice": "Esta es tu cuenta: otro administrador puede modificar tus permisos, pero tú no puedes hacerlo.",
     "anonymizedNotice": "Esta cuenta fue eliminada: su identidad se borró y ya no puede modificarse. Sus aportaciones permanecen en el cuaderno del equipo.",
+    "displayName": "Nombre de usuario",
+    "contactEmail": "Dirección de contacto",
+    "contactEmailHint": "A dónde van las confirmaciones de RGPD; la del tutor legal para un menor. Nunca se usa para iniciar sesión.",
     "rightsTitle": "Rol y acceso",
     "role": "Rol en el club",
     "isClubAdmin": "Administrador del club",
@@ -458,6 +462,15 @@
   "profile": {
     "eyebrow": "Mi perfil",
     "clubAdmin": "administrador del club",
+    "editTitle": "Editar mi perfil",
+    "displayNameLabel": "Nombre de usuario",
+    "emailLabel": "Dirección de conexión",
+    "emailPlaceholder": "nueva-direccion@ejemplo.com",
+    "emailHint": "Déjalo en blanco para no cambiar de dirección. La nueva será la que debas escribir en el próximo inicio de sesión.",
+    "currentPasswordLabel": "Contraseña actual",
+    "saveProfile": "Guardar",
+    "savingProfile": "Guardando…",
+    "profileSaved": "Perfil actualizado.",
     "photo": "Foto de perfil",
     "current": "Foto actual",
     "currentAlt": "Tu foto de perfil actual",
@@ -489,6 +502,9 @@
     "eyebrow": "Perfil del miembro",
     "loading": "Cargando perfil…",
     "noTeam": "Todavía sin equipo esta temporada"
+  },
+  "presence": {
+    "online": "En línea"
   },
   "live": {
     "offline": "Sin conexión: los cambios de otras personas llegarán cuando vuelvas a conectarte."
@@ -651,6 +667,7 @@
     "reason_required": "Explica por qué se abandona esta tarea.",
     "already_open": "Esta tarea ya está abierta.",
     "email_taken": "Esta dirección ya está en uso.",
+    "email_reserved": "Esta dirección está reservada para las cuentas sin dirección.",
     "display_name_taken": "Este nombre para mostrar ya está en uso. Añade una inicial, por ejemplo «Marie D.».",
     "display_name_has_at_sign": "Un nombre para mostrar no puede contener «@».",
     "display_name_reserved": "Este nombre está reservado para las cuentas de antiguos miembros.",
@@ -687,6 +704,7 @@
     "no_contact_email": "Esta cuenta no tiene una dirección de contacto registrada: no se puede enviar la confirmación.",
     "mail_unavailable": "No se puede enviar el correo en este momento: no se realizó ninguna acción. Inténtalo más tarde.",
     "wrong_password": "Contraseña incorrecta: la cuenta no fue eliminada.",
+    "current_password_wrong": "Contraseña incorrecta.",
     "account_anonymized": "Esta cuenta fue eliminada: ya no puede modificarse.",
     "avatar_too_large": "Esta foto supera los 10 MB.",
     "avatar_too_many_pixels": "Esta foto tiene demasiados píxeles.",
@@ -771,9 +789,8 @@
       "loginIdentifier": "tu <strong>identificador de acceso</strong> (tu dirección de correo; si no tienes una, se crea una dirección ficticia que nunca recibe mensajes);",
       "displayName": "tu <strong>nombre para mostrar</strong>, visible para los otros miembros;",
       "password": "tu <strong>contraseña</strong>, almacenada de forma protegida e irreversible: nadie, incluidos los responsables del club, puede leerla;",
-      "joinedAndRole": "tu fecha de registro y tu rol (alumno, mentor, administrador);",
-      "failedLogins": "el número de contraseñas incorrectas introducidas de forma consecutiva y, si llega a cinco, la hora hasta la que se bloquea el inicio de sesión.",
-      "accountWhy": "Por qué: para que puedas iniciar sesión y trabajar con tu equipo, y para impedir que se adivine tu contraseña mediante intentos repetidos.",
+      "joinedAndRole": "tu fecha de registro y tu rol (alumno, mentor, administrador).",
+      "accountWhy": "Por qué: para que puedas iniciar sesión y trabajar con tu equipo.",
       "membershipTitle": "La verificación de tu inscripción",
       "membership": "Al registrarte, introduces tu nombre, tus apellidos y tu fecha de nacimiento. Se usan <strong>únicamente</strong> para encontrar tu inscripción en el registro de miembros del club (AssoConnect) y después se <strong>eliminan</strong>. A continuación copiamos de AssoConnect tu número de miembro, tu fecha de nacimiento y una dirección de contacto: la tuya si eres mayor de edad o la de tu representante legal si eres menor.",
       "membershipWhy": "Por qué: para reservar la aplicación a los miembros y saber si alguien es menor de edad. La fecha de AssoConnect es la válida, no la introducida al registrarte.",

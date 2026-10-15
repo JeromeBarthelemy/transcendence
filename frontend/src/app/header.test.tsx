@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
+  act,
   cleanup,
   render,
   screen,
@@ -53,7 +54,20 @@ const paul = {
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
+  // installPrompt.ts keeps the offered state at module scope, outliving any
+  // one test's render: an offer a test fired but never consumed would
+  // otherwise leak into the next one.
+  act(() => window.dispatchEvent(new Event("appinstalled")));
 });
+
+/** The offer the browser itself would dispatch before showing its own
+ * install UI — our own button replaces it (installPrompt.ts). */
+function offerToInstall() {
+  const event = new Event("beforeinstallprompt", { cancelable: true });
+  Object.assign(event, { prompt: vi.fn(async () => {}) });
+  act(() => window.dispatchEvent(event));
+  return event as Event & { prompt: () => Promise<void> };
+}
 
 it("opens one socket for a signed-in member, on any screen, and none for a visitor", async () => {
   const sockets: string[] = [];
@@ -199,6 +213,38 @@ it("shows no administration entry to a member who is not a club admin", async ()
 
   await screen.findByRole("button", { name: "Menu du compte (Claire)" });
   expect(screen.queryByRole("button", { name: "Administration" })).toBeNull();
+});
+
+it("shows no install button until the browser offers to install", async () => {
+  renderAs(paul);
+
+  await screen.findByRole("button", { name: "Menu du compte (Paul)" });
+  expect(screen.queryByRole("button", { name: "Installer" })).toBeNull();
+});
+
+it("installs the app from the browser's own offer, then hides the button", async () => {
+  const user = userEvent.setup();
+  renderAs(paul);
+  await screen.findByRole("button", { name: "Menu du compte (Paul)" });
+
+  const offer = offerToInstall();
+
+  const install = await screen.findByRole("button", { name: "Installer" });
+  await user.click(install);
+
+  expect(offer.prompt).toHaveBeenCalledOnce();
+  expect(screen.queryByRole("button", { name: "Installer" })).toBeNull();
+});
+
+it("hides the install button once the app is installed another way", async () => {
+  renderAs(paul);
+  await screen.findByRole("button", { name: "Menu du compte (Paul)" });
+  offerToInstall();
+  await screen.findByRole("button", { name: "Installer" });
+
+  act(() => window.dispatchEvent(new Event("appinstalled")));
+
+  expect(screen.queryByRole("button", { name: "Installer" })).toBeNull();
 });
 
 it("offers signing in and signing up in the phone's menu when signed out", async () => {

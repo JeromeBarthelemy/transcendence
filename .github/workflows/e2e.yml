@@ -1,0 +1,46 @@
+name: e2e
+
+# By hand only (Actions → e2e → Run workflow): it builds a whole production
+# stack and runs every scenario in three browsers, too slow for every PR.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: frontend/package.json
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - run: npm --prefix frontend ci
+
+      - name: Install the three browsers and their system libraries
+        working-directory: frontend
+        run: npx playwright install --with-deps chromium firefox webkit
+
+      - name: Create a throwaway .env
+        run: |
+          cp backend/.env.example backend/.env
+          key=$(python3 -c "import secrets; print(secrets.token_urlsafe(64))")
+          sed -i "s|^DJANGO_SECRET_KEY=.*|DJANGO_SECRET_KEY=$key|" backend/.env
+          sed -i "s|^DJANGO_DEBUG=.*|DJANGO_DEBUG=false|" backend/.env
+
+      - run: scripts/e2e.sh
+
+      # A failed scenario's trace: open it with `npx playwright show-trace`.
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-traces
+          path: frontend/test-results/
