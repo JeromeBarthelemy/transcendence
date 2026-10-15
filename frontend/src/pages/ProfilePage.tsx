@@ -71,7 +71,6 @@ function PhotoForm({ identity }: { identity: Identity }) {
   // members; each of those lists must learn the new address, or its absence.
   async function showEverywhere(next: Identity) {
     queryClient.setQueryData(currentUserQueryKey, next);
-    photoChanged();
     await queryClient.invalidateQueries();
   }
 
@@ -81,6 +80,9 @@ function PhotoForm({ identity }: { identity: Identity }) {
     onSuccess: async (next) => {
       setFile(null);
       setDone("uploaded");
+      // Only an upload: a removed photo has no address left to ask again,
+      // and moving it on would draw the old one for an instant, a 404.
+      photoChanged();
       await showEverywhere(next);
     },
   });
