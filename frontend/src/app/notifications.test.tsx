@@ -143,7 +143,7 @@ it("says what happened, by whom and where, and links to the work item", async ()
   expect(removed.textContent).toContain("Lina a retiré une décision");
   // A note to the whole team has no page of its own to open.
   expect(teamNote.textContent).toContain("Lina a ajouté une remarque");
-  expect(teamNote.textContent).toContain("Toute l'équipe");
+  expect(teamNote.textContent).toContain("Rouages ·");
   expect(within(teamNote).queryByRole("link")).toBeNull();
 });
 

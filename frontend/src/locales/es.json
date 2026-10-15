@@ -42,7 +42,6 @@
     "empty": "Nada nuevo.",
     "new": "Nuevo",
     "account": "Tu cuenta",
-    "team": "Todo el equipo",
     "verbs": {
       "work_item_opened": "{{actor}} abrió una tarea",
       "work_item_reopened": "{{actor}} reabrió una tarea",

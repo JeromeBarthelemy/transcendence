@@ -33,7 +33,6 @@
     "empty": "Rien de nouveau.",
     "new": "Nouveau",
     "account": "Votre compte",
-    "team": "Toute l'équipe",
     "verbs": {
       "work_item_opened": "{{actor}} a ouvert un chantier",
       "work_item_reopened": "{{actor}} a rouvert un chantier",
