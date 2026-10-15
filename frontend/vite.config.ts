@@ -19,6 +19,8 @@ export default defineConfig(({ mode }) => {
         // rather than asking the member to confirm it — there is no
         // "later" version of a page already open to protect them from.
         registerType: "autoUpdate",
+        // Registered from main.tsx instead, where a refusal can be caught.
+        injectRegister: false,
         workbox: {
           // The shell only: an API response cached here would outlive the
           // write it answers, and a stale team home is worse than none

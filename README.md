@@ -52,7 +52,9 @@ The frontend foundation installed by the initial skeleton is:
 and Workbox** precache the application shell, so a reload with no network still
 opens the app; **IndexedDB** will store pending progress entries once offline
 writes queue there too — TanStack Query's cache alone is not durable offline
-storage.
+storage. Browsers only accept a service worker over a certificate they trust,
+so on `localhost`, where the certificate is the stack's own self-signed one,
+it is not registered at all: Chrome would log the refusal as a console error.
 
 The backend stack is:
 
