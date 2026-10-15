@@ -1261,6 +1261,30 @@ unit coverage; React Testing Library covers account creation without an email,
 field and login refusals, and opening and closing a session with the rotated
 CSRF cookie.
 
+### End to end, in three browsers
+
+```sh
+make e2e
+```
+
+Playwright runs the scenarios under `frontend/e2e/` in Chromium, Firefox and
+WebKit (Safari's engine), against the production stack: `scripts/e2e.sh`
+builds it as its own Compose project (`fieldnotes-e2e`), fills it with
+`seed_demo`, runs the suite and removes the stack and its volumes, whatever
+the outcome. Arguments go to `playwright test`, for example
+`scripts/e2e.sh --project=firefox`.
+
+It is not part of `make test`: it builds a whole stack and needs port 443
+free, so stop the production stack first. `backend/.env` must leave
+`FIELDNOTES_HOST` at `localhost`. The browsers are downloaded once, and
+Linux also needs their system libraries:
+
+```sh
+cd frontend
+npx playwright install chromium firefox webkit
+sudo npx playwright install-deps chromium firefox webkit
+```
+
 ## Contributing
 
 Work goes through pull requests; nobody pushes to `main`.
