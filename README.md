@@ -1196,6 +1196,38 @@ All in `components/`, each with a comment saying when to use it.
 Biome knows the fields and `Label` (`biome.json`, `noLabelWithoutControl`), so
 its accessibility check reads them like native fields and labels.
 
+## Browser support
+
+Fieldnotes targets the latest stable Google Chrome, as the subject requires,
+and is also supported in **Firefox** and **Safari**. One Playwright suite
+exercises every screen in the three engines (see *End to end, in three
+browsers* under *Testing*): Chromium for Chrome, Gecko for Firefox, WebKit for
+Safari. It fails on any console warning or error in any of them. Playwright's
+WebKit is Safari's engine but not Safari itself, so Safari is also checked by
+hand on an iPhone.
+
+| Last full run | Versions |
+|---|---|
+| 15 October 2026, Playwright 1.63.0 | Chromium 153, Firefox 155, WebKit 26.6 |
+
+### Known differences
+
+- **Installing the app**: Firefox and Safari never send the browser's install
+  offer (`beforeinstallprompt`), so the *Install* button only appears in
+  Chromium-based browsers. On an iPhone, Safari installs from *Share → Add to
+  Home Screen*.
+- **Offline**: every browser only accepts a service worker over a certificate
+  it trusts, so offline support needs one. On `localhost` the service worker
+  is not even registered (see *Technical stack*).
+- **iPhone photos (HEIC)**: only Safari can preview one before sending; the
+  others say so, and the server converts it to JPEG either way.
+- **Date fields** use each browser's own date picker, which looks different
+  from one browser to the next but works the same.
+- **Console**: a refused sign-in and a request cut off by a lost network are
+  logged by the browser itself as a failed resource. They are not errors in
+  Fieldnotes' code, and the suite allows exactly those two, in the tests that
+  provoke them.
+
 ## Checking
 
 ```sh

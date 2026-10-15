@@ -136,14 +136,16 @@ test.describe("offline", () => {
     page,
     context,
   }) => {
-    await page.goto("/");
-    await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
-
-    await context.setOffline(true);
-    await expect(page.getByRole("status")).toHaveText(
+    const notice = page.getByText(
       "Hors ligne : les changements des autres arriveront à la reconnexion.",
     );
+    await page.goto("/");
+    // Loaded first: a request cut off midway shows its own loading status.
+    await expect(page.getByRole("heading", { name: "Intake" })).toBeVisible();
+
+    await context.setOffline(true);
+    await expect(notice).toBeVisible();
     await context.setOffline(false);
-    await expect(page.getByText(/^Hors ligne/)).toHaveCount(0);
+    await expect(notice).toHaveCount(0);
   });
 });
