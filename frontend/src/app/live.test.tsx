@@ -6,6 +6,7 @@ import { activityAnalyticsQueryKey } from "../api/activityAnalytics";
 
 import "../i18n";
 import { LiveStatus, liveUrl } from "./live";
+import { currentUserQueryKey } from "./useCurrentUser";
 
 class FakeSocket {
   static CONNECTING = 0;
@@ -76,6 +77,7 @@ function renderBoard(path = "/") {
       ["work-items", 10],
       ["work-items", 11],
       ["notifications"],
+      currentUserQueryKey,
     ]) {
       queryClient.setQueryData(key, { cached: true });
     }
@@ -89,7 +91,7 @@ function renderBoard(path = "/") {
       <RouterProvider router={router} />
     </QueryClientProvider>,
   );
-  const invalidated = (key: unknown[]) =>
+  const invalidated = (key: readonly unknown[]) =>
     queryClient.getQueryState(key)?.isInvalidated;
   return { ...view, invalidated, fresh, queryClient, router };
 }
@@ -185,6 +187,33 @@ it("forgets a deleted work item instead of reading it again, which would answer 
   expect(invalidated(["work-items", 11])).toBe(false);
   expect(invalidated(["team-seasons", 7, "work-items"])).toBe(true);
   expect(invalidated(["notifications"])).toBe(true);
+});
+
+it("reloads the member's own account, and no team, on a message that names none", () => {
+  const { invalidated, fresh } = renderBoard();
+  latest().open();
+  fresh();
+
+  latest().receive({ team_season: 7, work_item: null });
+  expect(invalidated(currentUserQueryKey)).toBe(false);
+  fresh();
+
+  latest().receive({ team_season: null, work_item: null });
+  expect(invalidated(currentUserQueryKey)).toBe(true);
+  expect(invalidated(["notifications"])).toBe(true);
+  expect(invalidated(["team-seasons", 7, "work-items"])).toBe(false);
+});
+
+it("reloads the member's own account on reconnecting, in case a message about it was missed", () => {
+  const { invalidated, fresh } = renderBoard();
+  latest().open();
+  fresh();
+
+  latest().drop();
+  act(() => vi.advanceTimersByTime(1000));
+  latest().open();
+
+  expect(invalidated(currentUserQueryKey)).toBe(true);
 });
 
 it("sends a page open on a deleted work item to its team's home", () => {

@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { useLocation, useNavigate } from "react-router-dom";
 import { notificationsQueryKey } from "../api/notifications";
 import { Notice } from "../components/Notice";
+import { currentUserQueryKey } from "./useCurrentUser";
 
 // Waits between reconnections, the last one repeated: quick after a blip,
 // patient when the network is gone for a while.
@@ -61,6 +62,7 @@ function useLive(): boolean {
         queryClient.invalidateQueries({ queryKey: ["team-seasons"] });
         queryClient.invalidateQueries({ queryKey: ["work-items"] });
         queryClient.invalidateQueries({ queryKey: notificationsQueryKey });
+        queryClient.invalidateQueries({ queryKey: currentUserQueryKey });
         attempts = 0;
         renew = setTimeout(() => {
           shut();
@@ -70,7 +72,11 @@ function useLive(): boolean {
       opened.onmessage = (event) => {
         const data = JSON.parse(event.data) as
           | { presence: true; team_season: number }
-          | { team_season: number; work_item: number | null; deleted: boolean };
+          | {
+              team_season: number | null;
+              work_item: number | null;
+              deleted: boolean;
+            };
         if ("presence" in data) {
           // A teammate's dot (#267) — the roster re-reads it; so does
           // whichever profile is open, whoever it is showing.
@@ -81,11 +87,17 @@ function useLive(): boolean {
           return;
         }
         const { team_season, work_item, deleted } = data;
+        // The change may concern this member: their bell reads them again.
+        queryClient.invalidateQueries({ queryKey: notificationsQueryKey });
+        if (team_season === null) {
+          // An administrator changed this member's teams or role: the
+          // account says which teams they may still open.
+          queryClient.invalidateQueries({ queryKey: currentUserQueryKey });
+          return;
+        }
         queryClient.invalidateQueries({
           queryKey: ["team-seasons", team_season],
         });
-        // The change may concern this member: their bell reads them again.
-        queryClient.invalidateQueries({ queryKey: notificationsQueryKey });
         if (work_item === null) {
           return;
         }

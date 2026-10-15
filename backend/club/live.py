@@ -128,3 +128,25 @@ def notify_presence_changed(user: User) -> None:
                 person_group(reader_id),
                 {"type": "presence.changed", "team_season": team_season_id},
             )
+
+
+def tell(user_id: int) -> None:
+    """Like `broadcast`, once committed, but to one person: what an
+    administrator did to them (#242). It names no team: one they were just
+    taken off would answer 403 if their screen read it again, and no team at
+    all tells that screen to read the member's own account instead."""
+    layer = get_channel_layer()
+    assert layer is not None
+
+    def send() -> None:
+        async_to_sync(layer.group_send)(
+            person_group(user_id),
+            {
+                "type": "board.changed",
+                "team_season": None,
+                "work_item": None,
+                "deleted": False,
+            },
+        )
+
+    transaction.on_commit(send, robust=True)

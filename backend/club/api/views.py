@@ -9,7 +9,7 @@ from typing import Any, NoReturn
 from django.contrib.auth import login, logout
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import IntegrityError, transaction
-from django.db.models import ProtectedError, QuerySet
+from django.db.models import ProtectedError, Q, QuerySet
 from django.http import FileResponse, Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -50,7 +50,7 @@ from club.models import (
     fold_title,
     remove_after_commit,
 )
-from club.notifications import record_change
+from club.notifications import PERSONAL, notify_member, record_change
 from club.presence import is_online, shares_current_team
 from club.progress import (
     ProgressChanged,
@@ -446,7 +446,11 @@ class UserDetailView(APIView):
         not_anonymized(user)
         serializer = UserRoleSerializer(user, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
-        return Response(_user(serializer.save()))
+        club_role, is_club_admin = user.club_role, user.is_club_admin
+        serializer.save()
+        assert isinstance(request.user, User)
+        _tell_new_role(request.user, user, club_role, is_club_admin)
+        return Response(_user(user))
 
     def delete(self, request: Request, pk: int) -> Response:
         # A member never disappears — their traces stay attributed
@@ -464,6 +468,28 @@ class UserDetailView(APIView):
         not_anonymized(user)
         request_deletion(user, password=None)
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+def _tell_new_role(
+    actor: User, user: User, club_role: str, is_club_admin: bool
+) -> None:
+    """Only what changed: a suspension is not told, the account can no
+    longer sign in to read it."""
+    if user.club_role != club_role:
+        mentor = user.club_role == User.ClubRole.MENTOR
+        notify_member(
+            actor,
+            user,
+            Notification.Verb.MADE_MENTOR if mentor else Notification.Verb.MADE_STUDENT,
+        )
+    if user.is_club_admin != is_club_admin:
+        notify_member(
+            actor,
+            user,
+            Notification.Verb.ADMIN_GRANTED
+            if user.is_club_admin
+            else Notification.Verb.ADMIN_REVOKED,
+        )
 
 
 def _team(team: Team) -> dict[str, object]:
@@ -574,10 +600,18 @@ class TeamDetailView(APIView):
 class MembershipCreateView(APIView):
     permission_classes = [IsClubAdmin]
 
+    @transaction.atomic
     def post(self, request: Request) -> Response:
         serializer = AddMembershipSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         membership: Membership = serializer.save()
+        assert isinstance(request.user, User)
+        notify_member(
+            request.user,
+            membership.user,
+            Notification.Verb.MEMBERSHIP_ADDED,
+            membership.team_season,
+        )
         return Response(
             {
                 "id": membership.id,
@@ -591,8 +625,16 @@ class MembershipCreateView(APIView):
 class MembershipDetailView(APIView):
     permission_classes = [IsClubAdmin]
 
+    @transaction.atomic
     def delete(self, request: Request, pk: int) -> Response:
         membership = get_object_or_404(Membership, pk=pk)
+        assert isinstance(request.user, User)
+        notify_member(
+            request.user,
+            membership.user,
+            Notification.Verb.MEMBERSHIP_REMOVED,
+            membership.team_season,
+        )
         membership.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
@@ -1097,6 +1139,7 @@ def _notification(notice: Notification) -> dict[str, object]:
         "verb": notice.verb,
         "actor": _member(notice.actor),
         "team_season": notice.team_season_id,
+        "team": notice.team_season.team.name if notice.team_season else None,
         "work_item": {"id": notice.work_item_id, "title": notice.work_item_title}
         if notice.work_item_title
         else None,
@@ -1110,8 +1153,11 @@ def _notification(notice: Notification) -> dict[str, object]:
 
 def _notifications_open_to(user: User) -> QuerySet[Notification]:
     """A notification leads to its team: once the member may no longer open
-    it, it leaves their list and their unread count."""
-    return user.notifications.filter(team_season__in=team_seasons_open_to(user))
+    it, it leaves their list and their unread count. Not one about the member
+    themselves, removed from that team for instance."""
+    return user.notifications.filter(
+        Q(team_season__in=team_seasons_open_to(user)) | Q(verb__in=PERSONAL)
+    )
 
 
 class NotificationListView(APIView):
@@ -1125,7 +1171,7 @@ class NotificationListView(APIView):
     def get(self, request: Request) -> Response:
         user = request.user
         assert isinstance(user, User)
-        mine = _notifications_open_to(user).select_related("actor")
+        mine = _notifications_open_to(user).select_related("actor", "team_season__team")
         latest = list(mine[: self.LATEST])
         mine.exclude(read_at=None).exclude(pk__in=[n.pk for n in latest]).delete()
         return Response(
