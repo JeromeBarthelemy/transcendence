@@ -286,6 +286,84 @@ def test_a_form_encoded_patch_does_not_reset_the_fields_it_does_not_touch(client
     assert boss.is_active is True
 
 
+# --- editing the name and contact address (#178) ---
+
+
+def test_a_club_admin_corrects_a_members_display_name(client):
+    client.force_login(admin())
+    lina = student("lina@club.fr", "Lina")
+
+    response = client.patch(
+        f"/api/users/{lina.id}/",
+        {"display_name": "Lina D."},
+        content_type="application/json",
+    )
+
+    assert response.status_code == 200
+    lina.refresh_from_db()
+    assert lina.display_name == "Lina D."
+
+
+def test_a_club_admin_corrects_a_guardians_contact_address(client):
+    client.force_login(admin())
+    lina = student("lina@club.fr", "Lina")
+
+    response = client.patch(
+        f"/api/users/{lina.id}/",
+        {"contact_email": "parent@club.fr"},
+        content_type="application/json",
+    )
+
+    assert response.status_code == 200
+    lina.refresh_from_db()
+    assert lina.contact_email == "parent@club.fr"
+
+
+def test_a_contact_address_may_be_cleared(client):
+    client.force_login(admin())
+    lina = student("lina@club.fr", "Lina", contact_email="parent@club.fr")
+
+    client.patch(
+        f"/api/users/{lina.id}/",
+        {"contact_email": ""},
+        content_type="application/json",
+    )
+
+    lina.refresh_from_db()
+    assert lina.contact_email == ""
+
+
+def test_a_display_name_already_taken_is_refused(client):
+    client.force_login(admin())
+    student("ada@club.fr", "Ada")
+    lina = student("lina@club.fr", "Lina")
+
+    response = client.patch(
+        f"/api/users/{lina.id}/",
+        {"display_name": "ada"},
+        content_type="application/json",
+    )
+
+    assert response.status_code == 400
+    assert response.json()["display_name"][0]["code"] == "display_name_taken"
+    lina.refresh_from_db()
+    assert lina.display_name == "Lina"
+
+
+def test_a_club_admin_cannot_correct_their_own_name_from_this_screen(client):
+    boss = admin()
+    client.force_login(boss)
+
+    response = client.patch(
+        f"/api/users/{boss.id}/",
+        {"display_name": "Nouveau nom"},
+        content_type="application/json",
+    )
+
+    assert response.status_code == 403
+    assert response.json()["detail"]["code"] == "cannot_target_self"
+
+
 # --- staff accounts ---
 
 

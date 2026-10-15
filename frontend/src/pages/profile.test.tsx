@@ -163,6 +163,104 @@ it("opens the profile from the signed-in member's name", async () => {
   expect(placeholder.textContent).toBe("MD");
 });
 
+it("changes the display name, with no password needed", async () => {
+  const user = userEvent.setup();
+  let current = identity(null);
+  const fetchMock = stubApi((path, init) => {
+    if (path === "/api/auth/me/" && init?.method === "PATCH") {
+      current = { ...current, display_name: "Marie D." };
+      return json(current);
+    }
+    if (path === "/api/auth/me/") return json(current);
+    return undefined;
+  });
+
+  renderAt("/profile");
+  const name = await screen.findByLabelText("Nom d'affichage");
+  await user.clear(name);
+  await user.type(name, "Marie D.");
+  await user.click(screen.getByRole("button", { name: "Enregistrer" }));
+
+  expect(await screen.findByText("Profil mis à jour.")).toBeTruthy();
+  const patched = fetchMock.mock.calls.find(
+    ([, init]) => init?.method === "PATCH",
+  );
+  expect(JSON.parse((patched?.[1]?.body as string) ?? "{}")).toEqual({
+    display_name: "Marie D.",
+  });
+});
+
+it("asks for the current password before changing the login address", async () => {
+  const user = userEvent.setup();
+  stubApi((path) =>
+    path === "/api/auth/me/" ? json(identity(null)) : undefined,
+  );
+
+  renderAt("/profile");
+  const email = await screen.findByLabelText("Adresse de connexion");
+  await user.type(email, "marie2@club.fr");
+
+  expect(await screen.findByLabelText("Mot de passe actuel")).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Enregistrer" })).toHaveProperty(
+    "disabled",
+    false,
+  );
+});
+
+it("refuses a wrong password and changes nothing", async () => {
+  const user = userEvent.setup();
+  stubApi((path, init) => {
+    if (path === "/api/auth/me/" && init?.method === "PATCH") {
+      return json(
+        {
+          non_field_errors: [{ code: "current_password_wrong", message: "…" }],
+        },
+        400,
+      );
+    }
+    if (path === "/api/auth/me/") return json(identity(null));
+    return undefined;
+  });
+
+  renderAt("/profile");
+  await user.type(
+    await screen.findByLabelText("Adresse de connexion"),
+    "marie2@club.fr",
+  );
+  const password = screen.getByLabelText("Mot de passe actuel");
+  await user.type(password, "pas-le-bon");
+  await user.click(screen.getByRole("button", { name: "Enregistrer" }));
+
+  expect(await screen.findByText("Mot de passe incorrect.")).toBeTruthy();
+  expect(password.getAttribute("aria-invalid")).toBe("true");
+});
+
+it("shows a display name already taken under its own field", async () => {
+  const user = userEvent.setup();
+  stubApi((path, init) => {
+    if (path === "/api/auth/me/" && init?.method === "PATCH") {
+      return json(
+        { display_name: [{ code: "display_name_taken", message: "…" }] },
+        400,
+      );
+    }
+    if (path === "/api/auth/me/") return json(identity(null));
+    return undefined;
+  });
+
+  renderAt("/profile");
+  const name = await screen.findByLabelText("Nom d'affichage");
+  await user.clear(name);
+  await user.type(name, "Ada");
+  await user.click(screen.getByRole("button", { name: "Enregistrer" }));
+
+  expect(
+    await screen.findByText(
+      "Ce nom d'affichage est déjà pris. Ajoutez une initiale, par exemple « Marie D. ».",
+    ),
+  ).toBeTruthy();
+});
+
 it("shows the current season's team on one's own profile", async () => {
   stubApi((path) =>
     path === "/api/auth/me/"

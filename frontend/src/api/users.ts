@@ -5,6 +5,7 @@ const clubUserSchema = z.object({
   id: z.number(),
   display_name: z.string(),
   email: z.string(),
+  contact_email: z.string(),
   club_role: z.enum(["student", "mentor"]),
   is_club_admin: z.boolean(),
   is_active: z.boolean(),
@@ -14,10 +15,17 @@ const clubUserSchema = z.object({
 
 export type ClubUser = z.infer<typeof clubUserSchema>;
 
-/** What an admin may change on another account; everything else stays in
- * the Django admin. */
+/** What an admin may change on another account (#178 adds display_name and
+ * contact_email); everything else stays in the Django admin. */
 export type UserChanges = Partial<
-  Pick<ClubUser, "club_role" | "is_club_admin" | "is_active">
+  Pick<
+    ClubUser,
+    | "club_role"
+    | "is_club_admin"
+    | "is_active"
+    | "display_name"
+    | "contact_email"
+  >
 >;
 
 function parseUser(body: unknown): ClubUser {
