@@ -38,6 +38,7 @@ function notice(id: number, overrides: object = {}) {
     verb: "entry_added",
     actor: { display_name: "Lina", avatar: null },
     team_season: 1,
+    team: "Rouages",
     work_item: { id: 10, title: "intake" },
     entry: { id: 100 + id, type: "note" },
     created_at: "2026-10-06T13:26:00Z",
@@ -142,7 +143,7 @@ it("says what happened, by whom and where, and links to the work item", async ()
   expect(removed.textContent).toContain("Lina a retiré une décision");
   // A note to the whole team has no page of its own to open.
   expect(teamNote.textContent).toContain("Lina a ajouté une remarque");
-  expect(teamNote.textContent).toContain("Toute l'équipe");
+  expect(teamNote.textContent).toContain("Rouages ·");
   expect(within(teamNote).queryByRole("link")).toBeNull();
 });
 
@@ -187,6 +188,47 @@ it("never links to a work item that was deleted", async () => {
   expect(deleted.textContent).toContain("Lina a supprimé un chantier");
   expect(deleted.textContent).toContain("pince");
   expect(within(deleted).queryByRole("link")).toBeNull();
+});
+
+it("tells a member what an administrator did to them, with no page to open", async () => {
+  const user = userEvent.setup();
+  const byAdmin = {
+    actor: { display_name: "Admin", avatar: null },
+    work_item: null,
+    entry: null,
+  };
+  const role = { ...byAdmin, team_season: null, team: null };
+  serve([
+    notice(6, { ...byAdmin, verb: "membership_added" }),
+    notice(5, { ...byAdmin, verb: "membership_removed" }),
+    notice(4, { ...role, verb: "made_mentor" }),
+    notice(3, { ...role, verb: "made_student" }),
+    notice(2, { ...role, verb: "admin_granted" }),
+    notice(1, { ...role, verb: "admin_revoked" }),
+  ]);
+  renderApp();
+
+  await user.click(
+    await screen.findByRole("button", { name: "Notifications, 6 non lues" }),
+  );
+  const items = within(
+    screen.getByRole("region", { name: "Notifications" }),
+  ).getAllByRole("listitem");
+
+  expect(items.map((item) => item.textContent)).toEqual([
+    expect.stringContaining("Admin vous a donné accès à l'équipe Rouages"),
+    expect.stringContaining("Admin vous a retiré l'accès à l'équipe Rouages"),
+    expect.stringContaining("Admin vous a donné le rôle de mentor"),
+    expect.stringContaining("Admin vous a donné le rôle d'élève"),
+    expect.stringContaining("Admin vous a donné les droits d'administration"),
+    expect.stringContaining("Admin vous a retiré les droits d'administration"),
+  ]);
+  // Under the sentence, the team, or the member's account for a role.
+  expect(items[1].textContent).toContain("Rouages ·");
+  expect(items[2].textContent).toContain("Votre compte ·");
+  for (const item of items) {
+    expect(within(item).queryByRole("link")).toBeNull();
+  }
 });
 
 it("marks all as read on opening, and keeps what it shows marked new meanwhile", async () => {

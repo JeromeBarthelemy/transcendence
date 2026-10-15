@@ -41,7 +41,7 @@
     "label_other": "Notificaciones, {{count, number}} sin leer",
     "empty": "Nada nuevo.",
     "new": "Nuevo",
-    "team": "Todo el equipo",
+    "account": "Tu cuenta",
     "verbs": {
       "work_item_opened": "{{actor}} abrió una tarea",
       "work_item_reopened": "{{actor}} reabrió una tarea",
@@ -50,7 +50,13 @@
       "work_item_deleted": "{{actor}} eliminó una tarea",
       "entry_added": "{{actor}} añadió {{entry}}",
       "entry_updated": "{{actor}} modificó {{entry}}",
-      "entry_removed": "{{actor}} retiró {{entry}}"
+      "entry_removed": "{{actor}} retiró {{entry}}",
+      "membership_added": "{{actor}} te dio acceso al equipo {{team}}",
+      "membership_removed": "{{actor}} te quitó el acceso al equipo {{team}}",
+      "made_mentor": "{{actor}} te dio el rol de mentor",
+      "made_student": "{{actor}} te dio el rol de alumno",
+      "admin_granted": "{{actor}} te dio los permisos de administrador",
+      "admin_revoked": "{{actor}} te quitó los permisos de administrador"
     },
     "entries": {
       "progress": "un avance",
@@ -468,7 +474,14 @@
     "removing": "Eliminando…",
     "removed": "Tu foto fue eliminada.",
     "avatarType": "Este archivo no se envió: elige una foto JPEG, PNG, WebP o HEIC.",
-    "avatarSize": "Este archivo no se envió: la foto supera los 10 MB."
+    "avatarSize": "Este archivo no se envió: la foto supera los 10 MB.",
+    "team": "Equipo: {{team}}",
+    "allTeams": "Todos los equipos"
+  },
+  "memberProfile": {
+    "eyebrow": "Perfil del miembro",
+    "loading": "Cargando perfil…",
+    "noTeam": "Todavía sin equipo esta temporada"
   },
   "live": {
     "offline": "Sin conexión: los cambios de otras personas llegarán cuando vuelvas a conectarte."

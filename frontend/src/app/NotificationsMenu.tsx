@@ -127,12 +127,15 @@ function NoticeLine({
 }) {
   const { t } = useTranslation();
   const { formatNoticeTime } = useFormatters();
+  // With no work item: the team, or the member's account for a new role.
+  const where = notice.team ?? t("notifications.account");
   const content = (
     <>
       <span className="flex items-start justify-between gap-2">
         <span className="text-sm font-semibold text-ink">
           {t(`notifications.verbs.${notice.verb}`, {
             actor: notice.actor.display_name,
+            team: notice.team,
             entry: notice.entry
               ? t(`notifications.entries.${notice.entry.type}`)
               : "",
@@ -145,7 +148,7 @@ function NoticeLine({
         )}
       </span>
       <span className="mt-0.5 block text-xs text-muted">
-        {notice.work_item?.title ?? t("notifications.team")} ·{" "}
+        {notice.work_item?.title ?? where} ·{" "}
         {formatNoticeTime(notice.created_at)}
       </span>
     </>

@@ -817,6 +817,13 @@ member sees is true, and trying again does not make the write twice.
   open screens, but ten students ticking at the start of a session would
   bury the notices that matter. The last to leave today's progress takes it
   away, though, and that is a trace removed.
+- **What an administrator does to a member** is told to that member alone
+  (`notify_member`): added to a team, removed from it, made mentor or
+  student, given or refused admin rights. Such a notice stays in their bell
+  even once the team is no longer theirs to open, and a new role concerns no
+  team (`team_season` is then `null`). A suspension is not told, since the
+  account can no longer sign in to read it; nor is what the AssoConnect
+  import or the Django admin does, which are tools beside the application.
 
 A notice keeps the work item's title and the trace's type beside its links to
 them, so a deleted one is still named; its author stays a link to their
@@ -824,7 +831,7 @@ account, so an anonymized member is shown as such.
 
 | Route | Answer |
 | --- | --- |
-| `GET /api/notifications/` | `{"unread", "items"}`: the member's own, newest first, the latest 20, each as `{"id", "verb", "actor", "team_season", "work_item", "entry", "created_at", "read"}` |
+| `GET /api/notifications/` | `{"unread", "items"}`: the member's own, newest first, the latest 20, each as `{"id", "verb", "actor", "team_season", "team", "work_item", "entry", "created_at", "read"}`, `team` being the team's name |
 | `POST /api/notifications/read/` | marks the member's own as read, all of them or those in `ids`; answers `{"unread"}`. Another member's id is ignored |
 
 ### Attachments

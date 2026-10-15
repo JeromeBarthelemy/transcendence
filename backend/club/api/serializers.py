@@ -27,6 +27,7 @@ from rest_framework.settings import api_settings
 from club import attachments, images
 from club.export import CATEGORY_KEYS
 from club.models import (
+    DISPLAY_NAME_TAKEN,
     Attachment,
     Document,
     Entry,
@@ -37,6 +38,7 @@ from club.models import (
     User,
     VerificationRequest,
     WorkItem,
+    display_name_is_taken,
     fold_title,
     no_at_sign,
     not_an_anonymized_name,
@@ -65,18 +67,12 @@ def _check_display_name_available(value: str, *, excluding: User | None = None) 
     stored folded column, not a Lower() computed in the database: SQLite's
     lower() is ASCII-only, so Élodie would fold to itself and this check
     would miss a duplicate the model's own constraint then catches as a 500."""
-    candidates = User.objects.filter(display_name_folded=value.casefold())
-    if excluding is not None:
-        candidates = candidates.exclude(pk=excluding.pk)
-    if candidates.exists():
+    exclude_pk = excluding.pk if excluding is not None else None
+    if display_name_is_taken(value.casefold(), exclude_pk=exclude_pk):
         # Same code and same sentence as the database constraint, which
         # stays underneath as the backstop for two callers racing past
         # this check.
-        raise serializers.ValidationError(
-            "Ce nom d'affichage est déjà pris. Ajoutez une initiale, "
-            "par exemple « Marie D. ».",
-            code="display_name_taken",
-        )
+        raise serializers.ValidationError(DISPLAY_NAME_TAKEN, code="display_name_taken")
 
 
 def _check_email_available(value: str, *, excluding: User | None = None) -> None:

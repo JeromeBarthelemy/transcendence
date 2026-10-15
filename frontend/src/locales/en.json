@@ -41,7 +41,7 @@
     "label_other": "Notifications, {{count, number}} unread",
     "empty": "Nothing new.",
     "new": "New",
-    "team": "The whole team",
+    "account": "Your account",
     "verbs": {
       "work_item_opened": "{{actor}} opened a work item",
       "work_item_reopened": "{{actor}} reopened a work item",
@@ -50,7 +50,13 @@
       "work_item_deleted": "{{actor}} deleted a work item",
       "entry_added": "{{actor}} added {{entry}}",
       "entry_updated": "{{actor}} updated {{entry}}",
-      "entry_removed": "{{actor}} removed {{entry}}"
+      "entry_removed": "{{actor}} removed {{entry}}",
+      "membership_added": "{{actor}} gave you access to the team {{team}}",
+      "membership_removed": "{{actor}} removed your access to the team {{team}}",
+      "made_mentor": "{{actor}} gave you the mentor role",
+      "made_student": "{{actor}} gave you the student role",
+      "admin_granted": "{{actor}} gave you administrator rights",
+      "admin_revoked": "{{actor}} removed your administrator rights"
     },
     "entries": {
       "progress": "a progress entry",
@@ -461,7 +467,14 @@
     "removing": "Deleting…",
     "removed": "Your photo was deleted.",
     "avatarType": "This file was not uploaded: choose a JPEG, PNG, WebP or HEIC photo.",
-    "avatarSize": "This file was not uploaded: the photo exceeds 10 MB."
+    "avatarSize": "This file was not uploaded: the photo exceeds 10 MB.",
+    "team": "Team: {{team}}",
+    "allTeams": "All teams"
+  },
+  "memberProfile": {
+    "eyebrow": "Member profile",
+    "loading": "Loading profile…",
+    "noTeam": "No team yet this season"
   },
   "live": {
     "offline": "Offline: other people's changes will arrive when you reconnect."

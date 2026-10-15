@@ -605,6 +605,15 @@ export function ProfilePage() {
         {t(`teams.roles.${identity.club_role}`)}
         {identity.is_club_admin && ` · ${t("profile.clubAdmin")}`}
       </p>
+      <p className="mt-1 text-sm text-muted">
+        {identity.club_role === "mentor"
+          ? t("profile.allTeams")
+          : identity.team_seasons[0]
+            ? t("profile.team", {
+                team: `${identity.team_seasons[0].team.number} · ${identity.team_seasons[0].team.name}`,
+              })
+            : null}
+      </p>
       <EditProfileForm identity={identity} />
       <PhotoForm identity={identity} />
       <PersonalData />

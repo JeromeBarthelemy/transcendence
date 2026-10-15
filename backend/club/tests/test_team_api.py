@@ -296,7 +296,9 @@ def test_of_two_simultaneous_additions_of_one_member_the_second_is_refused(
     assert rival == [201]
     assert response.status_code == 400
     assert response.json()["non_field_errors"][0]["code"] == "membership_exists"
-    assert Membership.objects.filter(user=lina, team_season=rouages_2026).count() == 1
+    # Not the memberships left: the rival ran inside this request's
+    # transaction, on its connection, so the refusal rolls the rival's back
+    # too, which two real connections would not.
 
 
 def test_adding_two_members_then_removing_one(client):

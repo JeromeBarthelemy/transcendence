@@ -15,9 +15,17 @@ const noticeSchema = z.object({
     "entry_added",
     "entry_updated",
     "entry_removed",
+    "membership_added",
+    "membership_removed",
+    "made_mentor",
+    "made_student",
+    "admin_granted",
+    "admin_revoked",
   ]),
   actor: z.object({ display_name: z.string(), avatar: z.nullable(z.string()) }),
-  team_season: z.number(),
+  // null for a new role, which concerns no team.
+  team_season: z.nullable(z.number()),
+  team: z.nullable(z.string()),
   // Kept by the notice itself, so a deleted work item or trace keeps its
   // title or type, its id then null.
   work_item: z.nullable(

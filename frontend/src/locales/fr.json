@@ -32,7 +32,7 @@
     "label_other": "Notifications, {{count, number}} non lues",
     "empty": "Rien de nouveau.",
     "new": "Nouveau",
-    "team": "Toute l'équipe",
+    "account": "Votre compte",
     "verbs": {
       "work_item_opened": "{{actor}} a ouvert un chantier",
       "work_item_reopened": "{{actor}} a rouvert un chantier",
@@ -41,7 +41,13 @@
       "work_item_deleted": "{{actor}} a supprimé un chantier",
       "entry_added": "{{actor}} a ajouté {{entry}}",
       "entry_updated": "{{actor}} a modifié {{entry}}",
-      "entry_removed": "{{actor}} a retiré {{entry}}"
+      "entry_removed": "{{actor}} a retiré {{entry}}",
+      "membership_added": "{{actor}} vous a donné accès à l'équipe {{team}}",
+      "membership_removed": "{{actor}} vous a retiré l'accès à l'équipe {{team}}",
+      "made_mentor": "{{actor}} vous a donné le rôle de mentor",
+      "made_student": "{{actor}} vous a donné le rôle d'élève",
+      "admin_granted": "{{actor}} vous a donné les droits d'administration",
+      "admin_revoked": "{{actor}} vous a retiré les droits d'administration"
     },
     "entries": {
       "progress": "une avancée",
@@ -468,7 +474,14 @@
     "removing": "Suppression…",
     "removed": "Votre photo a été supprimée.",
     "avatarType": "Ce fichier n'a pas été envoyé : choisissez une photo JPEG, PNG, WebP ou HEIC.",
-    "avatarSize": "Ce fichier n'a pas été envoyé : la photo dépasse 10 Mo."
+    "avatarSize": "Ce fichier n'a pas été envoyé : la photo dépasse 10 Mo.",
+    "team": "Équipe : {{team}}",
+    "allTeams": "Toutes les équipes"
+  },
+  "memberProfile": {
+    "eyebrow": "Profil du membre",
+    "loading": "Chargement du profil…",
+    "noTeam": "Pas encore d'équipe cette saison"
   },
   "live": {
     "offline": "Hors ligne : les changements des autres arriveront à la reconnexion."
