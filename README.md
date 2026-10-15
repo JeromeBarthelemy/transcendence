@@ -1223,6 +1223,9 @@ hand on an iPhone.
   others say so, and the server converts it to JPEG either way.
 - **Date fields** use each browser's own date picker, which looks different
   from one browser to the next but works the same.
+- **HTTP/3** is off (`deploy/Caddyfile`): it runs over UDP, which the stack
+  doesn't publish, and Firefox, once told about it, could freeze for half a
+  minute before falling back to TCP.
 - **Console**: a refused sign-in and a request cut off by a lost network are
   logged by the browser itself as a failed resource. They are not errors in
   Fieldnotes' code, and the suite allows exactly those two, in the tests that
