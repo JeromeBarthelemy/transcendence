@@ -17,7 +17,9 @@ test("the team's home lists its work items and each teammate once", async ({
   await page.getByLabel("Filtrer par statut").selectOption("Tous les statuts");
   await expect(page.getByRole("heading", { name: "Châssis" })).toBeVisible();
   for (const teammate of ["Inès", "Tom"]) {
-    await expect(page.getByRole("link", { name: teammate })).toHaveCount(1);
+    await expect(
+      page.getByRole("link", { name: teammate, exact: true }),
+    ).toHaveCount(1);
   }
 });
 
