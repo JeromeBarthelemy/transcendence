@@ -1206,9 +1206,13 @@ Safari. It fails on any console warning or error in any of them. Playwright's
 WebKit is Safari's engine but not Safari itself, so Safari is also checked by
 hand on an iPhone.
 
-| Last full run | Versions |
-|---|---|
-| 15 October 2026, Playwright 1.63.0 | Chromium 153, Firefox 155, WebKit 26.6 |
+| Pass | Date | Versions |
+|---|---|---|
+| Automated, every scenario | 15 October 2026 | Playwright 1.63.0: Chromium 153, Firefox 155, WebKit 26.6 |
+| By hand, the same scenarios | 15 October 2026 | Safari 27.0 on macOS 26.7.1 |
+
+Only current browsers are supported: the build targets them, so an old one
+such as Safari 10 (iOS 10) shows a blank page.
 
 ### Known differences
 
@@ -1229,7 +1233,10 @@ hand on an iPhone.
 - **Console**: a refused sign-in and a request cut off by a lost network are
   logged by the browser itself as a failed resource. They are not errors in
   Fieldnotes' code, and the suite allows exactly those two, in the tests that
-  provoke them.
+  provoke them. Safari can also log "ResizeObserver loop completed with
+  undelivered notifications" on the sign-up page, from its own autofill: no
+  code of Fieldnotes observes sizes there, and WebKit under Playwright logs
+  nothing.
 
 ## Checking
 
