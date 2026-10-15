@@ -12,6 +12,11 @@
 	# literals from it), so Caddy would otherwise have no certificate to
 	# pick for it — only a request naming `localhost` carries SNI here.
 	default_sni {$FIELDNOTES_HOST:localhost}
+	# No HTTP/3: it runs over UDP, which compose.prod.yml doesn't publish, and
+	# Firefox, once told about it, can wait half a minute before falling back.
+	servers {
+		protocols h1 h2
+	}
 }
 
 https://{$FIELDNOTES_HOST:localhost} {
