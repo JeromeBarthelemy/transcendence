@@ -382,12 +382,18 @@ retrouver les données.
 - Document any browser-specific limitations
 - Consistent UI/UX across all supported browsers
 
-**Chez nous** — Firefox et Edge, qui tournent sous Linux ; Edge repose sur Chromium,
-donc Safari n'est qu'un renfort si un Mac ou un iPhone est à portée. « All
-features » veut dire chaque écran, pas la page d'accueil.
+**Chez nous** — Firefox et Safari, deux moteurs différents de celui de Chrome
+(Gecko et WebKit) ; Edge, qui repose sur Chromium, ne prouverait rien de plus.
+« All features » veut dire chaque écran, pas la page d'accueil : une suite
+Playwright les parcourt tous dans Chromium, Firefox et WebKit, et échoue sur le
+moindre avertissement ou la moindre erreur en console (`make e2e`, #202). Le
+WebKit de Playwright est le moteur de Safari, pas Safari : un passage à la main
+sur un iPhone complète. Les différences sont listées au README, *Browser
+support*.
 
-**Démo (2 min)** — ouvrir le même écran dans les trois navigateurs, enregistrer une
-avancée dans chacun, puis montrer la liste des limites documentées.
+**Démo (2 min)** — montrer le dernier passage de `make e2e` (les mêmes
+scénarios dans les trois navigateurs), puis enregistrer une avancée dans Firefox et sur
+l'iPhone, et montrer la liste des différences documentées.
 
 ---
 

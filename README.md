@@ -1196,6 +1196,48 @@ All in `components/`, each with a comment saying when to use it.
 Biome knows the fields and `Label` (`biome.json`, `noLabelWithoutControl`), so
 its accessibility check reads them like native fields and labels.
 
+## Browser support
+
+Fieldnotes targets the latest stable Google Chrome, as the subject requires,
+and is also supported in **Firefox** and **Safari**. One Playwright suite
+exercises every screen in the three engines (see *End to end, in three
+browsers* under *Testing*): Chromium for Chrome, Gecko for Firefox, WebKit for
+Safari. It fails on any console warning or error in any of them. Playwright's
+WebKit is Safari's engine but not Safari itself, so Safari is also checked by
+hand on an iPhone.
+
+| Pass | Date | Versions |
+|---|---|---|
+| Automated, every scenario | 15 October 2026 | Playwright 1.63.0: Chromium 153, Firefox 155, WebKit 26.6 |
+| By hand, the same scenarios | 15 October 2026 | Safari 27.0 on macOS 26.7.1 |
+
+Only current browsers are supported: the build targets them, so an old one
+such as Safari 10 (iOS 10) shows a blank page.
+
+### Known differences
+
+- **Installing the app**: Firefox and Safari never send the browser's install
+  offer (`beforeinstallprompt`), so the *Install* button only appears in
+  Chromium-based browsers. On an iPhone, Safari installs from *Share → Add to
+  Home Screen*.
+- **Offline**: every browser only accepts a service worker over a certificate
+  it trusts, so offline support needs one. On `localhost` the service worker
+  is not even registered (see *Technical stack*).
+- **iPhone photos (HEIC)**: only Safari can preview one before sending; the
+  others say so, and the server converts it to JPEG either way.
+- **Date fields** use each browser's own date picker, which looks different
+  from one browser to the next but works the same.
+- **HTTP/3** is off (`deploy/Caddyfile`): it runs over UDP, which the stack
+  doesn't publish, and Firefox, once told about it, could freeze for half a
+  minute before falling back to TCP.
+- **Console**: a refused sign-in and a request cut off by a lost network are
+  logged by the browser itself as a failed resource. They are not errors in
+  Fieldnotes' code, and the suite allows exactly those two, in the tests that
+  provoke them. Safari can also log "ResizeObserver loop completed with
+  undelivered notifications" on the sign-up page, most likely from its own
+  autofill or an extension: no code of Fieldnotes observes sizes there, and
+  WebKit under Playwright logs nothing.
+
 ## Checking
 
 ```sh
@@ -1262,6 +1304,30 @@ Vitest runs the tests next to the code they exercise. The health client has
 unit coverage; React Testing Library covers account creation without an email,
 field and login refusals, and opening and closing a session with the rotated
 CSRF cookie.
+
+### End to end, in three browsers
+
+```sh
+make e2e
+```
+
+Playwright runs the scenarios under `frontend/e2e/` in Chromium, Firefox and
+WebKit (Safari's engine), against the production stack: `scripts/e2e.sh`
+builds it as its own Compose project (`fieldnotes-e2e`), fills it with
+`seed_demo`, runs the suite and removes the stack and its volumes, whatever
+the outcome. Arguments go to `playwright test`, for example
+`scripts/e2e.sh --project=firefox`.
+
+It is not part of `make test`: it builds a whole stack and needs port 443
+free, so stop the production stack first. `backend/.env` must leave
+`FIELDNOTES_HOST` at `localhost`. The browsers are downloaded once, and
+Linux also needs their system libraries:
+
+```sh
+cd frontend
+npx playwright install chromium firefox webkit
+sudo npx playwright install-deps chromium firefox webkit
+```
 
 ## Contributing
 
