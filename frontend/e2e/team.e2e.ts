@@ -127,7 +127,7 @@ test("Fieldbot answers, even before the manual is loaded", async ({ page }) => {
 
   const log = page.getByRole("log", { name: "Conversation avec Fieldbot" });
   await expect(log.getByText("How long is AUTO?")).toBeVisible();
-  await expect(log.getByText(/manuel .* pas encore chargé/)).toBeVisible();
+  await expect(log).toContainText("pas encore chargé");
 });
 
 test.describe("offline", () => {

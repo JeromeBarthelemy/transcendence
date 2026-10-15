@@ -1,7 +1,9 @@
 import { expect, mine, PASSWORD, test } from "./fixtures";
 
 // Signed out: each test signs in for real at most once, against the limit of
-// ten attempts a minute (auth.setup.ts).
+// ten attempts a minute per address, shared by the three browsers. The budget
+// is spent: 3 in auth.setup.ts and 2 here per browser make 9. Another real
+// sign-in needs one of these to go, or the suite fails on a 429.
 
 test.describe("refused sign-in", () => {
   // Chrome and Firefox log the API's 400 as a failed resource.

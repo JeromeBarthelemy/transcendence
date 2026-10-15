@@ -12,7 +12,15 @@ compose() {
 trap 'compose down -v --remove-orphans' EXIT
 
 compose up --build -d cert-init backend proxy
+# Two minutes at most: a stack that never answers fails here, not at CI's
+# own timeout.
+tries=120
 until curl -fsk -o /dev/null https://localhost/api/auth/me/; do
+	tries=$((tries - 1))
+	if [ "$tries" -le 0 ]; then
+		echo "The stack did not answer at https://localhost within two minutes." >&2
+		exit 1
+	fi
 	sleep 1
 done
 compose exec -T backend python manage.py seed_demo
