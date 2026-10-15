@@ -631,6 +631,7 @@
     "reason_required": "Explica por qué se abandona esta tarea.",
     "already_open": "Esta tarea ya está abierta.",
     "email_taken": "Esta dirección ya está en uso.",
+    "email_reserved": "Esta dirección está reservada para las cuentas sin dirección.",
     "display_name_taken": "Este nombre para mostrar ya está en uso. Añade una inicial, por ejemplo «Marie D.».",
     "display_name_has_at_sign": "Un nombre para mostrar no puede contener «@».",
     "display_name_reserved": "Este nombre está reservado para las cuentas de antiguos miembros.",

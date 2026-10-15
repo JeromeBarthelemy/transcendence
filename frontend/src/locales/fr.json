@@ -631,6 +631,7 @@
     "reason_required": "Dites pourquoi ce chantier est abandonné.",
     "already_open": "Ce chantier est déjà ouvert.",
     "email_taken": "Cette adresse est déjà utilisée.",
+    "email_reserved": "Cette adresse est réservée aux comptes sans adresse.",
     "display_name_taken": "Ce nom d'affichage est déjà pris. Ajoutez une initiale, par exemple « Marie D. ».",
     "display_name_has_at_sign": "Un nom d'affichage ne peut pas contenir « @ ».",
     "display_name_reserved": "Ce nom est réservé aux comptes des anciens membres.",

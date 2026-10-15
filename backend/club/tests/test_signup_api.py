@@ -129,6 +129,16 @@ def test_a_display_name_anonymization_would_give_is_refused(client):
     assert response.json()["display_name"][0]["code"] == "display_name_reserved"
 
 
+def test_an_address_anonymization_would_give_is_refused(client):
+    # anonymize() (club/gdpr.py) would give account 13 this exact address;
+    # taking it first here would make that account's own erasure fail on
+    # IntegrityError later.
+    response = signup(client, email="ancien-membre-13@rouages.invalid")
+
+    assert response.status_code == 400
+    assert response.json()["email"][0]["code"] == "email_reserved"
+
+
 def test_nothing_is_left_behind_when_sign_up_is_refused(client):
     signup(client, password="1234")
 

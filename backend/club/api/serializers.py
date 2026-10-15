@@ -10,6 +10,7 @@ from io import BytesIO
 from typing import Any
 from uuid import uuid4
 
+from django.conf import settings
 from django.contrib.auth import authenticate
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
@@ -81,6 +82,18 @@ def _check_display_name_available(value: str, *, excluding: User | None = None) 
 def _check_email_available(value: str, *, excluding: User | None = None) -> None:
     """Shared by sign-up and one's own profile (#178): a login address is
     unique the same way regardless of who is choosing it."""
+    domain = settings.SIGNUP_RESERVED_EMAIL_DOMAIN.lower()
+    if value.rsplit("@", 1)[-1].lower() == domain:
+        # anonymize() (club/gdpr.py) gives the account it erases
+        # "ancien-membre-<pk>@<domain>", built after this check ever runs
+        # (reserved_email() only turns to it once validation has passed), so
+        # a member taking that exact address first would make that other
+        # account's own erasure fail on IntegrityError — the same risk
+        # not_an_anonymized_name already guards against for display names.
+        raise serializers.ValidationError(
+            "Cette adresse est réservée aux comptes sans adresse.",
+            code="email_reserved",
+        )
     candidates = User.objects.filter(email=value)
     if excluding is not None:
         candidates = candidates.exclude(pk=excluding.pk)
@@ -752,8 +765,8 @@ class UserRoleSerializer(serializers.Serializer[User]):
     making them an administrator, lifting or imposing a suspension, and
     correcting a display name or contact address (#178). The password
     stays where it already is, the Django admin (README, "Sessions") — and
-    so does a minor's own login address and display name, theirs to change
-    from their own profile instead (`UpdateProfileSerializer`).
+    so does a minor's own login address, theirs to change from their own
+    profile instead (`UpdateProfileSerializer`).
     `contact_email` carries no uniqueness of its own: siblings share one
     mailbox (`club/models.py`, `User.contact_email`)."""
 

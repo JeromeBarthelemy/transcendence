@@ -618,6 +618,7 @@
     "reason_required": "Explain why this work item is being abandoned.",
     "already_open": "This work item is already open.",
     "email_taken": "This address is already in use.",
+    "email_reserved": "This address is reserved for accounts with no address.",
     "display_name_taken": "This display name is already taken. Add an initial, for example “Marie D.”.",
     "display_name_has_at_sign": "A display name cannot contain “@”.",
     "display_name_reserved": "This name is reserved for former members' accounts.",

@@ -101,6 +101,22 @@ def test_an_email_already_used_is_refused(client):
     assert response.json()["email"][0]["code"] == "email_taken"
 
 
+def test_an_address_anonymization_would_give_is_refused(client):
+    # anonymize() (club/gdpr.py) would give some other account this exact
+    # address; taking it first here would make that account's own erasure
+    # fail on IntegrityError later.
+    client.force_login(person())
+
+    response = update(
+        client,
+        email="ancien-membre-13@rouages.invalid",
+        current_password=PASSWORD,
+    )
+
+    assert response.status_code == 400
+    assert response.json()["email"][0]["code"] == "email_reserved"
+
+
 def test_changing_only_the_display_name_needs_no_password(client):
     client.force_login(person())
 
