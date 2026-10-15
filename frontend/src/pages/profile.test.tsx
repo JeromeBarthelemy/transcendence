@@ -456,6 +456,46 @@ it("removes the photo and falls back to the initials", async () => {
   );
 });
 
+it("never asks for a removed photo again, which would answer 404", async () => {
+  const user = userEvent.setup();
+  let current = identity("/api/users/3/avatar/");
+  stubApi((path, init) => {
+    if (path === "/api/auth/me/") return json(current);
+    if (path === "/api/auth/me/avatar/" && init?.method === "DELETE") {
+      current = identity(null);
+      return new Response(null, { status: 204 });
+    }
+    return undefined;
+  });
+  renderAt("/profile");
+  const remove = await screen.findByRole("button", {
+    name: "Supprimer la photo",
+  });
+  // Even drawn for an instant, an image asks the server for its address:
+  // any photo address not on the page before the removal is a new request.
+  const photoAddresses = () =>
+    [...document.querySelectorAll("img")]
+      .map((image) => image.src)
+      .filter((src) => src.includes("/avatar/"));
+  const before = new Set(photoAddresses());
+  const asked: string[] = [];
+  const observer = new MutationObserver(() => {
+    asked.push(...photoAddresses().filter((src) => !before.has(src)));
+  });
+  observer.observe(document.body, {
+    subtree: true,
+    childList: true,
+    attributes: true,
+    attributeFilter: ["src"],
+  });
+
+  await user.click(remove);
+  await screen.findByText("Votre photo a été supprimée.");
+  observer.disconnect();
+
+  expect(asked).toEqual([]);
+});
+
 it("localizes the chosen photo's size without losing the file or preview", async () => {
   stubApi((path) =>
     path === "/api/auth/me/" ? json(identity(null)) : undefined,
