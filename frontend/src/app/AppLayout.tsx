@@ -14,6 +14,7 @@ import { LanguageSwitcher } from "../components/LanguageSwitcher";
 import { LiveStatus } from "./live";
 import { focusRing, type OpenMenu, useMenu } from "./menu";
 import { NotificationsMenu } from "./NotificationsMenu";
+import { OfflineQueueMenu } from "./OfflineQueueMenu";
 import { resetSession, useCurrentUser } from "./useCurrentUser";
 
 const navLinkClass = `rounded-full px-3 py-2 text-sm font-semibold whitespace-nowrap text-ink transition hover:bg-tint ${focusRing}`;
@@ -373,6 +374,7 @@ export function AppLayout() {
               </span>
             ) : (
               <>
+                {identity && <OfflineQueueMenu open={open} setOpen={setOpen} />}
                 {identity && (
                   <NotificationsMenu open={open} setOpen={setOpen} />
                 )}

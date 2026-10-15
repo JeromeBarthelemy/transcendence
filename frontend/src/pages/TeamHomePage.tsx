@@ -19,6 +19,7 @@ import { createTeamNote, getWorkday, type Workday } from "../api/workdays";
 import { getWorkItems, type WorkItem } from "../api/workItems";
 import { fetchFreshEntry } from "../app/entries";
 import { useFormatters } from "../app/formatters";
+import { trySave } from "../app/offlineQueue";
 import { RequestError } from "../components/ApiErrors";
 import { Avatar, AvatarStack } from "../components/Avatar";
 import { Button, ButtonLink, buttonClass } from "../components/Button";
@@ -189,15 +190,27 @@ function TodaySummary({
   const [isNoteOpen, setIsNoteOpen] = useState(false);
   const [noteBody, setNoteBody] = useState("");
   const [noteSaved, setNoteSaved] = useState(false);
+  const [noteQueued, setNoteQueued] = useState(false);
   // Every day of the team, so a summary already opened shows the note too.
   const daysQueryKey = ["team-seasons", teamSeasonId, "days"] as const;
   const note = useMutation({
-    mutationFn: (body: string) => createTeamNote(teamSeasonId, body),
-    onSuccess: async () => {
+    mutationFn: (body: string) => {
+      const clientId = crypto.randomUUID();
+      return trySave(() => createTeamNote(teamSeasonId, body, clientId), {
+        kind: "team-note",
+        teamSeasonId,
+        body,
+        clientId,
+      });
+    },
+    onSuccess: async (result) => {
       setNoteBody("");
       setIsNoteOpen(false);
       setNoteSaved(true);
-      await queryClient.invalidateQueries({ queryKey: daysQueryKey });
+      setNoteQueued("queued" in result);
+      if (!("queued" in result)) {
+        await queryClient.invalidateQueries({ queryKey: daysQueryKey });
+      }
     },
   });
   const dayNotes =
@@ -298,7 +311,7 @@ function TodaySummary({
 
       {noteSaved && (
         <SuccessMessage className="mt-4">
-          {t("teamHome.noteSaved")}
+          {noteQueued ? t("teamHome.noteQueued") : t("teamHome.noteSaved")}
         </SuccessMessage>
       )}
 

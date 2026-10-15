@@ -56,6 +56,22 @@
     },
     "label_many": "Notifications, {{count, number}} non lues"
   },
+  "offlineQueue": {
+    "label_one": "{{count, number}} enregistrement en attente de connexion",
+    "label_other": "{{count, number}} enregistrements en attente de connexion",
+    "label_many": "{{count, number}} enregistrements en attente de connexion",
+    "title": "En attente de connexion",
+    "hint": "Enregistré hors ligne, envoyé automatiquement au retour de la connexion.",
+    "waiting": "En attente d'envoi…",
+    "discard": "Abandonner",
+    "kinds": {
+      "tick": "Avancée cochée — {{title}}",
+      "leave": "Présence quittée — {{title}}",
+      "progress": "Avancée écrite — {{title}}",
+      "workItemNote": "Remarque — {{title}}",
+      "teamNote": "Remarque d'équipe"
+    }
+  },
   "home": {
     "eyebrow": "La mémoire du club",
     "title": "Chaque avancée mérite une trace.",
@@ -98,6 +114,7 @@
     "saveNote": "Enregistrer",
     "savingNote": "Enregistrement…",
     "noteSaved": "Remarque enregistrée.",
+    "noteQueued": "Hors ligne : la remarque sera envoyée au retour de la connexion.",
     "dayNotes": "Remarques du jour",
     "noteMeta": "{{author}} · {{time}}",
     "robot": "Robot",
@@ -276,6 +293,7 @@
     "save": "Enregistrer l'avancée",
     "saving": "Enregistrement…",
     "progressSaved": "Avancée enregistrée.",
+    "progressQueued": "Hors ligne : l'avancée sera envoyée au retour de la connexion.",
     "changedMeanwhile": "« À faire la prochaine fois » a changé pendant que vous écriviez :",
     "mergeThenSave": "Reprenez ce qu'il faut garder dans votre texte, puis enregistrez à nouveau.",
     "addAttachment": "Photo, mesure ou fichier",
@@ -293,6 +311,7 @@
     "saveNote": "Enregistrer la remarque",
     "noteSaving": "Enregistrement…",
     "noteSaved": "Remarque enregistrée.",
+    "noteQueued": "Hors ligne : la remarque sera envoyée au retour de la connexion.",
     "fromStart": "Du premier essai à aujourd'hui",
     "history": "Historique",
     "emptyHistory": "Aucune avancée n'a encore été enregistrée.",

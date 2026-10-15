@@ -65,6 +65,22 @@
     },
     "label_many": "Notificaciones, {{count, number}} sin leer"
   },
+  "offlineQueue": {
+    "label_one": "{{count, number}} guardado en espera de conexión",
+    "label_other": "{{count, number}} guardados en espera de conexión",
+    "label_many": "{{count, number}} guardados en espera de conexión",
+    "title": "En espera de conexión",
+    "hint": "Guardado sin conexión, se enviará automáticamente al recuperarla.",
+    "waiting": "Esperando para enviar…",
+    "discard": "Descartar",
+    "kinds": {
+      "tick": "Avance marcado — {{title}}",
+      "leave": "Presencia retirada — {{title}}",
+      "progress": "Avance escrito — {{title}}",
+      "workItemNote": "Nota — {{title}}",
+      "teamNote": "Nota de equipo"
+    }
+  },
   "home": {
     "eyebrow": "La memoria del club",
     "title": "Cada avance merece quedar registrado.",
@@ -107,6 +123,7 @@
     "saveNote": "Guardar",
     "savingNote": "Guardando…",
     "noteSaved": "Nota guardada.",
+    "noteQueued": "Sin conexión: la nota se enviará al recuperar la conexión.",
     "dayNotes": "Notas del día",
     "noteMeta": "{{author}} · {{time}}",
     "robot": "Robot",
@@ -285,6 +302,7 @@
     "save": "Guardar el avance",
     "saving": "Guardando…",
     "progressSaved": "Avance guardado.",
+    "progressQueued": "Sin conexión: el avance se enviará al recuperar la conexión.",
     "changedMeanwhile": "«Para la próxima vez» cambió mientras escribías:",
     "mergeThenSave": "Incorpora lo que quieras conservar en tu texto y vuelve a guardar.",
     "addAttachment": "Foto, medición o archivo",
@@ -302,6 +320,7 @@
     "saveNote": "Guardar la nota",
     "noteSaving": "Guardando…",
     "noteSaved": "Nota guardada.",
+    "noteQueued": "Sin conexión: la nota se enviará al recuperar la conexión.",
     "fromStart": "Desde la primera prueba hasta hoy",
     "history": "Historial",
     "emptyHistory": "Todavía no se ha registrado ningún avance.",

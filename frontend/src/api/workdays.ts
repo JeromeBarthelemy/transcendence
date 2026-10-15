@@ -114,9 +114,17 @@ export async function getDaySummary(
   return result.data;
 }
 
-export async function createTeamNote(teamSeasonId: number, noteBody: string) {
+/** `clientId` (#154) makes a replayed offline save (#157) land once: sent
+ * twice with the same one, the server answers with the first note both
+ * times rather than creating a second. */
+export async function createTeamNote(
+  teamSeasonId: number,
+  noteBody: string,
+  clientId?: string,
+) {
   const { body } = await post(`/api/team-seasons/${teamSeasonId}/notes/`, {
     body: noteBody,
+    ...(clientId ? { client_id: clientId } : {}),
   });
   const result = noteSchema.safeParse(body);
   if (!result.success) {

@@ -561,6 +561,8 @@ it("summarizes today and saves a team note", async () => {
   expect(noteRequest).toBeTruthy();
   expect(JSON.parse(String(noteRequest?.[1]?.body))).toEqual({
     body: "Foret de 4 cassé.",
+    // A fresh client id (#154/#157): lets a replayed offline save land once.
+    client_id: expect.anything(),
   });
 });
 

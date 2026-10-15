@@ -206,14 +206,19 @@ export async function updateProgress(
   return parseEntry(body);
 }
 
+/** `clientId` (#154) makes a replayed offline save (#157) land once: sent
+ * twice with the same one, the server answers with the first note both
+ * times rather than creating a second. */
 export async function createWorkItemNote(
   teamSeasonId: number,
   workItemId: number,
   noteBody: string,
+  clientId?: string,
 ): Promise<WorkItemEntry> {
   const { body } = await post(`/api/team-seasons/${teamSeasonId}/notes/`, {
     body: noteBody,
     work_item: workItemId,
+    ...(clientId ? { client_id: clientId } : {}),
   });
   return parseEntry(body);
 }

@@ -23,6 +23,7 @@ import {
 } from "../api/workItems";
 import { fetchFreshEntry } from "../app/entries";
 import { useFormatters } from "../app/formatters";
+import { trySave } from "../app/offlineQueue";
 import { useCurrentUser } from "../app/useCurrentUser";
 import { fieldIssues, RequestError } from "../components/ApiErrors";
 import { AvatarStack } from "../components/Avatar";
@@ -198,6 +199,7 @@ function ProgressEditor({
   const [theirs, setTheirs] = useState<string | null>(null);
   const [refreshError, setRefreshError] = useState<unknown>(null);
   const [saved, setSaved] = useState(false);
+  const [queued, setQueued] = useState(false);
 
   const changes: ProgressChanges = {};
   if (addition.trim()) {
@@ -210,18 +212,35 @@ function ProgressEditor({
   const nothingToSave = Object.keys(changes).length === 0;
 
   const save = useMutation({
-    mutationFn: () => updateProgress(entry.id, changes),
+    mutationFn: () =>
+      trySave(() => updateProgress(entry.id, changes), {
+        kind: "progress",
+        teamSeasonId: item.team_season,
+        workItemId: item.id,
+        entryId: entry.id,
+        title: item.title,
+        changes,
+      }),
     onMutate: () => {
       setTheirs(null);
       setRefreshError(null);
     },
-    onSuccess: async (savedEntry) => {
+    onSuccess: async (result) => {
       setAddition("");
-      setHandover(savedEntry.handover);
-      setHandoverWas(savedEntry.handover);
+      setQueued("queued" in result);
+      if ("queued" in result) {
+        // Nobody else could have changed it meanwhile: only this device is
+        // offline, and only this form was writing to it.
+        const next = changes.handover ?? handoverWas;
+        setHandover(next);
+        setHandoverWas(next);
+      } else {
+        setHandover(result.handover);
+        setHandoverWas(result.handover);
+        await invalidateWorkItem();
+      }
       setTheirs(null);
       setSaved(true);
-      await invalidateWorkItem();
     },
     onError: async (error) => {
       if (fieldIssues(error, "detail")[0]?.code !== "progress_changed") {
@@ -315,7 +334,9 @@ function ProgressEditor({
         )}
         {saved && (
           <SuccessMessage className="mt-3">
-            {t("workItem.progressSaved")}
+            {queued
+              ? t("workItem.progressQueued")
+              : t("workItem.progressSaved")}
           </SuccessMessage>
         )}
         <div className="mt-4 flex justify-end">
@@ -350,7 +371,14 @@ function TodayPanel({
   const [stepChoice, setStepChoice] = useState<WorkItemStep | null>(null);
   const selectedStep = stepChoice ?? liveStep;
   const tick = useMutation({
-    mutationFn: (step?: WorkItemStep) => tickWorkItem(item.id, step),
+    mutationFn: (step?: WorkItemStep) =>
+      trySave(() => tickWorkItem(item.id, step), {
+        kind: "tick",
+        teamSeasonId: item.team_season,
+        workItemId: item.id,
+        title: item.title,
+        step,
+      }),
     onSuccess: async (_entry, submittedStep) => {
       await invalidateWorkItem();
       if (submittedStep !== undefined) {
@@ -362,7 +390,13 @@ function TodayPanel({
   });
   const [isConfirmingLeave, setIsConfirmingLeave] = useState(false);
   const leave = useMutation({
-    mutationFn: () => leaveTodaysProgress(item.id),
+    mutationFn: () =>
+      trySave(() => leaveTodaysProgress(item.id), {
+        kind: "leave",
+        teamSeasonId: item.team_season,
+        workItemId: item.id,
+        title: item.title,
+      }),
     onSuccess: async () => {
       setIsConfirmingLeave(false);
       await invalidateWorkItem();
@@ -657,13 +691,29 @@ function WorkItemNoteForm({ item }: { item: WorkItemDetail }) {
   const invalidateWorkItem = useInvalidateWorkItem(item);
   const [body, setBody] = useState("");
   const [saved, setSaved] = useState(false);
+  const [queued, setQueued] = useState(false);
   const note = useMutation({
-    mutationFn: (noteBody: string) =>
-      createWorkItemNote(item.team_season, item.id, noteBody),
-    onSuccess: async () => {
+    mutationFn: (noteBody: string) => {
+      const clientId = crypto.randomUUID();
+      return trySave(
+        () => createWorkItemNote(item.team_season, item.id, noteBody, clientId),
+        {
+          kind: "work-item-note",
+          teamSeasonId: item.team_season,
+          workItemId: item.id,
+          title: item.title,
+          body: noteBody,
+          clientId,
+        },
+      );
+    },
+    onSuccess: async (result) => {
       setBody("");
       setSaved(true);
-      await invalidateWorkItem();
+      setQueued("queued" in result);
+      if (!("queued" in result)) {
+        await invalidateWorkItem();
+      }
     },
   });
 
@@ -701,7 +751,7 @@ function WorkItemNoteForm({ item }: { item: WorkItemDetail }) {
         {note.isError && <RequestError error={note.error} />}
         {saved && (
           <SuccessMessage className="mt-3">
-            {t("workItem.noteSaved")}
+            {queued ? t("workItem.noteQueued") : t("workItem.noteSaved")}
           </SuccessMessage>
         )}
         <div className="mt-4 flex justify-end">
