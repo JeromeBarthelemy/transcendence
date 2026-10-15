@@ -29,12 +29,13 @@ jobs:
         working-directory: frontend
         run: npx playwright install --with-deps chromium firefox webkit
 
+      # As the example leaves it, DEBUG on: mail goes to the console, there
+      # being no relay here, as on a teammate's machine.
       - name: Create a throwaway .env
         run: |
           cp backend/.env.example backend/.env
           key=$(python3 -c "import secrets; print(secrets.token_urlsafe(64))")
           sed -i "s|^DJANGO_SECRET_KEY=.*|DJANGO_SECRET_KEY=$key|" backend/.env
-          sed -i "s|^DJANGO_DEBUG=.*|DJANGO_DEBUG=false|" backend/.env
 
       - run: scripts/e2e.sh
 
