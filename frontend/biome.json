@@ -7,7 +7,8 @@
       "*.ts",
       "*.json",
       "scripts/**",
-      "e2e/**"
+      "e2e/**",
+      "!e2e/.auth"
     ]
   },
   "formatter": {
