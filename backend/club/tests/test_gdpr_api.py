@@ -210,6 +210,20 @@ def test_the_export_carries_the_notifications_received_and_when_they_were_read(
     assert "pince" not in content
 
 
+def test_the_export_carries_a_new_role_which_concerns_no_team(client, mailoutbox):
+    lina = student(contact_email="parent.lina@club.fr")
+    Notification.objects.create(
+        recipient=lina, actor=admin(), verb=Notification.Verb.MADE_MENTOR
+    )
+    client.force_login(lina)
+
+    client.post("/api/auth/me/export/")
+
+    (mail,) = mailoutbox
+    (_, content, _) = mail.attachments[0]
+    assert "rôle de mentor donné" in content
+
+
 def test_the_export_leaves_out_the_teams_notebook(client, mailoutbox):
     # Entries stay the team's history, attributed, after a member leaves —
     # the notebook export serves a different reader, the portfolio.

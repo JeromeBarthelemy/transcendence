@@ -931,8 +931,9 @@ class QueryCitation(models.Model):
 
 
 class Notification(models.Model):
-    """One member told of one change on their team's board (module 13): read
-    in the app, never sent by mail."""
+    """One member told of one change on their team's board, or of what an
+    administrator did to them (module 13): read in the app, never sent by
+    mail."""
 
     class Verb(models.TextChoices):
         WORK_ITEM_OPENED = "work_item_opened", "chantier ouvert"
@@ -943,6 +944,13 @@ class Notification(models.Model):
         ENTRY_ADDED = "entry_added", "trace ajoutée"
         ENTRY_UPDATED = "entry_updated", "trace modifiée"
         ENTRY_REMOVED = "entry_removed", "trace retirée"
+        # What an administrator did to the recipient themselves (#242).
+        MEMBERSHIP_ADDED = "membership_added", "accès à une équipe donné"
+        MEMBERSHIP_REMOVED = "membership_removed", "accès à une équipe retiré"
+        MADE_MENTOR = "made_mentor", "rôle de mentor donné"
+        MADE_STUDENT = "made_student", "rôle d'élève donné"
+        ADMIN_GRANTED = "admin_granted", "droits d'administration donnés"
+        ADMIN_REVOKED = "admin_revoked", "droits d'administration retirés"
 
     recipient = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -956,8 +964,9 @@ class Notification(models.Model):
         related_name="+",
         verbose_name="auteur du changement",
     )
+    # None only for a new role, which concerns no team.
     team_season = models.ForeignKey(
-        TeamSeason, on_delete=models.CASCADE, related_name="+"
+        TeamSeason, on_delete=models.CASCADE, null=True, blank=True, related_name="+"
     )
     verb = models.CharField("changement", max_length=20, choices=Verb.choices)
     # Emptied when the work item or the trace goes, since the notice of its

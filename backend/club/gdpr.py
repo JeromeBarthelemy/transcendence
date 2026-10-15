@@ -91,8 +91,11 @@ def export_data(user: User) -> dict[str, Any]:
             {
                 "change": notice.get_verb_display(),
                 "work_item": notice.work_item_title,
-                "team": notice.team_season.team.name,
-                "season": notice.team_season.season.label,
+                # None for a new role, which concerns no team.
+                "team": notice.team_season.team.name if notice.team_season else None,
+                "season": notice.team_season.season.label
+                if notice.team_season
+                else None,
                 "created_at": notice.created_at.isoformat(),
                 "read_at": notice.read_at.isoformat() if notice.read_at else None,
             }
