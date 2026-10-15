@@ -26,6 +26,7 @@ from rest_framework.settings import api_settings
 from club import attachments, images
 from club.export import CATEGORY_KEYS
 from club.models import (
+    DISPLAY_NAME_TAKEN,
     Attachment,
     Document,
     Entry,
@@ -101,9 +102,7 @@ class SignUpSerializer(serializers.Serializer[User]):
             # stays underneath as the backstop for two callers racing past
             # this check (see `create`).
             raise serializers.ValidationError(
-                "Ce nom d'affichage est déjà pris. Ajoutez une initiale, "
-                "par exemple « Marie D. ».",
-                code="display_name_taken",
+                DISPLAY_NAME_TAKEN, code="display_name_taken"
             )
         return value
 
