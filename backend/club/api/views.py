@@ -51,6 +51,7 @@ from club.models import (
     remove_after_commit,
 )
 from club.notifications import PERSONAL, notify_member, record_change
+from club.presence import is_online, shares_current_team
 from club.progress import (
     ProgressChanged,
     WorkItemClosed,
@@ -312,11 +313,13 @@ class MemberAvatarView(APIView):
         return response
 
 
-def _member_profile(user: User) -> dict[str, object]:
+def _member_profile(user: User, viewer: User) -> dict[str, object]:
     """What any signed-in member may see of another (#176): never an
     address nor a birth date. A mentor isn't on one team, so `team` stays
     `None` for them — the front end says "all teams" instead, the same way
-    it already does on one's own profile (`_identity`)."""
+    it already does on one's own profile (`_identity`). `online` stays
+    `None` unless `viewer` may see it (#267's own rule, `shares_current_team`)
+    — never shown to someone not on the same current-season team."""
     team = None
     if user.club_role == User.ClubRole.STUDENT:
         season = Season.objects.first()
@@ -329,10 +332,12 @@ def _member_profile(user: User) -> dict[str, object]:
         )
         if membership is not None:
             team = _team(membership.team_season.team)
+    online = is_online(user) if shares_current_team(viewer, user) else None
     return {
         "id": user.id,
         "display_name": user.display_name,
         "avatar": _avatar_url(user),
+        "online": online,
         "club_role": user.club_role,
         "team": team,
     }
@@ -343,23 +348,36 @@ class MemberProfileView(APIView):
     one room, and every active member is as reachable as the one asking."""
 
     def get(self, request: Request, pk: int) -> Response:
+        assert isinstance(request.user, User)
         user = get_object_or_404(User, pk=pk, is_active=True)
-        return Response(_member_profile(user))
+        return Response(_member_profile(user, request.user))
 
 
 class TeamSeasonRosterView(APIView):
     """The students a team counts on (#176) — a page reached from a
     teammate's name or avatar opens their profile. Mentors supervise, so
     `.roster()` already leaves them out, the same convention `DayView`'s
-    own roster count already relies on."""
+    own roster count already relies on. `team_season_acted_on` lets a
+    student reopen a past season's team they were on, same as any other
+    board screen — but #267's own rule is "their own *current* team", so
+    `online` stays `None` there, same as `_member_profile` for someone not
+    on the viewer's current team."""
 
     def get(self, request: Request, team_season_id: int) -> Response:
         assert isinstance(request.user, User)
         team_season = team_season_acted_on(request.user, team_season_id)
+        current_season = Season.objects.first()
+        is_current = (
+            current_season is not None and team_season.season_id == current_season.pk
+        )
         roster = team_season.memberships.roster().select_related("user")
         return Response(
             [
-                {"id": membership.user.id, **_member(membership.user)}
+                {
+                    "id": membership.user.id,
+                    **_member(membership.user),
+                    "online": is_online(membership.user) if is_current else None,
+                }
                 for membership in roster.order_by("user__display_name_folded")
             ]
         )

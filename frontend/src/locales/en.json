@@ -476,6 +476,9 @@
     "loading": "Loading profile…",
     "noTeam": "No team yet this season"
   },
+  "presence": {
+    "online": "Online"
+  },
   "live": {
     "offline": "Offline: other people's changes will arrive when you reconnect."
   },

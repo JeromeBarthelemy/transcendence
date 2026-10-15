@@ -12,6 +12,9 @@ const memberProfileSchema = z.object({
   id: z.number(),
   display_name: z.string(),
   avatar: z.nullable(z.string()),
+  // null unless the viewer may see it (#267): a mentor, or someone sharing
+  // this member's current-season team.
+  online: z.nullable(z.boolean()),
   club_role: z.enum(["student", "mentor"]),
   // null for a mentor, who is not on one team, or a student with no
   // membership in the current season.
@@ -22,6 +25,9 @@ const rosterMemberSchema = z.object({
   id: z.number(),
   display_name: z.string(),
   avatar: z.nullable(z.string()),
+  // null for a past season's roster: #267's own rule is the viewer's
+  // *current* team, and a roster may be reopened for an earlier one.
+  online: z.nullable(z.boolean()),
 });
 
 export type MemberProfile = z.infer<typeof memberProfileSchema>;

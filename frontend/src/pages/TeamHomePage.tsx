@@ -20,7 +20,7 @@ import { getWorkItems, type WorkItem } from "../api/workItems";
 import { fetchFreshEntry } from "../app/entries";
 import { useFormatters } from "../app/formatters";
 import { RequestError } from "../components/ApiErrors";
-import { Avatar, AvatarStack } from "../components/Avatar";
+import { Avatar, AvatarStack, OnlineDot } from "../components/Avatar";
 import { Button, ButtonLink, buttonClass } from "../components/Button";
 import { StatusChip } from "../components/Chip";
 import { EmptyState } from "../components/EmptyState";
@@ -445,6 +445,7 @@ function TeamRoster({ teamSeasonId }: { teamSeasonId: number }) {
           >
             <Avatar person={member} size="sm" />
             {member.display_name}
+            <OnlineDot online={member.online} />
           </Link>
         </li>
       ))}

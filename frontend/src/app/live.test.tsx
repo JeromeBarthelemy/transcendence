@@ -258,6 +258,21 @@ it("reloads on its first connection what changed while it was connecting", () =>
   expect(invalidated(["work-items", 11])).toBe(true);
 });
 
+it("reloads a teammate's dot (#267) without touching the board or the bell", () => {
+  const { invalidated, fresh, queryClient } = renderBoard();
+  latest().open();
+  fresh();
+  queryClient.setQueryData(["members", "profile", 42], { cached: true });
+  queryClient.setQueryData(["team-seasons", 7, "roster"], { cached: true });
+
+  latest().receive({ presence: true, team_season: 7 });
+
+  expect(invalidated(["team-seasons", 7, "roster"])).toBe(true);
+  expect(invalidated(["members", "profile", 42])).toBe(true);
+  expect(invalidated(["team-seasons", 7, "work-items"])).toBe(false);
+  expect(invalidated(["notifications"])).toBe(false);
+});
+
 it("reloads the member's notifications on any message, since a change may concern them", () => {
   const { invalidated, fresh } = renderBoard();
   latest().open();

@@ -1,8 +1,26 @@
 import { useState, useSyncExternalStore } from "react";
+import { useTranslation } from "react-i18next";
 
 export interface Person {
   display_name: string;
   avatar: string | null;
+}
+
+/** Nothing when offline or unknown (`null`: not the viewer's to see,
+ * #267's own scoping rule): the dot turns off once a teammate stops using
+ * the app, rather than turning grey. */
+export function OnlineDot({ online }: { online: boolean | null }) {
+  const { t } = useTranslation();
+  if (!online) {
+    return null;
+  }
+  return (
+    <span
+      role="img"
+      aria-label={t("presence.online")}
+      className="inline-block size-2.5 shrink-0 rounded-full bg-success"
+    />
+  );
 }
 
 // A member's photo keeps the same address when it changes. The server tells
