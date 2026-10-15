@@ -1007,8 +1007,8 @@ it("keeps a single roster row when the page draws again", async () => {
       if (path === "/api/team-seasons/7/days/today/") return workday(path);
       if (path === "/api/team-seasons/7/roster/") {
         return json([
-          { id: 9, display_name: "Lina", avatar: null },
-          { id: 10, display_name: "Tom", avatar: null },
+          { id: 9, display_name: "Lina", avatar: null, online: false },
+          { id: 10, display_name: "Tom", avatar: null, online: false },
         ]);
       }
       throw new Error(`Unexpected request: ${path}`);
