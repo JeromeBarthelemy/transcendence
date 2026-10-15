@@ -1,7 +1,10 @@
 """What an administrator does to a member is told to that member alone
 (module 13, #242): added to a team, removed from it, given a new role."""
 
+import pytest
+
 from club.models import Membership, Notification, Season, Team, TeamSeason, User
+from club.notifications import notify_member
 
 
 def team_season(number=12345):
@@ -170,3 +173,11 @@ def test_a_refused_role_change_tells_nobody(client):
 
     assert response.status_code == 400
     assert notified() == []
+
+
+# --- personal verbs ---
+
+
+def test_only_a_personal_verb_can_be_told_to_one_member():
+    with pytest.raises(AssertionError):
+        notify_member(admin(), student("lina"), Notification.Verb.ENTRY_ADDED)

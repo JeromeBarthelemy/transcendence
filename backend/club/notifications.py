@@ -85,6 +85,10 @@ def notify_member(
 ) -> None:
     """What an administrator did to one member, told to them alone. Inside
     the write's transaction, as `record_change`."""
+    # The bell shows a notice about no team, or about a team the member may
+    # no longer open, only if its verb is personal: another verb sent from
+    # here could be written and never seen.
+    assert verb in PERSONAL, f"{verb} is not in PERSONAL"
     if recipient == actor or not recipient.is_active:
         return
     Notification.objects.create(
