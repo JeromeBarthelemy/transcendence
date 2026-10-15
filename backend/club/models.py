@@ -36,6 +36,22 @@ def no_at_sign(value: str) -> None:
         )
 
 
+DISPLAY_NAME_TAKEN = (
+    "Ce nom d'affichage est déjà pris. Ajoutez une initiale, par exemple « Marie D. »."
+)
+
+
+def display_name_is_taken(folded: str, exclude_pk: int | None = None) -> bool:
+    """Whether another account already holds this folded name. Shared by
+    sign-up's own check and the admin's `User.clean()` (the one path a form
+    skips, since the folded column is never shown) so the two can never
+    enforce the rule differently."""
+    queryset = User.objects.filter(display_name_folded=folded)
+    if exclude_pk is not None:
+        queryset = queryset.exclude(pk=exclude_pk)
+    return queryset.exists()
+
+
 # What `anonymize` (club/gdpr.py) renames an account to, followed by its id.
 ANONYMIZED_NAME = "Ancien membre"
 
@@ -177,10 +193,7 @@ class User(AbstractBaseUser, PermissionsMixin):
                 "display_name_folded",
                 name="unique_display_name_regardless_of_case",
                 violation_error_code="display_name_taken",
-                violation_error_message=(
-                    "Ce nom d'affichage est déjà pris. Ajoutez une initiale, "
-                    "par exemple « Marie D. »."
-                ),
+                violation_error_message=DISPLAY_NAME_TAKEN,
             ),
         ]
 
@@ -189,10 +202,19 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     def clean(self) -> None:
         super().clean()
-        # full_clean() runs clean() before the uniqueness check, so a form
-        # reports a duplicate differing only by case instead of crashing on save.
         self.email = self.email.lower()
         self.display_name_folded = self.display_name.casefold()
+        # By hand, because a form skips every constraint on a field it does
+        # not show, and the folded column is never shown: the duplicate
+        # would reach the database and come back as a 500.
+        if display_name_is_taken(self.display_name_folded, exclude_pk=self.pk):
+            raise ValidationError(
+                {
+                    "display_name": ValidationError(
+                        DISPLAY_NAME_TAKEN, code="display_name_taken"
+                    )
+                }
+            )
 
     def save(self, *args: Any, **kwargs: Any) -> None:
         # Not only in clean(): create_user() and the admin's own writes never
