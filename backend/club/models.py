@@ -40,6 +40,18 @@ DISPLAY_NAME_TAKEN = (
     "Ce nom d'affichage est déjà pris. Ajoutez une initiale, par exemple « Marie D. »."
 )
 
+
+def display_name_is_taken(folded: str, exclude_pk: int | None = None) -> bool:
+    """Whether another account already holds this folded name. Shared by
+    sign-up's own check and the admin's `User.clean()` (the one path a form
+    skips, since the folded column is never shown) so the two can never
+    enforce the rule differently."""
+    queryset = User.objects.filter(display_name_folded=folded)
+    if exclude_pk is not None:
+        queryset = queryset.exclude(pk=exclude_pk)
+    return queryset.exists()
+
+
 # What `anonymize` (club/gdpr.py) renames an account to, followed by its id.
 ANONYMIZED_NAME = "Ancien membre"
 
@@ -195,12 +207,7 @@ class User(AbstractBaseUser, PermissionsMixin):
         # By hand, because a form skips every constraint on a field it does
         # not show, and the folded column is never shown: the duplicate
         # would reach the database and come back as a 500.
-        taken = (
-            User.objects.filter(display_name_folded=self.display_name_folded)
-            .exclude(pk=self.pk)
-            .exists()
-        )
-        if taken:
+        if display_name_is_taken(self.display_name_folded, exclude_pk=self.pk):
             raise ValidationError(
                 {
                     "display_name": ValidationError(

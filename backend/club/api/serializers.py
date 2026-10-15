@@ -37,6 +37,7 @@ from club.models import (
     User,
     VerificationRequest,
     WorkItem,
+    display_name_is_taken,
     fold_title,
     no_at_sign,
     not_an_anonymized_name,
@@ -96,8 +97,7 @@ class SignUpSerializer(serializers.Serializer[User]):
         # database: SQLite's lower() is ASCII-only, so Élodie would fold to
         # itself and this check would miss a duplicate the constraint then
         # catches as a 500.
-        taken = User.objects.filter(display_name_folded=value.casefold()).exists()
-        if taken:
+        if display_name_is_taken(value.casefold()):
             # Same code and same sentence as the database constraint, which
             # stays underneath as the backstop for two callers racing past
             # this check (see `create`).
