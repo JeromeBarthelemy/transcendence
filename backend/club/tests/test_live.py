@@ -359,10 +359,10 @@ def test_a_member_added_to_a_team_hears_it_on_their_own_socket(
         django_capture_on_commit_callbacks,
     )
 
-    assert heard == {"team_season": rouages.id, "work_item": None, "deleted": False}
+    assert heard == {"team_season": None, "work_item": None, "deleted": False}
 
 
-def test_a_member_removed_from_a_team_hears_it_though_it_is_no_longer_theirs(
+def test_a_member_removed_from_a_team_hears_it_without_the_team_they_cannot_read(
     db, django_capture_on_commit_callbacks
 ):
     rouages = team_season()
@@ -376,7 +376,7 @@ def test_a_member_removed_from_a_team_hears_it_though_it_is_no_longer_theirs(
         django_capture_on_commit_callbacks,
     )
 
-    assert heard == {"team_season": rouages.id, "work_item": None, "deleted": False}
+    assert heard == {"team_season": None, "work_item": None, "deleted": False}
 
 
 def test_a_new_role_is_heard_about_no_team(db, django_capture_on_commit_callbacks):

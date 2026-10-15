@@ -90,10 +90,11 @@ def broadcast(
     transaction.on_commit(send, robust=True)
 
 
-def tell(user_id: int, team_season_id: int | None) -> None:
+def tell(user_id: int) -> None:
     """Like `broadcast`, once committed, but to one person: what an
-    administrator did to them (#242), about a team they may no longer open,
-    or about none."""
+    administrator did to them (#242). It names no team: one they were just
+    taken off would answer 403 if their screen read it again, and no team at
+    all tells that screen to read the member's own account instead."""
     layer = get_channel_layer()
     assert layer is not None
 
@@ -102,7 +103,7 @@ def tell(user_id: int, team_season_id: int | None) -> None:
             person_group(user_id),
             {
                 "type": "board.changed",
-                "team_season": team_season_id,
+                "team_season": None,
                 "work_item": None,
                 "deleted": False,
             },

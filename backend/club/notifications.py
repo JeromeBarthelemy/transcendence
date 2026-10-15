@@ -90,4 +90,4 @@ def notify_member(
     Notification.objects.create(
         recipient=recipient, actor=actor, team_season=team_season, verb=verb
     )
-    tell(recipient.pk, team_season.id if team_season else None)
+    tell(recipient.pk)
