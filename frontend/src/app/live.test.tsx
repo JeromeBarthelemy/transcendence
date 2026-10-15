@@ -415,6 +415,55 @@ it("closes its socket when the page is left, and opens it again if the page come
   expect(invalidated(["notifications"])).toBe(true);
 });
 
+function turnVisible() {
+  Object.defineProperty(document, "visibilityState", {
+    value: "visible",
+    configurable: true,
+  });
+  act(() => document.dispatchEvent(new Event("visibilitychange")));
+}
+
+it("opens a socket again when a phone brings a page back from the background, then stops saying it is offline", () => {
+  renderBoard();
+  latest().open();
+  // Switching apps: the socket drops, then the page is put away.
+  latest().drop();
+  act(() => vi.advanceTimersByTime(3000));
+  expect(screen.getByRole("status").textContent).toBe(offline);
+  act(() => window.dispatchEvent(new Event("pagehide")));
+  const putAway = FakeSocket.all.length;
+  act(() => vi.advanceTimersByTime(30_000));
+  expect(FakeSocket.all).toHaveLength(putAway);
+
+  turnVisible();
+
+  expect(FakeSocket.all).toHaveLength(putAway + 1);
+  latest().open();
+  expect(screen.queryByText(offline)).toBeNull();
+});
+
+it("opens a socket again when a page comes back without leaving the cache", () => {
+  renderBoard();
+  latest().open();
+  act(() => window.dispatchEvent(new Event("pagehide")));
+
+  const back = new Event("pageshow") as PageTransitionEvent;
+  Object.defineProperty(back, "persisted", { value: false });
+  act(() => window.dispatchEvent(back));
+
+  expect(FakeSocket.all).toHaveLength(2);
+});
+
+it("keeps its one socket when the tab turns visible while it is open", () => {
+  renderBoard();
+  latest().open();
+
+  turnVisible();
+
+  expect(FakeSocket.all).toHaveLength(1);
+  expect(latest().closed).toBe(false);
+});
+
 it("starts a fresh socket every hour, without saying it is offline", () => {
   const { invalidated, fresh } = renderBoard();
   const first = latest();
