@@ -577,10 +577,9 @@ export function TeamHomePage({ identity }: { identity: Identity }) {
         )}
       </div>
 
-      <TeamRoster
-        key={selectedTeamSeason.id}
-        teamSeasonId={selectedTeamSeason.id}
-      />
+      {/* No key: it would repeat its sibling's, and React draws a second
+          roster on the next update. Its query already follows the team. */}
+      <TeamRoster teamSeasonId={selectedTeamSeason.id} />
 
       <TodaySummary
         key={selectedTeamSeason.id}

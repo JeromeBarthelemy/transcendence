@@ -243,7 +243,7 @@ body {
     circle closest-side,
     var(--color-ink) 0%,
     var(--color-primary) 49%,
-    var(--color-azure) 92%
+    var(--color-azure) 98%
   );
   box-shadow: 0 0 2.6em 0.3em --alpha(var(--color-accent) / 22%);
 }

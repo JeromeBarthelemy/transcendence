@@ -995,3 +995,39 @@ it("shows no rulebook badge to an admin when nothing is pending", async () => {
     }),
   ).toBeNull();
 });
+
+it("keeps a single roster row when the page draws again", async () => {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (path: string) => {
+      if (path === "/api/auth/me/") {
+        return json(identity([teamSeason(7, 1796, "Les Rouages")]));
+      }
+      if (path === "/api/team-seasons/7/work-items/") return json([]);
+      if (path === "/api/team-seasons/7/days/today/") return workday(path);
+      if (path === "/api/team-seasons/7/roster/") {
+        return json([
+          { id: 9, display_name: "Lina", avatar: null, online: false },
+          { id: 10, display_name: "Tom", avatar: null, online: false },
+        ]);
+      }
+      throw new Error(`Unexpected request: ${path}`);
+    }),
+  );
+  renderHome();
+  await screen.findByRole("link", { name: "Lina" });
+
+  // Any state change redraws the page: the roster used to share a sibling's
+  // key, and React drew it a second time.
+  await userEvent.selectOptions(
+    await screen.findByLabelText("Filtrer par statut"),
+    "all",
+  );
+  await userEvent.selectOptions(
+    screen.getByLabelText("Filtrer par statut"),
+    "open",
+  );
+
+  expect(screen.getAllByRole("link", { name: "Lina" })).toHaveLength(1);
+  expect(screen.getAllByRole("link", { name: "Tom" })).toHaveLength(1);
+});
