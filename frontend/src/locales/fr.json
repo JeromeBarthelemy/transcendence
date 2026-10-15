@@ -7,7 +7,8 @@
     "name": "Fieldnotes",
     "footer": "Fieldnotes · un espace privé pour le club",
     "privacy": "Confidentialité",
-    "terms": "Conditions d'utilisation"
+    "terms": "Conditions d'utilisation",
+    "install": "Installer"
   },
   "notFound": {
     "title": "Page introuvable",
