@@ -1234,9 +1234,9 @@ such as Safari 10 (iOS 10) shows a blank page.
   logged by the browser itself as a failed resource. They are not errors in
   Fieldnotes' code, and the suite allows exactly those two, in the tests that
   provoke them. Safari can also log "ResizeObserver loop completed with
-  undelivered notifications" on the sign-up page, from its own autofill: no
-  code of Fieldnotes observes sizes there, and WebKit under Playwright logs
-  nothing.
+  undelivered notifications" on the sign-up page, most likely from its own
+  autofill or an extension: no code of Fieldnotes observes sizes there, and
+  WebKit under Playwright logs nothing.
 
 ## Checking
 
