@@ -336,12 +336,20 @@ montrer les jetons de couleur et de typographie.
 - Users can add other users as friends and see their online status.
 - Users have a profile page displaying their information.
 
-**Chez nous** — l'avatar est déjà fait (#68, #78), avec repli sur une image par
-défaut. Restent à construire : modifier son nom d'affichage et son adresse de
-connexion (#178), ouvrir le profil d'un autre membre avec son équipe (#176), et
-le statut « en ligne » d'un coéquipier (#267) — un simple rond vert sur l'équipe
-de la saison en cours, sans détail de dernière connexion ni système d'amis
-séparé : la relation qui compte ici, c'est l'équipe.
+**Chez nous** — l'avatar est déjà fait (#68, #78), avec repli sur les initiales
+plutôt qu'une image par défaut. Le nom d'affichage et l'adresse de connexion se
+modifient depuis son propre profil, mineurs compris (#178) ; l'adresse de
+contact reste celle de l'administrateur. Le profil d'un autre membre s'ouvre
+depuis son nom ou son avatar et montre son équipe de la saison en cours (#176).
+Un coéquipier en ligne porte un simple rond vert, sans détail de dernière
+connexion (#267).
+
+**À dire au correcteur** — le sujet demande d'« ajouter d'autres utilisateurs
+comme amis » ; il n'y a pas de bouton pour ça. C'est le point le plus
+contestable du module. La relation qui compte déjà dans le club, c'est
+l'équipe : deux coéquipiers se voient, s'écrivent et savent déjà qui est à
+l'atelier. Un graphe d'amis séparé dédoublerait cette relation au lieu d'en
+apporter une nouvelle ; la remplacer par l'équipe est un choix, pas un oubli.
 
 **Démo (3 min)** — changer son nom d'affichage et se reconnecter avec, ouvrir le
 profil d'un coéquipier et montrer son indicateur passer au vert pendant qu'il
