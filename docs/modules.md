@@ -16,9 +16,9 @@
 > your final score. **Non-functional or incomplete modules = 0 points.** »
 > — sujet, chapitre IV
 
-22 points déclarés pour 14 requis. Les seize modules figurent tous au barème du
-sujet ; aucun ne demande d'expliquer ce qu'il est avant de montrer qu'il
-fonctionne. Les numéros sont ceux des jalons : il n'y a donc ni 5, ni 12, ni 16.
+24 points déclarés pour 14 requis. Les dix-sept modules figurent tous au
+barème du sujet ; aucun ne demande d'expliquer ce qu'il est avant de montrer
+qu'il fonctionne. Les numéros sont ceux des jalons : il n'y a donc ni 5, ni 12.
 
 Les exigences sont **recopiées mot pour mot** du sujet, en anglais, pour qu'aucune
 traduction ne les adoucisse. Une case cochée veut dire « démontrable devant un
@@ -326,6 +326,34 @@ c'est la page qui les montre.
 
 **Démo (2 min)** — ouvrir la galerie de composants, compter au-delà de dix,
 montrer les jetons de couleur et de typographie.
+
+---
+
+## 16 · Gestion standard des comptes — Major, 2 pts
+
+- Users can update their profile information.
+- Users can upload an avatar (with a default avatar if none provided).
+- Users can add other users as friends and see their online status.
+- Users have a profile page displaying their information.
+
+**Chez nous** — l'avatar est déjà fait (#68, #78), avec repli sur les initiales
+plutôt qu'une image par défaut. Le nom d'affichage et l'adresse de connexion se
+modifient depuis son propre profil, mineurs compris (#178) ; l'adresse de
+contact reste celle de l'administrateur. Le profil d'un autre membre s'ouvre
+depuis son nom ou son avatar et montre son équipe de la saison en cours (#176).
+Un coéquipier en ligne porte un simple rond vert, sans détail de dernière
+connexion (#267).
+
+**À dire au correcteur** — le sujet demande d'« ajouter d'autres utilisateurs
+comme amis » ; il n'y a pas de bouton pour ça. C'est le point le plus
+contestable du module. La relation qui compte déjà dans le club, c'est
+l'équipe : deux coéquipiers se voient, s'écrivent et savent déjà qui est à
+l'atelier. Un graphe d'amis séparé dédoublerait cette relation au lieu d'en
+apporter une nouvelle ; la remplacer par l'équipe est un choix, pas un oubli.
+
+**Démo (3 min)** — changer son nom d'affichage et se reconnecter avec, ouvrir le
+profil d'un coéquipier et montrer son indicateur passer au vert pendant qu'il
+utilise l'application, puis s'éteindre une fois déconnecté.
 
 ---
 

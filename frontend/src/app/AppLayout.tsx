@@ -11,6 +11,7 @@ import { RequestError } from "../components/ApiErrors";
 import { Avatar } from "../components/Avatar";
 import { IconLabel } from "../components/Icon";
 import { LanguageSwitcher } from "../components/LanguageSwitcher";
+import { useInstallPrompt } from "./installPrompt";
 import { LiveStatus } from "./live";
 import { focusRing, type OpenMenu, useMenu } from "./menu";
 import { NotificationsMenu } from "./NotificationsMenu";
@@ -278,6 +279,26 @@ function MobileMenu({
   );
 }
 
+/** Shown only where the browser itself offered to install the app (#155):
+ * nothing to feature-detect ourselves, since `canInstall` already is that
+ * detection. */
+function InstallAction() {
+  const { t } = useTranslation();
+  const { canInstall, install } = useInstallPrompt();
+  if (!canInstall) {
+    return null;
+  }
+  return (
+    <button
+      type="button"
+      onClick={install}
+      className={`shrink-0 rounded-full border border-primary/15 bg-white px-3 py-2 text-sm font-semibold text-ink transition hover:bg-tint ${focusRing}`}
+    >
+      {t("app.install")}
+    </button>
+  );
+}
+
 function HeaderEnd({ children }: { children: ReactNode }) {
   return (
     <div className="flex min-w-0 shrink-0 items-center gap-1 md:gap-4">
@@ -351,6 +372,7 @@ export function AppLayout() {
           </Link>
 
           <HeaderEnd>
+            <InstallAction />
             <LanguageSwitcher />
             <nav
               aria-label={t("nav.main")}

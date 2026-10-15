@@ -47,6 +47,7 @@ function account(
     id,
     display_name: displayName,
     email: `${displayName.toLowerCase()}@club.fr`,
+    contact_email: "",
     club_role: "student",
     is_club_admin: false,
     is_active: true,
@@ -239,6 +240,69 @@ it("drops the admin flag when a mentor is made a student again", async () => {
 
   expect(admin.checked).toBe(false);
   expect(admin.disabled).toBe(true);
+});
+
+it("corrects a members display name and contact address (#178)", async () => {
+  const user = userEvent.setup();
+  let current = ELODIE;
+  const fetchMock = stubApi((path, init) => {
+    if (path === "/api/users/2/" && init?.method === "PATCH") {
+      current = {
+        ...current,
+        display_name: "Élodie D.",
+        contact_email: "parent@club.fr",
+      };
+      return json(current);
+    }
+    if (path === "/api/users/2/") return json(current);
+    return undefined;
+  });
+
+  renderAt("/users/2");
+
+  const name = await screen.findByLabelText("Nom d'affichage");
+  await user.clear(name);
+  await user.type(name, "Élodie D.");
+  const contact = screen.getByLabelText("Adresse de contact");
+  await user.clear(contact);
+  await user.type(contact, "parent@club.fr");
+  await user.click(screen.getByRole("button", { name: "Enregistrer" }));
+
+  expect(await screen.findByText("Modifications enregistrées.")).toBeTruthy();
+  const patched = fetchMock.mock.calls.find(
+    ([, init]) => init?.method === "PATCH",
+  );
+  expect(JSON.parse((patched?.[1]?.body as string) ?? "{}")).toEqual({
+    display_name: "Élodie D.",
+    contact_email: "parent@club.fr",
+  });
+});
+
+it("reports a display name already taken under its own field", async () => {
+  const user = userEvent.setup();
+  stubApi((path, init) => {
+    if (path === "/api/users/2/" && init?.method === "PATCH") {
+      return json(
+        { display_name: [{ code: "display_name_taken", message: "…" }] },
+        400,
+      );
+    }
+    if (path === "/api/users/2/") return json(ELODIE);
+    return undefined;
+  });
+
+  renderAt("/users/2");
+
+  const name = await screen.findByLabelText("Nom d'affichage");
+  await user.clear(name);
+  await user.type(name, "Ada");
+  await user.click(screen.getByRole("button", { name: "Enregistrer" }));
+
+  expect(
+    await screen.findByText(
+      "Ce nom d'affichage est déjà pris. Ajoutez une initiale, par exemple « Marie D. ».",
+    ),
+  ).toBeTruthy();
 });
 
 it("shows why the server refused an edit", async () => {

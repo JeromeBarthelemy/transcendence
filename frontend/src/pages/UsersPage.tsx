@@ -214,15 +214,22 @@ function RoleForm({ user, locked }: { user: ClubUser; locked: boolean }) {
   const queryClient = useQueryClient();
   const adminHintId = useId();
   const activeHintId = useId();
+  const displayNameId = useId();
+  const contactEmailId = useId();
+  const contactEmailHintId = useId();
   const [clubRole, setClubRole] = useState(user.club_role);
   const [isClubAdmin, setIsClubAdmin] = useState(user.is_club_admin);
   const [isActive, setIsActive] = useState(user.is_active);
+  const [displayName, setDisplayName] = useState(user.display_name);
+  const [contactEmail, setContactEmail] = useState(user.contact_email);
   const [saved, setSaved] = useState(false);
 
   const changes: UserChanges = {};
   if (clubRole !== user.club_role) changes.club_role = clubRole;
   if (isClubAdmin !== user.is_club_admin) changes.is_club_admin = isClubAdmin;
   if (isActive !== user.is_active) changes.is_active = isActive;
+  if (displayName !== user.display_name) changes.display_name = displayName;
+  if (contactEmail !== user.contact_email) changes.contact_email = contactEmail;
   const isDirty = Object.keys(changes).length > 0;
 
   const save = useMutation({
@@ -258,6 +265,43 @@ function RoleForm({ user, locked }: { user: ClubUser; locked: boolean }) {
         {t("users.rightsTitle")}
       </Eyebrow>
       <fieldset disabled={locked || save.isPending} className="mt-4 space-y-5">
+        <div>
+          <Label htmlFor={displayNameId}>{t("users.displayName")}</Label>
+          <TextInput
+            id={displayNameId}
+            value={displayName}
+            onChange={(event) => {
+              setDisplayName(event.target.value);
+              setSaved(false);
+            }}
+          />
+          <FieldErrors
+            id={`${displayNameId}-errors`}
+            issues={fieldIssues(save.error, "display_name")}
+          />
+        </div>
+
+        <div>
+          <Label htmlFor={contactEmailId}>{t("users.contactEmail")}</Label>
+          <TextInput
+            id={contactEmailId}
+            type="email"
+            aria-describedby={contactEmailHintId}
+            value={contactEmail}
+            onChange={(event) => {
+              setContactEmail(event.target.value);
+              setSaved(false);
+            }}
+          />
+          <p id={contactEmailHintId} className="mt-1 text-xs text-muted">
+            {t("users.contactEmailHint")}
+          </p>
+          <FieldErrors
+            id={`${contactEmailId}-errors`}
+            issues={fieldIssues(save.error, "contact_email")}
+          />
+        </div>
+
         <fieldset>
           <legend className="text-sm font-semibold text-ink">
             {t("users.role")}
@@ -324,7 +368,10 @@ function RoleForm({ user, locked }: { user: ClubUser; locked: boolean }) {
       </fieldset>
 
       {save.isError && (
-        <RequestError error={save.error} handledFields={["is_club_admin"]} />
+        <RequestError
+          error={save.error}
+          handledFields={["is_club_admin", "display_name", "contact_email"]}
+        />
       )}
       {saved && !isDirty && (
         <SuccessMessage className="mt-4">{t("users.saved")}</SuccessMessage>
@@ -338,6 +385,8 @@ function RoleForm({ user, locked }: { user: ClubUser; locked: boolean }) {
               setClubRole(user.club_role);
               setIsClubAdmin(user.is_club_admin);
               setIsActive(user.is_active);
+              setDisplayName(user.display_name);
+              setContactEmail(user.contact_email);
               save.reset();
             }}
           >

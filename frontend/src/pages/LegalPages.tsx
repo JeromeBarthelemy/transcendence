@@ -74,7 +74,6 @@ export function PrivacyPage() {
           />
         </li>
         <li>{t("legal.privacy.joinedAndRole")}</li>
-        <li>{t("legal.privacy.failedLogins")}</li>
       </ul>
       <p className="legal-why">{t("legal.privacy.accountWhy")}</p>
 

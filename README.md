@@ -48,10 +48,13 @@ The frontend foundation installed by the initial skeleton is:
   top of it.
 
 **React Hook Form and Zod** validate the account forms in the browser, while
-**Vitest and React Testing Library** exercise their user flows. The PWA will
-add **vite-plugin-pwa/Workbox and IndexedDB** when it needs durable offline
-support. IndexedDB will store pending progress entries; TanStack Query's
-cache alone is not durable offline storage.
+**Vitest and React Testing Library** exercise their user flows. **vite-plugin-pwa
+and Workbox** precache the application shell, so a reload with no network still
+opens the app; **IndexedDB** will store pending progress entries once offline
+writes queue there too — TanStack Query's cache alone is not durable offline
+storage. Browsers only accept a service worker over a certificate they trust,
+so on `localhost`, where the certificate is the stack's own self-signed one,
+it is not registered at all: Chrome would log the refusal as a console error.
 
 The backend stack is:
 

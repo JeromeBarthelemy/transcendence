@@ -17,6 +17,7 @@ from django.urls import path
 
 from club.api.permissions import readers_of
 from club.models import User
+from club.presence import connected, current_team_season_ids, disconnected
 
 
 def person_group(user_id: int) -> str:
@@ -26,7 +27,10 @@ def person_group(user_id: int) -> str:
 class PersonConsumer(JsonWebsocketConsumer):
     """One socket per signed-in person, opened on every screen. Who hears a
     change is worked out when it is written, not here: someone taken off a
-    team stops hearing about it at once."""
+    team stops hearing about it at once.
+
+    Also where online status (#267) comes from: a member's first socket
+    and last one are exactly the moments their teammates should be told."""
 
     group: str | None = None
 
@@ -37,13 +41,24 @@ class PersonConsumer(JsonWebsocketConsumer):
             return
         self.group = person_group(user.pk)
         async_to_sync(self.channel_layer.group_add)(self.group, self.channel_name)
+        # Before accept(): it sends "websocket.accept" straight through a
+        # thread-safe queue, which a test's `await communicator.connect()`
+        # can observe before this method's own thread goes on to run the
+        # next line — a caller must never be able to see "connected" before
+        # is_online() agrees.
+        first = connected(user.pk)
         self.accept()
+        if first:
+            notify_presence_changed(user)
 
     def disconnect(self, code: int) -> None:
-        if self.group is not None:
-            async_to_sync(self.channel_layer.group_discard)(
-                self.group, self.channel_name
-            )
+        if self.group is None:
+            return
+        async_to_sync(self.channel_layer.group_discard)(self.group, self.channel_name)
+        user = self.scope["user"]
+        assert isinstance(user, User)
+        if disconnected(user.pk):
+            notify_presence_changed(user)
 
     def board_changed(self, event: dict[str, Any]) -> None:
         self.send_json(
@@ -53,6 +68,9 @@ class PersonConsumer(JsonWebsocketConsumer):
                 "deleted": event["deleted"],
             }
         )
+
+    def presence_changed(self, event: dict[str, Any]) -> None:
+        self.send_json({"presence": True, "team_season": event["team_season"]})
 
 
 # Django's own path(), as Channels documents it; its type stubs expect a
@@ -88,6 +106,28 @@ def broadcast(
             )
 
     transaction.on_commit(send, robust=True)
+
+
+def notify_presence_changed(user: User) -> None:
+    """Told live (#267, reviewing #272): a teammate's dot changes without
+    waiting on a poll. Sent at once, not on a transaction's commit — a
+    socket opening or closing is not a database write to wait on. Reaches
+    the same readers `broadcast` would for each of the member's current
+    team seasons, since mentors and teammates are exactly who may see it
+    (`shares_current_team`) — `user` themselves excluded, who already
+    knows their own status without being told. A mentor has none, so
+    nobody is told of theirs — nobody but another mentor could see it
+    anyway, and they already poll nothing: they would simply see it next
+    time they open that profile."""
+    layer = get_channel_layer()
+    assert layer is not None
+    for team_season_id in current_team_season_ids(user):
+        readers = readers_of(team_season_id).exclude(pk=user.pk)
+        for reader_id in readers.values_list("pk", flat=True):
+            async_to_sync(layer.group_send)(
+                person_group(reader_id),
+                {"type": "presence.changed", "team_season": team_season_id},
+            )
 
 
 def tell(user_id: int) -> None:

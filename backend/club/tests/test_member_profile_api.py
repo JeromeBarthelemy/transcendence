@@ -2,6 +2,7 @@
 never sees more than a display name, a photo and a current-season team."""
 
 from club.models import Membership, Season, Team, TeamSeason, User
+from club.presence import connected
 
 PASSWORD = "rouage-bleu-2026"
 
@@ -39,6 +40,7 @@ def test_a_students_profile_shows_their_current_season_team(client):
         "id": ada.id,
         "display_name": "ada",
         "avatar": None,
+        "online": None,
         "club_role": "student",
         "team": {"id": theirs.team.id, "number": 111, "name": "Team 111"},
     }
@@ -80,6 +82,7 @@ def test_opening_a_profile_never_carries_an_address_or_a_birth_date(client):
         "id",
         "display_name",
         "avatar",
+        "online",
         "club_role",
         "team",
     }
@@ -115,3 +118,35 @@ def test_opening_an_unknown_members_profile_finds_nothing(client):
     client.force_login(person("tom"))
 
     assert client.get("/api/users/999999/profile/").status_code == 404
+
+
+def test_a_teammate_sees_whether_ada_is_online(client):
+    theirs = team_season(111)
+    ada = person("ada")
+    tom = person("tom")
+    Membership.objects.create(user=ada, team_season=theirs)
+    Membership.objects.create(user=tom, team_season=theirs)
+    client.force_login(tom)
+
+    assert profile(client, ada).json()["online"] is False
+
+    connected(ada.pk)
+
+    assert profile(client, ada).json()["online"] is True
+
+
+def test_a_non_teammate_never_sees_online_status(client):
+    ada = person("ada")
+    connected(ada.pk)
+    Membership.objects.create(user=ada, team_season=team_season(111))
+    client.force_login(person("tom"))
+
+    assert profile(client, ada).json()["online"] is None
+
+
+def test_a_mentor_always_sees_online_status(client):
+    ada = person("ada")
+    connected(ada.pk)
+    client.force_login(person("paul", User.ClubRole.MENTOR))
+
+    assert profile(client, ada).json()["online"] is True
