@@ -1204,7 +1204,7 @@ exercises every screen in the three engines (see *End to end, in three
 browsers* under *Testing*): Chromium for Chrome, Gecko for Firefox, WebKit for
 Safari. It fails on any console warning or error in any of them. Playwright's
 WebKit is Safari's engine but not Safari itself, so Safari is also checked by
-hand on an iPhone.
+hand on a Mac.
 
 | Pass | Date | Versions |
 |---|---|---|
