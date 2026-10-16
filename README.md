@@ -1362,7 +1362,7 @@ in French. `docs/` is the one exception, and a deliberate one — see below.
   requires documented: one diagram per area (club and accounts, notebook and
   notifications, rulebook) and a shared legend, to be laid out in the README's
   *Database Schema* section.
-- [`docs/modules.md`](docs/modules.md) — the sixteen declared modules: what the
+- [`docs/modules.md`](docs/modules.md) — the seventeen declared modules: what the
   club has in front of each requirement, and how each will be demonstrated.
   It is the defence rehearsal, not a specification — the README is what says
   what was built, and a milestone is what says it is done.
