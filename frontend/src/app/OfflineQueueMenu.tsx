@@ -67,20 +67,24 @@ function SyncIcon() {
   );
 }
 
-/** What #157 queued because a save could not reach the server: shown only
- * while at least one is still waiting, since there is nothing to say the
- * rest of the time. */
+/** What #157 queued because a save could not reach the server, for this
+ * member alone: IndexedDB belongs to the origin, not the account, so a
+ * save queued under whoever used this computer before stays out of sight
+ * (and unreplayed, offlineQueue.ts) until they are signed in again. Shown
+ * only while at least one of this member's own is still waiting. */
 export function OfflineQueueMenu({
+  memberId,
   open,
   setOpen,
 }: {
+  memberId: number;
   open: OpenMenu;
   setOpen: (menu: OpenMenu) => void;
 }) {
   const { t } = useTranslation();
   const panelId = useId();
   const menu = useMenu("offline", open, setOpen);
-  const saves = usePendingSaves();
+  const saves = usePendingSaves().filter((save) => save.authorId === memberId);
 
   if (saves.length === 0) {
     return null;

@@ -30,6 +30,7 @@ function identity(
   extra: { club_role?: string; team_seasons?: unknown[] } = {},
 ) {
   return {
+    id: 1,
     display_name: "Marie Durand",
     club_role: "student",
     is_club_admin: false,

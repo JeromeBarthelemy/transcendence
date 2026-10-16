@@ -24,6 +24,7 @@ function refusal(code: string) {
 }
 
 const marie = {
+  id: 1,
   display_name: "Marie Durand",
   club_role: "student",
   is_club_admin: false,

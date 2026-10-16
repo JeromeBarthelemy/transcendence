@@ -72,6 +72,7 @@ afterEach(() => {
 
 it("shows a student their own team, with no selector", async () => {
   renderHomeAs({
+    id: 1,
     display_name: "Lina",
     club_role: "student",
     is_club_admin: false,
@@ -88,6 +89,7 @@ it("shows a student their own team, with no selector", async () => {
 
 it("offers a mentor a team selector", async () => {
   renderHomeAs({
+    id: 2,
     display_name: "Claire",
     club_role: "mentor",
     is_club_admin: false,
@@ -102,6 +104,7 @@ it("offers a mentor a team selector", async () => {
 
 it("offers a club admin every team, and the administration screens", async () => {
   renderHomeAs({
+    id: 3,
     display_name: "Paul",
     club_role: "mentor",
     is_club_admin: true,

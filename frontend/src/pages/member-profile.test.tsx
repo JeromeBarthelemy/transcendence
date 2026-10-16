@@ -20,6 +20,7 @@ function setDocumentCookie(value: string) {
 
 function identity() {
   return {
+    id: 1,
     display_name: "Tom",
     club_role: "student",
     is_club_admin: false,

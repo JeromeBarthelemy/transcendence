@@ -53,6 +53,7 @@ function teamSeason(id: number, number: number, name: string) {
 
 function identity(teamSeasons: object[]) {
   return {
+    id: 1,
     display_name: "Marie",
     club_role: "student",
     is_club_admin: false,

@@ -8,6 +8,7 @@ const queryKey = ["work-items", 7] as const;
 const previous = { thread: [{ id: 41, body: "Previous account's note" }] };
 const fresh = { thread: [{ id: 41, body: "Updated note" }] };
 const nextAccount = {
+  id: 2,
   display_name: "Lina",
   club_role: "student" as const,
   is_club_admin: false,

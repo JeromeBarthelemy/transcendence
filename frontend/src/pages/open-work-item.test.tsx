@@ -51,6 +51,7 @@ function serve(
     async (path: string, options?: RequestInit): Promise<Response> => {
       if (path === "/api/auth/me/") {
         return json({
+          id: 1,
           display_name: "Marie",
           club_role: "student",
           is_club_admin: false,

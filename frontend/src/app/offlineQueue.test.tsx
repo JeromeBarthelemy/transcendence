@@ -7,6 +7,7 @@ import {
   type PendingAction,
   type PendingSave,
   replay,
+  setCurrentMember,
   trySave,
   usePendingSaves,
 } from "./offlineQueue";
@@ -85,6 +86,7 @@ async function discardEverything(): Promise<void> {
 
 beforeEach(() => {
   setDocumentCookie("csrftoken=test-token; path=/");
+  setCurrentMember(1);
 });
 
 afterEach(async () => {
@@ -92,6 +94,7 @@ afterEach(async () => {
   await discardEverything();
   vi.unstubAllGlobals();
   setDocumentCookie("csrftoken=; Max-Age=0; path=/");
+  setCurrentMember(null);
 });
 
 it("queues a save that fails for lack of network, and shows it as pending", async () => {
@@ -106,6 +109,7 @@ it("queues a save that fails for lack of network, and shows it as pending", asyn
   const saves = currentSaves();
   expect(saves).toHaveLength(1);
   expect(saves[0].failed).toBeNull();
+  expect(saves[0].authorId).toBe(1);
 });
 
 it("rethrows a save the server itself refused, without queuing it", async () => {
@@ -118,6 +122,19 @@ it("rethrows a save the server itself refused, without queuing it", async () => 
       throw refusal;
     }, tick(11)),
   ).rejects.toBe(refusal);
+  expect(currentSaves()).toHaveLength(0);
+});
+
+it("rethrows anything that is not plainly a lost connection, without queuing it", async () => {
+  // The clearest case: the save went through, but parsing its response
+  // failed — queuing this would replay a save that already landed.
+  const malformed = new Error("The work item entry response is invalid");
+
+  await expect(
+    trySave(() => {
+      throw malformed;
+    }, tick(11)),
+  ).rejects.toBe(malformed);
   expect(currentSaves()).toHaveLength(0);
 });
 
@@ -185,4 +202,38 @@ it("drops a save the member discards, and nothing else", async () => {
   const saves = currentSaves();
   expect(saves).toHaveLength(1);
   expect(saves[0].id).toBe(second.id);
+});
+
+it("never replays a save queued under a member who has since signed out", async () => {
+  // The club's shared computer: Lina (1) queues one offline, then signs
+  // out and Tom (2) signs in — the network coming back must not save
+  // Lina's work under Tom's name.
+  stubFetch(() => undefined);
+  await trySave(() => fetch("/api/work-items/11/tick/"), tick(11));
+  expect(currentSaves()).toHaveLength(1);
+
+  const endpoint = stubFetch((path) =>
+    path === "/api/work-items/11/tick/" ? tickEntry(1) : undefined,
+  );
+  setCurrentMember(2);
+  // setCurrentMember already replays on its own: called directly too,
+  // rather than waited for, to prove it did nothing regardless of which
+  // of the two actually ran.
+  await replay();
+
+  expect(endpoint).not.toHaveBeenCalled();
+  const saves = currentSaves();
+  expect(saves).toHaveLength(1);
+  expect(saves[0].authorId).toBe(1);
+
+  // Lina signs back in: her own save, and only hers, replays — on its own,
+  // this time, since nothing here calls replay() directly for her.
+  setCurrentMember(1);
+  await vi.waitFor(() => {
+    expect(currentSaves()).toHaveLength(0);
+  });
+  expect(endpoint).toHaveBeenCalledWith(
+    "/api/work-items/11/tick/",
+    expect.anything(),
+  );
 });

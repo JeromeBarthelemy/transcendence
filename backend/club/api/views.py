@@ -248,8 +248,13 @@ def _identity(user: User) -> dict[str, object]:
     """Deliberately small: a session tells the interface what to draw, not
     what the account holds. Minority is absent on purpose — it says who may
     grant an image right, not whether one was granted, and that answer lives
-    in the Consent log rather than on the account."""
+    in the Consent log rather than on the account. `id` is the one exception:
+    #157's offline queue stamps a save with it, so a save queued under one
+    member is never replayed under whoever is signed in once the network
+    returns — `display_name` would not do, since it is the member's own to
+    change (#178)."""
     return {
+        "id": user.pk,
         "display_name": user.display_name,
         "club_role": user.club_role,
         "is_club_admin": user.is_club_admin,

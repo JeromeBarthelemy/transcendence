@@ -23,7 +23,7 @@ import {
 } from "../api/workItems";
 import { fetchFreshEntry } from "../app/entries";
 import { useFormatters } from "../app/formatters";
-import { trySave } from "../app/offlineQueue";
+import { trySave, usePendingSaves } from "../app/offlineQueue";
 import { useCurrentUser } from "../app/useCurrentUser";
 import { fieldIssues, RequestError } from "../components/ApiErrors";
 import { AvatarStack } from "../components/Avatar";
@@ -229,8 +229,12 @@ function ProgressEditor({
       setAddition("");
       setQueued("queued" in result);
       if ("queued" in result) {
-        // Nobody else could have changed it meanwhile: only this device is
-        // offline, and only this form was writing to it.
+        // Only a guess: the progress is shared, and a teammate online could
+        // still change the handover before this save replays, which would
+        // then be refused (progress_changed) rather than silently applied.
+        // The queue keeps that refusal visible (offlineQueue.ts) even
+        // though this form, if still open by then, would not reread it —
+        // the same server state a reload already would.
         const next = changes.handover ?? handoverWas;
         setHandover(next);
         setHandoverWas(next);
@@ -402,6 +406,16 @@ function TodayPanel({
       await invalidateWorkItem();
     },
   });
+  // Queued offline (#157), there is nothing else to show it happened: the
+  // progress this would create has no id yet, so nothing can be written
+  // into it before the network is back — only the header's count would
+  // otherwise say the click was heard at all.
+  const tickQueued = usePendingSaves().some(
+    (save) =>
+      !save.failed &&
+      (save.action.kind === "tick" || save.action.kind === "leave") &&
+      save.action.workItemId === item.id,
+  );
   const progress = item.current_progress;
   const isClosed = item.status !== "open";
   // The server deletes a progress its last participant leaves, unless it
@@ -524,6 +538,11 @@ function TodayPanel({
       )}
       {tick.isError && <RequestError error={tick.error} />}
       {leave.isError && <RequestError error={leave.error} />}
+      {tickQueued && (
+        <Notice as="p" tone="info" className="mt-4">
+          {t("workItem.tickQueued")}
+        </Notice>
+      )}
       {canEdit && !isClosed && (
         <ProgressEditor key={progress.id} item={item} entry={progress} />
       )}

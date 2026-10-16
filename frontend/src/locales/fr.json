@@ -284,6 +284,7 @@
     "leaveDeletes": "Vous êtes le dernier participant : l'avancée et son texte seront supprimés.",
     "confirmLeave": "Me retirer et supprimer l'avancée",
     "joinToWrite": "Rejoignez cette avancée pour pouvoir la compléter.",
+    "tickQueued": "Hors ligne : enregistré, et envoyé au retour de la connexion.",
     "sharedHint": "Un seul texte pour l'avancée, commun à tous les participants : ce que vous ajoutez s'écrit à la suite.",
     "doneToday": "Fait aujourd'hui",
     "nothingYet": "Rien d'écrit pour l'instant.",

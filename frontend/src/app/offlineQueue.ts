@@ -12,6 +12,28 @@ import {
 } from "../api/workItems";
 import { queryClient } from "./queryClient";
 
+/** Whoever the session holds right now — AppLayout is the one place that
+ * calls `setCurrentMember`, whenever `useCurrentUser()` gives it a new
+ * identity, so this can never disagree with what the interface itself
+ * shows signed in. Not read from the query cache directly: that would tie
+ * this module to one particular QueryClient, and a test's is never the
+ * app's own. */
+let signedInAs: number | null = null;
+
+/** Called once, from AppLayout, whenever the signed-in member changes
+ * (including to no one, on sign-out). A newly signed-in member replays
+ * their own queue at once, rather than waiting for the next `online`
+ * event or reload. */
+export function setCurrentMember(id: number | null): void {
+  if (signedInAs === id) {
+    return;
+  }
+  signedInAs = id;
+  if (id !== null) {
+    void replay();
+  }
+}
+
 /** What #157 queues when a save fails for lack of network, and replays in
  * this same order once the member is back online. `title`, where present,
  * is only ever used to describe the item to the member — never sent back
@@ -52,6 +74,11 @@ export interface PendingSave {
   id: number;
   createdAt: number;
   action: PendingAction;
+  /** Whoever was signed in when this was queued (`_identity`'s own `id`,
+   * never the display name — theirs to change, #178). Replayed only once
+   * they are signed in again: IndexedDB belongs to the origin, not the
+   * account, and the club's computer is shared. */
+  authorId: number;
   /** Set once a replay was refused by the server (not by the network): the
    * item stays queued and visible, but is never retried again on its own. */
   failed: { code: string; message: string } | null;
@@ -141,17 +168,29 @@ async function loadPersisted(): Promise<void> {
  * when") finds it again; queued rather than thrown, so the form that
  * called this reads a save as accepted, the same way it would a real one. */
 export async function enqueue(action: PendingAction): Promise<void> {
+  const authorId = signedInAs;
+  if (authorId === null) {
+    // Every call site sits behind a sign-in already, so this never happens
+    // from a real save — guards a stray call rather than queuing one with
+    // no one to replay it for.
+    throw new Error("No member is signed in to queue this save for");
+  }
   const db = await getDb();
   const createdAt = Date.now();
-  const id = await dbAdd(db, { createdAt, action, failed: null });
-  pending = [...pending, { id, createdAt, action, failed: null }];
+  const value = { createdAt, action, authorId, failed: null };
+  const id = await dbAdd(db, value);
+  pending = [...pending, { id, ...value }];
   notify();
 }
 
 /** Wraps a save already attempted once: a refusal from the server (wrong
  * input, a conflict) is a real error and reaches the caller as it always
- * did, but a save that never reached the server at all is queued instead,
- * and the caller reads it as accepted. */
+ * did, and so is anything else that is not plainly a lost connection —
+ * `fetch` itself (and `client.ts`'s `upload()`) only ever throws a
+ * `TypeError` for that. Queuing anything broader risks queuing a save that
+ * actually landed (a malformed response, say) and replaying it a second
+ * time. Only a save that never reached the server at all is queued, and
+ * the caller reads it as accepted. */
 export async function trySave<T>(
   attempt: () => Promise<T>,
   action: PendingAction,
@@ -159,7 +198,7 @@ export async function trySave<T>(
   try {
     return await attempt();
   } catch (error) {
-    if (error instanceof ApiRequestError) {
+    if (!(error instanceof TypeError)) {
       throw error;
     }
     await enqueue(action);
@@ -207,21 +246,28 @@ function firstIssue(error: ApiRequestError): { code: string; message: string } {
 
 let replaying = false;
 
-/** In order, oldest first: a later save may depend on an earlier one having
- * landed (two progress edits on the same entry, say). Stops at the first
- * save still refused for lack of network — still offline, or a blip — so
- * the rest stay queued for the next attempt rather than replaying out of
- * order. A save the server itself refuses is marked failed and skipped,
- * without blocking the ones after it. */
+/** In order, oldest first, for whoever is signed in right now: a save
+ * queued under a member who has since signed out stays queued, untouched,
+ * until they sign in again — the club's computer is shared, and IndexedDB
+ * belongs to the origin, not the account. A later save may depend on an
+ * earlier one having landed (two progress edits on the same entry, say).
+ * Stops at the first save still refused for lack of network — still
+ * offline, or a blip — so the rest stay queued for the next attempt rather
+ * than replaying out of order. A save the server itself refuses is marked
+ * failed and skipped, without blocking the ones after it. */
 export async function replay(): Promise<void> {
   if (replaying) {
+    return;
+  }
+  const authorId = signedInAs;
+  if (authorId === null) {
     return;
   }
   replaying = true;
   try {
     const db = await getDb();
     for (const item of pending) {
-      if (item.failed) {
+      if (item.failed || item.authorId !== authorId) {
         continue;
       }
       try {
@@ -258,6 +304,9 @@ export async function discard(id: number): Promise<void> {
 }
 
 if (typeof window !== "undefined" && typeof indexedDB !== "undefined") {
-  void loadPersisted().then(() => void replay());
+  // Reads what IndexedDB already has so the header's count is right on
+  // load; replaying any of it waits for setCurrentMember — this runs
+  // before AppLayout knows who, if anyone, is signed in.
+  void loadPersisted();
   window.addEventListener("online", () => void replay());
 }

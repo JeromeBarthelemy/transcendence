@@ -293,6 +293,7 @@
     "leaveDeletes": "Eres el último participante: el avance y su texto se eliminarán.",
     "confirmLeave": "Retirarme y eliminar el avance",
     "joinToWrite": "Únete a este avance para poder completarlo.",
+    "tickQueued": "Sin conexión: guardado, se enviará al recuperar la conexión.",
     "sharedHint": "Un único texto compartido para todos los participantes: tus aportaciones se añaden al final.",
     "doneToday": "Hecho hoy",
     "nothingYet": "Todavía no hay nada escrito.",

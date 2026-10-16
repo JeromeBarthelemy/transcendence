@@ -288,6 +288,7 @@
     "leaveDeletes": "You are the last participant: the progress entry and its text will be deleted.",
     "confirmLeave": "Leave and delete the progress entry",
     "joinToWrite": "Join this progress entry to contribute to it.",
+    "tickQueued": "Offline: saved, and sent once you're back online.",
     "sharedHint": "One shared progress text for all participants: your additions are appended.",
     "doneToday": "Done today",
     "nothingYet": "Nothing written yet.",

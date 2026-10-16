@@ -16,6 +16,10 @@ const teamSeasonSchema = z.object({
 });
 
 const identitySchema = z.object({
+  // Never shown — read by offlineQueue.ts (#157) to stamp a queued save with
+  // its author, so it is never replayed under whoever else is signed in by
+  // the time the network returns.
+  id: z.number(),
   display_name: z.string(),
   club_role: z.enum(["student", "mentor"]),
   is_club_admin: z.boolean(),
