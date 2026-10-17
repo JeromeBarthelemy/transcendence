@@ -27,6 +27,27 @@ URLs, form values and API date parameters are not reformatted.
 - Member content, rulebook quotations, glossary definitions and generated Fieldbot
   answers retain their original text. Downloads keep their server format.
 
+## Data confirmation e-mails
+
+The data export and account-deletion confirmation are sent with complete
+French, English or Spanish subjects and plain-text bodies. The frontend sends
+the current interface language as `language` when the member requests either
+operation. It is not a new account preference: changing language in another
+browser does not change an earlier request. The mail still goes to the contact
+address (a guardian's for a minor), never to the login address. JSON fields,
+member content and avatar attachments are not translated.
+
+The backend accepts only `fr`, `en` and `es`; invalid explicit values fail before
+mail is sent or an account is anonymized. Older clients without a language and
+administrative deletions keep the club's French default. The deletion message
+captures the language, name and recipient before it is sent after commit.
+
+For a manual check with the console mail backend, switch language on the profile
+and request an export: inspect the console's subject and body. Test deletion
+only with a disposable account that has a contact address. Automated tests cover
+both mails in all three languages, unchanged attachments and contact routing,
+invalid input, French defaults and the delayed deletion callback.
+
 ## Automated checks
 
 ```bash
