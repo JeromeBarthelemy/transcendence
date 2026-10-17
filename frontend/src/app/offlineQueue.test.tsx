@@ -237,3 +237,56 @@ it("never replays a save queued under a member who has since signed out", async 
     expect.anything(),
   );
 });
+
+it("stops dispatching a replay the moment the signed-in member changes mid-pass", async () => {
+  // Two of Lina's saves queue while offline.
+  stubFetch(() => undefined);
+  await trySave(() => fetch("/api/work-items/11/tick/"), tick(11));
+  await trySave(() => fetch("/api/work-items/12/tick/"), tick(12));
+  expect(currentSaves()).toHaveLength(2);
+
+  // The first request is let through and held open, exactly as it would
+  // be while actually in flight; the second would answer too, if asked.
+  let firstStarted!: () => void;
+  const firstStarted$ = new Promise<void>((resolve) => {
+    firstStarted = resolve;
+  });
+  let releaseFirst!: () => void;
+  const firstHeld = new Promise<void>((resolve) => {
+    releaseFirst = resolve;
+  });
+  const second = vi.fn();
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (path: string) => {
+      if (path === "/api/work-items/11/tick/") {
+        firstStarted();
+        await firstHeld;
+        return tickEntry(1);
+      }
+      if (path === "/api/work-items/12/tick/") {
+        second();
+        return tickEntry(2);
+      }
+      throw new TypeError("Failed to fetch");
+    }),
+  );
+
+  const replaying = replay();
+  // Only once the first request has genuinely left — under Lina's session,
+  // the only one there was at that moment — does the club's computer
+  // change hands.
+  await firstStarted$;
+  setCurrentMember(2);
+  releaseFirst();
+  await replaying;
+
+  // The first already went out as Lina and landed; the second never went
+  // out at all, let alone under Tom, and is still hers to replay once she
+  // is signed in again.
+  expect(second).not.toHaveBeenCalled();
+  const saves = currentSaves();
+  expect(saves).toHaveLength(1);
+  expect(saves[0].authorId).toBe(1);
+  expect(saves[0].action).toMatchObject({ workItemId: 12 });
+});

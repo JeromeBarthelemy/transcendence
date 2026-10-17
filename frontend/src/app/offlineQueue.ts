@@ -245,29 +245,36 @@ function firstIssue(error: ApiRequestError): { code: string; message: string } {
 }
 
 let replaying = false;
+// Set when replay() is called while one is already running, and acted on
+// once that one finishes: the member it was called for (a sign-in, say)
+// gets a full pass of its own rather than being dropped on the floor —
+// see the second regression test below for exactly why this matters.
+let replayAgain = false;
 
-/** In order, oldest first, for whoever is signed in right now: a save
- * queued under a member who has since signed out stays queued, untouched,
- * until they sign in again — the club's computer is shared, and IndexedDB
- * belongs to the origin, not the account. A later save may depend on an
- * earlier one having landed (two progress edits on the same entry, say).
- * Stops at the first save still refused for lack of network — still
- * offline, or a blip — so the rest stay queued for the next attempt rather
- * than replaying out of order. A save the server itself refuses is marked
- * failed and skipped, without blocking the ones after it. */
+/** In order, oldest first, for whoever is signed in right now — read fresh
+ * for each item, never captured once at the top: an account switch *while*
+ * an earlier item in this same pass is still in flight (its request
+ * already left under the member who was signed in when it was sent, and
+ * nothing here can undo that) must stop every item after it from going out
+ * under the new member instead. A later save may depend on an earlier one
+ * having landed (two progress edits on the same entry, say). Stops at the
+ * first save still refused for lack of network — still offline, or a blip
+ * — so the rest stay queued for the next attempt rather than replaying out
+ * of order. A save the server itself refuses is marked failed and
+ * skipped, without blocking the ones after it. */
 export async function replay(): Promise<void> {
   if (replaying) {
+    replayAgain = true;
     return;
   }
-  const authorId = signedInAs;
-  if (authorId === null) {
+  if (signedInAs === null) {
     return;
   }
   replaying = true;
   try {
     const db = await getDb();
     for (const item of pending) {
-      if (item.failed || item.authorId !== authorId) {
+      if (item.failed || item.authorId !== signedInAs) {
         continue;
       }
       try {
@@ -290,6 +297,10 @@ export async function replay(): Promise<void> {
     }
   } finally {
     replaying = false;
+    if (replayAgain) {
+      replayAgain = false;
+      void replay();
+    }
   }
 }
 
