@@ -70,6 +70,7 @@ from club.sources import (
     add_source,
     check_all,
     latest_documents,
+    upload_source,
 )
 from club.workdays import (
     attendance,
@@ -1461,7 +1462,8 @@ def _rule_sources(checks: list[CheckOutcome] | None = None) -> list[dict[str, An
 class RuleSourcesView(APIView):
     """What an administrator sees about the rulebook's sources: the copy the
     RAG searches, when it was last checked, and the change waiting for them.
-    Posting a URL adds a copy from FIRST's own page, and the checks follow it."""
+    Posting a URL fetches FIRST's page; a multipart HTML file indexes a local
+    export instead. An optional official URL enables subsequent checks."""
 
     permission_classes = [IsClubAdmin]
 
@@ -1477,18 +1479,31 @@ class RuleSourcesView(APIView):
                 "Aucune saison n'est ouverte.", code="no_season"
             )
         try:
-            add_source(
-                season=season,
-                source=serializer.validated_data["source"],
-                url=serializer.validated_data["url"],
-            )
+            data = serializer.validated_data
+            if "file" in data:
+                upload_source(
+                    season=season,
+                    source=data["source"],
+                    file=data["file"],
+                    text=data["text"],
+                    title=data.get("title", ""),
+                    url=data.get("url", ""),
+                )
+            else:
+                add_source(
+                    season=season,
+                    source=data["source"],
+                    url=data["url"],
+                    title=data.get("title", ""),
+                )
         except NoPassage as error:
             raise DjangoValidationError(
-                "La page ne contient aucun passage à indexer.", code="no_passage"
+                "La source ne contient aucun passage à indexer.", code="no_passage"
             ) from error
         except (OSError, ValueError, InvalidURL) as error:
             raise DjangoValidationError(
-                "La page n'a pas pu être récupérée.", code="fetch_failed"
+                "La source n'a pas pu être importée.",
+                code="source_import_failed" if "file" in data else "fetch_failed",
             ) from error
         return Response(_rule_sources(), status=status.HTTP_201_CREATED)
 

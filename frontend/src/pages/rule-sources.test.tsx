@@ -1,11 +1,18 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, render, screen } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { createMemoryRouter, RouterProvider } from "react-router-dom";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
 import { routes } from "../app/router";
-import "../i18n";
+import i18n from "../i18n";
 
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -87,7 +94,8 @@ function renderSources() {
   return router;
 }
 
-beforeEach(() => {
+beforeEach(async () => {
+  await i18n.changeLanguage("fr");
   setDocumentCookie("csrftoken=test-token; path=/");
 });
 
@@ -357,4 +365,266 @@ it("opens from its own route", async () => {
 
   await screen.findByRole("heading", { name: "Manuel de jeu" });
   expect(router.state.location.pathname).toBe("/rules/sources");
+});
+
+class SourceUpload extends EventTarget {
+  static last: SourceUpload | null = null;
+  upload = new EventTarget();
+  headers = new Map<string, string>();
+  method = "";
+  url = "";
+  form: FormData | null = null;
+  status = 0;
+  responseText = "";
+
+  open(method: string, url: string) {
+    this.method = method;
+    this.url = url;
+  }
+  setRequestHeader(name: string, value: string) {
+    this.headers.set(name, value);
+  }
+  send(form: FormData) {
+    this.form = form;
+    SourceUpload.last = this;
+  }
+  respond(status: number, body: unknown) {
+    this.status = status;
+    this.responseText = JSON.stringify(body);
+    this.dispatchEvent(new Event("load"));
+  }
+}
+
+function submitFileImport() {
+  // jsdom's native required-file validation still reports valueMissing
+  // after userEvent.upload sets files. Submit the filled form directly;
+  // the component's file/size/replacement guards still run normally.
+  const form = screen.getByLabelText("Document HTML").closest("form");
+  if (!form) throw new Error("Missing import form");
+  fireEvent.submit(form);
+}
+
+function sentUpload(): SourceUpload {
+  if (!SourceUpload.last) throw new Error("No upload sent yet");
+  return SourceUpload.last;
+}
+
+it("uploads a first HTML source with CSRF and shows the indexed copy", async () => {
+  const user = userEvent.setup();
+  SourceUpload.last = null;
+  vi.stubGlobal("XMLHttpRequest", SourceUpload);
+  stubApi((path) => {
+    if (path === "/api/auth/me/") return json(identity(true));
+    if (path === "/api/rules/sources/")
+      return json([manualRow({ title: null, url: "" }), qaRow()]);
+    return undefined;
+  });
+  renderSources();
+  await screen.findByRole("heading", { name: "Importer une source" });
+  expect(screen.queryByRole("checkbox")).toBeNull();
+  expect(
+    (
+      screen.getByRole("button", {
+        name: "Vérifier maintenant",
+      }) as HTMLButtonElement
+    ).disabled,
+  ).toBe(true);
+
+  const file = new File(["<p>Rule G101.</p>"], "manual.html", {
+    type: "text/html",
+  });
+  await user.upload(screen.getByLabelText("Document HTML"), file);
+  expect(
+    (screen.getByLabelText("Document HTML") as HTMLInputElement).files?.[0],
+  ).toBe(file);
+  await user.type(
+    screen.getByLabelText("Titre du document (facultatif)"),
+    "Manuel TU04",
+  );
+  submitFileImport();
+
+  const request = await waitFor(sentUpload);
+  expect(request.method).toBe("POST");
+  expect(request.url).toBe("/api/rules/sources/");
+  expect(request.headers.get("X-CSRFToken")).toBe("test-token");
+  expect(request.headers.has("Content-Type")).toBe(false);
+  expect(request.form?.get("source")).toBe("game_manual");
+  expect(request.form?.get("title")).toBe("Manuel TU04");
+  expect(request.form?.get("file")).toBe(file);
+  expect(screen.getByLabelText("Document HTML").matches(":disabled")).toBe(
+    true,
+  );
+
+  act(() =>
+    SourceUpload.last?.respond(201, [
+      manualRow({ title: "Manuel TU04", url: "" }),
+      qaRow(),
+    ]),
+  );
+  expect(
+    await screen.findByText(
+      "Document importé : la recherche utilise cette nouvelle version.",
+    ),
+  ).toBeTruthy();
+  expect(screen.getByText("Manuel TU04")).toBeTruthy();
+  expect(screen.getByText(/Fichier importé sans lien officiel/)).toBeTruthy();
+  expect(
+    (screen.getByLabelText("Document HTML") as HTMLInputElement).value,
+  ).toBe("");
+});
+
+it("requires fresh consent to replace a source and imports its official URL", async () => {
+  const user = userEvent.setup();
+  let submitted: RequestInit | undefined;
+  stubApi((path, init) => {
+    if (path === "/api/auth/me/") return json(identity(true));
+    if (path === "/api/rules/sources/") {
+      if (init?.method === "POST") {
+        submitted = init;
+        return json(
+          [manualRow({ title: "Nouveau manuel", pending: null }), qaRow()],
+          201,
+        );
+      }
+      return json([manualRow(), qaRow()]);
+    }
+    return undefined;
+  });
+  renderSources();
+  await screen.findByRole("heading", { name: "Importer une source" });
+  await user.selectOptions(screen.getByLabelText("Méthode d'import"), "url");
+  await user.type(screen.getByLabelText("Adresse officielle"), manualRow().url);
+  expect(
+    (
+      screen.getByRole("button", {
+        name: "Importer le document",
+      }) as HTMLButtonElement
+    ).disabled,
+  ).toBe(true);
+  await user.click(screen.getByRole("checkbox"));
+  await user.type(
+    screen.getByLabelText("Titre du document (facultatif)"),
+    "Nouveau manuel",
+  );
+  expect((screen.getByRole("checkbox") as HTMLInputElement).checked).toBe(
+    false,
+  );
+  await user.click(screen.getByRole("checkbox"));
+  await user.click(
+    screen.getByRole("button", { name: "Importer le document" }),
+  );
+
+  expect(await screen.findByText("Nouveau manuel")).toBeTruthy();
+  expect(JSON.parse(submitted?.body as string)).toEqual({
+    source: "game_manual",
+    url: manualRow().url,
+    title: "Nouveau manuel",
+  });
+  expect(new Headers(submitted?.headers).get("X-CSRFToken")).toBe("test-token");
+  expect(submitted?.credentials).toBe("same-origin");
+});
+
+it("keeps the previous source and the chosen file after an upload refusal", async () => {
+  const user = userEvent.setup();
+  SourceUpload.last = null;
+  vi.stubGlobal("XMLHttpRequest", SourceUpload);
+  stubApi((path) => {
+    if (path === "/api/auth/me/") return json(identity(true));
+    if (path === "/api/rules/sources/") return json([manualRow(), qaRow()]);
+    return undefined;
+  });
+  renderSources();
+  await screen.findByRole("heading", { name: "Importer une source" });
+  const file = new File(["<html></html>"], "empty.html", { type: "text/html" });
+  await user.upload(screen.getByLabelText("Document HTML"), file);
+  await user.click(screen.getByRole("checkbox"));
+  submitFileImport();
+  await waitFor(() => expect(SourceUpload.last?.form).toBeTruthy());
+  expect(
+    (
+      screen.getByRole("button", {
+        name: "Vérifier maintenant",
+      }) as HTMLButtonElement
+    ).disabled,
+  ).toBe(true);
+
+  act(() =>
+    SourceUpload.last?.respond(400, {
+      detail: {
+        code: "no_passage",
+        message: "La source ne contient aucun passage à indexer.",
+      },
+    }),
+  );
+  expect(await screen.findByRole("alert")).toBeTruthy();
+  expect(screen.getByText("Manuel BioBuzz TU03")).toBeTruthy();
+  expect(
+    (screen.getByLabelText("Document HTML") as HTMLInputElement).files?.[0],
+  ).toBe(file);
+  expect(screen.queryByText(/Document importé :/)).toBeNull();
+});
+
+it.each([
+  [
+    "manual.pdf",
+    32,
+    "Choisissez l'export HTML officiel (.htm ou .html), pas un PDF.",
+  ],
+  [
+    "manual.html",
+    5 * 1024 * 1024 + 1,
+    "Le document ne doit pas dépasser 5 Mio.",
+  ],
+])("refuses %s before sending its bytes", async (name, size, message) => {
+  const user = userEvent.setup({ applyAccept: false });
+  SourceUpload.last = null;
+  vi.stubGlobal("XMLHttpRequest", SourceUpload);
+  stubApi((path) => {
+    if (path === "/api/auth/me/") return json(identity(true));
+    if (path === "/api/rules/sources/") return json([manualRow(), qaRow()]);
+    return undefined;
+  });
+  renderSources();
+  await screen.findByRole("heading", { name: "Importer une source" });
+  await user.upload(
+    screen.getByLabelText("Document HTML"),
+    new File([new Uint8Array(size)], name),
+  );
+  await user.click(screen.getByRole("checkbox"));
+  submitFileImport();
+
+  expect(await screen.findByText(message)).toBeTruthy();
+  expect(SourceUpload.last).toBeNull();
+});
+
+it.each([
+  ["en", "Import a source", "HTML document"],
+  ["es", "Importar una fuente", "Documento HTML"],
+])("translates the import form in %s", async (language, heading, label) => {
+  await i18n.changeLanguage(language);
+  stubApi((path) => {
+    if (path === "/api/auth/me/") return json(identity(true));
+    if (path === "/api/rules/sources/") return json([manualRow(), qaRow()]);
+    return undefined;
+  });
+  renderSources();
+
+  expect(await screen.findByRole("heading", { name: heading })).toBeTruthy();
+  expect(screen.getByLabelText(label)).toBeTruthy();
+});
+
+it("does not offer an import when no season exists", async () => {
+  stubApi((path) => {
+    if (path === "/api/auth/me/") return json(identity(true));
+    if (path === "/api/rules/sources/") return json([]);
+    return undefined;
+  });
+  renderSources();
+
+  expect(
+    await screen.findByText("Aucune saison n'est encore ouverte."),
+  ).toBeTruthy();
+  expect(
+    screen.queryByRole("button", { name: "Importer le document" }),
+  ).toBeNull();
 });

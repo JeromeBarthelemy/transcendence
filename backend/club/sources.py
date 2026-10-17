@@ -8,19 +8,23 @@ copy until then (club/api/views.py, RuleSourcesView).
 
 import difflib
 import hashlib
+import re
 from dataclasses import dataclass
 from http.client import InvalidURL
+from pathlib import Path
 from typing import TypedDict
 from urllib.error import URLError
 from urllib.parse import unquote, urlsplit
 from urllib.request import HTTPRedirectHandler, build_opener
 
+from django.core.files.uploadedfile import UploadedFile
 from django.utils import timezone
 
 from .models import Document, Season, SourceUpdate
 from .rag import _CHUNKER_OF, ingest_document
 
 FETCH_TIMEOUT_SECONDS = 30
+MAX_SOURCE_BYTES = 5 * 1024 * 1024
 # A change list longer than this is summarised, not enumerated in full.
 REFERENCES_SHOWN = 20
 
@@ -130,10 +134,12 @@ def latest_documents() -> list[Document]:
     """The copy `ask` searches, per season and source, and only those with a
     page to check against — the manual and the Q&A board alike."""
     latest: dict[tuple[int, str], Document] = {}
-    documents = Document.objects.filter(url__gt="")
+    documents = Document.objects.all()
     for document in documents.order_by("-fetched_at", "-id"):
         latest.setdefault((document.season_id, document.source), document)
-    return list(latest.values())
+    # An uploaded replacement without a URL must not resurrect checks of
+    # an older copy's page, which could overwrite the uploaded version.
+    return [document for document in latest.values() if document.url]
 
 
 @dataclass(frozen=True)
@@ -225,13 +231,62 @@ class NoPassage(ValueError):
     pass
 
 
-def add_source(*, season: Season, source: str, url: str) -> Document:
+def read_source_upload(file: UploadedFile, source: str) -> str:
+    """Read HTML as data, never serve or execute it. UTF-8 exports and the
+    manual's original Windows-1252 copy both occur on administrators' disks."""
+    data = file.read(MAX_SOURCE_BYTES + 1)
+    if len(data) > MAX_SOURCE_BYTES:
+        raise ValueError("Le fichier ne doit pas dépasser 5 Mio.")
+    if data.lstrip().startswith(b"%PDF-"):
+        raise ValueError("Choisissez le HTML officiel, pas un PDF renommé.")
+    try:
+        text = data.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        try:
+            text = data.decode(PAGE_ENCODING_OF[source])
+        except UnicodeDecodeError as error:
+            raise ValueError("Le fichier HTML est illisible.") from error
+    if "\x00" in text or not re.search(
+        r"<(?:html|body|p|div|script|h[1-6])\b", text, re.IGNORECASE
+    ):
+        raise ValueError("Le fichier doit contenir une page HTML officielle.")
+    return text
+
+
+def upload_source(
+    *,
+    season: Season,
+    source: str,
+    file: UploadedFile,
+    text: str,
+    title: str = "",
+    url: str = "",
+) -> Document:
+    if not _CHUNKER_OF[source](text):
+        raise NoPassage("le fichier ne contient aucun passage à indexer")
+    return ingest_document(
+        season=season,
+        source=source,
+        title=title or Path(file.name or "document.html").stem[:200],
+        text=text,
+        url=url,
+        content_hash=content_hash(text),
+        # Supplying a citation URL does not mean we fetched/checked it.
+        checked=False,
+    )
+
+
+def add_source(*, season: Season, source: str, url: str, title: str = "") -> Document:
     """A new copy of the manual or the Q&A board, from its page. Its URL is
     kept, so the automatic checks follow it from now on."""
     page = fetch_page(url, source)
     if not _CHUNKER_OF[source](page):
         raise NoPassage("la page ne contient aucun passage à indexer")
-    title = unquote(urlsplit(url).path.rsplit("/", 1)[-1]).removesuffix(".htm")
+    title = (
+        title
+        or Path(unquote(urlsplit(url).path)).stem[:200]
+        or Document.Source(source).label
+    )
     return ingest_document(
         season=season,
         source=source,

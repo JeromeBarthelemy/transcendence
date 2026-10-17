@@ -1,4 +1,9 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  useIsMutating,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { useReducer } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -19,6 +24,7 @@ import { EmptyState } from "../components/EmptyState";
 import { Notice } from "../components/Notice";
 import { Page } from "../components/Page";
 import { Panel } from "../components/Panel";
+import { RuleSourceImport } from "../components/RuleSourceImport";
 import { Eyebrow, Heading } from "../components/Typography";
 
 function SourceCard({
@@ -26,12 +32,14 @@ function SourceCard({
   onDismiss,
   onAccept,
   acceptPending,
+  disabled,
   acceptError,
 }: {
   row: SourceRow;
   onDismiss: () => void;
   onAccept: () => void;
   acceptPending: boolean;
+  disabled: boolean;
   acceptError: unknown;
 }) {
   const { t } = useTranslation();
@@ -64,6 +72,9 @@ function SourceCard({
           {t("ruleSources.notIngested")}
         </p>
       )}
+      {row.title && !row.url && (
+        <p className="mt-2 text-sm text-muted">{t("ruleSources.noUrl")}</p>
+      )}
 
       {row.check?.status === "error" && (
         <Notice tone="danger" className="mt-3">
@@ -95,20 +106,12 @@ function SourceCard({
             </p>
           )}
           <div className="mt-4 flex flex-wrap gap-3">
-            <Button
-              variant="primary"
-              disabled={acceptPending}
-              onClick={onAccept}
-            >
+            <Button variant="primary" disabled={disabled} onClick={onAccept}>
               {acceptPending
                 ? t("ruleSources.accepting")
                 : t("ruleSources.accept")}
             </Button>
-            <Button
-              variant="secondary"
-              disabled={acceptPending}
-              onClick={onDismiss}
-            >
+            <Button variant="secondary" disabled={disabled} onClick={onDismiss}>
               {t("ruleSources.dismiss")}
             </Button>
           </div>
@@ -122,6 +125,7 @@ function SourceCard({
 function RuleSourcesScreen() {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
+  const busy = useIsMutating({ mutationKey: ruleSourcesQueryKey }) > 0;
   // Dismissing writes straight to storage (isDismissed reads it back on
   // every render); this has no state of its own to hold, only a reason to
   // render again once that write has happened.
@@ -132,12 +136,17 @@ function RuleSourcesScreen() {
     queryFn: getRuleSources,
   });
   const check = useMutation({
+    mutationKey: ruleSourcesQueryKey,
     mutationFn: checkRuleSources,
     onSuccess: (rows) => queryClient.setQueryData(ruleSourcesQueryKey, rows),
   });
   const accept = useMutation({
+    mutationKey: ruleSourcesQueryKey,
     mutationFn: acceptRuleSource,
-    onSuccess: (rows) => queryClient.setQueryData(ruleSourcesQueryKey, rows),
+    onSuccess: async (rows) => {
+      queryClient.setQueryData(ruleSourcesQueryKey, rows);
+      await queryClient.invalidateQueries({ queryKey: ["rules", "glossary"] });
+    },
   });
 
   return (
@@ -147,7 +156,7 @@ function RuleSourcesScreen() {
         <Heading size="page">{t("ruleSources.title")}</Heading>
         <Button
           variant="secondary"
-          disabled={check.isPending}
+          disabled={busy || !sources.data?.some((row) => row.url)}
           onClick={() => check.mutate()}
         >
           {check.isPending
@@ -170,6 +179,7 @@ function RuleSourcesScreen() {
         <EmptyState className="mt-8">{t("ruleSources.noSeason")}</EmptyState>
       ) : (
         <div className="mt-8 space-y-6">
+          <RuleSourceImport rows={sources.data} busy={busy} />
           {sources.data.map((row) => (
             <SourceCard
               key={row.source}
@@ -184,6 +194,7 @@ function RuleSourcesScreen() {
               acceptPending={
                 accept.isPending && accept.variables === row.source
               }
+              disabled={busy}
               acceptError={
                 accept.variables === row.source ? accept.error : undefined
               }

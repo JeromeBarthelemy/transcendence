@@ -46,6 +46,7 @@ from .models import (
     QueryCitation,
     RuleQuery,
     Season,
+    SourceUpdate,
     User,
 )
 
@@ -583,6 +584,7 @@ def ingest_document(
     text: str,
     url: str = "",
     content_hash: str = "",
+    checked: bool = True,
 ) -> Document:
     """All or nothing where it counts: a document without its passages
     would never be found, and passages without their document would cite
@@ -610,7 +612,7 @@ def ingest_document(
             title=title,
             url=url,
             content_hash=content_hash,
-            checked_at=timezone.now() if content_hash else None,
+            checked_at=timezone.now() if checked and content_hash and url else None,
         )
         Chunk.objects.bulk_create(
             Chunk(
@@ -631,6 +633,9 @@ def ingest_document(
             )
             for ordinal, (term, definition) in enumerate(glossary, start=1)
         )
+        # An explicitly imported copy supersedes any previously detected
+        # candidate. Never leave an old update able to replace this new copy.
+        SourceUpdate.objects.filter(season=season, source=source).delete()
     return document
 
 
