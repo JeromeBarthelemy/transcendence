@@ -1,8 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import type { TFunction } from "i18next";
-import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
+import { Link, Navigate, useParams } from "react-router-dom";
 
 import {
   getActivityCalendar,
@@ -11,16 +10,15 @@ import {
 } from "../api/workdays";
 import { useFormatters } from "../app/formatters";
 import { useCurrentUser } from "../app/useCurrentUser";
-import { ActivityCalendar } from "../components/ActivityCalendar";
 import { RequestError } from "../components/ApiErrors";
 import { Avatar, AvatarStack } from "../components/Avatar";
 import { ButtonLink } from "../components/Button";
 import { Chip } from "../components/Chip";
-import { Label, TextInput } from "../components/Field";
 import { IconLabel } from "../components/Icon";
 import { Notice } from "../components/Notice";
 import { Page } from "../components/Page";
 import { Panel } from "../components/Panel";
+import { SessionCalendarPicker } from "../components/SessionCalendarPicker";
 import { Eyebrow, Heading } from "../components/Typography";
 
 function attachmentCounts(entry: SummaryEntry, t: TFunction) {
@@ -96,47 +94,9 @@ function DayLink({
   );
 }
 
-function DatePicker({
-  day,
-  onSelect,
-}: {
-  day: string;
-  onSelect: (day: string) => void;
-}) {
-  const { t } = useTranslation();
-  const [value, setValue] = useState(day);
-
-  function commit(input: HTMLInputElement) {
-    if (input.value && input.validity.valid && input.value !== day) {
-      onSelect(input.value);
-    }
-  }
-
-  return (
-    <Label>
-      {t("daySummary.chooseDate")}
-      <TextInput
-        type="date"
-        min="2000-01-01"
-        max="2099-12-31"
-        value={value}
-        onChange={(event) => setValue(event.currentTarget.value)}
-        onBlur={(event) => commit(event.currentTarget)}
-        onKeyDown={(event) => {
-          if (event.key === "Enter") {
-            event.preventDefault();
-            commit(event.currentTarget);
-          }
-        }}
-      />
-    </Label>
-  );
-}
-
 export function DaySummaryPage() {
   const { t } = useTranslation();
   const { formatWorkdayDate } = useFormatters();
-  const navigate = useNavigate();
   const params = useParams();
   const teamSeasonId = Number(params.teamSeasonId);
   const day = params.day ?? "";
@@ -220,7 +180,7 @@ export function DaySummaryPage() {
             </p>
           )}
         </div>
-        <div className="flex flex-col gap-3">
+        <div className="relative flex flex-col gap-3">
           <div className="flex flex-wrap items-end gap-3">
             <ButtonLink
               to={`/team-seasons/${teamSeasonId}/days/today`}
@@ -228,12 +188,10 @@ export function DaySummaryPage() {
             >
               {t("daySummary.today")}
             </ButtonLink>
-            <DatePicker
+            <SessionCalendarPicker
               key={`${teamSeasonId}:${summary.data.day}`}
+              teamSeasonId={teamSeasonId}
               day={summary.data.day}
-              onSelect={(selected) =>
-                navigate(`/team-seasons/${teamSeasonId}/days/${selected}`)
-              }
             />
           </div>
           <nav
@@ -257,12 +215,6 @@ export function DaySummaryPage() {
           </nav>
         </div>
       </div>
-
-      <ActivityCalendar
-        key={`${teamSeasonId}:${summary.data.day}`}
-        teamSeasonId={teamSeasonId}
-        day={summary.data.day}
-      />
 
       <section aria-labelledby="day-produced" className="mt-10">
         <Eyebrow as="h2" id="day-produced">

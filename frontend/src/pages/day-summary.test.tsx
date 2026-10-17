@@ -2,7 +2,6 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   act,
   cleanup,
-  fireEvent,
   render,
   screen,
   waitFor,
@@ -142,6 +141,13 @@ function listItemWith(text: string | RegExp): HTMLElement {
     throw new Error(`No list item holds "${text}"`);
   }
   return item;
+}
+
+async function openCalendar(user = userEvent.setup()) {
+  await user.click(
+    await screen.findByRole("button", { name: "Ouvrir le calendrier" }),
+  );
+  return screen.findByRole("region", { name: "Calendrier des séances" });
 }
 
 afterEach(async () => {
@@ -302,9 +308,12 @@ it("returns to the server's current workday even when the latest session has no 
       .getByRole("link", { name: "Aujourd'hui" })
       .getAttribute("aria-current"),
   ).toBe("date");
+  const calendar = await openCalendar(user);
   expect(
-    (screen.getByLabelText("Choisir une date") as HTMLInputElement).value,
-  ).toBe("2026-10-08");
+    await within(calendar).findByRole("link", {
+      name: /jeudi 8 octobre, Aujourd'hui, Jour affiché/,
+    }),
+  ).toBeTruthy();
   expect(
     fetchMock.mock.calls.some(
       ([path]) => path === "/api/team-seasons/7/days/today/",
@@ -367,23 +376,59 @@ it("does not mark a past date as today", async () => {
     within(heading.parentElement as HTMLElement).queryByText("Aujourd'hui"),
   ).toBeNull();
   expect(
-    (screen.getByLabelText("Choisir une date") as HTMLInputElement).value,
-  ).toBe("2026-09-30");
+    screen
+      .getByRole("button", { name: "Ouvrir le calendrier" })
+      .getAttribute("aria-expanded"),
+  ).toBe("false");
 });
 
-it("opens an arbitrary selected date and preserves its empty state", async () => {
-  const { fetchMock, router } = renderSummary(day(), undefined, {
-    days: { "2026-09-28": day({ day: "2026-09-28" }) },
+it("starts with no calendar or native date input and toggles a single calendar", async () => {
+  const user = userEvent.setup();
+  const { router } = renderSummary(day());
+  const button = await screen.findByRole("button", {
+    name: "Ouvrir le calendrier",
   });
 
-  const picker = await screen.findByLabelText("Choisir une date");
-  fireEvent.change(picker, {
-    target: { value: "2026-09-28" },
-  });
+  expect(button.getAttribute("aria-expanded")).toBe("false");
+  expect(
+    screen.queryByRole("region", { name: "Calendrier des séances" }),
+  ).toBeNull();
+  expect(document.querySelector('input[type="date"]')).toBeNull();
+
+  const calendar = await openCalendar(user);
+  expect(
+    screen.getAllByRole("region", { name: "Calendrier des séances" }),
+  ).toHaveLength(1);
+  expect(button.getAttribute("aria-expanded")).toBe("true");
+  expect(
+    document
+      .getElementById(button.getAttribute("aria-controls") ?? "")
+      ?.contains(calendar),
+  ).toBe(true);
+
+  await user.click(
+    screen.getByRole("button", { name: "Fermer le calendrier" }),
+  );
+  expect(
+    screen.queryByRole("region", { name: "Calendrier des séances" }),
+  ).toBeNull();
+  expect(button.getAttribute("aria-expanded")).toBe("false");
   expect(router.state.location.pathname).toBe(
     "/team-seasons/7/days/2026-09-30",
   );
-  fireEvent.blur(picker);
+});
+
+it("opens an empty date from the calendar and closes the picker", async () => {
+  const user = userEvent.setup();
+  const { fetchMock, router } = renderSummary(day(), undefined, {
+    days: { "2026-09-28": day({ day: "2026-09-28" }) },
+  });
+  const calendar = await openCalendar(user);
+  await user.click(
+    await within(calendar).findByRole("link", {
+      name: /lundi 28 septembre, Sans activité/,
+    }),
+  );
 
   expect(
     await screen.findByRole("heading", { name: "Lundi 28 septembre" }),
@@ -393,8 +438,13 @@ it("opens an arbitrary selected date and preserves its empty state", async () =>
   );
   expect(screen.getByText("Rien n'a été écrit ce jour-là.")).toBeTruthy();
   expect(
-    (screen.getByLabelText("Choisir une date") as HTMLInputElement).value,
-  ).toBe("2026-09-28");
+    screen.queryByRole("region", { name: "Calendrier des séances" }),
+  ).toBeNull();
+  expect(
+    screen
+      .getByRole("button", { name: "Ouvrir le calendrier" })
+      .getAttribute("aria-expanded"),
+  ).toBe("false");
   expect(
     fetchMock.mock.calls.some(
       ([path]) => path === "/api/team-seasons/7/days/2026-09-28/",
@@ -402,66 +452,86 @@ it("opens an arbitrary selected date and preserves its empty state", async () =>
   ).toBe(true);
 });
 
-it("keeps keyboard date edits focused and navigates only once on Enter", async () => {
+it("opens with the keyboard and restores trigger focus on Escape without navigating", async () => {
   const user = userEvent.setup();
-  const { router } = renderSummary(day(), undefined, {
-    days: { "2025-11-15": day({ day: "2025-11-15" }) },
+  const { router } = renderSummary(day());
+  const button = await screen.findByRole("button", {
+    name: "Ouvrir le calendrier",
   });
-  const picker = await screen.findByLabelText("Choisir une date");
-  await user.click(picker);
+  button.focus();
   const navigate = vi.spyOn(router, "navigate");
-
-  // Values emitted by Chrome when typing 15112025 into a prefilled date.
-  for (const value of [
-    "2026-09-01",
-    "2026-09-15",
-    "2026-01-15",
-    "2026-11-15",
-    "0002-11-15",
-    "0020-11-15",
-    "0202-11-15",
-    "2025-11-15",
-  ]) {
-    fireEvent.change(picker, { target: { value } });
-    expect(navigate).not.toHaveBeenCalled();
-    expect(document.activeElement).toBe(picker);
-    expect(router.state.location.pathname).toBe(
-      "/team-seasons/7/days/2026-09-30",
-    );
-  }
-
   await user.keyboard("{Enter}");
-  await screen.findByRole("heading", { name: "Samedi 15 novembre" });
-  expect(router.state.location.pathname).toBe(
-    "/team-seasons/7/days/2025-11-15",
+  const calendar = await screen.findByRole("region", {
+    name: "Calendrier des séances",
+  });
+  await user.tab();
+  expect(document.activeElement).toBe(
+    within(calendar).getByRole("button", { name: "Mois précédent" }),
   );
-  expect(navigate).toHaveBeenCalledTimes(1);
-  fireEvent.blur(screen.getByLabelText("Choisir une date"));
-  expect(navigate).toHaveBeenCalledTimes(1);
+  await user.keyboard("{Escape}");
+  expect(
+    screen.queryByRole("region", { name: "Calendrier des séances" }),
+  ).toBeNull();
+  expect(document.activeElement).toBe(button);
+  expect(button.getAttribute("aria-expanded")).toBe("false");
+  expect(navigate).not.toHaveBeenCalled();
 });
 
-it.each(["", "2026-09-30", "1999-12-31", "2100-01-01"])(
-  "does not navigate on Enter or blur for an empty, unchanged or out-of-range date (%s)",
-  async (value) => {
-    const { fetchMock, router } = renderSummary(day());
-    const picker = await screen.findByLabelText("Choisir une date");
-    await screen.findByRole("list", { name: "Jours du mois" });
-    const requests = fetchMock.mock.calls.length;
-    const navigate = vi.spyOn(router, "navigate");
+it("dismisses on an outside click without changing the displayed session", async () => {
+  const user = userEvent.setup();
+  const { router } = renderSummary(day());
+  await openCalendar(user);
+  await user.click(
+    screen.getByRole("heading", { name: "Mercredi 30 septembre" }),
+  );
+  expect(
+    screen.queryByRole("region", { name: "Calendrier des séances" }),
+  ).toBeNull();
+  expect(router.state.location.pathname).toBe(
+    "/team-seasons/7/days/2026-09-30",
+  );
+});
 
-    fireEvent.change(picker, { target: { value } });
-    fireEvent.keyDown(picker, { key: "Enter" });
-    fireEvent.blur(picker);
+it("dismisses when keyboard focus leaves the calendar", async () => {
+  const user = userEvent.setup();
+  renderSummary(day({ previous: "2026-09-26" }));
+  const calendar = await openCalendar(user);
+  const selected = await within(calendar).findByRole("link", {
+    name: /mercredi 30 septembre, Jour affiché/,
+  });
+  selected.focus();
+  await user.tab();
+  expect(document.activeElement).toBe(
+    screen.getByRole("link", {
+      name: /Séance précédente : samedi 26 septembre/,
+    }),
+  );
+  expect(
+    screen.queryByRole("region", { name: "Calendrier des séances" }),
+  ).toBeNull();
+});
 
-    expect(router.state.location.pathname).toBe(
-      "/team-seasons/7/days/2026-09-30",
-    );
-    expect(fetchMock.mock.calls).toHaveLength(requests);
-    expect(navigate).not.toHaveBeenCalled();
-  },
-);
+it("also closes when the already displayed day is selected", async () => {
+  const user = userEvent.setup();
+  const { fetchMock, router } = renderSummary(day());
+  const calendar = await openCalendar(user);
+  await user.click(
+    await within(calendar).findByRole("link", {
+      name: /mercredi 30 septembre, Jour affiché/,
+    }),
+  );
+  expect(
+    screen.queryByRole("region", { name: "Calendrier des séances" }),
+  ).toBeNull();
+  expect(router.state.location.pathname).toBe(
+    "/team-seasons/7/days/2026-09-30",
+  );
+  expect(
+    fetchMock.mock.calls.filter(([path]) => path.includes("/days/")),
+  ).toHaveLength(1);
+});
 
-it("still navigates between recorded sessions and updates the date picker", async () => {
+it("still navigates between recorded sessions and reopens on the displayed month", async () => {
   const user = userEvent.setup();
   const { router } = renderSummary(
     day({ previous: "2026-09-26", next: "2026-10-02" }),
@@ -483,9 +553,12 @@ it("still navigates between recorded sessions and updates the date picker", asyn
   expect(router.state.location.pathname).toBe(
     "/team-seasons/7/days/2026-09-26",
   );
+  let calendar = await openCalendar(user);
   expect(
-    (screen.getByLabelText("Choisir une date") as HTMLInputElement).value,
-  ).toBe("2026-09-26");
+    await within(calendar).findByRole("link", {
+      name: /samedi 26 septembre, Jour affiché/,
+    }),
+  ).toBeTruthy();
 
   await user.click(
     screen.getByRole("link", {
@@ -500,9 +573,15 @@ it("still navigates between recorded sessions and updates the date picker", asyn
   expect(router.state.location.pathname).toBe(
     "/team-seasons/7/days/2026-10-02",
   );
+  calendar = await openCalendar(user);
   expect(
-    (screen.getByLabelText("Choisir une date") as HTMLInputElement).value,
-  ).toBe("2026-10-02");
+    await within(calendar).findByRole("link", {
+      name: /vendredi 2 octobre, Jour affiché/,
+    }),
+  ).toBeTruthy();
+  expect(
+    within(calendar).getByRole("heading", { name: "octobre 2026" }),
+  ).toBeTruthy();
 });
 
 it("marks progress, notes and decisions with one aggregated request, not one request per day", async () => {
@@ -519,9 +598,7 @@ it("marks progress, notes and decisions with one aggregated request, not one req
       },
     },
   });
-  const calendar = await screen.findByRole("region", {
-    name: "Calendrier des séances",
-  });
+  const calendar = await openCalendar();
   const dates = await within(calendar).findByRole("list", {
     name: "Jours du mois",
   });
@@ -572,9 +649,7 @@ it("shows every date of an empty leap month in Monday-first order", async () => 
   renderSummary(day({ day: "2024-02-15" }), undefined, {
     initialDay: "2024-02-15",
   });
-  const calendar = await screen.findByRole("region", {
-    name: "Calendrier des séances",
-  });
+  const calendar = await openCalendar();
   const dates = await within(calendar).findByRole("list", {
     name: "Jours du mois",
   });
@@ -607,9 +682,7 @@ it.each([
     const { fetchMock } = renderSummary(day({ day: selectedDay }), undefined, {
       initialDay: selectedDay,
     });
-    const calendar = await screen.findByRole("region", {
-      name: "Calendrier des séances",
-    });
+    const calendar = await openCalendar(user);
     await within(calendar).findByRole("list", { name: "Jours du mois" });
     const button = within(calendar).getByRole("button", {
       name: blockedDirection,
@@ -627,9 +700,7 @@ it("distinguishes today from the selected date even in an empty month", async ()
   renderSummary(day({ day: "2026-10-20" }), undefined, {
     initialDay: "2026-10-20",
   });
-  const calendar = await screen.findByRole("region", {
-    name: "Calendrier des séances",
-  });
+  const calendar = await openCalendar();
   const dates = await within(calendar).findByRole("list", {
     name: "Jours du mois",
   });
@@ -653,9 +724,7 @@ it("browses months across a year boundary without changing the displayed summary
     undefined,
     { initialDay: "2026-12-15" },
   );
-  const calendar = await screen.findByRole("region", {
-    name: "Calendrier des séances",
-  });
+  const calendar = await openCalendar();
   await within(calendar).findByRole("list", { name: "Jours du mois" });
 
   await user.click(
@@ -690,14 +759,12 @@ it("browses months across a year boundary without changing the displayed summary
   ]);
 });
 
-it("opens an empty day selected in another month and keeps its month visible", async () => {
+it("opens an empty day in another month, closes, and reopens on that month", async () => {
   const user = userEvent.setup();
   const { router } = renderSummary(day(), undefined, {
     days: { "2026-10-05": day({ day: "2026-10-05" }) },
   });
-  const calendar = await screen.findByRole("region", {
-    name: "Calendrier des séances",
-  });
+  const calendar = await openCalendar();
   await within(calendar).findByRole("list", { name: "Jours du mois" });
   await user.click(
     within(calendar).getByRole("button", { name: "Mois suivant" }),
@@ -713,9 +780,10 @@ it("opens an empty day selected in another month and keeps its month visible", a
   expect(router.state.location.pathname).toBe(
     "/team-seasons/7/days/2026-10-05",
   );
-  const newCalendar = screen.getByRole("region", {
-    name: "Calendrier des séances",
-  });
+  expect(
+    screen.queryByRole("region", { name: "Calendrier des séances" }),
+  ).toBeNull();
+  const newCalendar = await openCalendar(user);
   expect(
     await within(newCalendar).findByRole("link", {
       name: /lundi 5 octobre, Jour affiché/,
@@ -725,17 +793,15 @@ it("opens an empty day selected in another month and keeps its month visible", a
     within(newCalendar).getByRole("heading", { name: "octobre 2026" }),
   ).toBeTruthy();
   expect(screen.getByText("Rien n'a été écrit ce jour-là.")).toBeTruthy();
-  expect(
-    (screen.getByLabelText("Choisir une date") as HTMLInputElement).value,
-  ).toBe("2026-10-05");
 
   await act(() => router.navigate(-1));
   expect(
     await screen.findByRole("heading", { name: "Mercredi 30 septembre" }),
   ).toBeTruthy();
-  const previousCalendar = screen.getByRole("region", {
-    name: "Calendrier des séances",
-  });
+  expect(
+    screen.queryByRole("region", { name: "Calendrier des séances" }),
+  ).toBeNull();
+  const previousCalendar = await openCalendar(user);
   expect(
     within(previousCalendar).getByRole("heading", { name: "septembre 2026" }),
   ).toBeTruthy();
@@ -752,9 +818,7 @@ it("keeps the summary usable after a calendar failure and offers a retry", async
     "2026-09": json({}, 503),
   };
   const { fetchMock } = renderSummary(day(), undefined, { calendars });
-  const calendar = await screen.findByRole("region", {
-    name: "Calendrier des séances",
-  });
+  const calendar = await openCalendar();
   expect(await within(calendar).findByRole("alert")).toBeTruthy();
   expect(
     screen.getByRole("heading", { name: "Mercredi 30 septembre" }),
@@ -777,9 +841,7 @@ it("does not silently display a response for the wrong month", async () => {
       "2026-09": { month: "2026-08", today: "2026-10-08", days: [] },
     },
   });
-  const calendar = await screen.findByRole("region", {
-    name: "Calendrier des séances",
-  });
+  const calendar = await openCalendar();
 
   expect(await within(calendar).findByRole("alert")).toBeTruthy();
   expect(
@@ -799,12 +861,12 @@ it("switches summary dates, names and calendar labels without changing the selec
     }),
   );
   await screen.findByRole("heading", { name: "Mercredi 30 septembre" });
+  await openCalendar();
   await userEvent.click(
     await screen.findByRole("button", { name: "Mois suivant" }),
   );
   await screen.findByRole("heading", { name: "octobre 2026" });
   const initialRequests = fetchMock.mock.calls.length;
-  const language = screen.getByRole("combobox", { name: "Langue" });
 
   for (const [code, title, month, people, dayLabel] of [
     [
@@ -829,7 +891,9 @@ it("switches summary dates, names and calendar labels without changing the selec
       /lundi 5 octobre/,
     ],
   ] as const) {
-    await userEvent.selectOptions(language, code);
+    // A locale update while the panel is open must reformat its browsed month.
+    // Using the header selector itself dismisses the panel as an outside click.
+    await act(() => i18n.changeLanguage(code));
     expect(screen.getByRole("heading", { name: title })).toBeTruthy();
     expect(screen.getByRole("heading", { name: month })).toBeTruthy();
     expect(screen.getByText(people)).toBeTruthy();
@@ -839,9 +903,57 @@ it("switches summary dates, names and calendar labels without changing the selec
     expect(router.state.location.pathname).toBe(
       "/team-seasons/7/days/2026-09-30",
     );
-    expect(
-      (screen.getByDisplayValue("2026-09-30") as HTMLInputElement).value,
-    ).toBe("2026-09-30");
+    expect(document.querySelector('input[type="date"]')).toBeNull();
   }
   expect(fetchMock.mock.calls).toHaveLength(initialRequests);
 });
+
+it.each([
+  [
+    "en",
+    "Open the calendar",
+    "Close the calendar",
+    "Session calendar",
+    /Wednesday 30 September, Displayed day/,
+  ],
+  [
+    "es",
+    "Abrir el calendario",
+    "Cerrar el calendario",
+    "Calendario de sesiones",
+    /miércoles, 30 de septiembre, Día mostrado/,
+  ],
+  [
+    "fr",
+    "Ouvrir le calendrier",
+    "Fermer le calendrier",
+    "Calendrier des séances",
+    /mercredi 30 septembre, Jour affiché/,
+  ],
+] as const)(
+  "reopens the picker in the chosen language without changing the session (%s)",
+  async (code, openLabel, closeLabel, title, selectedLabel) => {
+    const user = userEvent.setup();
+    const { router } = renderSummary(day());
+    await openCalendar(user);
+    await user.selectOptions(
+      screen.getByRole("combobox", { name: "Langue" }),
+      code,
+    );
+
+    expect(screen.queryByRole("region", { name: title })).toBeNull();
+    const trigger = screen.getByRole("button", { name: openLabel });
+    expect(trigger.getAttribute("aria-expanded")).toBe("false");
+    await user.click(trigger);
+    const calendar = screen.getByRole("region", { name: title });
+    expect(
+      await within(calendar).findByRole("link", { name: selectedLabel }),
+    ).toBeTruthy();
+    expect(screen.getByRole("button", { name: closeLabel })).toBe(trigger);
+    expect(router.state.location.pathname).toBe(
+      "/team-seasons/7/days/2026-09-30",
+    );
+    await user.click(trigger);
+    expect(screen.queryByRole("region", { name: title })).toBeNull();
+  },
+);
