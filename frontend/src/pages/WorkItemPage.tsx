@@ -577,10 +577,10 @@ function HistoryEntry({
       <article>
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div>
-            <p className="text-xs font-bold tracking-[0.12em] text-accent uppercase">
+            <Eyebrow tracking="tight">
               {t(`workItem.entryTypes.${entry.type}`)}
               {entry.step ? ` · ${t(`teamHome.steps.${entry.step}`)}` : ""}
-            </p>
+            </Eyebrow>
             <p className="mt-1 text-xs text-muted">
               {t("workItem.entryMeta", {
                 author: entry.author,

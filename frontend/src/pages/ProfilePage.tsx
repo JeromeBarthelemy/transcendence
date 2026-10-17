@@ -31,7 +31,7 @@ import {
 } from "../components/ApiErrors";
 import { Avatar, photoChanged } from "../components/Avatar";
 import { Button, buttonClass } from "../components/Button";
-import { Label, TextInput } from "../components/Field";
+import { FieldHint, Label, TextInput } from "../components/Field";
 import { IconLabel } from "../components/Icon";
 import { SuccessMessage } from "../components/Notice";
 import { Page } from "../components/Page";
@@ -514,7 +514,7 @@ function EditProfileForm({ identity }: { identity: Identity }) {
               setSaved(false);
             }}
           />
-          <p className="mt-1 text-xs text-muted">{t("profile.emailHint")}</p>
+          <FieldHint>{t("profile.emailHint")}</FieldHint>
           <FieldErrors
             id={`${emailId}-errors`}
             issues={fieldIssues(save.error, "email")}

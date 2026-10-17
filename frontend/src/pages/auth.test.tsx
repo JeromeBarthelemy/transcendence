@@ -9,6 +9,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { createMemoryRouter, RouterProvider } from "react-router-dom";
@@ -146,7 +147,38 @@ it("creates an account without email and recommends the display name", async () 
   ).toBeTruthy();
   expect(screen.queryByText("marie.dubois@rouages.invalid")).toBeNull();
   expect(fetchMock).toHaveBeenCalledTimes(2);
+  await user.click(
+    within(screen.getByRole("main")).getByRole("link", {
+      name: "Se connecter",
+    }),
+  );
+  expect(
+    (
+      (await screen.findByLabelText(
+        "E-mail ou nom d'affichage",
+      )) as HTMLInputElement
+    ).value,
+  ).toBe("Marie");
 });
+
+it.each([
+  ["/login", "Se connecter", "E-mail ou nom d'affichage"],
+  ["/signup", "Créer mon compte", "Prénom"],
+])(
+  "focuses the first invalid field after submitting %s",
+  async (path, submit, firstLabel) => {
+    const fetchMock = vi.fn(async () => json(null, 200));
+    vi.stubGlobal("fetch", fetchMock);
+    renderAt(path);
+    const user = userEvent.setup();
+    const first = await screen.findByLabelText(firstLabel);
+    await user.click(screen.getByRole("button", { name: submit }));
+
+    await waitFor(() => expect(document.activeElement).toBe(first));
+    expect(first.getAttribute("aria-invalid")).toBe("true");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  },
+);
 
 it("shows a real email as an alternative after sign-up", async () => {
   const fetchMock = vi.fn(async (path: string) => {
