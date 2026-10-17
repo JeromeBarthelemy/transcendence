@@ -37,7 +37,7 @@ import {
 import { Avatar } from "../components/Avatar";
 import { Button } from "../components/Button";
 import { EmptyState } from "../components/EmptyState";
-import { Label, TextInput } from "../components/Field";
+import { FieldHint, Label, TextInput } from "../components/Field";
 import { IconLabel } from "../components/Icon";
 import { ConfirmPanel } from "../components/Notice";
 import { Page } from "../components/Page";
@@ -457,9 +457,7 @@ function TeamCard({ team }: { team: ManagedTeam }) {
       )}
 
       {hasMembers && !isRenaming && (
-        <p id={deleteHintId} className="mt-1 text-xs text-muted">
-          {t("teams.deleteBlockedHint")}
-        </p>
+        <FieldHint id={deleteHintId}>{t("teams.deleteBlockedHint")}</FieldHint>
       )}
 
       {isConfirmingDelete && !hasMembers && (
