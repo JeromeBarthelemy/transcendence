@@ -1,10 +1,10 @@
 Django==5.2.*          # LTS
-python-dotenv==1.*     # lecture du .env
-Pillow==12.*           # exigé par les ImageField (avatars, photos)
-pillow-heif==1.*       # lecture des photos HEIC des iPhone
-openpyxl==3.1.*        # lecture de l'export AssoConnect (.xlsx)
-djangorestframework==3.18.*  # l'API : sérialiseurs, vues, throttling
-fastembed==0.8.*        # embeddings du RAG règlement (e5-base, ONNX fp32)
-numpy==2.*              # rag.py compare les embeddings directement (produit matriciel)
-daphne==4.*             # serveur ASGI en production — le serveur de référence de Channels
-channels==4.*           # WebSockets : le tableau des chantiers en direct (module temps réel)
+python-dotenv==1.*     # reads .env
+Pillow==12.*           # required by ImageField (avatars, photos)
+pillow-heif==1.*       # reads iPhone HEIC photos
+openpyxl==3.1.*        # reads the AssoConnect export (.xlsx)
+djangorestframework==3.18.*  # the API: serializers, views, throttling
+fastembed==0.8.*        # rulebook RAG embeddings (e5-base, ONNX fp32)
+numpy==2.*              # rag.py compares embeddings directly (matrix product)
+daphne==4.*             # ASGI server in production — Channels' reference server
+channels==4.*           # WebSockets: the live work-item board (real-time module)
