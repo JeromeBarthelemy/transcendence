@@ -938,10 +938,14 @@ closing the gap at its source rather than translating around it every
 time.
 
 Memory is the other real constraint, not just CPU: `qwen2.5:3b` resident
-in Ollama measures about 2.1 GB on this machine, and the embedding
-model's own cache on disk is another 1.1 GB — before Django, an ingest,
-or anything else running alongside. Comfortable here; likely tight on a
-laptop nearer the lower end of what the club has.
+in Ollama measures about 2.1 GB on this machine. The embedding model's
+1.1 GB download is a disk size, not its runtime RAM requirement: inference
+also allocates working memory. Full-manual indexing explicitly uses
+four passages per embedding batch instead of FastEmbed's default 256:
+large batches can exhaust an 8 GB development machine. Smaller batches
+trade throughput for lower inference-memory peaks without changing the
+model or dropping passages. This is not a total-memory limit: leave room
+for Django, both models and any other work running alongside.
 
 | route | does |
 | --- | --- |
