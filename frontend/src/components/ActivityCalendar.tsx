@@ -21,9 +21,13 @@ function adjacentMonth(month: string, offset: number) {
 export function ActivityCalendar({
   teamSeasonId,
   day,
+  className = "mt-6 max-w-lg",
+  onSelect,
 }: {
   teamSeasonId: number;
   day: string;
+  className?: string;
+  onSelect?: () => void;
 }) {
   const { t } = useTranslation();
   const { monthFormatter, formatWorkdayDate, formatNumber } = useFormatters();
@@ -31,6 +35,9 @@ export function ActivityCalendar({
   const calendar = useQuery({
     queryKey: ["team-seasons", teamSeasonId, "calendar", month],
     queryFn: () => getActivityCalendar(teamSeasonId, month),
+    // The summary already reads this month to identify today's workday.
+    // Reuse its failure when opening the picker; retry stays an explicit action.
+    retryOnMount: false,
   });
   const first = new Date(`${month}-01T12:00:00Z`);
   const last = new Date(first);
@@ -55,7 +62,7 @@ export function ActivityCalendar({
     <Panel
       as="section"
       aria-labelledby="activity-calendar-title"
-      className="mt-6 max-w-lg"
+      className={className}
     >
       <Heading as="h2" size="small" id="activity-calendar-title">
         {t("calendar.title")}
@@ -138,10 +145,11 @@ export function ActivityCalendar({
                 <li key={date}>
                   <Link
                     to={`/team-seasons/${teamSeasonId}/days/${date}`}
+                    onClick={onSelect}
                     aria-current={isToday ? "date" : undefined}
                     aria-label={label}
                     title={label}
-                    className={`relative flex h-11 w-full items-center justify-center rounded-xl border text-sm font-semibold transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lagoon ${isSelected ? "border-accent bg-accent text-white hover:bg-primary" : "border-primary/20 bg-white text-ink hover:bg-tint"} ${isToday ? "ring-2 ring-mint-deep ring-inset" : ""}`}
+                    className={`relative flex h-11 w-full items-center justify-center rounded-md border text-sm font-semibold transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lagoon ${isSelected ? "border-accent bg-accent text-white hover:bg-primary" : "border-line bg-white text-ink hover:bg-tint"} ${isToday ? "ring-2 ring-mint-deep ring-inset" : ""}`}
                   >
                     {formatNumber(index + 1)}
                     {hasActivity && (

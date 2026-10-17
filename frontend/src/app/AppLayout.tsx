@@ -1,7 +1,13 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { type ReactNode, useEffect, useId, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
+import {
+  Link,
+  NavLink,
+  Outlet,
+  useLocation,
+  useNavigate,
+} from "react-router-dom";
 
 import type { Identity } from "../api/auth";
 import { logOut } from "../api/auth";
@@ -17,7 +23,7 @@ import { focusRing, type OpenMenu, useMenu } from "./menu";
 import { NotificationsMenu } from "./NotificationsMenu";
 import { resetSession, useCurrentUser } from "./useCurrentUser";
 
-const navLinkClass = `rounded-full px-3 py-2 text-sm font-semibold whitespace-nowrap text-ink transition hover:bg-tint ${focusRing}`;
+const navLinkClass = `rounded-md px-3 py-2 text-sm font-semibold whitespace-nowrap text-muted transition-colors hover:bg-tint hover:text-ink aria-[current=page]:bg-tint aria-[current=page]:text-primary ${focusRing}`;
 const panelLinkClass =
   "block rounded-xl px-3 py-2.5 text-sm font-semibold text-ink no-underline hover:bg-tint focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-lagoon";
 
@@ -118,11 +124,11 @@ function NavLinks({
   }
   return (
     <>
-      <Link to="/fieldbot" className={linkClass} onClick={onNavigate}>
+      <NavLink to="/fieldbot" className={linkClass} onClick={onNavigate}>
         <IconLabel icon="chat" before>
           {t("nav.fieldbot")}
         </IconLabel>
-      </Link>
+      </NavLink>
       {identity.is_club_admin && admin}
     </>
   );
@@ -352,21 +358,21 @@ export function AppLayout() {
     // layout exactly the window's height, footer included; every other page
     // grows with its content.
     <div className="flex min-h-screen flex-col has-[.fieldbot-page]:h-dvh">
-      <header className="relative border-b border-primary/10 bg-white/85 backdrop-blur-sm">
+      <header className="relative border-b border-line bg-white">
         {/* One row at every width: what does not fit goes in the menu. */}
-        <div className="mx-auto flex w-full max-w-6xl flex-nowrap items-center justify-between gap-3 px-5 py-4 sm:px-8">
+        <div className="mx-auto flex w-full max-w-6xl flex-nowrap items-center justify-between gap-3 px-5 py-3 sm:px-8">
           <Link
             to="/"
-            className="flex min-w-0 items-center gap-2 text-ink no-underline sm:gap-3"
+            className={`flex min-w-0 items-center gap-2 rounded-sm text-ink no-underline sm:gap-3 ${focusRing}`}
           >
-            <span className="grid size-9 shrink-0 place-items-center overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-primary/10 sm:size-11">
+            <span className="grid size-9 shrink-0 place-items-center overflow-hidden rounded-md bg-white sm:size-10">
               <img
                 src={logo}
                 alt=""
-                className="size-9 object-cover sm:size-11"
+                className="size-9 object-cover sm:size-10"
               />
             </span>
-            <span className="brand-title truncate text-xl tracking-[-0.035em] sm:text-2xl">
+            <span className="brand-title truncate text-lg tracking-[-0.035em] sm:text-xl">
               {t("app.name")}
             </span>
           </Link>
@@ -421,16 +427,18 @@ export function AppLayout() {
 
       <Outlet />
 
-      <footer className="mt-auto border-t border-primary/10 px-5 py-5 text-center text-xs text-muted sm:px-8">
-        <p>{t("app.footer")}</p>
-        <p className="mt-2 flex justify-center gap-4">
-          <Link to="/privacy" className="hover:text-ink hover:underline">
-            {t("app.privacy")}
-          </Link>
-          <Link to="/terms" className="hover:text-ink hover:underline">
-            {t("app.terms")}
-          </Link>
-        </p>
+      <footer className="mt-auto border-t border-line bg-white px-5 py-4 text-xs text-muted sm:px-8">
+        <div className="mx-auto flex max-w-6xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <p>{t("app.footer")}</p>
+          <p className="flex flex-wrap gap-x-5 gap-y-2">
+            <Link to="/privacy" className="hover:text-ink hover:underline">
+              {t("app.privacy")}
+            </Link>
+            <Link to="/terms" className="hover:text-ink hover:underline">
+              {t("app.terms")}
+            </Link>
+          </p>
+        </div>
       </footer>
     </div>
   );

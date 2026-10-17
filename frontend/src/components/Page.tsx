@@ -25,8 +25,8 @@ export function Page({
 }) {
   return (
     <main
-      className={`mx-auto w-full flex-1 px-5 sm:px-8 ${WIDTHS[width]} ${
-        message ? "py-14" : "py-10 sm:py-14"
+      className={`mx-auto min-w-0 w-full flex-1 px-5 sm:px-8 ${WIDTHS[width]} ${
+        message ? "py-14" : "py-8 sm:py-10"
       } ${className}`}
     >
       {children}

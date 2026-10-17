@@ -9,25 +9,25 @@
   --font-display: "Poppins", ui-sans-serif, system-ui, sans-serif;
 
   /* The palette, darkest to lightest. */
-  --color-ink: #041894;
+  --color-ink: #182b43;
   --color-primary: #004fc5;
-  --color-accent: #0078dd;
+  --color-accent: #0068c4;
   --color-azure: #009edf;
   --color-lagoon: #00c2d0;
   --color-mint: #00e4bc;
 
   /* Text. */
-  --color-body: #13294b;
-  --color-muted: #506784;
-  --color-faint: #7f93ad;
+  --color-body: #283b50;
+  --color-muted: #5b6b7d;
+  --color-faint: #6b7b8e;
 
   /* Surfaces and lines. */
-  --color-canvas: #f5f9ff;
-  --color-tint: #eaf5ff;
-  --color-mist: #f4f8ff;
-  --color-fog: #eef1f5;
-  --color-line: #bfd4ef;
-  /* Light text over the home page's dark gradient. */
+  --color-canvas: #f6f7f9;
+  --color-tint: #edf3fc;
+  --color-mist: #f7f9fc;
+  --color-fog: #eef0f3;
+  --color-line: #d6dce4;
+  /* Light text over the home page's blue notebook cover. */
   --color-ice: #d9f7ff;
   --color-seafoam: #a8f4e7;
   --color-mint-tint: #e0fbf5;
@@ -43,9 +43,9 @@
   --color-warning-muted: #7a6221;
   --color-danger: #c43d5c;
 
-  --shadow-button: 0 8px 22px --alpha(var(--color-primary) / 19%);
-  --shadow-panel: 0 18px 55px --alpha(var(--color-primary) / 7%);
-  --shadow-hero: 0 22px 70px --alpha(var(--color-primary) / 16%);
+  --shadow-button: 0 1px 2px --alpha(var(--color-ink) / 8%);
+  --shadow-panel: 0 8px 24px --alpha(var(--color-ink) / 9%);
+  --shadow-hero: 6px 6px 0 --alpha(var(--color-primary) / 10%);
 }
 
 /* Inter for reading, Poppins for headings and titles. Only the weights the
@@ -108,7 +108,7 @@
 }
 
 :root {
-  color: var(--color-ink);
+  color: var(--color-body);
   background: var(--color-canvas);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -122,18 +122,7 @@ body {
   min-width: 20rem;
   min-height: 100vh;
   margin: 0;
-  background:
-    radial-gradient(
-      circle at 88% 8%,
-      --alpha(var(--color-mint) / 14%) 0,
-      transparent 30rem
-    ),
-    radial-gradient(
-      circle at 8% 84%,
-      --alpha(var(--color-azure) / 11%) 0,
-      transparent 35rem
-    ),
-    var(--color-canvas);
+  background: var(--color-canvas);
 }
 
 ::selection {
@@ -149,78 +138,18 @@ body {
   h5,
   h6 {
     font-family: var(--font-display);
+    overflow-wrap: anywhere;
+  }
+
+  button:not(:disabled),
+  summary {
+    cursor: pointer;
   }
 }
 
 .brand-title {
   font-family: var(--font-display);
-  font-weight: 700;
-}
-
-.form-label {
-  display: block;
-  color: var(--color-ink);
-  font-size: 0.875rem;
-  font-weight: 700;
-}
-
-.form-input {
-  display: block;
-  width: 100%;
-  margin-top: 0.5rem;
-  padding: 0.75rem 0.9rem;
-  border: 1px solid var(--color-line);
-  border-radius: 0.8rem;
-  color: var(--color-ink);
-  background: var(--color-white);
-  outline: none;
-  transition:
-    border-color 150ms ease,
-    box-shadow 150ms ease;
-}
-
-.form-input:focus-visible {
-  border-color: var(--color-accent);
-  box-shadow: 0 0 0 3px --alpha(var(--color-azure) / 18%);
-}
-
-.form-input[aria-invalid="true"] {
-  border-color: var(--color-danger);
-}
-
-.form-hint {
-  margin-top: 0.45rem;
-  color: var(--color-muted);
-  font-size: 0.8rem;
-  line-height: 1.5;
-}
-
-.form-submit {
-  width: 100%;
-  padding: 0.85rem 1.25rem;
-  border: 0;
-  border-radius: 999px;
-  color: var(--color-white);
-  background: var(--color-primary);
-  font-size: 0.875rem;
-  font-weight: 700;
-  text-decoration: none;
-  cursor: pointer;
-  transition: background-color 150ms ease;
-}
-
-.form-submit:hover {
-  background: var(--color-accent);
-}
-
-.form-submit:focus-visible {
-  outline: 2px solid var(--color-lagoon);
-  outline-offset: 3px;
-}
-
-.form-submit:disabled {
-  cursor: wait;
-  opacity: 0.6;
+  font-weight: 600;
 }
 
 .form-link {

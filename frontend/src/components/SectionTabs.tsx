@@ -26,7 +26,7 @@ export function SectionTabs({
   return (
     <nav
       aria-label={label}
-      className={`grid gap-1 rounded-2xl border border-primary/12 bg-white p-1 shadow-sm ${className}`}
+      className={`grid gap-4 border-b border-line ${className}`}
       style={{ gridTemplateColumns: `repeat(${tabs.length}, minmax(0, 1fr))` }}
     >
       {tabs.map((tab) => {
@@ -36,10 +36,10 @@ export function SectionTabs({
             key={tab.key}
             to={tab.to}
             aria-current={isCurrent ? "page" : undefined}
-            className={`flex justify-center rounded-xl px-2 py-2.5 text-sm font-semibold whitespace-nowrap transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lagoon sm:px-4 ${
+            className={`-mb-px flex justify-center border-b-2 px-1 py-3 text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lagoon sm:px-4 ${
               isCurrent
-                ? "bg-primary text-white shadow-button"
-                : "text-ink hover:bg-tint"
+                ? "border-primary text-primary"
+                : "border-transparent text-muted hover:border-line hover:text-ink"
             }`}
           >
             {tab.icon ? (

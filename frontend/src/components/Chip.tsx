@@ -40,7 +40,7 @@ export function Chip({
   };
   return (
     <span
-      className={`inline-flex items-center rounded-full font-semibold whitespace-nowrap ${sizes[size]} ${TONES[tone]} ${className}`}
+      className={`inline-flex items-center rounded-md font-semibold whitespace-nowrap ${sizes[size]} ${TONES[tone]} ${className}`}
     >
       {children}
     </span>

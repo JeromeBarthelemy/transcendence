@@ -8,33 +8,34 @@ const PADDINGS = {
   md: "p-5",
   lg: "p-5 sm:p-7",
   xl: "p-8",
+  auth: "p-6 sm:p-9",
 };
 
-/** The white card every screen is built from. `lg` and `xl` are a screen's
- * main blocks, rounder; `md` and `sm` the cards inside a list; `none` a list
- * whose rows draw their own padding, divided by a hairline. */
+/** A quiet paper surface. Padding changes with the content, not the radius
+ * or elevation; menus alone need a shadow above the page. */
 export function Panel({
   as: Element = "div",
-  padding = "md",
+  variant = "default",
+  padding = variant === "auth" ? "auth" : "md",
   danger = false,
   className = "",
   children,
   ...props
 }: {
   as?: PanelElement;
+  /** Roomier sign-in/sign-up forms, using the same paper surface. */
+  variant?: "default" | "auth";
   padding?: keyof typeof PADDINGS;
   /** The border of an irreversible action's own section. */
   danger?: boolean;
   className?: string;
   children: ReactNode;
 } & HTMLAttributes<HTMLElement>) {
-  const round =
-    padding === "lg" || padding === "xl" ? "rounded-3xl" : "rounded-2xl";
-  const divided = padding === "none" ? "divide-y divide-primary/10" : "";
+  const divided = padding === "none" ? "divide-y divide-line" : "";
   return (
     <Element
-      className={`border bg-white shadow-sm ${round} ${PADDINGS[padding]} ${divided} ${
-        danger ? "border-red-800/20" : "border-primary/12"
+      className={`min-w-0 rounded-lg border bg-white ${PADDINGS[padding]} ${divided} ${
+        danger ? "border-red-800/20" : "border-line"
       } ${className}`}
       {...props}
     >

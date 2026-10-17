@@ -98,9 +98,16 @@ test("the notebook opens a past session and finds a trace by its words", async (
   await expect(
     page.getByRole("region", { name: "Ce que la journée a produit" }),
   ).toBeVisible();
-  await expect(
-    page.getByRole("region", { name: "Calendrier des séances" }),
-  ).toBeVisible();
+  const calendar = page.getByRole("region", { name: "Calendrier des séances" });
+  const openCalendar = page.getByRole("button", {
+    name: "Ouvrir le calendrier",
+  });
+  await expect(calendar).toHaveCount(0);
+  await openCalendar.click();
+  await expect(calendar).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(calendar).toHaveCount(0);
+  await expect(openCalendar).toBeFocused();
 
   await page.goto("/");
   await page

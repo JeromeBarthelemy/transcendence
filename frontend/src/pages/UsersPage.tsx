@@ -24,7 +24,7 @@ import { Avatar } from "../components/Avatar";
 import { Button } from "../components/Button";
 import { Chip } from "../components/Chip";
 import { EmptyState } from "../components/EmptyState";
-import { Label, Select, TextInput } from "../components/Field";
+import { FieldHint, Label, Select, TextInput } from "../components/Field";
 import { IconLabel } from "../components/Icon";
 import { ConfirmPanel, Notice, SuccessMessage } from "../components/Notice";
 import { Page } from "../components/Page";
@@ -293,9 +293,9 @@ function RoleForm({ user, locked }: { user: ClubUser; locked: boolean }) {
               setSaved(false);
             }}
           />
-          <p id={contactEmailHintId} className="mt-1 text-xs text-muted">
+          <FieldHint id={contactEmailHintId}>
             {t("users.contactEmailHint")}
-          </p>
+          </FieldHint>
           <FieldErrors
             id={`${contactEmailId}-errors`}
             issues={fieldIssues(save.error, "contact_email")}
@@ -339,9 +339,9 @@ function RoleForm({ user, locked }: { user: ClubUser; locked: boolean }) {
             />
             {t("users.isClubAdmin")}
           </Label>
-          <p id={adminHintId} className="mt-1 ml-6 text-xs text-muted">
+          <FieldHint id={adminHintId} className="ml-6">
             {t("users.isClubAdminHint")}
-          </p>
+          </FieldHint>
           <FieldErrors
             id={`${adminHintId}-errors`}
             issues={fieldIssues(save.error, "is_club_admin")}
@@ -361,9 +361,9 @@ function RoleForm({ user, locked }: { user: ClubUser; locked: boolean }) {
             />
             {t("users.isActive")}
           </Label>
-          <p id={activeHintId} className="mt-1 ml-6 text-xs text-muted">
+          <FieldHint id={activeHintId} className="ml-6">
             {t("users.isActiveHint")}
-          </p>
+          </FieldHint>
         </div>
       </fieldset>
 

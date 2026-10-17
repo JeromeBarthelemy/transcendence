@@ -59,6 +59,11 @@ Regression tests cover:
   presentation.
 - Numeric plural selection and unchanged team identifiers.
 
+The session calendar opens from the header button. Changing language through
+the header selector dismisses this popover; reopening it uses the displayed
+session's month and the new language. A locale update while the popover remains
+open preserves its browsed month. Neither interaction changes the session URL.
+
 ## Screen verification matrix
 
 Run each row in French, English and Spanish at mobile and desktop widths. Use a
@@ -112,8 +117,9 @@ checked on the deployment used for the demonstration.
    labels and existing validation messages update while the entered name stays.
 2. Sign in and open a team's board. Switch through the three languages: the same
    participant names use the appropriate conjunction and activity dates update.
-3. Open a session and browse to another calendar month. Change language again:
-   the month and day descriptions update without changing the chosen session.
+3. Open a session, open its calendar and browse to another month. Change language
+   in the header: the popover closes and the chosen session stays the same.
+   Reopen the calendar to see localized month and day labels.
 4. Open analytics, select a custom period, and switch language. Date labels and
    quantities change; date-input values and the export destination stay the same.
 5. Open notifications, then choose a profile photo. Show the translated timestamp

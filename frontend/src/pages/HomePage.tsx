@@ -1,9 +1,11 @@
 import { useTranslation } from "react-i18next";
-import { Link, useLocation } from "react-router-dom";
+import { useLocation } from "react-router-dom";
 
 import { useCurrentUser } from "../app/useCurrentUser";
 import { RequestError } from "../components/ApiErrors";
+import { ButtonLink } from "../components/Button";
 import { Notice } from "../components/Notice";
+import { Eyebrow } from "../components/Typography";
 import { TeamHomePage } from "./TeamHomePage";
 
 export function HomePage() {
@@ -21,24 +23,23 @@ export function HomePage() {
   }
 
   return (
-    <main className="mx-auto grid w-full max-w-6xl flex-1 items-center gap-12 px-5 py-14 sm:px-8 lg:grid-cols-[1.15fr_0.85fr] lg:gap-20 lg:py-20">
+    <main className="mx-auto grid w-full max-w-6xl flex-1 items-center gap-10 px-5 py-12 sm:px-8 lg:grid-cols-[1.2fr_0.8fr] lg:gap-16 lg:py-16">
       <section aria-labelledby="home-title">
         {accountDeleted && (
           <Notice as="p" role="status" tone="success" className="mb-8">
             {t("personalData.deleted", { address: accountDeleted })}
           </Notice>
         )}
-        <p className="mb-5 inline-flex items-center gap-2 rounded-full border border-azure/20 bg-tint px-4 py-2 text-xs font-bold tracking-[0.14em] text-accent uppercase">
-          <span aria-hidden="true" className="size-2 rounded-full bg-lagoon" />
+        <Eyebrow className="mb-5 border-l-2 border-primary pl-3">
           {t("home.eyebrow")}
-        </p>
+        </Eyebrow>
         <h1
           id="home-title"
-          className="brand-title max-w-3xl text-[clamp(3.25rem,7vw,6.5rem)] leading-[0.98] tracking-[-0.055em] text-ink"
+          className="brand-title max-w-3xl text-[clamp(2.5rem,5vw,4.5rem)] leading-[1.1] tracking-[-0.045em] text-ink"
         >
           {t("home.title")}
         </h1>
-        <p className="mt-7 max-w-xl text-lg leading-8 text-muted">
+        <p className="mt-6 max-w-lg text-base leading-8 text-muted sm:text-lg">
           {t("home.description")}
         </p>
 
@@ -48,39 +49,29 @@ export function HomePage() {
           </p>
         ) : (
           <div className="mt-9 flex flex-wrap items-center gap-3">
-            <Link
-              to="/signup"
-              className="rounded-full bg-primary px-6 py-3 text-sm font-bold text-white shadow-button transition hover:bg-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lagoon"
-            >
+            <ButtonLink to="/signup" variant="primary" size="lg">
               {t("home.createAccount")}
-            </Link>
-            <Link
-              to="/login"
-              className="rounded-full border border-primary/25 px-6 py-3 text-sm font-bold text-ink transition hover:bg-tint focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lagoon"
-            >
+            </ButtonLink>
+            <ButtonLink to="/login" size="lg">
               {t("home.alreadyMember")}
-            </Link>
+            </ButtonLink>
           </div>
         )}
         {currentUser.isError && <RequestError error={currentUser.error} />}
       </section>
 
-      <aside className="relative overflow-hidden rounded-[2rem] bg-linear-145 from-ink via-primary via-45% to-azure p-8 text-white shadow-hero sm:p-10">
-        <div
-          aria-hidden="true"
-          className="absolute -top-20 -right-20 size-64 rounded-full border border-white/20"
-        />
-        <div
-          aria-hidden="true"
-          className="absolute -top-8 -right-8 size-64 rounded-full border border-white/10"
-        />
-        <p className="relative text-xs font-bold tracking-[0.22em] text-seafoam uppercase">
+      <aside className="border-l-4 border-ink bg-primary px-7 py-8 text-white shadow-hero sm:px-9 sm:py-10">
+        <div className="flex items-center justify-between gap-4 border-b border-white/30 pb-5 text-xs font-semibold tracking-wide">
+          <span>{t("app.name")}</span>
+          <span aria-hidden="true">—</span>
+        </div>
+        <p className="mt-10 text-xs font-semibold tracking-[0.14em] text-ice uppercase">
           {t("home.panelEyebrow")}
         </p>
-        <h2 className="brand-title relative mt-16 max-w-sm text-4xl leading-tight tracking-[-0.035em] sm:text-5xl">
+        <h2 className="brand-title mt-4 max-w-sm text-3xl leading-tight tracking-[-0.03em] sm:text-4xl">
           {t("home.panelTitle")}
         </h2>
-        <div className="relative mt-10 border-t border-white/20 pt-6">
+        <div className="mt-12 border-t border-white/30 pt-5">
           <p className="max-w-sm text-sm leading-7 text-ice">
             {t("home.panelDescription")}
           </p>

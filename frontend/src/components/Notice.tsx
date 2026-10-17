@@ -42,7 +42,7 @@ export function Notice({
   className?: string;
   children: ReactNode;
 }) {
-  const shape = callout ? "border-l-4 border-warning" : "rounded-xl";
+  const shape = callout ? "border-l-2 border-warning" : "rounded-md";
   return (
     <Element
       role={role}

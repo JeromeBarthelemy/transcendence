@@ -541,6 +541,14 @@ it("summarizes today and saves a team note", async () => {
     expect(summary?.textContent).toContain("1 chantier avancé");
   });
   expect(summary?.textContent).toContain("1 présent sur 10");
+  const session = screen.getByRole("complementary", { name: "Aujourd'hui" });
+  expect(
+    within(session).getByText("Pensez à ranger les batteries."),
+  ).toBeTruthy();
+  expect(
+    within(session).getByRole("button", { name: "+ remarque" }),
+  ).toBeTruthy();
+  expect(within(session).queryByRole("heading", { name: "Intake" })).toBeNull();
   expect(screen.getByText("Pensez à ranger les batteries.")).toBeTruthy();
   expect(
     screen.queryByText("Cette remarque appartient au chantier."),

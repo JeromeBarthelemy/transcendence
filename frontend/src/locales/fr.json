@@ -580,7 +580,8 @@
   "daySummary": {
     "loading": "Chargement de la journée…",
     "today": "Aujourd'hui",
-    "chooseDate": "Choisir une date",
+    "chooseDate": "Ouvrir le calendrier",
+    "closeCalendar": "Fermer le calendrier",
     "recordedSessions": "Séances précédentes et suivantes",
     "previousSession": "Séance précédente : {{date}}",
     "nextSession": "Séance suivante : {{date}}",

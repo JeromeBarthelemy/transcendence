@@ -397,7 +397,7 @@ function TodayPanel({
       </Heading>
 
       {item.on_robot && !isClosed && (
-        <div className="mt-5 flex flex-col gap-3 rounded-2xl bg-mist p-4 sm:flex-row sm:items-end">
+        <div className="mt-5 flex flex-col gap-3 rounded-md bg-mist p-4 sm:flex-row sm:items-end">
           <Label className="flex-1">
             {t("workItem.currentStep")}
             <Select
@@ -577,10 +577,10 @@ function HistoryEntry({
       <article>
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div>
-            <p className="text-xs font-bold tracking-[0.12em] text-accent uppercase">
+            <Eyebrow tracking="tight">
               {t(`workItem.entryTypes.${entry.type}`)}
               {entry.step ? ` · ${t(`teamHome.steps.${entry.step}`)}` : ""}
-            </p>
+            </Eyebrow>
             <p className="mt-1 text-xs text-muted">
               {t("workItem.entryMeta", {
                 author: entry.author,
@@ -816,7 +816,7 @@ function WorkItemScreen({
         ← {t("workItem.back")}
       </Link>
 
-      <header className="mt-7 flex flex-col justify-between gap-5 border-b border-primary/10 pb-7 sm:flex-row sm:items-end">
+      <header className="mt-6 flex flex-col justify-between gap-5 border-b border-line pb-6 sm:flex-row sm:items-end">
         <div>
           <Eyebrow size="sm">
             {item.on_robot ? t("teamHome.robot") : t("teamHome.offRobot")}
@@ -956,17 +956,24 @@ function WorkItemScreen({
         </Notice>
       )}
 
-      <div className="mt-8 grid items-start gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.9fr)]">
+      <div className="mt-8 grid items-start gap-8 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]">
         {/* Closed, nothing moves it forward until it is reopened: its
             history can still be put right, and today's tick undone. */}
         {(!isClosed || item.current_progress) && (
-          <div className="space-y-6">
+          <div className="min-w-0 space-y-6">
             <TodayPanel key={item.id} item={item} identity={identity} />
             {!isClosed && <WorkItemNoteForm item={item} />}
           </div>
         )}
 
-        <section aria-labelledby="history-title">
+        <section
+          aria-labelledby="history-title"
+          className={
+            !isClosed || item.current_progress
+              ? "min-w-0"
+              : "min-w-0 lg:col-span-2"
+          }
+        >
           <Eyebrow>{t("workItem.fromStart")}</Eyebrow>
           <Heading size="large" className="mt-1" id="history-title">
             <IconLabel icon="scroll">{t("workItem.history")}</IconLabel>

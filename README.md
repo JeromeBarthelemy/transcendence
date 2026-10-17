@@ -675,15 +675,19 @@ are never required. The member table keeps the API's neutral order and wording:
 it describes days, traces and distinct work items, without scores or rankings.
 
 The day-summary screen keeps the previous/next recorded-session links and
-adds a permanent Today action and a native date picker. A valid, changed date
-opens its URL on Enter or when the field loses focus, including empty days.
-Typing intermediate values does not navigate. Today opens `/days/today` and
+adds a permanent Today action and an "Ouvrir le calendrier" button. The button
+opens the activity calendar in a popover; no calendar occupies the summary
+until requested. Selecting a day opens its URL, including empty days, and
+closes the popover. Escape returns focus to the button; clicking outside,
+tabbing out or clicking "Fermer le calendrier" also closes it.
+Today opens `/days/today` and
 is marked beside the heading; an explicit date matching today is marked too. The
 calendar's `today` field resolves the club's 4 a.m. workday rather than the
 browser's clock or time zone, without fetching a separate today summary.
-The monthly activity calendar sits alongside this navigation. Its month
+The monthly activity calendar opens from this navigation. Its month
 arrows browse without changing the displayed summary; selecting any day,
-including an empty one, opens its summary and updates the date picker.
+including an empty one, opens its summary. Reopening the calendar starts on
+the displayed session's month.
 Monday-first cells mark today, the selected date and days with recorded
 activity separately. Counts are available in each link's accessible label
 and tooltip; an active day can hold progress, a note or a decision, not just
@@ -1128,11 +1132,20 @@ page writes a hex value.
 
 | Role | Tokens |
 | --- | --- |
-| Blues, darkest to lightest | `ink` `#041894`, `primary` `#004fc5`, `accent` `#0078dd`, `azure` `#009edf`, `lagoon` `#00c2d0` (focus rings), `mint` `#00e4bc` |
-| Text | `body` `#13294b`, `muted` `#506784`, `faint` `#7f93ad` |
+| Ink and blues | `ink` `#182b43`, `primary` `#004fc5`, `accent` `#0068c4`, `azure` `#009edf`, `lagoon` `#00c2d0` (focus rings), `mint` `#00e4bc` |
+| Text | `body` `#283b50`, `muted` `#5b6b7d`, `faint` `#6b7b8e` |
 | Surfaces and lines | `canvas` (the page), `tint`, `mist`, `fog`, `line` |
 | States | `success` and `success-tint`; `warning`, `warning-tint`, `warning-wash`, `warning-ink`, `warning-muted` — a pending handover, never to be missed; `danger` |
 | Shadows | `shadow-button`, `shadow-panel`, `shadow-hero` |
+
+The working screens use a flat, neutral canvas and white paper surfaces:
+small radii, thin rules, compact titles and shadows reserved for overlays.
+The club's blue identifies actions and current navigation; amber still marks
+handovers. On desktop, team home places work items beside today's session
+and notes; the day summary separates the notebook from attendance. Both
+become a single column on small screens, without dropping content.
+The public landing page uses a solid-blue notebook-cover composition rather
+than the former gradients. See [Frontend UI conventions](docs/frontend-ui.md).
 
 A color always doubles a word, never replaces it: a status chip says
 "Terminé" in green, it is not only green. Red is kept for what deletes,
@@ -1146,7 +1159,7 @@ SIL Open Font License, and only the faces the screens draw: Inter for text
 (400, 400 italic, 600, 700), Poppins for headings and titles (400, 600, 700).
 
 `components/Typography.tsx` holds the scale. `Heading` takes a `size` —
-`display` (a chantier's name), `page` (a screen's title), `large`, `section`,
+`display` (a chantier's name), `auth` (an account form's title), `page` (a screen's title), `large`, `section`,
 `card`, `small` — each with its default level, `h1` to `h3`, and `as` when
 the outline needs another. `Eyebrow` is the short line in capitals above a
 title or naming a block ("Aujourd'hui", "Administration du club"), accent
@@ -1177,10 +1190,10 @@ All in `components/`, each with a comment saying when to use it.
 | --- | --- |
 | `Page` | a screen's main column: `width` (`2xl` to `6xl`), `message` for a screen that only says one thing |
 | `Heading`, `Eyebrow` | titles and the line above them (above) |
-| `Panel` | a white card or section: `padding` `sm` to `xl`, `none` for a list whose rows draw their own, `danger` for an irreversible action's section |
-| `Button`, `ButtonLink`, `buttonClass` | an action, or a link that looks like one: `primary` (the screen's main action), `secondary` (the rest, every "Annuler"), `dark` (starting work), `danger` (opens a removal), `danger-solid` (the removal itself), `success` (closing a work item as done); `sm`/`md`; `pill` |
+| `Panel` | a white paper surface: `padding` `sm` to `xl`, `none` for a divided list, `danger` for an irreversible action's section; `variant="auth"` gives account forms more padding |
+| `Button`, `ButtonLink`, `buttonClass` | an action, or a link that looks like one: `primary`, `secondary`, `dark`, `danger`, `danger-solid`, `success`; `sm`/`md`/`lg`; optional `pill`. `variant="auth"` gives account actions full width and larger padding |
 | `TextButton` | an action that reads as a word: correcting or removing one entry among many |
-| `TextInput`, `TextArea`, `Select`, `Label` | the working screens' fields; `tone` `warning` for the handover, `danger` for a password before a deletion. The account forms keep their larger `form-input` from `styles.css` |
+| `TextInput`, `TextArea`, `Select`, `Label`, `FieldHint` | shared fields and labels/hints; `tone` `warning` for the handover, `danger` for password confirmation. `TextInput`, `Label` and `FieldHint` use `variant="auth"` for account forms; no parallel `form-input` CSS |
 | `Chip`, `StatusChip` | a short label on a colored ground: a role, a step, a source; `StatusChip` for a work item's status |
 | `Notice`, `SuccessMessage` | something the screen tells: `info`, `neutral`, `success`, `warning`, `danger`; `callout` for the handover's left rule; `textSize="inherit"` for a message read in full |
 | `ConfirmPanel` | the step before any removal: what will go, "Annuler", then the removal. An `alertdialog` named by its question; the focus moves to "Annuler" as it opens, so a screen reader announces it and a second Enter removes nothing |

@@ -15,6 +15,8 @@ import {
   RequestError,
 } from "../components/ApiErrors";
 import { AuthPageFrame } from "../components/AuthPageFrame";
+import { Button } from "../components/Button";
+import { Label, TextInput } from "../components/Field";
 
 function usernameFromLocation(state: unknown): string {
   if (
@@ -104,14 +106,14 @@ export function LoginPage() {
         className="space-y-5"
       >
         <div>
-          <label htmlFor="login-username" className="form-label">
+          <Label htmlFor="login-username" variant="auth">
             {t("login.username")}
-          </label>
-          <input
+          </Label>
+          <TextInput
             id="login-username"
             type="text"
             autoComplete="username"
-            className="form-input"
+            variant="auth"
             aria-invalid={Boolean(errors.username || usernameIssues.length)}
             aria-describedby="login-username-error"
             {...register("username")}
@@ -124,14 +126,14 @@ export function LoginPage() {
         </div>
 
         <div>
-          <label htmlFor="login-password" className="form-label">
+          <Label htmlFor="login-password" variant="auth">
             {t("login.password")}
-          </label>
-          <input
+          </Label>
+          <TextInput
             id="login-password"
             type="password"
             autoComplete="current-password"
-            className="form-input"
+            variant="auth"
             aria-invalid={Boolean(errors.password || passwordIssues.length)}
             aria-describedby="login-password-error"
             {...register("password")}
@@ -147,13 +149,9 @@ export function LoginPage() {
           error={login.error}
           handledFields={["username", "password"]}
         />
-        <button
-          type="submit"
-          className="form-submit"
-          disabled={login.isPending}
-        >
+        <Button type="submit" variant="auth" disabled={login.isPending}>
           {login.isPending ? t("login.submitting") : t("login.submit")}
-        </button>
+        </Button>
       </form>
 
       <p className="mt-6 text-sm leading-6 text-muted">
