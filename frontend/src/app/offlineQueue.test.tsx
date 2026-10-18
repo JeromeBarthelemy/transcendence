@@ -112,6 +112,28 @@ it("queues a save that fails for lack of network, and shows it as pending", asyn
   expect(saves[0].authorId).toBe(1);
 });
 
+it("keeps a save's original author when the member changes before its rejection arrives", async () => {
+  // Lina's request is already running when the computer changes hands;
+  // only once Tom has signed in does it come back as a lost connection.
+  let rejectRequest!: (error: unknown) => void;
+  const request = new Promise<Response>((_resolve, theReject) => {
+    rejectRequest = theReject;
+  });
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(() => request),
+  );
+
+  const saving = trySave(() => fetch("/api/work-items/11/tick/"), tick(11));
+  setCurrentMember(2);
+  rejectRequest(new TypeError("Failed to fetch"));
+
+  await expect(saving).resolves.toEqual({ queued: true });
+  const saves = currentSaves();
+  expect(saves).toHaveLength(1);
+  expect(saves[0].authorId).toBe(1);
+});
+
 it("rethrows a save the server itself refused, without queuing it", async () => {
   const refusal = new ApiRequestError(400, {
     step: [{ code: "invalid", message: "…" }],

@@ -167,14 +167,7 @@ async function loadPersisted(): Promise<void> {
 /** Stored first, so a reload while still offline (the issue's own "Done
  * when") finds it again; queued rather than thrown, so the form that
  * called this reads a save as accepted, the same way it would a real one. */
-export async function enqueue(action: PendingAction): Promise<void> {
-  const authorId = signedInAs;
-  if (authorId === null) {
-    // Every call site sits behind a sign-in already, so this never happens
-    // from a real save — guards a stray call rather than queuing one with
-    // no one to replay it for.
-    throw new Error("No member is signed in to queue this save for");
-  }
+async function enqueue(action: PendingAction, authorId: number): Promise<void> {
   const db = await getDb();
   const createdAt = Date.now();
   const value = { createdAt, action, authorId, failed: null };
@@ -190,18 +183,29 @@ export async function enqueue(action: PendingAction): Promise<void> {
  * `TypeError` for that. Queuing anything broader risks queuing a save that
  * actually landed (a malformed response, say) and replaying it a second
  * time. Only a save that never reached the server at all is queued, and
- * the caller reads it as accepted. */
+ * the caller reads it as accepted. Whoever is signed in when the attempt
+ * *starts* is who it's queued for: the request is already running under
+ * their session by the time it can fail, however long it takes to reject,
+ * and a member switch in between must not hand their work to whoever
+ * replaces them on the shared computer. */
 export async function trySave<T>(
   attempt: () => Promise<T>,
   action: PendingAction,
 ): Promise<T | { queued: true }> {
+  const authorId = signedInAs;
   try {
     return await attempt();
   } catch (error) {
     if (!(error instanceof TypeError)) {
       throw error;
     }
-    await enqueue(action);
+    if (authorId === null) {
+      // Every call site sits behind a sign-in already, so this never
+      // happens from a real save — guards a stray call rather than queuing
+      // one with no one to replay it for.
+      throw new Error("No member is signed in to queue this save for");
+    }
+    await enqueue(action, authorId);
     return { queued: true };
   }
 }
