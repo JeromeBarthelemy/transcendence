@@ -364,7 +364,6 @@ fill it with a demo club — before creating any account of your own:
 ```sh
 python backend/manage.py migrate
 python backend/manage.py seed_demo
-python backend/manage.py createsuperuser   # afterwards, for the Django admin
 ```
 
 It creates the current season (BioBuzz) with its Wednesday and Friday
@@ -377,7 +376,21 @@ student has refused image rights and one is not yet matched with AssoConnect,
 since a real club has both.
 
 Every demo account signs in with its display name and the password
-`rouage-demo-2026`. The command refuses a database that already holds
+`rouage-demo-2026`. Paul also opens the Django admin.
+
+Fieldbot needs the season's rulebook. Give the manual's and the Q&A board's
+pages on FIRST's own site, and the demo ingests both into its season, as the
+sources screen would — on the production stack:
+
+```sh
+docker compose -f compose.prod.yml exec backend python manage.py seed_demo \
+  --manual-url "https://ftc-resources.firstinspires.org/ftc/game/cm-html/BIOBUZZ%20Competition%20Manual%20-%20TU05.htm" \
+  --qa-url "https://game-qa.firstinspires.org/boards/2027/FTC/QA"
+```
+
+Both are optional, and checked against FIRST's sites before anything is
+written. A page that cannot be fetched leaves the database empty, so the
+command can simply be run again. The command refuses a database that already holds
 accounts, teams or seasons: it never overwrites anything, and it is never
 meant for the club's own instance. To start over, delete
 `backend/db.sqlite3` and migrate again.

@@ -6,12 +6,13 @@ from datetime import date, datetime, time, timedelta
 from typing import Any
 
 from django.contrib.auth.hashers import make_password
-from django.core.management.base import BaseCommand, CommandError
+from django.core.management.base import BaseCommand, CommandError, CommandParser
 from django.db import transaction
 from django.utils import timezone
 
 from club.models import (
     Consent,
+    Document,
     Entry,
     Membership,
     Season,
@@ -24,6 +25,7 @@ from club.models import (
     fold_title,
 )
 from club.progress import join, record_progress
+from club.sources import NoPassage, add_source, check_source_url
 from club.workdays import workday
 
 PASSWORD = "rouage-demo-2026"
@@ -81,14 +83,36 @@ SPONSORING = [
 class Command(BaseCommand):
     help = "Remplit une base vide avec un club de démonstration."
 
+    def add_arguments(self, parser: CommandParser) -> None:
+        parser.add_argument("--manual-url", default="")
+        parser.add_argument("--qa-url", default="")
+
     def handle(self, *args: Any, **options: Any) -> None:
         if User.objects.exists() or Team.objects.exists() or Season.objects.exists():
             raise CommandError(
                 "La base contient déjà des données : seed_demo ne remplit "
                 "qu'une base vide, et n'écrase jamais rien."
             )
-        with transaction.atomic():
-            Demo(workday(timezone.now())).build()
+        sources = {
+            Document.Source.GAME_MANUAL: options["manual_url"],
+            Document.Source.OFFICIAL_QA: options["qa_url"],
+        }
+        try:
+            for source, url in sources.items():
+                if url:
+                    check_source_url(url, source)
+        except ValueError as refusal:
+            raise CommandError(str(refusal)) from None
+        # One transaction for the club and its rulebook: a page that cannot
+        # be fetched leaves the database empty, ready for another try.
+        try:
+            with transaction.atomic():
+                season = Demo(workday(timezone.now())).build()
+                for source, url in sources.items():
+                    if url:
+                        add_source(season=season, source=source, url=url)
+        except (OSError, NoPassage) as failure:
+            raise CommandError(f"Source illisible : {failure}") from None
         self.stdout.write(
             f"Club de démonstration créé. Mot de passe de tous les comptes : "
             f"{PASSWORD}\nAdministrateur : {ADMIN} · mentor : {MENTOR} · élèves : "
@@ -109,7 +133,7 @@ class Demo:
             if (self.first + timedelta(days=n)).weekday() in SLOTS
         ]
 
-    def build(self) -> None:
+    def build(self) -> Season:
         start_year = self.today.year if self.today.month >= 9 else self.today.year - 1
         season = Season.objects.create(start_year=start_year, game_name="BioBuzz")
         for weekday, (start, end) in SLOTS.items():
@@ -121,7 +145,14 @@ class Demo:
                 valid_from=self.first,
             )
         self.mentor = self.person(MENTOR, 0, club_role=User.ClubRole.MENTOR)
-        self.person(ADMIN, 1, club_role=User.ClubRole.MENTOR, is_club_admin=True)
+        self.person(
+            ADMIN,
+            1,
+            club_role=User.ClubRole.MENTOR,
+            is_club_admin=True,
+            is_staff=True,
+            is_superuser=True,
+        )
         number = 2
         for rank, (team_number, name, students) in enumerate(TEAMS):
             team = Team.objects.create(number=team_number, name=name)
@@ -132,6 +163,7 @@ class Demo:
                 number += 1
                 Membership.objects.create(user=members[-1], team_season=team_season)
             self.season_of(team_season, members, rank)
+        return season
 
     def person(self, name: str, number: int, **extra: Any) -> User:
         slug = fold_title(name)
