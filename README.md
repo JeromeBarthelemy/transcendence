@@ -380,7 +380,9 @@ Every demo account signs in with its display name and the password
 
 Fieldbot needs the season's rulebook. Give the manual's and the Q&A board's
 pages on FIRST's own site, and the demo ingests both into its season, as the
-sources screen would — on the production stack:
+sources screen would. This call replaces the plain `seed_demo` above, on the
+same empty database; it is not a second step after it. On the production
+stack:
 
 ```sh
 docker compose -f compose.prod.yml exec backend python manage.py seed_demo \
