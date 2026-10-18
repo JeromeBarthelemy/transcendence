@@ -60,9 +60,9 @@ function Progress({ entry }: { entry: SummaryEntry }) {
       {attachments && <p className="mt-2 text-sm text-muted">{attachments}</p>}
       {entry.handover && (
         <Notice tone="warning" callout className="mt-3">
-          <p className="text-xs font-bold tracking-[0.12em] uppercase">
+          <Eyebrow tracking="tight" tone="inherit">
             {t("teamHome.handover")}
-          </p>
+          </Eyebrow>
           <p className="mt-1 text-sm">{entry.handover}</p>
         </Notice>
       )}

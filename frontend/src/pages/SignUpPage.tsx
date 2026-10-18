@@ -15,6 +15,8 @@ import {
   RequestError,
 } from "../components/ApiErrors";
 import { AuthPageFrame } from "../components/AuthPageFrame";
+import { Button, ButtonLink } from "../components/Button";
+import { FieldHint, Label, TextInput } from "../components/Field";
 
 export function SignUpPage() {
   const { t } = useTranslation();
@@ -128,13 +130,14 @@ export function SignUpPage() {
             {t("signup.emailLoginHelp", { email: signup.data.email })}
           </p>
         )}
-        <Link
+        <ButtonLink
           to="/login"
           state={{ username: signup.data.display_name }}
-          className="form-submit mt-7 inline-flex justify-center text-center"
+          variant="auth"
+          className="mt-7"
         >
           {t("auth.login")}
-        </Link>
+        </ButtonLink>
       </AuthPageFrame>
     );
   }
@@ -166,15 +169,15 @@ export function SignUpPage() {
       >
         <div className="grid gap-5 sm:grid-cols-2">
           <div>
-            <label htmlFor="signup-first-name" className="form-label">
+            <Label htmlFor="signup-first-name" variant="auth">
               {t("signup.firstName")}
-            </label>
-            <input
+            </Label>
+            <TextInput
               id="signup-first-name"
               type="text"
               autoComplete="given-name"
               maxLength={80}
-              className="form-input"
+              variant="auth"
               aria-invalid={Boolean(
                 errors.first_name || firstNameIssues.length,
               )}
@@ -188,15 +191,15 @@ export function SignUpPage() {
             />
           </div>
           <div>
-            <label htmlFor="signup-last-name" className="form-label">
+            <Label htmlFor="signup-last-name" variant="auth">
               {t("signup.lastName")}
-            </label>
-            <input
+            </Label>
+            <TextInput
               id="signup-last-name"
               type="text"
               autoComplete="family-name"
               maxLength={80}
-              className="form-input"
+              variant="auth"
               aria-invalid={Boolean(errors.last_name || lastNameIssues.length)}
               aria-describedby="signup-last-name-error"
               {...register("last_name")}
@@ -210,14 +213,14 @@ export function SignUpPage() {
         </div>
 
         <div>
-          <label htmlFor="signup-birth-date" className="form-label">
+          <Label htmlFor="signup-birth-date" variant="auth">
             {t("signup.birthDate")}
-          </label>
-          <input
+          </Label>
+          <TextInput
             id="signup-birth-date"
             type="date"
             autoComplete="bday"
-            className="form-input"
+            variant="auth"
             aria-invalid={Boolean(errors.birth_date || birthDateIssues.length)}
             aria-describedby="signup-birth-date-error"
             {...register("birth_date")}
@@ -230,24 +233,24 @@ export function SignUpPage() {
         </div>
 
         <div>
-          <label htmlFor="signup-display-name" className="form-label">
+          <Label htmlFor="signup-display-name" variant="auth">
             {t("signup.displayName")}
-          </label>
-          <input
+          </Label>
+          <TextInput
             id="signup-display-name"
             type="text"
             autoComplete="nickname"
             maxLength={80}
-            className="form-input"
+            variant="auth"
             aria-invalid={Boolean(
               errors.display_name || displayNameIssues.length,
             )}
             aria-describedby="signup-display-name-hint signup-display-name-error"
             {...register("display_name")}
           />
-          <p id="signup-display-name-hint" className="form-hint">
+          <FieldHint variant="auth" id="signup-display-name-hint">
             {t("signup.displayNameHint")}
-          </p>
+          </FieldHint>
           <FieldErrors
             id="signup-display-name-error"
             message={errors.display_name?.message}
@@ -256,22 +259,22 @@ export function SignUpPage() {
         </div>
 
         <div>
-          <label htmlFor="signup-email" className="form-label">
+          <Label htmlFor="signup-email" variant="auth">
             {t("signup.email")}
-          </label>
-          <input
+          </Label>
+          <TextInput
             id="signup-email"
             type="email"
             autoComplete="email"
             maxLength={254}
-            className="form-input"
+            variant="auth"
             aria-invalid={Boolean(errors.email || emailIssues.length)}
             aria-describedby="signup-email-hint signup-email-error"
             {...register("email")}
           />
-          <p id="signup-email-hint" className="form-hint">
+          <FieldHint variant="auth" id="signup-email-hint">
             {t("signup.emailHint")}
-          </p>
+          </FieldHint>
           <FieldErrors
             id="signup-email-error"
             message={errors.email?.message}
@@ -281,21 +284,21 @@ export function SignUpPage() {
 
         <div className="grid gap-5 sm:grid-cols-2">
           <div>
-            <label htmlFor="signup-password" className="form-label">
+            <Label htmlFor="signup-password" variant="auth">
               {t("signup.password")}
-            </label>
-            <input
+            </Label>
+            <TextInput
               id="signup-password"
               type="password"
               autoComplete="new-password"
-              className="form-input"
+              variant="auth"
               aria-invalid={Boolean(errors.password || passwordIssues.length)}
               aria-describedby="signup-password-hint signup-password-error"
               {...register("password")}
             />
-            <p id="signup-password-hint" className="form-hint">
+            <FieldHint variant="auth" id="signup-password-hint">
               {t("signup.passwordHint")}
-            </p>
+            </FieldHint>
             <FieldErrors
               id="signup-password-error"
               message={errors.password?.message}
@@ -303,17 +306,14 @@ export function SignUpPage() {
             />
           </div>
           <div>
-            <label
-              htmlFor="signup-password-confirmation"
-              className="form-label"
-            >
+            <Label htmlFor="signup-password-confirmation" variant="auth">
               {t("signup.passwordConfirmation")}
-            </label>
-            <input
+            </Label>
+            <TextInput
               id="signup-password-confirmation"
               type="password"
               autoComplete="new-password"
-              className="form-input"
+              variant="auth"
               aria-invalid={Boolean(errors.password_confirmation)}
               aria-describedby="signup-password-confirmation-error"
               {...register("password_confirmation")}
@@ -336,13 +336,9 @@ export function SignUpPage() {
             "password",
           ]}
         />
-        <button
-          type="submit"
-          className="form-submit"
-          disabled={signup.isPending}
-        >
+        <Button type="submit" variant="auth" disabled={signup.isPending}>
           {signup.isPending ? t("signup.submitting") : t("signup.submit")}
-        </button>
+        </Button>
       </form>
 
       <p className="mt-6 text-sm leading-6 text-muted">

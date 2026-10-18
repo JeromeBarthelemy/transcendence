@@ -1159,7 +1159,7 @@ SIL Open Font License, and only the faces the screens draw: Inter for text
 (400, 400 italic, 600, 700), Poppins for headings and titles (400, 600, 700).
 
 `components/Typography.tsx` holds the scale. `Heading` takes a `size` —
-`display` (a chantier's name), `page` (a screen's title), `large`, `section`,
+`display` (a chantier's name), `auth` (an account form's title), `page` (a screen's title), `large`, `section`,
 `card`, `small` — each with its default level, `h1` to `h3`, and `as` when
 the outline needs another. `Eyebrow` is the short line in capitals above a
 title or naming a block ("Aujourd'hui", "Administration du club"), accent
@@ -1190,10 +1190,10 @@ All in `components/`, each with a comment saying when to use it.
 | --- | --- |
 | `Page` | a screen's main column: `width` (`2xl` to `6xl`), `message` for a screen that only says one thing |
 | `Heading`, `Eyebrow` | titles and the line above them (above) |
-| `Panel` | a white card or section: `padding` `sm` to `xl`, `none` for a list whose rows draw their own, `danger` for an irreversible action's section |
-| `Button`, `ButtonLink`, `buttonClass` | an action, or a link that looks like one: `primary` (the screen's main action), `secondary` (the rest, every "Annuler"), `dark` (starting work), `danger` (opens a removal), `danger-solid` (the removal itself), `success` (closing a work item as done); `sm`/`md`; `pill` |
+| `Panel` | a white card or section: `padding` `sm` to `xl`, `none` for a list whose rows draw their own, `danger` for an irreversible action's section; `variant="auth"` keeps the larger translucent account-form frame |
+| `Button`, `ButtonLink`, `buttonClass` | an action, or a link that looks like one: `primary` (the screen's main action), `secondary` (the rest, every "Annuler"), `dark` (starting work), `danger` (opens a removal), `danger-solid` (the removal itself), `success` (closing a work item as done); `sm`/`md`/`lg`; `pill`. `variant="auth"` retains the full-width account action, its large padding, primary blue, pill shape and pending state |
 | `TextButton` | an action that reads as a word: correcting or removing one entry among many |
-| `TextInput`, `TextArea`, `Select`, `Label` | the working screens' fields; `tone` `warning` for the handover, `danger` for a password before a deletion. The account forms keep their larger `form-input` from `styles.css` |
+| `TextInput`, `TextArea`, `Select`, `Label`, `FieldHint` | shared fields and their labels/hints; `tone` `warning` for the handover, `danger` for a password before a deletion. `TextInput`, `Label` and `FieldHint` use `variant="auth"` for the larger account fields; no parallel `form-input` CSS |
 | `Chip`, `StatusChip` | a short label on a colored ground: a role, a step, a source; `StatusChip` for a work item's status |
 | `Notice`, `SuccessMessage` | something the screen tells: `info`, `neutral`, `success`, `warning`, `danger`; `callout` for the handover's left rule; `textSize="inherit"` for a message read in full |
 | `ConfirmPanel` | the step before any removal: what will go, "Annuler", then the removal. An `alertdialog` named by its question; the focus moves to "Annuler" as it opens, so a screen reader announces it and a second Enter removes nothing |
@@ -1208,6 +1208,9 @@ All in `components/`, each with a comment saying when to use it.
 
 Biome knows the fields and `Label` (`biome.json`, `noLabelWithoutControl`), so
 its accessibility check reads them like native fields and labels.
+
+For the styling conventions, a usage example and the audit of intentionally
+specialized controls, see [Frontend UI conventions](docs/frontend-ui.md).
 
 ## Browser support
 

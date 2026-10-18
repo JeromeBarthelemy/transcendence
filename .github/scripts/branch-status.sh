@@ -23,7 +23,7 @@ MOVE_FROM="${MOVE_FROM:-Todo}"
 
 issue="${BRANCH%%-*}"
 if [[ ! "$issue" =~ ^[0-9]+$ ]]; then
-  echo "La branche « $BRANCH » ne commence pas par un numéro d'issue : rien à faire."
+  echo "Branch \"$BRANCH\" does not start with an issue number: nothing to do."
   exit 0
 fi
 
@@ -45,7 +45,7 @@ option_id=$(jq -r --arg name "$STATUS" \
   '.data.user.projectV2.field.options[] | select(.name == $name) | .id' <<<"$project")
 
 if [[ -z "$option_id" || "$option_id" == "null" ]]; then
-  echo "Le champ Status n'a pas d'option « $STATUS »." >&2
+  echo "The Status field has no \"$STATUS\" option." >&2
   exit 1
 fi
 
@@ -73,7 +73,7 @@ card=$(gh api graphql --paginate -f query='
   | "\(.content.number)|\(.id)|\(.status.name // "")"' | grep "^${issue}|" || true)
 
 if [[ -z "$card" ]]; then
-  echo "L'issue #$issue n'a pas de carte dans le projet : rien à faire."
+  echo "Issue #$issue has no card in the project: nothing to do."
   exit 0
 fi
 
@@ -82,7 +82,7 @@ IFS='|' read -r _ item_id current <<<"$card"
 if [[ "$current" != "$MOVE_FROM" ]]; then
   # Not a failure: reopening a branch on finished work is ordinary, and
   # silently rewinding its card would be the bug.
-  echo "#$issue est en « ${current:-sans statut} », pas « $MOVE_FROM » : laissée telle quelle."
+  echo "#$issue is in \"${current:-no status}\", not \"$MOVE_FROM\": left as is."
   exit 0
 fi
 
@@ -95,4 +95,4 @@ gh api graphql -f query='
   }' -f project="$project_id" -f item="$item_id" -f field="$field_id" \
      -f option="$option_id" >/dev/null
 
-echo "#$issue : « $MOVE_FROM » → « $STATUS » (branche $BRANCH)."
+echo "#$issue: \"$MOVE_FROM\" → \"$STATUS\" (branch $BRANCH)."
