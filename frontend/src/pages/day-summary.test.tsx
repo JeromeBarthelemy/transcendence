@@ -116,7 +116,8 @@ function renderSummary(
       /^\/api\/team-seasons\/7\/days\/(\d{4}-\d{2}-\d{2})\/$/,
     )?.[1];
     if (selectedDay && options.days?.[selectedDay]) {
-      return json(options.days[selectedDay]);
+      const response = options.days[selectedDay];
+      return response instanceof Promise ? response : json(response);
     }
     throw new Error(`Unexpected request: ${path}`);
   });
@@ -450,6 +451,86 @@ it("opens an empty date from the calendar and closes the picker", async () => {
       ([path]) => path === "/api/team-seasons/7/days/2026-09-28/",
     ),
   ).toBe(true);
+});
+
+it("restores calendar trigger focus after loading a selected session and returning to a cached day", async () => {
+  const user = userEvent.setup();
+  let resolveSummary!: (response: Response) => void;
+  const pendingSummary = new Promise<Response>((resolve) => {
+    resolveSummary = resolve;
+  });
+  const { fetchMock } = renderSummary(day(), undefined, {
+    days: { "2026-09-28": pendingSummary },
+  });
+  const firstButton = await screen.findByRole("button", {
+    name: "Ouvrir le calendrier",
+  });
+  const calendar = await openCalendar(user);
+  const selectedDay = await within(calendar).findByRole("link", {
+    name: /lundi 28 septembre, Sans activité/,
+  });
+  selectedDay.focus();
+  await user.keyboard("{Enter}");
+
+  await screen.findByText("Chargement de la journée…");
+  expect(document.contains(firstButton)).toBe(false);
+  await act(async () => {
+    resolveSummary(json(day({ day: "2026-09-28" })));
+  });
+  await screen.findByRole("heading", { name: "Lundi 28 septembre" });
+  await waitFor(() => {
+    expect(document.activeElement).toBe(
+      screen.getByRole("button", { name: "Ouvrir le calendrier" }),
+    );
+  });
+
+  await user.keyboard("{Enter}");
+  const reopened = await screen.findByRole("region", {
+    name: "Calendrier des séances",
+  });
+  within(reopened)
+    .getByRole("link", { name: /mercredi 30 septembre, Sans activité/ })
+    .focus();
+  await user.keyboard("{Enter}");
+
+  await screen.findByRole("heading", { name: "Mercredi 30 septembre" });
+  await waitFor(() => {
+    expect(document.activeElement).toBe(
+      screen.getByRole("button", { name: "Ouvrir le calendrier" }),
+    );
+  });
+  expect(
+    fetchMock.mock.calls.filter(([path]) => path.includes("/days/")),
+  ).toHaveLength(2);
+});
+
+it("restores trigger focus when selecting the displayed date from the today URL", async () => {
+  const user = userEvent.setup();
+  let resolveSummary!: (response: Response) => void;
+  const pendingSummary = new Promise<Response>((resolve) => {
+    resolveSummary = resolve;
+  });
+  renderSummary(day({ day: "2026-10-08" }), undefined, {
+    initialDay: "today",
+    days: { "2026-10-08": pendingSummary },
+  });
+  const calendar = await openCalendar(user);
+  const selectedDay = await within(calendar).findByRole("link", {
+    name: /jeudi 8 octobre, Aujourd'hui, Jour affiché/,
+  });
+  selectedDay.focus();
+  await user.keyboard("{Enter}");
+
+  await screen.findByText("Chargement de la journée…");
+  await act(async () => {
+    resolveSummary(json(day({ day: "2026-10-08" })));
+  });
+  await screen.findByRole("heading", { name: "Jeudi 8 octobre" });
+  await waitFor(() => {
+    expect(document.activeElement).toBe(
+      screen.getByRole("button", { name: "Ouvrir le calendrier" }),
+    );
+  });
 });
 
 it("opens with the keyboard and restores trigger focus on Escape without navigating", async () => {

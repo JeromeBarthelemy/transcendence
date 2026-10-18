@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import type { TFunction } from "i18next";
+import { useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, Navigate, useParams } from "react-router-dom";
 
@@ -100,6 +101,11 @@ export function DaySummaryPage() {
   const params = useParams();
   const teamSeasonId = Number(params.teamSeasonId);
   const day = params.day ?? "";
+  const calendarButtonRef = useRef<HTMLButtonElement>(null);
+  const pendingCalendarFocus = useRef<{
+    teamSeasonId: number;
+    day: string;
+  } | null>(null);
   const currentUser = useCurrentUser();
   const summary = useQuery({
     queryKey: ["team-seasons", teamSeasonId, "days", day, "summary"],
@@ -116,6 +122,21 @@ export function DaySummaryPage() {
   const teamSeason = currentUser.data?.team_seasons.find(
     (item) => item.id === teamSeasonId,
   );
+
+  // Loading a selected session unmounts its picker. Restore focus only once
+  // the requested day's replacement button exists, including cached sessions.
+  useEffect(() => {
+    const target = pendingCalendarFocus.current;
+    if (
+      target?.teamSeasonId === teamSeasonId &&
+      target.day === day &&
+      target.day === summary.data?.day &&
+      calendarButtonRef.current
+    ) {
+      calendarButtonRef.current.focus();
+      pendingCalendarFocus.current = null;
+    }
+  }, [day, teamSeasonId, summary.data?.day]);
 
   if (currentUser.isPending) {
     return (
@@ -192,6 +213,13 @@ export function DaySummaryPage() {
               key={`${teamSeasonId}:${summary.data.day}`}
               teamSeasonId={teamSeasonId}
               day={summary.data.day}
+              buttonRef={calendarButtonRef}
+              onSelect={(selectedDay) => {
+                pendingCalendarFocus.current =
+                  selectedDay === day
+                    ? null
+                    : { teamSeasonId, day: selectedDay };
+              }}
             />
           </div>
           <nav

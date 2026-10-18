@@ -21,13 +21,13 @@ function adjacentMonth(month: string, offset: number) {
 export function ActivityCalendar({
   teamSeasonId,
   day,
-  className = "mt-6 max-w-lg",
+  className = "",
   onSelect,
 }: {
   teamSeasonId: number;
   day: string;
   className?: string;
-  onSelect?: () => void;
+  onSelect?: (day: string) => void;
 }) {
   const { t } = useTranslation();
   const { monthFormatter, formatWorkdayDate, formatNumber } = useFormatters();
@@ -145,7 +145,7 @@ export function ActivityCalendar({
                 <li key={date}>
                   <Link
                     to={`/team-seasons/${teamSeasonId}/days/${date}`}
-                    onClick={onSelect}
+                    onClick={() => onSelect?.(date)}
                     aria-current={isToday ? "date" : undefined}
                     aria-label={label}
                     title={label}

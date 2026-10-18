@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from "react";
+import { type RefObject, useEffect, useId, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { ActivityCalendar } from "./ActivityCalendar";
@@ -9,14 +9,17 @@ import { Button } from "./Button";
 export function SessionCalendarPicker({
   teamSeasonId,
   day,
+  buttonRef,
+  onSelect,
 }: {
   teamSeasonId: number;
   day: string;
+  buttonRef: RefObject<HTMLButtonElement | null>;
+  onSelect: (day: string) => void;
 }) {
   const { t } = useTranslation();
   const panelId = useId();
   const rootRef = useRef<HTMLDivElement>(null);
-  const buttonRef = useRef<HTMLButtonElement>(null);
   const [isOpen, setIsOpen] = useState(false);
 
   useEffect(() => {
@@ -40,7 +43,7 @@ export function SessionCalendarPicker({
       document.removeEventListener("focusin", dismissOutside);
       document.removeEventListener("keydown", onKeyDown);
     };
-  }, [isOpen]);
+  }, [isOpen, buttonRef]);
 
   return (
     <div ref={rootRef} className="sm:relative">
@@ -50,7 +53,7 @@ export function SessionCalendarPicker({
         aria-controls={panelId}
         onClick={() => setIsOpen((open) => !open)}
       >
-        {t(isOpen ? "daySummary.closeCalendar" : "daySummary.chooseDate")}
+        {t(isOpen ? "daySummary.closeCalendar" : "daySummary.openCalendar")}
       </Button>
       {isOpen && (
         <div
@@ -61,9 +64,10 @@ export function SessionCalendarPicker({
             teamSeasonId={teamSeasonId}
             day={day}
             className="max-h-[min(36rem,70dvh)] overflow-y-auto shadow-panel"
-            onSelect={() => {
+            onSelect={(selectedDay) => {
+              onSelect(selectedDay);
               setIsOpen(false);
-              buttonRef.current?.focus();
+              if (selectedDay === day) buttonRef.current?.focus();
             }}
           />
         </div>

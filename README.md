@@ -678,7 +678,8 @@ The day-summary screen keeps the previous/next recorded-session links and
 adds a permanent Today action and an "Ouvrir le calendrier" button. The button
 opens the existing activity calendar in a popover; no calendar occupies the
 summary until requested. Selecting a day opens its URL, including empty days,
-and closes the popover. Escape returns focus to the button; clicking outside,
+and closes the popover. Once the selected summary loads, focus returns to the
+calendar button. Escape also returns focus to the button; clicking outside,
 tabbing out, or clicking "Fermer le calendrier" also closes it.
 Today opens `/days/today` and
 is marked beside the heading; an explicit date matching today is marked too. The
