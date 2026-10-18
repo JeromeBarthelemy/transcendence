@@ -95,9 +95,9 @@ function WorkItemCard({
 
         {item.handover && (
           <Notice tone="warning" callout className="mt-3">
-            <p className="text-xs font-bold tracking-[0.12em] uppercase">
+            <Eyebrow tracking="tight" tone="inherit">
               {t("teamHome.handover")}
-            </p>
+            </Eyebrow>
             <p className="mt-2 text-sm leading-6">{item.handover.body}</p>
             <p className="mt-2 text-xs text-warning-muted">
               {t("teamHome.handoverMeta", {

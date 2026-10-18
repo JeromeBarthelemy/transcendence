@@ -1,4 +1,4 @@
-# Sujet 42 — matériel pédagogique, jamais versionné
+# 42 subject — course material, never committed
 transcendence.pdf
 transcendence.md
 
@@ -9,7 +9,7 @@ __pycache__/
 .mypy_cache/
 .ruff_cache/
 
-# Django — secrets, base locale, fichiers déposés, statiques collectés
+# Django — secrets, local database, uploaded files, collected static files
 backend/.env
 backend/db.sqlite3
 backend/db.sqlite3-*

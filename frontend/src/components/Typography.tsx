@@ -8,6 +8,8 @@ type HeadingElement = "h1" | "h2" | "h3" | "p" | "span";
 const HEADING_SIZES = {
   /** A chantier's own name, the largest thing on its screen. */
   display: "text-4xl tracking-[-0.04em] sm:text-5xl",
+  /** Authentication's original display scale, with its tighter leading. */
+  auth: "text-4xl leading-tight tracking-[-0.045em] sm:text-5xl",
   /** A screen's title. */
   page: "text-3xl tracking-[-0.035em] sm:text-4xl",
   /** A screen's main part, under its eyebrow. */
@@ -23,6 +25,7 @@ export type HeadingSize = keyof typeof HEADING_SIZES;
 
 const DEFAULT_ELEMENT: Record<HeadingSize, HeadingElement> = {
   display: "h1",
+  auth: "h1",
   page: "h1",
   large: "h2",
   section: "h2",
@@ -61,12 +64,20 @@ const EYEBROW_TONES = {
   inherit: "",
 };
 
+const EYEBROW_TRACKING = {
+  tight: "tracking-[0.12em]",
+  normal: "tracking-[0.14em]",
+  wide: "tracking-[0.16em]",
+  wider: "tracking-[0.18em]",
+};
+
 /** The short line in capitals above a title, or naming a block on its own:
  * "Aujourd'hui", "Administration du club". */
 export function Eyebrow({
   as: Element = "p",
   size = "xs",
   tone = "accent",
+  tracking = "normal",
   className = "",
   children,
   ...props
@@ -74,12 +85,13 @@ export function Eyebrow({
   as?: "p" | "h2" | "h3" | "span";
   size?: "xs" | "sm";
   tone?: keyof typeof EYEBROW_TONES;
+  tracking?: keyof typeof EYEBROW_TRACKING;
   className?: string;
   children: ReactNode;
 } & HTMLAttributes<HTMLElement>) {
   return (
     <Element
-      className={`font-bold tracking-[0.14em] uppercase ${
+      className={`font-bold ${EYEBROW_TRACKING[tracking]} uppercase ${
         size === "sm" ? "text-sm" : "text-xs"
       } ${EYEBROW_TONES[tone]} ${className}`}
       {...props}
