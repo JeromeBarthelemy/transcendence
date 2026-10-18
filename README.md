@@ -12,7 +12,86 @@ is French: model, field and function names, comments and docstrings are
 English. Django keeps French labels for its own administration interface;
 user-facing application text belongs to the frontend translation catalogue.
 
+## Team and roles
+
+Four people, each identified by a GitHub account that doesn't resemble their
+usual nickname — recorded here once, so that a commit is never attributed to
+the wrong person.
+
+| Role | GitHub account |
+|---|---|
+| Product Owner | [`JeromeBarthelemy`](https://github.com/JeromeBarthelemy) |
+| Project Manager / Scrum Master | [`quentinbourinet-max`](https://github.com/quentinbourinet-max) |
+| Technical Lead / Architect | [`Nitwee`](https://github.com/Nitwee) |
+| Developer | [`Enelsep`](https://github.com/Enelsep) |
+
+- **Product Owner** — wrote the concept note (`docs/fieldnotes.html`), froze
+  the vocabulary (`docs/lexique.md`), and decides which of the subject's
+  modules the club claims (`docs/modules.md`).
+- **Project Manager / Scrum Master** — runs the GitHub Projects board,
+  triages and assigns issues, reviews and merges pull requests, resolves
+  conflicts against `main`, and assembled this README (#6).
+- **Technical Lead / Architect** — reviews pull requests for correctness and
+  architectural fit; see [Individual contributions](#individual-contributions)
+  for which ones.
+- **Developer** — builds features inside that architecture; see
+  [Features per contributor](#features-per-contributor).
+
+## Project management
+
+Work is tracked as GitHub issues, one per unit of work, each scoped to a
+milestone — the milestone *is* the subject's module (`01 · Front and back
+frameworks`, `08 · Rulebook RAG`, …); `00 · Mandatory requirements` and
+`00 · Tooling` hold what isn't shaped like a module. [`docs/modules.md`](docs/modules.md)
+records which modules are actually claimed and how each will be demonstrated
+— a defence rehearsal, not a specification: closing an issue decides what is
+*built*; this README decides what is *said to have been* built. See
+[Modules and points](#modules-and-points).
+
+A [GitHub Projects](https://docs.github.com/en/issues/planning-and-tracking-with-projects)
+board carries every issue through three states — Todo, In Progress, Done —
+with a Start/End date per card for a roadmap view. GitHub's built-in project
+automation does not fire for a project owned by a personal account, and
+branch creation moves no card by itself, so two workflows fill the gap:
+
+- [`branch-status.yml`](.github/workflows/branch-status.yml) moves a card
+  from Todo to In Progress the moment its branch is opened. The branch name
+  (`<issue>-<topic>`, see [Contributing](#contributing)) names the issue, so
+  this is automatic rather than a step anyone has to remember.
+- [`roadmap-dates.yml`](.github/workflows/roadmap-dates.yml) runs whenever an
+  issue closes or reopens, and once a day besides, keeping each card's Start
+  (when it entered In Progress) and End (when it closed) dates correct even
+  for a card moved by hand.
+
+Day to day, work follows [Contributing](#contributing): one issue, one
+branch, one pull request with a prefixed title and `Closes #<issue>` in its
+description, reviewed and approved by another team member, merged with
+*Squash and merge* — so `main`'s history is one commit per closed issue, and
+[Individual contributions](#individual-contributions) can be read straight
+off `git log`. `make check` (`ruff`, `mypy`, a pending-migrations check,
+`tsc`, Biome) and `make test` (`pytest`, Vitest) run on every pull request in
+CI ([`check.yml`](.github/workflows/check.yml)); a separate cross-browser
+Playwright suite ([`e2e.yml`](.github/workflows/e2e.yml), module 18) runs the
+same way. A pull request that doesn't pass isn't merged.
+
 ## Technical stack
+
+### Backend framework decision
+
+The backend framework is **Django**, with **Django REST Framework** for the
+JSON API and **Django Channels** for real time.
+
+The subject defines a framework as providing "a structured architecture and
+conventions", "built-in features for common tasks (routing, state
+management, etc.)" and "a complete ecosystem". Django satisfies all three
+without argument — URLconf and middleware for routing, the ORM and
+migrations for state, authentication, the admin site and `manage.py` for the
+rest — which is also why the alternative considered early on, a backend in
+**Go** behind a bare router (`chi`, `gorilla/mux`), was dropped: a router
+alone does not clear that same bar, and arguing it into one would have cost
+more than Django's ecosystem is worth arguing against. That closed the
+question once, rather than reopening it here — see `docs/modules.md`,
+module 1, where the decision is recorded in full.
 
 ### Frontend framework decision
 
@@ -146,6 +225,120 @@ in English and Spanish, and retain a usable server explanation in French.
 
 Django remains responsible for validation, permissions, HTTP status codes and
 preventing invalid operations. React is responsible for presenting API errors.
+
+## Database schema
+
+Documented as three area diagrams plus a shared legend (the subject requires
+the schema documented), referenced from [Documentation](#documentation) and
+laid out here in full.
+
+![Club and accounts](docs/schema/club-and-accounts.svg)
+![Notebook and notifications](docs/schema/notebook-and-notifications.svg)
+![Rulebook](docs/schema/rulebook.svg)
+![Legend](docs/schema/legend.svg)
+
+### Club and accounts
+
+`User` *is* club membership — there is no separate `Club` model, because one
+deployment serves one club: "the organisation the subject asks us to create,
+edit and delete is the team" (`backend/club/models.py`). `Team` is a FIRST
+team across seasons; `TeamSeason` is that team *within* one season, and
+everything that changes year to year — roster, work items, the notebook's
+traces — hangs off `TeamSeason`, not off `Team`. `Membership` links a `User`
+to a `TeamSeason` and carries no role by design: being on a team is not a
+permission, so this season's captain is not a different kind of row than any
+other member. It is an explicit model rather than a bare `ManyToManyField`
+precisely so a role column could be added later without converting a join
+table. `WorkshopSlot` and `Consent` complete the area: the club's recurring
+workshop times, and each member's dated, never-edited image-rights decision
+(only the latest one is in force).
+
+### Notebook and notifications
+
+`WorkItem` (*chantier*) is the thread a team reopens over a season, around
+one robot subsystem or one off-robot subject; its title doubles as the
+subsystem list, so nothing else has to maintain one. `Entry` (*trace*) is
+the single table every kind of notebook content lands in — a progress, a
+note or a decision — so a citation always points at one kind of thing;
+`EntryParticipant` records who moved a work item forward on a given day,
+each signed up by themselves. `Attachment` keeps a file with an entry.
+`Notification` tells one member of one change on their team's board, or of
+what an administrator did to their own account.
+
+### Rulebook
+
+`Document` is one ingested source (the game manual or the official Q&A),
+split into `Chunk`s short enough to embed and to cite; `GlossaryTerm` holds
+the manual's own glossary separately, since a term is picked by name rather
+than scored against a question. `RuleQuery` is one question asked and what
+came back; `QueryCitation` ranks the chunks an answer rests on, in the order
+it trusted them. `SourceUpdate` holds a re-fetched source page waiting for
+an administrator to accept it, so nothing the system cites is ever replaced
+silently.
+
+### `PROTECT` on both sides
+
+Two unrelated reasons both resolve to `on_delete=models.PROTECT`, and the
+subject expects both argued, not just the value named:
+
+- **Organisational integrity.** `TeamSeason.team`, `TeamSeason.season`,
+  `WorkItem.team_season` and `Entry.team_season` are `PROTECT`: deleting a
+  team or a season must never cascade through a season's worth of recorded
+  work. A team or season with no history behind it can still be deleted; one
+  that has any cannot, by construction rather than by a check someone has to
+  remember to run first.
+- **A member who leaves is anonymized, never deleted** (`backend/club/gdpr.py`,
+  `anonymize`): the account's identifying fields are overwritten and it is
+  deactivated, but the row survives, so everything it is attributed to keeps
+  its author. `Entry.author`, `EntryParticipant.user`, `Attachment.uploaded_by`,
+  `RuleQuery.asker` and `Notification.actor` are therefore `PROTECT` too — not
+  because deleting a *season's* history is forbidden (that is the first
+  reason), but because deleting the *row that represents a person* must
+  never silently erase what they wrote.
+
+The two reasons land on the same `on_delete` value for two different foreign
+keys of the very same model — `Entry.team_season` for the first reason,
+`Entry.author` for the second — which is the "both sides" the GDPR module
+(#10) and the notebook itself both lean on.
+
+## Modules and points
+
+17 declared modules, 24 points, against a subject minimum of 14. One further
+major module (a custom notebook-export format) is built but held in
+reserve, undeclared, as the swap-in if a declared module falls through —
+`docs/modules.md`, "En réserve". Numbers are the subject's own module
+numbers via this repository's milestones, so 5 and 12 are absent on purpose:
+tracked as milestones, never claimed.
+
+Status is read off each milestone's closed/open issue count on the day this
+was written, not asserted from memory — the same bet
+[Project management](#project-management) describes.
+
+| # | Module | Type | Pts | What's built | Issues |
+|---|---|---|---:|---|---:|
+| 01 | Front and back frameworks | Major | 2 | React + TypeScript (Vite) against Django + DRF | 2/2 |
+| 02 | ORM | Minor | 1 | Django's ORM over SQLite; no raw SQL | 2/2 |
+| 03 | Organisations | Major | 2 | Create, rename, delete a team; add and remove its members | 18/19 |
+| 04 | Advanced permissions | Major | 2 | Two roles (student, mentor) plus an admin flag; three distinct views | 6/6 |
+| 06 | Real time | Major | 2 | The work-item board, live, over Django Channels | 11/11 |
+| 07 | Analytics | Major | 2 | Interactive charts, CSV export, custom date ranges and filters | 13/13 |
+| 08 | Rulebook RAG | Major | 2 | Brute-force embedding search over the game manual and Q&A, local LLM | 22/24 |
+| 09 | File upload | Minor | 1 | Attachments with progress, preview, client *and* server validation | 13/13 |
+| 10 | GDPR | Minor | 1 | Data export and deletion, both with a confirmation e-mail | 16/16 |
+| 11 | PWA | Minor | 1 | Installable, offline-capable (service worker and an IndexedDB save queue) | 8/8 |
+| 13 | Notifications | Minor | 1 | A full notification system for board changes and admin actions | 10/10 |
+| 14 | Advanced search | Minor | 1 | Filtered, sorted, paginated notebook search | 3/3 |
+| 15 | In-house design system | Minor | 1 | Ten-plus reusable components, documented in a gallery | 7/7 |
+| 16 | Standard user management | Major | 2 | Profile editing, avatar, teammates' online status | 9/9 |
+| 17 | Health check and backups | Minor | 1 | The health endpoint only; backups and the status page are not started | 0/1 |
+| 18 | Additional browsers | Minor | 1 | Firefox and WebKit via Playwright, differences documented | 6/6 |
+| 19 | Multiple languages | Minor | 1 | French, English, Spanish, via react-i18next | 6/8 |
+
+152 of 158 issues closed across these 17 modules as of this README. Module
+17 has not been started; modules 03, 08 and 19 each have open issues left.
+`docs/modules.md` carries the full requirement-by-requirement breakdown (in
+French, on purpose — see [Documentation](#documentation)) and how each
+module will be demonstrated.
 
 ## Getting started
 
@@ -1295,7 +1488,12 @@ Runs both suites, backend then frontend.
 
 Runs the suite with pytest and pytest-django — not `manage.py test`. Tests
 live next to the code, under `backend/<app>/tests/`. Every test has database
-access without `@pytest.mark.django_db` (see `backend/conftest.py`).
+access without `@pytest.mark.django_db` (see `backend/conftest.py`) — an
+`autouse` fixture, so the classic trap with this plugin (a test that touches
+the database and fails until someone remembers the marker) cannot happen
+here. Chosen over `manage.py test` from the very first issue (#1), because
+the team works test-first: `pytest.ini`'s `--reuse-db` keeps that loop fast
+by skipping the schema rebuild between runs.
 
 ### Frontend
 
@@ -1331,6 +1529,348 @@ cd frontend
 npx playwright install chromium firefox webkit
 sudo npx playwright install-deps chromium firefox webkit
 ```
+
+## Features per contributor
+
+Read off closed issues and the pull requests that closed them — 132 closed
+issues in total, 115 directly assigned, 11 more attributable to whoever
+authored the pull request that closed them; the remaining 6 were closed
+without shipping anything (two withdrawn as out of scope, #123 and #124; two
+`not planned`, #10 and #34; two folded into a duplicate already credited
+below, #138 into #116 and #209 into #193) and are not listed as a feature of
+anyone's.
+
+### JeromeBarthelemy — Product Owner
+
+- **Foundation and mandatory requirements** — account sign-up and its race
+  conditions (#9, #17, #59, #76); the work item, entry and notebook data
+  model, including writing a decision and reopening a dropped work item
+  (#32, #33, #38, #66, #95, #98, #116, #120, #132, #137, #139, #194); the
+  API surface for sign-up, log-in, work items, the day and a member's own
+  team seasons (#37, #39, #65, #84); the French 404 page and tab icon
+  (#87); the privacy policy and terms of service, kept current as features
+  changed (#79, #275); a design note moved into the repository the team
+  actually reads (#48), and `docs/modules.md` kept honest (#206); and a
+  stream of hardening fixes found along the way (#46, #196, #229, #231,
+  #265, #282, #284).
+- **Tooling** — pytest-django and the first test (#1); `make check` and CI
+  for both stacks (#12, #19, #47, #72); the roadmap board automation (#21,
+  #23, #41); stating the club app's own types and reasoning (#28); a
+  demo-data seed (#82); and CI speed and reliability fixes (#205, #236,
+  #259).
+- **02 · ORM** — test coverage for the club foundation (#2).
+- **03 · Organisations** — the season model (#5), AssoConnect account
+  verification (#16), and fixes to what deleting a team with history does
+  (#119) and how large AssoConnect exports are read (#181, #183, #273).
+- **06 · Real time** — broadcasting work-item changes to the board (#122),
+  one socket per person live on every screen (#226), telling the live feed
+  a work item was deleted (#244), and keeping the socket alive across a
+  phone's app switches (#289).
+- **08 · Rulebook RAG** — tuning answer quality against the local model's
+  CPU budget (#215).
+- **09 · File upload** — avatars (#68), entry attachments carried into the
+  export (#70), HEIC photos (#91), and stripping location metadata from
+  uploaded video (#197).
+- **10 · GDPR** — the image-rights consent log (#4), deriving minority from
+  a verified birth date (#15), reserving "Ancien membre" names so
+  anonymization never collides (#100), and saying which address an export
+  or deletion confirmation went to (#179).
+- **13 · Notifications** — notifying followers of a work item (#150), the
+  header's unread badge (#151), pruning old read notifications (#208),
+  re-reading the bell on reconnect (#224), and notifying a member of what
+  an administrator changed about their own account (#242).
+- **18 · Additional browsers** — the cross-browser Playwright suite (#202)
+  and a Firefox-specific HTTP/3 freeze (#287).
+
+### quentinbourinet-max — Project Manager / Scrum Master
+
+- **Mandatory requirements** — a French message on every database
+  constraint (#3), HTTPS from Docker in one command (#11), a login rate
+  limit (#60, #203), and work-item closing rules (#111).
+- **03 · Organisations** — team CRUD over the API (#50).
+- **04 · Advanced permissions** — user CRUD and the current account's
+  role/scope over the API (#52).
+- **08 · Rulebook RAG** — ingesting the manual and Q&A with authority ranks
+  (#54), admin-triggered source refresh (#102) and its screen (#103),
+  citations linked to the manual in English (#134), French answer
+  generation (#135), the manual's own glossary on the rulebook screen
+  (#136), indexing the Q&A by its own questions (#163), and a
+  malformed-source-URL fix (#238).
+- **10 · GDPR** — exposing export, deletion and confirmation e-mails over
+  the API (#56), and sending the deletion confirmation without holding the
+  database write lock (#199).
+- **11 · PWA** — a client-generated id so a replayed offline save stores
+  once (#154), installability (#155), an offline-available shell (#156),
+  and the offline save queue itself (#157).
+- **16 · Standard user management** — showing a member's team and opening
+  other members' profiles (#176), letting members change their own display
+  name and login address (#178), and a teammate's online status (#267).
+
+### Nitwee — Technical Lead / Architect
+
+- **Mandatory requirements** — the team home, chantier, and
+  landing/sign-up/log-in screens (#35, #36, #40), the CSRF-trusted-origin
+  fix shared with the Product Owner (#46), Today/date navigation on the day
+  summary (#117), and the activity calendar (#118).
+- **Tooling** — removing the frontend's duplicated helpers and dead code
+  (#204).
+- **01 · Front and back frameworks** — settling the frontend framework
+  decision (#8).
+- **06 · Real time** — following today's step live without undoing a
+  teammate's choice (#195).
+- **07 · Analytics** — the analytics dashboard: the season curve, trial
+  comparison, step breakdown and CSV export (#125), exposing and showing
+  team activity analytics (#129, #130), live CSV export (#161), and
+  filtering it all consistently (#200).
+- **09 · File upload** — showing the server's own message when a refusal's
+  code has no translation (#192).
+- **15 · In-house design system** — unifying shared UI components and
+  Tailwind conventions across the frontend (#248).
+- **19 · Multiple languages** — the language switcher (#245), the English
+  and Spanish catalogues (#246), and localizing dates and numbers with full
+  three-language verification (#247).
+
+### Enelsep — Developer
+
+- **Mandatory requirements** — clearing the whole query cache on login and
+  logout, not only the identity (#193).
+- **03 · Organisations** — the team management screen (#51) and
+  accent-insensitive member search (#198).
+- **04 · Advanced permissions** — the three role-conditioned views (#53).
+- **08 · Rulebook RAG** — the rulebook Q&A screen (#55).
+- **09 · File upload** — the profile screen: set, replace and remove an
+  avatar (#78).
+- **10 · GDPR** — the data export/deletion request screen (#57).
+- **14 · Advanced search** — searching a team's traces by text, work item,
+  subsystem, step, participant, period and type (#152, #153).
+- **15 · In-house design system** — naming the colour palette once in the
+  Tailwind theme (#113) and gathering the design system into a documented
+  component gallery (#189).
+- **16 · Standard user management** — fixing duplicated profile rows on the
+  home page (#276).
+
+## Individual contributions
+
+Every merged pull request authored by each account, oldest first — the
+evidence trail [Project management](#project-management) says should be
+readable straight off `git log main`, reproduced here so the two never have
+to agree by hand. Collapsed by default; a pull request's number, author and
+merge date are permanent and public, so `gh pr list --state merged --author
+<login>` reproduces every row against the live repository.
+
+<details>
+<summary><strong>JeromeBarthelemy</strong> — 94 merged pull requests, 72 closed issues credited</summary>
+
+| PR | Merged | Title |
+|---:|---|---|
+| #13 | 2026-09-14 | chore: run make check on every pull request |
+| #14 | 2026-09-15 | chore: set up pytest-django and make test |
+| #18 | 2026-09-15 | fix: treat emails differing only by case as the same account |
+| #20 | 2026-09-15 | chore: run the test suite in CI |
+| #22 | 2026-09-15 | chore: fill the roadmap dates from the issue lifecycle |
+| #24 | 2026-09-15 | chore: start the roadmap bar when a card enters In Progress |
+| #25 | 2026-09-15 | feat: store a season as its start year and its game name |
+| #26 | 2026-09-15 | feat: record image-rights decisions as a dated log |
+| #27 | 2026-09-15 | feat: derive minority from a verified birth date |
+| #29 | 2026-09-16 | feat: verify accounts against the AssoConnect season export |
+| #30 | 2026-09-16 | refactor: make the club app state its types and its whys |
+| #31 | 2026-09-16 | test: cover the club foundation |
+| #42 | 2026-09-17 | chore: move a card to In Progress when its branch is opened |
+| #44 | 2026-09-17 | feat: settle the rules an account signs up under |
+| #49 | 2026-09-18 | docs: bring the design note where a pull request can contradict it |
+| #58 | 2026-09-18 | feat: expose sign-up and log-in over the API |
+| #61 | 2026-09-21 | chore: check the frontend in make check and in CI |
+| #73 | 2026-09-22 | chore: lint, format and test the frontend in make check and CI |
+| #74 | 2026-09-22 | chore: make format applies the formatting that make check reports |
+| #63 | 2026-09-22 | feat: model the work item, the entry and who signs up to it |
+| #64 | 2026-09-22 | feat: read a team's workday off its entries, against workshop slots |
+| #67 | 2026-09-22 | feat: expose work items, progress and the workday over the API |
+| #80 | 2026-09-22 | docs: draft the privacy policy and terms of service |
+| #69 | 2026-09-22 | feat: export the notebook as sourced material for the portfolio, by category |
+| #75 | 2026-09-23 | fix: two simultaneous sign-ups on one identifier refuse the second instead of failing |
+| #77 | 2026-09-23 | feat: let each member upload their own avatar |
+| #81 | 2026-09-23 | fix: a team, a membership or a work item created twice at once refuses the second |
+| #83 | 2026-09-23 | feat: seed an empty database with a demo club |
+| #85 | 2026-09-23 | feat: /me/ lists the team seasons the member can open |
+| #90 | 2026-09-25 | feat: attach files to an entry |
+| #96 | 2026-09-26 | chore: keep every text file in LF line endings |
+| #92 | 2026-09-28 | feat: carry attached files in the notebook export |
+| #93 | 2026-09-28 | feat: accept iPhone photos in HEIC |
+| #94 | 2026-09-28 | feat: tell the screens an entry's work item and a day's neighbours |
+| #101 | 2026-09-28 | fix: reserve the "Ancien membre" names so an anonymization never collides |
+| #99 | 2026-09-28 | feat: offer the notebook export from the team home |
+| #108 | 2026-09-29 | docs: leave forums out of the rulebook RAG, and say how Team Updates and the Q&A reach the manual |
+| #115 | 2026-09-29 | docs: let a mentor reach every team, not only the ones they are assigned to |
+| #114 | 2026-09-29 | feat: build the day summary screen |
+| #107 | 2026-10-01 | feat: write a decision, with who was at the meeting |
+| #141 | 2026-10-02 | docs: say how to reach the development stack from a phone on the club's Wi-Fi |
+| #131 | 2026-10-02 | feat: open a work item from the team home |
+| #140 | 2026-10-02 | feat: suggest the usual work items, and drop the suggested status |
+| #146 | 2026-10-02 | fix: answer "who is signed in?" with null for a visitor, not a 403 |
+| #147 | 2026-10-02 | refactor: drop the stale 403 allowance when reading the CSRF cookie |
+| #144 | 2026-10-05 | fix: say a team holds work items or traces when that is what blocks its deletion |
+| #145 | 2026-10-05 | feat: show a French "page not found" inside the layout, and a tab icon |
+| #142 | 2026-10-05 | feat: show the privacy policy and terms of service, linked from every page |
+| #148 | 2026-10-05 | fix: keep the header within a phone's width |
+| #149 | 2026-10-05 | fix: let the backend stop on SIGTERM instead of being killed |
+| #162 | 2026-10-05 | docs: take scouting and trial measurements out of the defense scope |
+| #160 | 2026-10-05 | feat: let a progress only be added to, and refuse a stale handover |
+| #169 | 2026-10-05 | fix: refuse a data export or deletion the mail cannot confirm, rather than a 500 |
+| #172 | 2026-10-06 | feat: let a member leave today's progress they ticked by mistake |
+| #171 | 2026-10-06 | feat: keep the work-item board live across open screens |
+| #174 | 2026-10-06 | docs: say the leave relies on SQLite's write lock, not on the delete itself |
+| #173 | 2026-10-06 | feat: let an author or a mentor remove a trace, and a mentor correct one |
+| #175 | 2026-10-06 | fix: keep the activity charts' screen-reader tables within a phone's width |
+| #177 | 2026-10-06 | fix: let a dev origin's address open the live socket, so a phone stays live |
+| #182 | 2026-10-06 | fix: read every member of an AssoConnect export, whatever size the file declares |
+| #186 | 2026-10-06 | chore: keep the README's backups out of git, since they hold members' data |
+| #180 | 2026-10-06 | feat: say which address a data export or a deletion confirmation was sent to |
+| #184 | 2026-10-06 | feat: list the accounts an AssoConnect import could not tie to any member |
+| #191 | 2026-10-06 | fix: let the deletion test's fake server see a deletion that now answers 200 |
+| #187 | 2026-10-07 | feat: notify the members a change on the board concerns |
+| #188 | 2026-10-08 | feat: show a bell with the unread count and the latest notifications in the header |
+| #216 | 2026-10-08 | fix: count only active students in a team's roster, with one rule for the day and the analytics |
+| #217 | 2026-10-08 | fix: sort live.tsx's imports, broken by merging #188 and #211 |
+| #213 | 2026-10-08 | feat: strip the location and other metadata from uploaded videos |
+| #214 | 2026-10-08 | fix: show a taken title when the work item was picked from the suggestions |
+| #225 | 2026-10-09 | fix: read the bell again when the live board connects |
+| #190 | 2026-10-09 | feat: reopen a work item on purpose, keep it read-only meanwhile, and say why it was dropped |
+| #235 | 2026-10-10 | fix: renumber 0029_chunk_anchor after 0029_notification_reopened |
+| #237 | 2026-10-10 | test: answer the login test's identity refetch with the signed-in member |
+| #230 | 2026-10-11 | fix: return to the work item's team, not the first one, when leaving it |
+| #234 | 2026-10-11 | fix: open a mentor's own team first, not the lowest-numbered one |
+| #241 | 2026-10-12 | feat: one socket per person, live on every screen |
+| #258 | 2026-10-13 | docs: bring modules.md back in line with the modules actually claimed |
+| #260 | 2026-10-13 | chore: hash passwords fast in tests, and time out a hung CI job |
+| #251 | 2026-10-13 | feat: say that a work item was deleted, so no screen reads it again |
+| #255 | 2026-10-13 | refactor: read a work item's latest progress in one place |
+| #256 | 2026-10-13 | feat: delete read notifications once they fall out of the latest shown |
+| #266 | 2026-10-13 | docs: draw the database schema in English, one diagram per area |
+| #269 | 2026-10-15 | feat: tell a member what an administrator did to them |
+| #274 | 2026-10-15 | fix: show a taken display name as a form error in the admin (#273) |
+| #280 | 2026-10-15 | fix: stop listing the removed account lockout in the privacy policy (#275) |
+| #283 | 2026-10-15 | fix: keep the service worker's refusal out of Chrome's console (#282) |
+| #285 | 2026-10-15 | fix: stop asking for a removed photo, which logged a 404 (#284) |
+| #288 | 2026-10-15 | fix: serve HTTP/1.1 and HTTP/2 only, so Firefox can't stall on HTTP/3 (#287) |
+| #290 | 2026-10-15 | fix: reopen the live socket whenever the page comes back (#289) |
+| #281 | 2026-10-15 | test: cover every screen end to end in Chromium, Firefox and WebKit (#202) |
+| #291 | 2026-10-15 | fix: keep the e2e workflow's mail in the console (#202) |
+| #292 | 2026-10-16 | docs: record the manual Safari pass on a Mac, not an iPhone (#202) |
+| #299 | 2026-10-17 | docs: translate the remaining French comments and script messages into English |
+
+</details>
+
+<details>
+<summary><strong>quentinbourinet-max</strong> — 27 merged pull requests, 24 closed issues credited</summary>
+
+| PR | Merged | Title |
+|---:|---|---|
+| #62 | 2026-09-21 | feat: expose team CRUD over the API |
+| #89 | 2026-09-28 | feat: expose data export, deletion and confirmation e-mails |
+| #88 | 2026-09-28 | feat: expose user CRUD and the current account's role/scope |
+| #104 | 2026-09-30 | feat: answer rulebook questions with cited, authority-ranked passages |
+| #126 | 2026-10-01 | feat: refuse done on a robot work item; only dropping closes one for good |
+| #127 | 2026-10-01 | feat: slow repeated login attempts on the same identifier |
+| #121 | 2026-10-02 | feat: serve the project over HTTPS from Docker with a single command |
+| #143 | 2026-10-02 | fix: give the remaining database constraints a French message |
+| #158 | 2026-10-05 | feat: check the game manual daily and propose its changes for acceptance |
+| #164 | 2026-10-06 | feat: add the game manual from its FIRST URL, with the checks following it |
+| #165 | 2026-10-08 | feat: store a note replayed with the same client id once |
+| #207 | 2026-10-08 | feat: generate a French answer from the cited rulebook passages |
+| #228 | 2026-10-09 | feat: drop heading-only citations and link each one to the manual (#134) |
+| #233 | 2026-10-10 | feat: read the manual's glossary into terms, shown on the rulebook screen |
+| #240 | 2026-10-12 | fix: report a malformed source URL by name instead of crashing |
+| #239 | 2026-10-12 | feat: build the rulebook sources admin screen |
+| #252 | 2026-10-12 | feat: index the official Q&A by its answered questions (#163) |
+| #257 | 2026-10-13 | feat: integrate the measured answer chain: English throughout, uncited answers kept when relevant (#215) |
+| #263 | 2026-10-13 | feat: send the deletion confirmation after the transaction commits |
+| #262 | 2026-10-14 | feat: replace the account lockout with a login rate limit |
+| #270 | 2026-10-15 | feat: open another member's profile, with their current-season team (#176) |
+| #271 | 2026-10-15 | feat: let members change their display name and login address (#178) |
+| #272 | 2026-10-15 | feat: show a teammate's online status (#267) |
+| #277 | 2026-10-15 | feat: make the app installable from the browser (#155) |
+| #278 | 2026-10-15 | feat: keep the application shell available offline (#156) |
+| #268 | 2026-10-15 | docs: declare the standard user management module (16, 2 pts) |
+| #286 | 2026-10-18 | feat: queue progress and note saves offline and replay them on reconnection (#157) |
+
+</details>
+
+<details>
+<summary><strong>Nitwee</strong> — 15 merged pull requests, 19 closed issues credited</summary>
+
+| PR | Merged | Title |
+|---:|---|---|
+| #45 | 2026-09-18 | feat: settle the front-end framework (#8) |
+| #86 | 2026-09-25 | feat: build the landing page, sign-up and log-in |
+| #97 | 2026-09-28 | feat: build the team home screen |
+| #109 | 2026-09-30 | feat: build the chantier screen |
+| #166 | 2026-10-05 | feat: expose team activity analytics from existing work data (#129) |
+| #170 | 2026-10-06 | feat: show team activity analytics on the team home screen (#130) |
+| #219 | 2026-10-09 | feat: filter the team activity analytics, the charts and the export alike |
+| #220 | 2026-10-09 | fix: follow today's step live without overwriting manual choices |
+| #221 | 2026-10-09 | fix: show server refusal messages and check error-code coverage |
+| #223 | 2026-10-09 | feat: add an activity calendar for team sessions (#118) |
+| #243 | 2026-10-12 | refactor: share frontend helpers and remove dead code |
+| #249 | 2026-10-13 | feat: add persistent French, English and Spanish language selection |
+| #250 | 2026-10-13 | feat: provide complete English and Spanish translations for the application (#246) |
+| #253 | 2026-10-13 | feat: localize dates and numbers and verify every screen in all three languages (#247) |
+| #300 | 2026-10-17 | refactor: unify frontend UI components and styling conventions (#248) |
+
+</details>
+
+<details>
+<summary><strong>Enelsep</strong> — 14 merged pull requests, 12 closed issues credited</summary>
+
+| PR | Merged | Title |
+|---:|---|---|
+| #71 | 2026-09-22 | feat: add design elements |
+| #105 | 2026-09-28 | feat: add team management screen |
+| #128 | 2026-10-01 | feat: build the profile page: set, replace and remove one's avatar |
+| #110 | 2026-10-02 | feat: build the members screen |
+| #133 | 2026-10-02 | feat: build the q/a rulebook screen |
+| #159 | 2026-10-05 | feat: name the color palette once in the Tailwind theme |
+| #167 | 2026-10-05 | fix: some UI enhancements |
+| #168 | 2026-10-05 | feat: build the data export/deletion request screen |
+| #210 | 2026-10-07 | feat: add icon set |
+| #212 | 2026-10-08 | fix: fix the cache identity bug (#193) |
+| #211 | 2026-10-08 | feat: in-house design system |
+| #227 | 2026-10-09 | fix: fix accent bug in search (#198) |
+| #261 | 2026-10-14 | feat: add notebook advanced search (#153) |
+| #279 | 2026-10-15 | fix: small UI fixes |
+
+</details>
+
+## AI usage
+
+Claude Code (Anthropic's agentic CLI) is available to the whole team; how
+much of a person's own work goes through it is their own choice, and it
+shows in `main`'s history — every merged commit from this project carries a
+`Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>` trailer when it
+does, which is this project's chosen way of disclosing it: auditable in the
+one place contributions are already tracked, rather than a separate claim in
+this file that could drift from what actually happened.
+
+| Account | Commits on `main` | Co-authored with Claude |
+|---|---:|---:|
+| `JeromeBarthelemy` | 105 | 3 |
+| `quentinbourinet-max` | 27 | 27 |
+| `Nitwee` | 15 | 2 |
+| `Enelsep` | 14 | 1 |
+
+The Project Manager/Scrum Master's merged work is produced with Claude Code
+throughout: implementing issues end to end, resolving merge conflicts
+against `main`, responding to review feedback — including a bug a reviewer
+found that the first fix missed, addressed in a second round on the same
+pull request (#286) — reviewing teammates' own pull requests (#281, #300),
+and assembling this README. The other three use it occasionally, alongside
+work done directly; none of their modules are themselves an AI feature — the
+one place this project *uses* an LLM as a product feature is module 8
+(Rulebook RAG), where a local model (not Claude) generates the grounded
+answer, entirely separate from how the team builds the application.
+
+Every AI-assisted change still goes through the same pull request, review
+and CI gate as any other — [Project management](#project-management) makes
+no exception for how a change was produced, only for what it changes.
 
 ## Contributing
 
