@@ -25,7 +25,7 @@ MAILS = [
         (
             f"Bonjour,\n\nLe compte « {NAME} » a été supprimé à sa demande : "
             "son identité a été effacée. Ce qu'il a écrit reste dans le "
-            "classeur de l'équipe.\n"
+            "cahier de l'équipe.\n"
         ),
     ),
     (
