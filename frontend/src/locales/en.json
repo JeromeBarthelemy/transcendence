@@ -65,6 +65,21 @@
       "decision": "a decision"
     }
   },
+  "offlineQueue": {
+    "label_one": "{{count, number}} save waiting for a connection",
+    "label_other": "{{count, number}} saves waiting for a connection",
+    "title": "Waiting for a connection",
+    "hint": "Saved offline, sent automatically once you're back online.",
+    "waiting": "Waiting to send…",
+    "discard": "Discard",
+    "kinds": {
+      "tick": "Progress ticked — {{title}}",
+      "leave": "Left progress — {{title}}",
+      "progress": "Progress written — {{title}}",
+      "workItemNote": "Note — {{title}}",
+      "teamNote": "Team note"
+    }
+  },
   "home": {
     "eyebrow": "The club's memory",
     "title": "Every step forward deserves a record.",
@@ -107,6 +122,7 @@
     "saveNote": "Save",
     "savingNote": "Saving…",
     "noteSaved": "Note saved.",
+    "noteQueued": "Offline: the note will be sent once you're back online.",
     "dayNotes": "Today's notes",
     "noteMeta": "{{author}} · {{time}}",
     "robot": "Robot",
@@ -272,6 +288,7 @@
     "leaveDeletes": "You are the last participant: the progress entry and its text will be deleted.",
     "confirmLeave": "Leave and delete the progress entry",
     "joinToWrite": "Join this progress entry to contribute to it.",
+    "tickQueued": "Offline: saved, and sent once you're back online.",
     "sharedHint": "One shared progress text for all participants: your additions are appended.",
     "doneToday": "Done today",
     "nothingYet": "Nothing written yet.",
@@ -282,6 +299,7 @@
     "save": "Save progress",
     "saving": "Saving…",
     "progressSaved": "Progress saved.",
+    "progressQueued": "Offline: the progress will be sent once you're back online.",
     "changedMeanwhile": "“To do next time” changed while you were writing:",
     "mergeThenSave": "Include what you need to keep in your text, then save again.",
     "addAttachment": "Photo, measurement or file",
@@ -299,6 +317,7 @@
     "saveNote": "Save note",
     "noteSaving": "Saving…",
     "noteSaved": "Note saved.",
+    "noteQueued": "Offline: the note will be sent once you're back online.",
     "fromStart": "From the first trial to today",
     "history": "History",
     "emptyHistory": "No progress has been recorded yet.",

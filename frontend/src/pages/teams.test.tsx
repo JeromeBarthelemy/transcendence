@@ -27,6 +27,7 @@ function setDocumentCookie(value: string) {
 
 function identity(isClubAdmin: boolean) {
   return {
+    id: 1,
     display_name: "Paul",
     club_role: "mentor",
     is_club_admin: isClubAdmin,

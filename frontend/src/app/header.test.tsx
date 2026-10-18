@@ -44,6 +44,7 @@ function renderAs(identity: object | null, path = "/privacy") {
 }
 
 const paul = {
+  id: 1,
   display_name: "Paul",
   club_role: "mentor",
   is_club_admin: true,

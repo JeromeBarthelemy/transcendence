@@ -74,6 +74,7 @@ function cached(queryClient: QueryClient) {
 }
 
 const marieIdentity = {
+  id: 1,
   display_name: "Marie",
   club_role: "student",
   is_club_admin: false,
@@ -424,6 +425,7 @@ it("clears a stale session when logout says it is already gone", async () => {
     if (path === "/api/auth/me/") {
       return json(
         {
+          id: 1,
           display_name: "Marie",
           club_role: "student",
           is_club_admin: false,
@@ -461,6 +463,7 @@ it("keeps a logout permission refusal visible", async () => {
     if (path === "/api/auth/me/") {
       return json(
         {
+          id: 1,
           display_name: "Marie",
           club_role: "student",
           is_club_admin: false,

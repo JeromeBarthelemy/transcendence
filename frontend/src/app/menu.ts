@@ -3,7 +3,13 @@ import { useEffect, useRef } from "react";
 export const focusRing =
   "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lagoon";
 
-export type OpenMenu = "account" | "admin" | "nav" | "notifications" | null;
+export type OpenMenu =
+  | "account"
+  | "admin"
+  | "nav"
+  | "notifications"
+  | "offline"
+  | null;
 
 /** A button that shows a panel, and every way to put it away again: Escape
  * (focus back on the button), a click anywhere else, or a new page. */

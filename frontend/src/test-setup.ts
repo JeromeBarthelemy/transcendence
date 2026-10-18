@@ -1,3 +1,6 @@
+// jsdom has no IndexedDB of its own (offlineQueue.ts, #157).
+import "fake-indexeddb/auto";
+
 // The layout opens a WebSocket to hear about others' changes; jsdom would
 // try a real connection. Tests that care about it install their own.
 class SilentWebSocket {

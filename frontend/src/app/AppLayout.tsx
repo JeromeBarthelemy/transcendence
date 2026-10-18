@@ -15,6 +15,8 @@ import { useInstallPrompt } from "./installPrompt";
 import { LiveStatus } from "./live";
 import { focusRing, type OpenMenu, useMenu } from "./menu";
 import { NotificationsMenu } from "./NotificationsMenu";
+import { OfflineQueueMenu } from "./OfflineQueueMenu";
+import { setCurrentMember } from "./offlineQueue";
 import { resetSession, useCurrentUser } from "./useCurrentUser";
 
 const navLinkClass = `rounded-full px-3 py-2 text-sm font-semibold whitespace-nowrap text-ink transition hover:bg-tint ${focusRing}`;
@@ -347,6 +349,13 @@ export function AppLayout() {
 
   const identity = currentUser.data ?? null;
 
+  // Told here, and only here: AppLayout is the one place a signed-in
+  // member's own id is already tracked (#157's offline queue stamps a
+  // save with it, and never replays one queued under somebody else).
+  useEffect(() => {
+    setCurrentMember(identity?.id ?? null);
+  }, [identity?.id]);
+
   return (
     // A page that scrolls inside itself (Fieldbot's conversation) gets a
     // layout exactly the window's height, footer included; every other page
@@ -395,6 +404,13 @@ export function AppLayout() {
               </span>
             ) : (
               <>
+                {identity && (
+                  <OfflineQueueMenu
+                    memberId={identity.id}
+                    open={open}
+                    setOpen={setOpen}
+                  />
+                )}
                 {identity && (
                   <NotificationsMenu open={open} setOpen={setOpen} />
                 )}

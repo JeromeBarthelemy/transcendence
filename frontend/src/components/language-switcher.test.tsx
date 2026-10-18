@@ -123,6 +123,7 @@ it.each([
 it("keeps the selected language after signing out", async () => {
   const user = userEvent.setup();
   const router = renderAt("/privacy", {
+    id: 1,
     display_name: "Paul",
     club_role: "mentor",
     is_club_admin: false,

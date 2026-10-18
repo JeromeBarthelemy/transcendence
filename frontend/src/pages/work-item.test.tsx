@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { createMemoryRouter, RouterProvider } from "react-router-dom";
 import { afterEach, expect, it, vi } from "vitest";
 
+import { replay } from "../app/offlineQueue";
 import { routes } from "../app/router";
 import "../i18n";
 
@@ -21,6 +22,7 @@ function setDocumentCookie(value: string) {
 
 function identity() {
   return {
+    id: 1,
     display_name: "Marie",
     club_role: "student",
     is_club_admin: false,
@@ -745,6 +747,73 @@ it("adds to what was done and saves the changed handoff", async () => {
   });
 });
 
+it("queues a progress save offline (#157), shows it pending, and sends it once back online", async () => {
+  setDocumentCookie("csrftoken=test; path=/");
+  let online = false;
+  const server = { progress: progress() };
+  const fetchMock = vi.fn(
+    async (path: string, options?: RequestInit): Promise<Response> => {
+      if (path === "/api/auth/me/") {
+        return json(identity());
+      }
+      if (path === "/api/work-items/10/" && !options?.method) {
+        return json(
+          workItem({
+            current_progress: server.progress,
+            thread: [server.progress],
+          }),
+        );
+      }
+      if (path === "/api/entries/31/" && options?.method === "PATCH") {
+        if (!online) {
+          throw new TypeError("Failed to fetch");
+        }
+        const input = JSON.parse(String(options.body));
+        server.progress = {
+          ...server.progress,
+          body: `${server.progress.body}\n\n${input.addition}`,
+          handover: input.handover ?? server.progress.handover,
+        };
+        return json(server.progress);
+      }
+      throw new Error(`Unexpected request: ${path}`);
+    },
+  );
+  vi.stubGlobal("fetch", fetchMock);
+  renderWorkItem();
+
+  await userEvent.type(
+    await screen.findByLabelText("Votre ajout"),
+    "Courroie alignée.",
+  );
+  await userEvent.click(
+    screen.getByRole("button", { name: "Enregistrer l'avancée" }),
+  );
+
+  expect(
+    await screen.findByText(
+      "Hors ligne : l'avancée sera envoyée au retour de la connexion.",
+    ),
+  ).toBeTruthy();
+  expect(
+    await screen.findByRole("button", {
+      name: /1 enregistrement en attente de connexion/,
+    }),
+  ).toBeTruthy();
+
+  online = true;
+  // offlineQueue.ts also replays on its own (module load, the "online"
+  // event): a call here may race one already in flight and do nothing, so
+  // retrying is what actually waits for one of them to land, not a fixed
+  // delay guessing which.
+  await waitFor(async () => {
+    await act(() => replay());
+    expect(
+      screen.queryByRole("button", { name: /en attente de connexion/ }),
+    ).toBeNull();
+  });
+});
+
 it("shows what was done as text no participant can erase", async () => {
   progressServer(() => json({}));
   renderWorkItem();
@@ -960,6 +1029,8 @@ it("adds a note to the work item and refreshes its history", async () => {
   expect(JSON.parse(String(noteRequest?.[1]?.body))).toEqual({
     body: "Le câble du capteur frotte contre le guide.",
     work_item: 10,
+    // A fresh client id (#154/#157): lets a replayed offline save land once.
+    client_id: expect.anything(),
   });
 });
 

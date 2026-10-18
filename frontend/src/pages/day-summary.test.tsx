@@ -23,6 +23,7 @@ function json(body: unknown, status = 200): Response {
 }
 
 const identity = {
+  id: 1,
   display_name: "Marie",
   club_role: "student",
   is_club_admin: false,
