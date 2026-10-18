@@ -38,8 +38,6 @@ demo:
 		--manual-url "$(MANUAL_URL)" --qa-url "$(QA_URL)"
 
 # Only the database and the uploads: the models and the certificate stay, so
-# the next `make up` downloads nothing. Volumes are named after the project,
-# which follows the clone's folder name.
+# the next `make up` downloads nothing.
 reset: down
-	project=$$($(COMPOSE) config | sed -n 's/^name: //p'); \
-		docker volume rm -f $${project}_sqlite_data $${project}_media_files
+	docker volume rm -f transcendence_sqlite_data transcendence_media_files
