@@ -600,7 +600,8 @@
   "daySummary": {
     "loading": "Cargando el día…",
     "today": "Hoy",
-    "chooseDate": "Elegir una fecha",
+    "openCalendar": "Abrir el calendario",
+    "closeCalendar": "Cerrar el calendario",
     "recordedSessions": "Sesiones anteriores y siguientes",
     "previousSession": "Sesión anterior: {{date}}",
     "nextSession": "Sesión siguiente: {{date}}",

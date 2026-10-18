@@ -592,7 +592,8 @@
   "daySummary": {
     "loading": "Loading day…",
     "today": "Today",
-    "chooseDate": "Choose a date",
+    "openCalendar": "Open the calendar",
+    "closeCalendar": "Close the calendar",
     "recordedSessions": "Previous and next sessions",
     "previousSession": "Previous session: {{date}}",
     "nextSession": "Next session: {{date}}",

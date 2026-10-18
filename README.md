@@ -703,15 +703,20 @@ are never required. The member table keeps the API's neutral order and wording:
 it describes days, traces and distinct work items, without scores or rankings.
 
 The day-summary screen keeps the previous/next recorded-session links and
-adds a permanent Today action and a native date picker. A valid, changed date
-opens its URL on Enter or when the field loses focus, including empty days.
-Typing intermediate values does not navigate. Today opens `/days/today` and
+adds a permanent Today action and an "Ouvrir le calendrier" button. The button
+opens the existing activity calendar in a popover; no calendar occupies the
+summary until requested. Selecting a day opens its URL, including empty days,
+and closes the popover. Once the selected summary loads, focus returns to the
+calendar button. Escape also returns focus to the button; clicking outside,
+tabbing out, or clicking "Fermer le calendrier" also closes it.
+Today opens `/days/today` and
 is marked beside the heading; an explicit date matching today is marked too. The
 calendar's `today` field resolves the club's 4 a.m. workday rather than the
 browser's clock or time zone, without fetching a separate today summary.
-The monthly activity calendar sits alongside this navigation. Its month
+The monthly activity calendar opens from this navigation. Its month
 arrows browse without changing the displayed summary; selecting any day,
-including an empty one, opens its summary and updates the date picker.
+including an empty one, opens its summary. Reopening the calendar starts on
+the displayed session's month.
 Monday-first cells mark today, the selected date and days with recorded
 activity separately. Counts are available in each link's accessible label
 and tooltip; an active day can hold progress, a note or a decision, not just
