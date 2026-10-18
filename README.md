@@ -225,8 +225,11 @@ HTTPS stack below serves phones too.
 cp backend/.env.example backend/.env
 # Fill in DJANGO_SECRET_KEY, set DJANGO_DEBUG=false, and read FIELDNOTES_HOST
 # below if the club needs this from a phone, not just the machine itself.
-docker compose -f compose.prod.yml up --build
+make up
 ```
+
+`make up` runs `docker compose -f compose.prod.yml up --build -d`; `make down`
+stops the stack.
 
 Open <https://localhost/>. The browser warns once per device — the
 certificate is a static, self-signed one `cert-init` generates the first time
@@ -245,7 +248,7 @@ names, and the Caddyfile's `default_sni` hands it out even to a browser that
 sends none, which is what every browser does for a bare IP (RFC 6066
 excludes IP literals from the SNI extension). Changing the address after the
 first run requires removing the `tls_certs` volume
-(`docker volume rm transcendence_tls_certs`) so a new certificate gets
+(`docker volume rm fieldnotes_tls_certs`) so a new certificate gets
 generated for the new one — `cert-init` runs from the backend's own image,
 already local by then, so this needs no connection even if the room has
 none, which is exactly when the club is most likely to be setting this for
@@ -382,7 +385,7 @@ Fieldbot needs the season's rulebook. Give the manual's and the Q&A board's
 pages on FIRST's own site, and the demo ingests both into its season, as the
 sources screen would. This call replaces the plain `seed_demo` above, on the
 same empty database; it is not a second step after it. On the production
-stack:
+stack, `make demo` runs it with this season's two pages (see the `Makefile`):
 
 ```sh
 docker compose -f compose.prod.yml exec backend python manage.py seed_demo \
@@ -395,7 +398,9 @@ written. A page that cannot be fetched leaves the database empty, so the
 command can simply be run again. The command refuses a database that already holds
 accounts, teams or seasons: it never overwrites anything, and it is never
 meant for the club's own instance. To start over, delete
-`backend/db.sqlite3` and migrate again.
+`backend/db.sqlite3` and migrate again; on the production stack, `make reset`
+removes the database and media volumes, keeping the downloaded models and the
+certificate, and `make up` then `make demo` fill it again.
 
 ## Accounts and sessions
 

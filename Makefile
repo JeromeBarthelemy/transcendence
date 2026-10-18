@@ -1,4 +1,8 @@
-.PHONY: check check-error-codes e2e format test
+.PHONY: check check-error-codes demo down e2e format reset test up
+
+COMPOSE = docker compose -f compose.prod.yml
+MANUAL_URL = https://ftc-resources.firstinspires.org/ftc/game/cm-html/BIOBUZZ%20Competition%20Manual%20-%20TU05.htm
+QA_URL = https://game-qa.firstinspires.org/boards/2027/FTC/QA
 
 check: check-error-codes
 	ruff check backend
@@ -22,3 +26,18 @@ test:
 # Not part of `test`: it builds and starts a whole production stack.
 e2e:
 	scripts/e2e.sh
+
+up:
+	$(COMPOSE) up --build -d
+
+down:
+	$(COMPOSE) down
+
+demo:
+	$(COMPOSE) exec backend python manage.py seed_demo \
+		--manual-url "$(MANUAL_URL)" --qa-url "$(QA_URL)"
+
+# Only the database and the uploads: the models and the certificate stay, so
+# the next `make up` downloads nothing.
+reset: down
+	docker volume rm -f fieldnotes_sqlite_data fieldnotes_media_files
