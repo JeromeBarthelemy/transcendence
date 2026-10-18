@@ -17,6 +17,7 @@ from django.core.mail import EmailMessage
 from django.db import transaction
 
 from .api.permissions import not_the_last_admin
+from .data_emails import DEFAULT_DATA_EMAIL_LANGUAGE, data_email_copy
 from .models import (
     ANONYMIZED_NAME,
     Consent,
@@ -120,13 +121,14 @@ def _send(message: EmailMessage) -> None:
         ) from None
 
 
-def send_export(user: User) -> str:
+def send_export(user: User, *, language: str = DEFAULT_DATA_EMAIL_LANGUAGE) -> str:
     """Fails before anything is sent if there is nowhere to send it —
     checked first, same backstop-first spirit as everywhere else the club
     validates before acting. The avatar rides as a second attachment, the
     only part of `export_data` that is not JSON-representable. Returns the
     address it went to, for the member to know where to look."""
     to = _contact_email(user)
+    copy = data_email_copy(language)
     payload = json.dumps(export_data(user), indent=2, ensure_ascii=False)
     attachments = [("export.json", payload, "application/json")]
     if user.avatar:
@@ -140,12 +142,8 @@ def send_export(user: User) -> str:
             user.avatar.close()
     _send(
         EmailMessage(
-            subject="Export de vos données — Fieldnotes",
-            body=(
-                "Bonjour,\n\n"
-                f"Voici l'export des données du compte « {user.display_name} », "
-                "en pièce jointe, au format lisible (JSON).\n"
-            ),
+            subject=copy.export_subject,
+            body=copy.export_body.format(display_name=user.display_name),
             from_email=settings.DEFAULT_FROM_EMAIL,
             to=[to],
             attachments=attachments,
@@ -198,7 +196,12 @@ def anonymize(user: User) -> None:
 
 
 @transaction.atomic
-def request_deletion(user: User, *, password: str | None) -> str:
+def request_deletion(
+    user: User,
+    *,
+    password: str | None,
+    language: str = DEFAULT_DATA_EMAIL_LANGUAGE,
+) -> str:
     """The right to erasure: confirmed by `password` (a session left open
     on a shared computer must not delete the account in one click), then
     anonymized. `password=None` skips that check — only the Django admin
@@ -227,21 +230,16 @@ def request_deletion(user: User, *, password: str | None) -> str:
     to = _contact_email(user)  # checked first: no confirmation, no change.
     not_the_last_admin(user)
     display_name = user.display_name
+    copy = data_email_copy(language)
     anonymize(user)
+    message = EmailMessage(
+        subject=copy.deletion_subject,
+        body=copy.deletion_body.format(display_name=display_name),
+        from_email=settings.DEFAULT_FROM_EMAIL,
+        to=[to],
+    )
     transaction.on_commit(
-        lambda: _send(
-            EmailMessage(
-                subject="Suppression de compte confirmée — Fieldnotes",
-                body=(
-                    "Bonjour,\n\n"
-                    f"Le compte « {display_name} » a été supprimé à sa demande : "
-                    "son identité a été effacée. Ce qu'il a écrit reste dans le "
-                    "classeur de l'équipe.\n"
-                ),
-                from_email=settings.DEFAULT_FROM_EMAIL,
-                to=[to],
-            )
-        ),
+        lambda: _send(message),
         robust=True,
     )
     return to

@@ -543,6 +543,19 @@ here as anywhere else.
 | `POST /api/auth/me/export/` | `202` with `sent_to` — a JSON copy of the account, plus the avatar, by e-mail to that address |
 | `DELETE /api/auth/me/` | `200` with `sent_to` — `password` confirms it; anonymizes the account, confirmed by e-mail to that address |
 
+Both routes accept an optional `language` (`fr`, `en` or `es`) in their JSON
+body. The frontend sends the currently selected interface language when the
+member requests the operation, not a language captured when the page loaded.
+Both the mail subject and its plain-text body follow this language; user names,
+the JSON export and avatar attachments stay unchanged. Unsupported languages
+are refused before sending mail or changing the account. Omitting `language`
+keeps French for older clients and internal callers. The interface preference
+remains browser-local, not a stored account field: administrative deletions
+use the club's French default, not the administrator's interface language.
+The complete mail copy lives in `club/data_emails.py`. Deletion captures the
+chosen message and original identity before its after-commit send, so neither
+anonymization nor a later locale change can change the confirmation.
+
 Neither goes to the login address: it identifies an account without being
 assumed to deliver, and the youngest members have none that does. Both go to
 `contact_email` instead — the member's own for an adult, their legal
