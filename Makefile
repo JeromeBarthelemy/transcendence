@@ -40,4 +40,4 @@ demo:
 # Only the database and the uploads: the models and the certificate stay, so
 # the next `make up` downloads nothing.
 reset: down
-	docker volume rm -f transcendence_sqlite_data transcendence_media_files
+	docker volume rm -f fieldnotes_sqlite_data fieldnotes_media_files

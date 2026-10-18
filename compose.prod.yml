@@ -3,7 +3,7 @@
 # dev server, no bind mount, no hot reload. See README, "Getting started".
 # A fixed name, not the clone's folder: the volumes holding the models, the
 # certificate and the club's data keep their names wherever it is cloned.
-name: transcendence
+name: fieldnotes
 
 services:
   # A static, long-lived self-signed certificate for FIELDNOTES_HOST,

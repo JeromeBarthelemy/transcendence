@@ -248,7 +248,7 @@ names, and the Caddyfile's `default_sni` hands it out even to a browser that
 sends none, which is what every browser does for a bare IP (RFC 6066
 excludes IP literals from the SNI extension). Changing the address after the
 first run requires removing the `tls_certs` volume
-(`docker volume rm transcendence_tls_certs`) so a new certificate gets
+(`docker volume rm fieldnotes_tls_certs`) so a new certificate gets
 generated for the new one — `cert-init` runs from the backend's own image,
 already local by then, so this needs no connection even if the room has
 none, which is exactly when the club is most likely to be setting this for
