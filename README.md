@@ -1,7 +1,10 @@
+*This project has been created as part of the 42 curriculum by jbarthel,
+qbourine, qrios, epesnel.*
+
 # transcendence
 
-Web application for a FIRST Tech Challenge robotics club: teams, members,
-matches and the engineering notebook. *ft_transcendence*, 42 common core.
+Web application for a FIRST Tech Challenge robotics club: teams, members
+and the engineering notebook. *ft_transcendence*, 42 common core.
 
 Fieldnotes is a private working application, separate from the club's public
 website. It records the teams' real work throughout the season so that it can
@@ -63,6 +66,11 @@ branch creation moves no card by itself, so two workflows fill the gap:
   (when it entered In Progress) and End (when it closed) dates correct even
   for a card moved by hand.
 
+The team talks over a Slack channel, alongside the issues and pull requests
+this section already tracks — a decision discussed there still lands as a
+comment on the issue or pull request it concerns, so the board and the
+history stay the record, not the chat.
+
 Day to day, work follows [Contributing](#contributing): one issue, one
 branch, one pull request with a prefixed title and `Closes #<issue>` in its
 description, reviewed and approved by another team member, merged with
@@ -71,8 +79,9 @@ description, reviewed and approved by another team member, merged with
 off `git log`. `make check` (`ruff`, `mypy`, a pending-migrations check,
 `tsc`, Biome) and `make test` (`pytest`, Vitest) run on every pull request in
 CI ([`check.yml`](.github/workflows/check.yml)); a separate cross-browser
-Playwright suite ([`e2e.yml`](.github/workflows/e2e.yml), module 18) runs the
-same way. A pull request that doesn't pass isn't merged.
+Playwright suite ([`e2e.yml`](.github/workflows/e2e.yml), module 18) runs on
+demand, not on every pull request. A pull request that doesn't pass isn't
+merged.
 
 ## Technical stack
 
@@ -248,7 +257,7 @@ traces — hangs off `TeamSeason`, not off `Team`. `Membership` links a `User`
 to a `TeamSeason` and carries no role by design: being on a team is not a
 permission, so this season's captain is not a different kind of row than any
 other member. It is an explicit model rather than a bare `ManyToManyField`
-precisely so a role column could be added later without converting a join
+precisely so a column could be added later without converting a join
 table. `WorkshopSlot` and `Consent` complete the area: the club's recurring
 workshop times, and each member's dated, never-edited image-rights decision
 (only the latest one is in force).
@@ -298,47 +307,54 @@ subject expects both argued, not just the value named:
 
 The two reasons land on the same `on_delete` value for two different foreign
 keys of the very same model — `Entry.team_season` for the first reason,
-`Entry.author` for the second — which is the "both sides" the GDPR module
-(#10) and the notebook itself both lean on.
+`Entry.author` for the second — which is the "both sides" module 10 and the
+notebook itself both lean on.
 
 ## Modules and points
 
-17 declared modules, 24 points, against a subject minimum of 14. One further
+15 declared modules, 22 points, against a subject minimum of 14. One further
 major module (a custom notebook-export format) is built but held in
 reserve, undeclared, as the swap-in if a declared module falls through —
 `docs/modules.md`, "En réserve". Numbers are the subject's own module
 numbers via this repository's milestones, so 5 and 12 are absent on purpose:
-tracked as milestones, never claimed.
+tracked as milestones, never claimed. Modules 11 (PWA) and 17 (health check
+and backups) are tracked the same way but not declared below: a
+non-functional or incomplete module is worth nothing per the subject's own
+rule, and 17 has not been started while 11's offline support cannot be
+shown on the evaluation machine, where `localhost`'s self-signed
+certificate keeps a browser from registering the service worker it needs
+(see *Technical stack*). Both stay fully written up in `docs/modules.md`.
 
-Status is read off each milestone's closed/open issue count on the day this
-was written, not asserted from memory — the same bet
-[Project management](#project-management) describes.
+Status is read off each milestone's closed/open issue count on the day
+this was written, not asserted from memory — the same bet
+[Project management](#project-management) describes. Who worked on each
+module is read the same way, off its closed issues and the pull requests
+that closed them; see [Features per contributor](#features-per-contributor)
+for what each role actually did.
 
-| # | Module | Type | Pts | What's built | Issues |
-|---|---|---|---:|---|---:|
-| 01 | Front and back frameworks | Major | 2 | React + TypeScript (Vite) against Django + DRF | 2/2 |
-| 02 | ORM | Minor | 1 | Django's ORM over SQLite; no raw SQL | 2/2 |
-| 03 | Organisations | Major | 2 | Create, rename, delete a team; add and remove its members | 18/19 |
-| 04 | Advanced permissions | Major | 2 | Two roles (student, mentor) plus an admin flag; three distinct views | 6/6 |
-| 06 | Real time | Major | 2 | The work-item board, live, over Django Channels | 11/11 |
-| 07 | Analytics | Major | 2 | Interactive charts, CSV export, custom date ranges and filters | 13/13 |
-| 08 | Rulebook RAG | Major | 2 | Brute-force embedding search over the game manual and Q&A, local LLM | 22/24 |
-| 09 | File upload | Minor | 1 | Attachments with progress, preview, client *and* server validation | 13/13 |
-| 10 | GDPR | Minor | 1 | Data export and deletion, both with a confirmation e-mail | 16/16 |
-| 11 | PWA | Minor | 1 | Installable, offline-capable (service worker and an IndexedDB save queue) | 8/8 |
-| 13 | Notifications | Minor | 1 | A full notification system for board changes and admin actions | 10/10 |
-| 14 | Advanced search | Minor | 1 | Filtered, sorted, paginated notebook search | 3/3 |
-| 15 | In-house design system | Minor | 1 | Ten-plus reusable components, documented in a gallery | 7/7 |
-| 16 | Standard user management | Major | 2 | Profile editing, avatar, teammates' online status | 9/9 |
-| 17 | Health check and backups | Minor | 1 | The health endpoint only; backups and the status page are not started | 0/1 |
-| 18 | Additional browsers | Minor | 1 | Firefox and WebKit via Playwright, differences documented | 6/6 |
-| 19 | Multiple languages | Minor | 1 | French, English, Spanish, via react-i18next | 6/8 |
+| # | Module | Type | Pts | What's built | Why | Who |
+|---|---|---|---:|---|---|---|
+| 01 | Front and back frameworks | Major | 2 | React + TypeScript (Vite) against Django + DRF | Each clears the subject's own definition of a framework without argument; the backend alternative weighed, a bare Go router, did not | Tech Lead |
+| 02 | ORM | Minor | 1 | Django's ORM over SQLite; no raw SQL | Comes with module 1's framework; demonstrated as used, not merely installed | PO |
+| 03 | Organisations | Major | 2 | Create, rename, delete a team; add and remove its members | The club is the subject's "organization"; the AssoConnect import only verifies accounts that already exist, it creates none | PO, PM, Dev |
+| 04 | Advanced permissions | Major | 2 | Two roles (student, mentor) plus an admin flag; three distinct views | Scope follows role rather than team assignment, so a mentor reaches every team without being added to it first | PM, Dev |
+| 06 | Real time | Major | 2 | The work-item board, live, over Django Channels | Channels' own `group_add`/`group_discard`/`group_send` already covers the three required cases | PO, Tech Lead |
+| 07 | Analytics | Major | 2 | Interactive charts, CSV export, custom date ranges and filters | Derived from the notebook's own records rather than stored a second time, so it can never drift from what the board shows | Tech Lead |
+| 08 | Rulebook RAG | Major | 2 | Brute-force embedding search over the game manual and Q&A, local LLM | A manual is a few thousand passages — no vector database earns its keep at that size, and the generating model is local, never Claude | PO, PM, Dev |
+| 09 | File upload | Minor | 1 | Attachments with progress, preview, client *and* server validation | Six separate requirements for one point; none of the six is optional | PO, Tech Lead, Dev |
+| 10 | GDPR | Minor | 1 | Data export and deletion, both with a confirmation e-mail | Confirmed to a contact address, never the login identifier, since the youngest members have none that delivers | PO, PM, Dev |
+| 13 | Notifications | Minor | 1 | A full notification system for board changes and admin actions | The subject's "all" is cheap from one shared function, ruinous rewired feature by feature | PO |
+| 14 | Advanced search | Minor | 1 | Filtered, sorted, paginated notebook search | Folded, accent-insensitive search across every trace, not a title-only filter | Dev |
+| 15 | In-house design system | Minor | 1 | Ten-plus reusable components and a shared token, typography and icon set, in [Design system](#design-system) | Already built drawing four screens; what's claimed is the components and tokens, not a separate gallery page | Tech Lead, Dev |
+| 16 | Standard user management | Major | 2 | Profile editing, avatar, teammates' online status | The team relation already covers the subject's "friends"; a separate graph would duplicate it, not add to it | PM, Dev |
+| 18 | Additional browsers | Minor | 1 | Firefox and WebKit via Playwright, differences documented | Two different rendering engines (Gecko, WebKit), not Chromium-based Edge, prove something Chrome doesn't | PO |
+| 19 | Multiple languages | Minor | 1 | French, English, Spanish, via react-i18next | Server error messages and legal pages are user-facing text too, so the subject's "all" reaches them as well | Tech Lead |
 
-152 of 158 issues closed across these 17 modules as of this README. Module
-17 has not been started; modules 03, 08 and 19 each have open issues left.
+148 of 150 issues closed across these 15 modules as of this README; modules
+03 and 08 each have one open issue left, the rest are complete.
 `docs/modules.md` carries the full requirement-by-requirement breakdown (in
 French, on purpose — see [Documentation](#documentation)) and how each
-module will be demonstrated.
+module — including 11 and 17 — will be demonstrated.
 
 ## Getting started
 
@@ -1532,8 +1548,8 @@ sudo npx playwright install-deps chromium firefox webkit
 
 ## Features per contributor
 
-Read off closed issues and the pull requests that closed them — 132 closed
-issues in total, 115 directly assigned, 11 more attributable to whoever
+Read off closed issues and the pull requests that closed them — 136 closed
+issues in total, 118 directly assigned, 12 more attributable to whoever
 authored the pull request that closed them; the remaining 6 were closed
 without shipping anything (two withdrawn as out of scope, #123 and #124; two
 `not planned`, #10 and #34; two folded into a duplicate already credited
@@ -1556,8 +1572,9 @@ anyone's.
 - **Tooling** — pytest-django and the first test (#1); `make check` and CI
   for both stacks (#12, #19, #47, #72); the roadmap board automation (#21,
   #23, #41); stating the club app's own types and reasoning (#28); a
-  demo-data seed (#82); and CI speed and reliability fixes (#205, #236,
-  #259).
+  demo-data seed (#82); CI speed and reliability fixes (#205, #236, #259);
+  and starting, stopping, seeding and resetting the production stack from
+  `make` (#305).
 - **02 · ORM** — test coverage for the club foundation (#2).
 - **03 · Organisations** — the season model (#5), AssoConnect account
   verification (#16), and fixes to what deleting a team with history does
@@ -1567,7 +1584,8 @@ anyone's.
   a work item was deleted (#244), and keeping the socket alive across a
   phone's app switches (#289).
 - **08 · Rulebook RAG** — tuning answer quality against the local model's
-  CPU budget (#215).
+  CPU budget (#215), and loading the rulebook and opening the Django admin
+  from `seed_demo` (#302).
 - **09 · File upload** — avatars (#68), entry attachments carried into the
   export (#70), HEIC photos (#91), and stripping location metadata from
   uploaded video (#197).
@@ -1611,7 +1629,8 @@ anyone's.
 - **Mandatory requirements** — the team home, chantier, and
   landing/sign-up/log-in screens (#35, #36, #40), the CSRF-trusted-origin
   fix shared with the Product Owner (#46), Today/date navigation on the day
-  summary (#117), and the activity calendar (#118).
+  summary (#117), the activity calendar (#118), and opening the session
+  activity calendar from a header button (#254).
 - **Tooling** — removing the frontend's duplicated helpers and dead code
   (#204).
 - **01 · Front and back frameworks** — settling the frontend framework
@@ -1627,8 +1646,9 @@ anyone's.
 - **15 · In-house design system** — unifying shared UI components and
   Tailwind conventions across the frontend (#248).
 - **19 · Multiple languages** — the language switcher (#245), the English
-  and Spanish catalogues (#246), and localizing dates and numbers with full
-  three-language verification (#247).
+  and Spanish catalogues (#246), localizing dates and numbers with full
+  three-language verification (#247), and sending data confirmation e-mails
+  in the member's own interface language (#264, #295).
 
 ### Enelsep — Developer
 
@@ -1659,7 +1679,13 @@ merge date are permanent and public, so `gh pr list --state merged --author
 <login>` reproduces every row against the live repository.
 
 <details>
-<summary><strong>JeromeBarthelemy</strong> — 94 merged pull requests, 72 closed issues credited</summary>
+<summary><strong>JeromeBarthelemy</strong> — 96 merged pull requests, 74 closed issues credited</summary>
+
+**Challenge.** Sign-up and team creation both had to refuse a second
+request racing the first on the same identifier (#9, #17, #59, #76, #81)
+rather than fail with a database error — solved with serializable
+transactions and a constraint the database itself enforces, not a lock
+Python can only take against itself.
 
 | PR | Merged | Title |
 |---:|---|---|
@@ -1757,11 +1783,21 @@ merge date are permanent and public, so `gh pr list --state merged --author
 | #291 | 2026-10-15 | fix: keep the e2e workflow's mail in the console (#202) |
 | #292 | 2026-10-16 | docs: record the manual Safari pass on a Mac, not an iPhone (#202) |
 | #299 | 2026-10-17 | docs: translate the remaining French comments and script messages into English |
+| #303 | 2026-10-18 | feat: load the rulebook and open the Django admin from seed_demo (#302) |
+| #306 | 2026-10-18 | chore: start, stop, seed and reset the production stack from make (#305) |
 
 </details>
 
 <details>
 <summary><strong>quentinbourinet-max</strong> — 27 merged pull requests, 24 closed issues credited</summary>
+
+**Challenge.** Adding the game manual from its FIRST URL (#164) first
+checked only the URL an administrator gave, while `urlopen` follows
+redirects by itself — a permitted page could still send the fetch outside
+FIRST's own site. The fix held every hop of a redirect to the same
+allow-list, not only the first one. The offline save queue (#157, #286)
+had a similar second round: a reviewer found a bug the first fix missed,
+caught and closed on the same pull request rather than a follow-up one.
 
 | PR | Merged | Title |
 |---:|---|---|
@@ -1796,7 +1832,13 @@ merge date are permanent and public, so `gh pr list --state merged --author
 </details>
 
 <details>
-<summary><strong>Nitwee</strong> — 15 merged pull requests, 19 closed issues credited</summary>
+<summary><strong>Nitwee</strong> — 17 merged pull requests, 21 closed issues credited</summary>
+
+**Challenge.** The work-item screen's step selector has to follow another
+member's live update without discarding a draft the member is mid-way
+through choosing (#195, #220) — resolved by following the server's current
+step only until the member picks a different one themselves, so a
+background update never overwrites a choice in progress.
 
 | PR | Merged | Title |
 |---:|---|---|
@@ -1815,11 +1857,18 @@ merge date are permanent and public, so `gh pr list --state merged --author
 | #250 | 2026-10-13 | feat: provide complete English and Spanish translations for the application (#246) |
 | #253 | 2026-10-13 | feat: localize dates and numbers and verify every screen in all three languages (#247) |
 | #300 | 2026-10-17 | refactor: unify frontend UI components and styling conventions (#248) |
+| #295 | 2026-10-18 | feat: send data confirmation emails in the selected interface language |
+| #296 | 2026-10-18 | feat: open the session calendar from a header button |
 
 </details>
 
 <details>
 <summary><strong>Enelsep</strong> — 14 merged pull requests, 12 closed issues credited</summary>
+
+**Challenge.** Searching the notebook had to match « élodie » against
+« Élodie » (#198), and SQLite's own `lower()` only folds ASCII — closed by
+registering a custom folding function on each connection and matching
+against it instead of the stored text directly.
 
 | PR | Merged | Title |
 |---:|---|---|
@@ -1871,6 +1920,29 @@ answer, entirely separate from how the team builds the application.
 Every AI-assisted change still goes through the same pull request, review
 and CI gate as any other — [Project management](#project-management) makes
 no exception for how a change was produced, only for what it changes.
+
+## Resources
+
+- [Django](https://docs.djangoproject.com/) and [Django REST
+  Framework](https://www.django-rest-framework.org/) — the backend
+  framework and its JSON API (module 1).
+- [Django Channels](https://channels.readthedocs.io/) — the real-time
+  work-item board (module 6).
+- [React](https://react.dev/) and [TanStack
+  Query](https://tanstack.com/query/) — the frontend framework and its API
+  state (module 1).
+- [Tailwind CSS](https://tailwindcss.com/docs) — the styling foundation
+  under [Design system](#design-system) (module 15).
+- [Ollama](https://ollama.com/) and
+  [`fastembed`](https://github.com/qdrant/fastembed) — the local model and
+  embedding runtime behind [Rulebook questions](#rulebook-questions)
+  (module 8).
+- [FIRST Tech Challenge's game manual and official
+  Q&A](https://ftc-resources.firstinspires.org/) — the two sources that
+  module 8 ingests and cites, read from their own pages, never reconstructed
+  from memory.
+- Claude Code (Anthropic) — how much and how it was used is in [AI
+  usage](#ai-usage) above, not repeated here.
 
 ## Contributing
 
