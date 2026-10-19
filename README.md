@@ -1997,17 +1997,6 @@ Concretely, across the team, AI was used for:
   the implementation, following the team's test-first workflow (see
   [Testing](#testing)).
 
-The Project Manager/Scrum Master's merged work is produced with Claude Code
-throughout, beyond those three: implementing issues end to end, resolving
-merge conflicts against `main`, responding to review feedback — including a
-bug a reviewer found that the first fix missed, addressed in a second round
-on the same pull request (#286) — and reviewing teammates' own pull requests
-(#281, #300). The other three use it occasionally, alongside work done
-directly; none of their modules are themselves an AI feature — the one
-place this project *uses* an LLM as a product feature is module 8 (Rulebook
-RAG), where a local model (not Claude) generates the grounded answer,
-entirely separate from how the team builds the application.
-
 Every AI-assisted change still goes through the same pull request, review
 and CI gate as any other — [Project management](#project-management) makes
 no exception for how a change was produced, only for what it changes.
