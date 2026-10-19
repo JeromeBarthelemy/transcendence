@@ -1948,21 +1948,6 @@ against it instead of the stored text directly.
 
 ### AI usage
 
-Claude Code (Anthropic's agentic CLI) is available to the whole team; how
-much of a person's own work goes through it is their own choice, and it
-shows in `main`'s history — every merged commit from this project carries a
-`Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>` trailer when it
-does, which is this project's chosen way of disclosing it: auditable in the
-one place contributions are already tracked, rather than a separate claim in
-this file that could drift from what actually happened.
-
-| 42 login | Commits on `main` | Co-authored with Claude |
-|---|---:|---:|
-| jbarthel | 107 | 3 |
-| qbourine | 27 | 27 |
-| qrios | 17 | 2 |
-| epesnel | 14 | 1 |
-
 Concretely, across the team, it was used for:
 
 - **Documentation** — drafting and keeping current this README and the
