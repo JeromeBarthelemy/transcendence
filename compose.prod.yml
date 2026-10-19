@@ -130,7 +130,8 @@ services:
   # instead of the whole stack waiting on a ~2 GB pull.
   ollama:
     # Pinned rather than :latest, so a pull on one machine can't hand
-    # another a different model server mid-review.
+    # another a different model server mid-review. compose.campus.yml pins
+    # the same version's -rocm image: a bump changes both files.
     image: ollama/ollama:0.40.0
     environment:
       # No accuracy cost, measured on the real manual (#135's own review):

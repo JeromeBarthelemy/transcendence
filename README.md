@@ -265,6 +265,45 @@ embedding model cache across a `down` and `up`; `db.sqlite3` moves under one
 of them because this container, unlike the dev one, has no bind mount to keep
 it on the host instead.
 
+#### On a 42 workstation
+
+```sh
+# In backend/.env, as above, plus:
+#   DJANGO_CSRF_TRUSTED_ORIGINS=https://localhost:8443
+make up-campus
+```
+
+Open <https://localhost:8443/>. `make up-campus` layers `compose.campus.yml`
+over `compose.prod.yml`, for the two limits of the school's machines:
+
+- **Rootless Docker** can't publish ports below 1024: the proxy listens on
+  8443 only, with no plain-HTTP port.
+- **goinfre**, which holds Docker's data, has a few GB free: Ollama runs
+  from its `-rocm` image (4.6 GB against 9.4 GB), on the CPU, and the models
+  go to `/sgoinfre/$USER/fieldnotes-models` instead of named volumes.
+  sgoinfre can't hold Docker's own data (NFS refuses its image layers), but
+  it takes these files.
+
+`make down`, `make demo` and `make reset` work unchanged. Three differences
+remain:
+
+- **Generated answers take 20 to 30 seconds** on the CPU: reading the
+  rulebook passages is most of it.
+- **`make e2e` doesn't apply**: it binds 80 and 443, and Playwright's
+  browsers need `sudo` to install their system dependencies. Run the
+  [`e2e.yml`](.github/workflows/e2e.yml) workflow on GitHub Actions instead.
+- **Switching between `make up` and `make up-campus` downloads the models
+  again**: one keeps them in named volumes, the other on sgoinfre.
+
+**From another workstation**: set `FIELDNOTES_HOST` to this one's IP address
+(the first of `hostname -I`), add it to `DJANGO_ALLOWED_HOSTS` and as
+`https://<address>:8443` to `DJANGO_CSRF_TRUSTED_ORIGINS`, remove
+`fieldnotes_tls_certs` as above, and open `https://<address>:8443/`. The
+address, not the workstation's name: `42nice.fr` sends HSTS with
+`includeSubDomains`, so browsers refuse any exception for a self-signed
+certificate under it. Caddy only serves the site under `FIELDNOTES_HOST`:
+`localhost` no longer reaches it.
+
 #### Backups
 
 The database and media live in named volumes, not on the host, so copying

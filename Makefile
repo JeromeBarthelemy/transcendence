@@ -1,4 +1,4 @@
-.PHONY: check check-error-codes demo down e2e format reset test up
+.PHONY: check check-error-codes demo down e2e format reset test up up-campus
 
 COMPOSE = docker compose -f compose.prod.yml
 MANUAL_URL = https://ftc-resources.firstinspires.org/ftc/game/cm-html/BIOBUZZ%20Competition%20Manual%20-%20TU05.htm
@@ -29,6 +29,11 @@ e2e:
 
 up:
 	$(COMPOSE) up --build -d
+
+# On a 42 workstation (compose.campus.yml). down, demo and reset need nothing
+# more: the project name is the same.
+up-campus:
+	$(COMPOSE) -f compose.campus.yml up --build -d
 
 down:
 	$(COMPOSE) down
