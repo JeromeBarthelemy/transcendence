@@ -3,17 +3,44 @@ qbourine, qrios, epesnel.*
 
 # transcendence
 
-Web application for a FIRST Tech Challenge robotics club: teams, members
-and the engineering notebook. *ft_transcendence*, 42 common core.
+## Description
 
-Fieldnotes is a private working application, separate from the club's public
-website. It records the teams' real work throughout the season so that it can
-later be cited in the engineering portfolio.
+**Fieldnotes** is a private web application for a FIRST Tech Challenge
+robotics club: teams, members and the engineering notebook.
+*ft_transcendence*, 42 common core.
 
-One deployment serves one club, locally. The code is English, the interface
-is French: model, field and function names, comments and docstrings are
-English. Django keeps French labels for its own administration interface;
-user-facing application text belongs to the frontend translation catalogue.
+It is separate from the club's own public website. It records the teams'
+real work — work items, progress, notes and decisions — throughout the
+season, so that record can later be cited in the engineering portfolio
+instead of reconstructed from memory once the season is over. One
+deployment serves one club, locally.
+
+Key features:
+
+- A live work-item board per team, updated over a WebSocket the moment
+  anyone writes to it ([module 6](#modules-and-points)).
+- Interactive activity charts, with CSV export and custom date ranges
+  ([module 7](#modules-and-points)).
+- A rulebook assistant that answers questions from the game manual and the
+  official Q&A, citing the passages it relies on
+  ([module 8](#rulebook-questions)).
+- File attachments on any trace, with client and server validation
+  ([module 9](#attachments)).
+- Data export and deletion, both confirmed by e-mail
+  ([module 10](#data-export-and-deletion)).
+- An installable, offline-capable progressive web app.
+- A full notification system for everything that changes on the board.
+- Filtered, sorted, paginated search across the whole notebook
+  ([Notebook search](#notebook-search)).
+- An in-house [design system](#design-system) of ten-plus components.
+- Profile editing, an avatar and teammates' online status.
+- French, English and Spanish, switchable at any time.
+- Support for Chrome, Firefox and Safari.
+
+The code is English, the interface is French: model, field and function
+names, comments and docstrings are English. Django keeps French labels for
+its own administration interface; user-facing application text belongs to
+the frontend translation catalogue.
 
 ## Team and roles
 
@@ -356,7 +383,7 @@ for what each role actually did.
 French, on purpose — see [Documentation](#documentation)) and how each
 module — including 11 and 17 — will be demonstrated.
 
-## Getting started
+## Instructions
 
 ### Complete development stack with Docker Compose
 
@@ -1889,39 +1916,9 @@ against it instead of the stored text directly.
 
 </details>
 
-## AI usage
-
-Claude Code (Anthropic's agentic CLI) is available to the whole team; how
-much of a person's own work goes through it is their own choice, and it
-shows in `main`'s history — every merged commit from this project carries a
-`Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>` trailer when it
-does, which is this project's chosen way of disclosing it: auditable in the
-one place contributions are already tracked, rather than a separate claim in
-this file that could drift from what actually happened.
-
-| Account | Commits on `main` | Co-authored with Claude |
-|---|---:|---:|
-| `JeromeBarthelemy` | 105 | 3 |
-| `quentinbourinet-max` | 27 | 27 |
-| `Nitwee` | 15 | 2 |
-| `Enelsep` | 14 | 1 |
-
-The Project Manager/Scrum Master's merged work is produced with Claude Code
-throughout: implementing issues end to end, resolving merge conflicts
-against `main`, responding to review feedback — including a bug a reviewer
-found that the first fix missed, addressed in a second round on the same
-pull request (#286) — reviewing teammates' own pull requests (#281, #300),
-and assembling this README. The other three use it occasionally, alongside
-work done directly; none of their modules are themselves an AI feature — the
-one place this project *uses* an LLM as a product feature is module 8
-(Rulebook RAG), where a local model (not Claude) generates the grounded
-answer, entirely separate from how the team builds the application.
-
-Every AI-assisted change still goes through the same pull request, review
-and CI gate as any other — [Project management](#project-management) makes
-no exception for how a change was produced, only for what it changes.
-
 ## Resources
+
+### Classic references
 
 - [Django](https://docs.djangoproject.com/) and [Django REST
   Framework](https://www.django-rest-framework.org/) — the backend
@@ -1941,8 +1938,38 @@ no exception for how a change was produced, only for what it changes.
   Q&A](https://ftc-resources.firstinspires.org/) — the two sources that
   module 8 ingests and cites, read from their own pages, never reconstructed
   from memory.
-- Claude Code (Anthropic) — how much and how it was used is in [AI
-  usage](#ai-usage) above, not repeated here.
+
+### AI usage
+
+Claude Code (Anthropic's agentic CLI) is available to the whole team; how
+much of a person's own work goes through it is their own choice, and it
+shows in `main`'s history — every merged commit from this project carries a
+`Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>` trailer when it
+does, which is this project's chosen way of disclosing it: auditable in the
+one place contributions are already tracked, rather than a separate claim in
+this file that could drift from what actually happened.
+
+| Account | Commits on `main` | Co-authored with Claude |
+|---|---:|---:|
+| `JeromeBarthelemy` | 107 | 3 |
+| `quentinbourinet-max` | 27 | 27 |
+| `Nitwee` | 17 | 2 |
+| `Enelsep` | 14 | 1 |
+
+The Project Manager/Scrum Master's merged work is produced with Claude Code
+throughout: implementing issues end to end, resolving merge conflicts
+against `main`, responding to review feedback — including a bug a reviewer
+found that the first fix missed, addressed in a second round on the same
+pull request (#286) — reviewing teammates' own pull requests (#281, #300),
+and assembling this README. The other three use it occasionally, alongside
+work done directly; none of their modules are themselves an AI feature — the
+one place this project *uses* an LLM as a product feature is module 8
+(Rulebook RAG), where a local model (not Claude) generates the grounded
+answer, entirely separate from how the team builds the application.
+
+Every AI-assisted change still goes through the same pull request, review
+and CI gate as any other — [Project management](#project-management) makes
+no exception for how a change was produced, only for what it changes.
 
 ## Contributing
 
