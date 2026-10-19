@@ -492,16 +492,15 @@ already local by then, so this needs no connection even if the room has
 none, which is exactly when the club is most likely to be setting this for
 the first time on the day.
 
-Three containers: `cert-init` runs once and exits; `backend` runs the
+Six services: `cert-init` runs once and exits; `backend` runs the
 migrations, `collectstatic`, then Daphne (ASGI — ready for Channels, ahead of
-needing it) instead of `runserver`; `proxy` bakes the frontend's production
-build into a Caddy image (`deploy/Dockerfile`) that terminates TLS, serves
-`/static/` from what `collectstatic` wrote, and reverse-proxies `/api/` and
-`/admin/` to `backend` — same origin as the frontend, so no CORS, same as
-development. Named volumes keep the SQLite database, media and the RAG's
-embedding model cache across a `down` and `up`; `db.sqlite3` moves under one
-of them because this container, unlike the dev one, has no bind mount to keep
-it on the host instead.
+needing it) instead of `runserver`; `sources-check` checks the rulebook's
+sources against their official pages every 24 hours; `proxy` bakes the
+frontend's production build into a Caddy image (`deploy/Dockerfile`) that
+terminates TLS, serves `/static/` from what `collectstatic` wrote, and
+reverse-proxies `/api/` and `/admin/` to `backend` — same origin as the
+frontend, so no CORS, same as development; `ollama` serves the local
+generation model, and `ollama-pull` downloads it once and exits.
 
 #### Backups
 
