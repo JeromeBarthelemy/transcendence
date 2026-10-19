@@ -410,6 +410,13 @@ cp backend/.env.example backend/.env
 # Fill in DJANGO_SECRET_KEY and set DJANGO_DEBUG=false.
 make up        # on a 42 workstation: make up-campus
 make demo      # optional: the demo club and the season's rulebook
+```
+
+Open <https://localhost/>. See *Production stack over HTTPS* below for the
+certificate, phone access and backups, and *Development stack* for the
+alternative used while building a feature, over plain HTTP.
+
+### Development stack
 
 Docker Compose starts Django and Vite together. Create the local backend
 environment once, then start the stack with one command:
