@@ -27,7 +27,6 @@ Key features:
   ([module 9](#attachments)).
 - Data export and deletion, both confirmed by e-mail
   ([module 10](#data-export-and-deletion)).
-- An installable, offline-capable progressive web app.
 - A full notification system for everything that changes on the board.
 - Filtered, sorted, paginated search across the whole notebook
   ([Notebook search](#notebook-search)).
@@ -387,7 +386,30 @@ module — including 11 and 17 — will be demonstrated.
 
 ## Instructions
 
-### Complete development stack with Docker Compose
+### Prerequisites
+
+- Docker Engine with the Compose v2 plugin, and GNU make. Tested with
+  Docker 29.1 and Compose 2.40 on a laptop, and Docker 29.4 and Compose 5.1
+  on a 42 workstation.
+- Ports 80 and 443 free — 8443 on a 42 workstation, where rootless Docker
+  refuses ports below 1024.
+- Disk space for Docker: about 14 GB. The `ollama/ollama` image alone is
+  9.4 GB, the backend image 1.3 GB, the generation model 1.9 GB and the
+  embedding model 1.1 GB. On a 42 workstation: about 8 GB on goinfre, and
+  3 GB of models on sgoinfre.
+- A network connection on the first start: Docker images, Python and npm
+  packages, both models and the season's rulebook.
+- `backend/.env`, copied from `backend/.env.example`, with
+  `DJANGO_SECRET_KEY` filled in and `DJANGO_DEBUG=false`; the e-mail
+  settings for module 10's confirmation e-mails.
+
+### Running the project
+
+```sh
+cp backend/.env.example backend/.env
+# Fill in DJANGO_SECRET_KEY and set DJANGO_DEBUG=false.
+make up        # on a 42 workstation: make up-campus
+make demo      # optional: the demo club and the season's rulebook
 
 Docker Compose starts Django and Vite together. Create the local backend
 environment once, then start the stack with one command:
