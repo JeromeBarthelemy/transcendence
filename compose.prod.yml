@@ -1,6 +1,6 @@
 # The final deployment: HTTPS terminated by Caddy (deploy/Caddyfile) in
 # front of Django (Daphne, ASGI) and the built frontend it bakes in — no
-# dev server, no bind mount, no hot reload. See README, "Getting started".
+# dev server, no bind mount, no hot reload. See README, "Instructions".
 # A fixed name, not the clone's folder: the volumes holding the models, the
 # certificate and the club's data keep their names wherever it is cloned.
 name: fieldnotes
