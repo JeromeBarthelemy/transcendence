@@ -1,5 +1,5 @@
 # The one HTTPS reverse proxy in front of Django and the built frontend
-# (README, "Getting started"). FIELDNOTES_HOST is `localhost` on the
+# (README, "Instructions"). FIELDNOTES_HOST is `localhost` on the
 # machine serving the app itself, or that machine's address on the club's
 # Wi-Fi when phones need to reach it — same address as
 # DJANGO_ALLOWED_HOSTS and DJANGO_CSRF_TRUSTED_ORIGINS in backend/.env.

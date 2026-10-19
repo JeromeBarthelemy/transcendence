@@ -1,6 +1,6 @@
 # The final deployment: HTTPS terminated by Caddy (deploy/Caddyfile) in
 # front of Django (Daphne, ASGI) and the built frontend it bakes in — no
-# dev server, no bind mount, no hot reload. See README, "Getting started".
+# dev server, no bind mount, no hot reload. See README, "Instructions".
 services:
   # A static, long-lived self-signed certificate for FIELDNOTES_HOST,
   # generated once and kept in tls_certs — not regenerated on every `up`,

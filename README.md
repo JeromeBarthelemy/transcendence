@@ -1,5 +1,4 @@
-*This project has been created as part of the 42 curriculum by jbarthel,
-qbourine, qrios, epesnel.*
+*This project has been created as part of the 42 curriculum by jbarthel, qbourine, qrios, epesnel.*
 
 # transcendence
 
@@ -357,25 +356,25 @@ this was written, not asserted from memory — the same bet
 [Project management](#project-management) describes. Who worked on each
 module is read the same way, off its closed issues and the pull requests
 that closed them; see [Features per contributor](#features-per-contributor)
-for what each role actually did.
+for what each one actually did.
 
 | # | Module | Type | Pts | What's built | Why | Who |
 |---|---|---|---:|---|---|---|
-| 01 | Front and back frameworks | Major | 2 | React + TypeScript (Vite) against Django + DRF | Each clears the subject's own definition of a framework without argument; the backend alternative weighed, a bare Go router, did not | Tech Lead |
-| 02 | ORM | Minor | 1 | Django's ORM over SQLite; no raw SQL | Comes with module 1's framework; demonstrated as used, not merely installed | PO |
-| 03 | Organisations | Major | 2 | Create, rename, delete a team; add and remove its members | The club is the subject's "organization"; the AssoConnect import only verifies accounts that already exist, it creates none | PO, PM, Dev |
-| 04 | Advanced permissions | Major | 2 | Two roles (student, mentor) plus an admin flag; three distinct views | Scope follows role rather than team assignment, so a mentor reaches every team without being added to it first | PM, Dev |
-| 06 | Real time | Major | 2 | The work-item board, live, over Django Channels | Channels' own `group_add`/`group_discard`/`group_send` already covers the three required cases | PO, Tech Lead |
-| 07 | Analytics | Major | 2 | Interactive charts, CSV export, custom date ranges and filters | Derived from the notebook's own records rather than stored a second time, so it can never drift from what the board shows | Tech Lead |
-| 08 | Rulebook RAG | Major | 2 | Brute-force embedding search over the game manual and Q&A, local LLM | A manual is a few thousand passages — no vector database earns its keep at that size, and the generating model is local, never Claude | PO, PM, Dev |
-| 09 | File upload | Minor | 1 | Attachments with progress, preview, client *and* server validation | Six separate requirements for one point; none of the six is optional | PO, Tech Lead, Dev |
-| 10 | GDPR | Minor | 1 | Data export and deletion, both with a confirmation e-mail | Confirmed to a contact address, never the login identifier, since the youngest members have none that delivers | PO, PM, Dev |
-| 13 | Notifications | Minor | 1 | A full notification system for board changes and admin actions | The subject's "all" is cheap from one shared function, ruinous rewired feature by feature | PO |
-| 14 | Advanced search | Minor | 1 | Filtered, sorted, paginated notebook search | Folded, accent-insensitive search across every trace, not a title-only filter | Dev |
-| 15 | In-house design system | Minor | 1 | Ten-plus reusable components and a shared token, typography and icon set, in [Design system](#design-system) | Already built drawing four screens; what's claimed is the components and tokens, not a separate gallery page | Tech Lead, Dev |
-| 16 | Standard user management | Major | 2 | Profile editing, avatar, teammates' online status | The team relation already covers the subject's "friends"; a separate graph would duplicate it, not add to it | PM, Dev |
-| 18 | Additional browsers | Minor | 1 | Firefox and WebKit via Playwright, differences documented | Two different rendering engines (Gecko, WebKit), not Chromium-based Edge, prove something Chrome doesn't | PO |
-| 19 | Multiple languages | Minor | 1 | French, English, Spanish, via react-i18next | Server error messages and legal pages are user-facing text too, so the subject's "all" reaches them as well | Tech Lead |
+| 01 | Front and back frameworks | Major | 2 | React + TypeScript (Vite) against Django + DRF | Each clears the subject's own definition of a framework without argument; the backend alternative weighed, a bare Go router, did not | qrios |
+| 02 | ORM | Minor | 1 | Django's ORM over SQLite; no raw SQL | Comes with module 1's framework; demonstrated as used, not merely installed | jbarthel |
+| 03 | Organisations | Major | 2 | Create, rename, delete a team; add and remove its members | The club is the subject's "organization"; the AssoConnect import only verifies accounts that already exist, it creates none | jbarthel, qbourine, epesnel |
+| 04 | Advanced permissions | Major | 2 | Two roles (student, mentor) plus an admin flag; three distinct views | Scope follows role rather than team assignment, so a mentor reaches every team without being added to it first | qbourine, epesnel |
+| 06 | Real time | Major | 2 | The work-item board, live, over Django Channels | Channels' own `group_add`/`group_discard`/`group_send` already covers the three required cases | jbarthel, qrios |
+| 07 | Analytics | Major | 2 | Interactive charts, CSV export, custom date ranges and filters | Derived from the notebook's own records rather than stored a second time, so it can never drift from what the board shows | qrios |
+| 08 | Rulebook RAG | Major | 2 | Brute-force embedding search over the game manual and Q&A, local LLM | A manual is a few thousand passages — no vector database earns its keep at that size, and the generating model is local, never Claude | jbarthel, qbourine, epesnel |
+| 09 | File upload | Minor | 1 | Attachments with progress, preview, client *and* server validation | Six separate requirements for one point; none of the six is optional | jbarthel, qrios, epesnel |
+| 10 | GDPR | Minor | 1 | Data export and deletion, both with a confirmation e-mail | Confirmed to a contact address, never the login identifier, since the youngest members have none that delivers | jbarthel, qbourine, epesnel |
+| 13 | Notifications | Minor | 1 | A full notification system for board changes and admin actions | The subject's "all" is cheap from one shared function, ruinous rewired feature by feature | jbarthel |
+| 14 | Advanced search | Minor | 1 | Filtered, sorted, paginated notebook search | Folded, accent-insensitive search across every trace, not a title-only filter | epesnel |
+| 15 | In-house design system | Minor | 1 | Ten-plus reusable components and a shared token, typography and icon set, in [Design system](#design-system) | Already built drawing four screens; what's claimed is the components and tokens, not a separate gallery page | qrios, epesnel |
+| 16 | Standard user management | Major | 2 | Profile editing, avatar, teammates' online status | The team relation already covers the subject's "friends"; a separate graph would duplicate it, not add to it | qbourine, epesnel |
+| 18 | Additional browsers | Minor | 1 | Firefox and WebKit via Playwright, differences documented | Two different rendering engines (Gecko, WebKit), not Chromium-based Edge, prove something Chrome doesn't | jbarthel |
+| 19 | Multiple languages | Minor | 1 | French, English, Spanish, via react-i18next | Server error messages and legal pages are user-facing text too, so the subject's "all" reaches them as well | qrios |
 
 148 of 150 issues closed across these 15 modules as of this README; modules
 03 and 08 each have one open issue left, the rest are complete.
@@ -1691,8 +1690,9 @@ anyone's.
 - **14 · Advanced search** — searching a team's traces by text, work item,
   subsystem, step, participant, period and type (#152, #153).
 - **15 · In-house design system** — naming the colour palette once in the
-  Tailwind theme (#113) and gathering the design system into a documented
-  component gallery (#189).
+  Tailwind theme (#113) and gathering the design system into shared,
+  reusable components (#189, #211) — without the gallery page #189 also
+  asked for and #211 deliberately left out.
 - **16 · Standard user management** — fixing duplicated profile rows on the
   home page (#276).
 
@@ -1710,9 +1710,11 @@ merge date are permanent and public, so `gh pr list --state merged --author
 
 **Challenge.** Sign-up and team creation both had to refuse a second
 request racing the first on the same identifier (#9, #17, #59, #76, #81)
-rather than fail with a database error — solved with serializable
-transactions and a constraint the database itself enforces, not a lock
-Python can only take against itself.
+rather than fail with a database error — solved by SQLite's own
+`IMMEDIATE` transaction mode (`config/settings.py`), which takes the
+write lock at the start of the transaction rather than midway, backed by
+the database's own unique constraint: the loser gets a clean
+`IntegrityError` in the view, not a half-written row.
 
 | PR | Merged | Title |
 |---:|---|---|
@@ -2004,10 +2006,11 @@ in French. `docs/` is the one exception, and a deliberate one — see below.
   requires documented: one diagram per area (club and accounts, notebook and
   notifications, rulebook) and a shared legend, to be laid out in the README's
   *Database Schema* section.
-- [`docs/modules.md`](docs/modules.md) — the seventeen declared modules: what the
-  club has in front of each requirement, and how each will be demonstrated.
-  It is the defence rehearsal, not a specification — the README is what says
-  what was built, and a milestone is what says it is done.
+- [`docs/modules.md`](docs/modules.md) — every tracked module, declared here
+  or not: what the club has in front of each requirement, and how each will
+  be demonstrated. It is the defence rehearsal, not a specification — the
+  README is what says what was built, and a milestone is what says it is
+  done.
 
 **These four are in French, on purpose.** The design is argued in the club's
 language, and an argument loses something in translation; the lexicon exists
