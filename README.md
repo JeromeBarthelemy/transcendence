@@ -47,11 +47,11 @@ Four people, each identified by a GitHub account that doesn't resemble their
 usual nickname — recorded here once, so that a commit is never attributed to
 the wrong person.
 
-| Role | GitHub account |
+| Role(s) | GitHub account |
 |---|---|
-| Product Owner | [`JeromeBarthelemy`](https://github.com/JeromeBarthelemy) |
-| Project Manager / Scrum Master | [`quentinbourinet-max`](https://github.com/quentinbourinet-max) |
-| Technical Lead / Architect | [`Nitwee`](https://github.com/Nitwee) |
+| Product Owner, Developer | [`JeromeBarthelemy`](https://github.com/JeromeBarthelemy) |
+| Project Manager / Scrum Master, Developer | [`quentinbourinet-max`](https://github.com/quentinbourinet-max) |
+| Technical Lead / Architect, Developer | [`Nitwee`](https://github.com/Nitwee) |
 | Developer | [`Enelsep`](https://github.com/Enelsep) |
 
 - **Product Owner** — wrote the concept note (`docs/fieldnotes.html`), froze
@@ -63,8 +63,9 @@ the wrong person.
 - **Technical Lead / Architect** — reviews pull requests for correctness and
   architectural fit; see [Individual contributions](#individual-contributions)
   for which ones.
-- **Developer** — builds features inside that architecture; see
-  [Features per contributor](#features-per-contributor).
+- **Developer** — all four build features inside that architecture, on top
+  of their other role; see [Features per contributor](#features-per-contributor)
+  for what each one actually shipped.
 
 ## Project management
 
