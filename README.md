@@ -27,7 +27,6 @@ Key features:
   ([module 9](#attachments)).
 - Data export and deletion, both confirmed by e-mail
   ([module 10](#data-export-and-deletion)).
-- An installable, offline-capable progressive web app.
 - A full notification system for everything that changes on the board.
 - Filtered, sorted, paginated search across the whole notebook
   ([Notebook search](#notebook-search)).
