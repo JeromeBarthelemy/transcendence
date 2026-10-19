@@ -43,16 +43,18 @@ the frontend translation catalogue.
 
 ## Team and roles
 
-Four people, each identified by a GitHub account that doesn't resemble their
-usual nickname — recorded here once, so that a commit is never attributed to
-the wrong person.
+Four people, each with a 42 login and a GitHub account that doesn't
+resemble it — recorded here once, so that a commit is never attributed to
+the wrong person. The rest of this document names everyone by their 42
+login; the GitHub account below is what actually appears in `git log`,
+commits and pull requests.
 
-| Role(s) | GitHub account |
-|---|---|
-| Product Owner, Developer | [`JeromeBarthelemy`](https://github.com/JeromeBarthelemy) |
-| Project Manager / Scrum Master, Developer | [`quentinbourinet-max`](https://github.com/quentinbourinet-max) |
-| Technical Lead / Architect, Developer | [`Nitwee`](https://github.com/Nitwee) |
-| Developer | [`Enelsep`](https://github.com/Enelsep) |
+| Role(s) | 42 login | GitHub account |
+|---|---|---|
+| Product Owner, Developer | jbarthel | [`JeromeBarthelemy`](https://github.com/JeromeBarthelemy) |
+| Project Manager / Scrum Master, Developer | qbourine | [`quentinbourinet-max`](https://github.com/quentinbourinet-max) |
+| Technical Lead / Architect, Developer | qrios | [`Nitwee`](https://github.com/Nitwee) |
+| Developer | epesnel | [`Enelsep`](https://github.com/Enelsep) |
 
 - **Product Owner** — wrote the concept note (`docs/fieldnotes.html`), froze
   the vocabulary (`docs/lexique.md`), and decides which of the subject's
@@ -1583,7 +1585,7 @@ without shipping anything (two withdrawn as out of scope, #123 and #124; two
 below, #138 into #116 and #209 into #193) and are not listed as a feature of
 anyone's.
 
-### JeromeBarthelemy — Product Owner
+### jbarthel — Product Owner
 
 - **Foundation and mandatory requirements** — account sign-up and its race
   conditions (#9, #17, #59, #76); the work item, entry and notebook data
@@ -1627,7 +1629,7 @@ anyone's.
 - **18 · Additional browsers** — the cross-browser Playwright suite (#202)
   and a Firefox-specific HTTP/3 freeze (#287).
 
-### quentinbourinet-max — Project Manager / Scrum Master
+### qbourine — Project Manager / Scrum Master
 
 - **Mandatory requirements** — a French message on every database
   constraint (#3), HTTPS from Docker in one command (#11), a login rate
@@ -1651,7 +1653,7 @@ anyone's.
   other members' profiles (#176), letting members change their own display
   name and login address (#178), and a teammate's online status (#267).
 
-### Nitwee — Technical Lead / Architect
+### qrios — Technical Lead / Architect
 
 - **Mandatory requirements** — the team home, chantier, and
   landing/sign-up/log-in screens (#35, #36, #40), the CSRF-trusted-origin
@@ -1677,7 +1679,7 @@ anyone's.
   three-language verification (#247), and sending data confirmation e-mails
   in the member's own interface language (#264, #295).
 
-### Enelsep — Developer
+### epesnel — Developer
 
 - **Mandatory requirements** — clearing the whole query cache on login and
   logout, not only the identity (#193).
@@ -1704,10 +1706,12 @@ evidence trail [Project management](#project-management) says should be
 readable straight off `git log main`, reproduced here so the two never have
 to agree by hand. Collapsed by default; a pull request's number, author and
 merge date are permanent and public, so `gh pr list --state merged --author
-<login>` reproduces every row against the live repository.
+<GitHub account>` reproduces every row against the live repository — the
+matching account for each 42 login below is in
+[Team and roles](#team-and-roles).
 
 <details>
-<summary><strong>JeromeBarthelemy</strong> — 96 merged pull requests, 74 closed issues credited</summary>
+<summary><strong>jbarthel</strong> — 96 merged pull requests, 74 closed issues credited</summary>
 
 **Challenge.** Sign-up and team creation both had to refuse a second
 request racing the first on the same identifier (#9, #17, #59, #76, #81)
@@ -1819,7 +1823,7 @@ the database's own unique constraint: the loser gets a clean
 </details>
 
 <details>
-<summary><strong>quentinbourinet-max</strong> — 27 merged pull requests, 24 closed issues credited</summary>
+<summary><strong>qbourine</strong> — 27 merged pull requests, 24 closed issues credited</summary>
 
 **Challenge.** Adding the game manual from its FIRST URL (#164) first
 checked only the URL an administrator gave, while `urlopen` follows
@@ -1862,7 +1866,7 @@ caught and closed on the same pull request rather than a follow-up one.
 </details>
 
 <details>
-<summary><strong>Nitwee</strong> — 17 merged pull requests, 21 closed issues credited</summary>
+<summary><strong>qrios</strong> — 17 merged pull requests, 21 closed issues credited</summary>
 
 **Challenge.** The work-item screen's step selector has to follow another
 member's live update without discarding a draft the member is mid-way
@@ -1893,7 +1897,7 @@ background update never overwrites a choice in progress.
 </details>
 
 <details>
-<summary><strong>Enelsep</strong> — 14 merged pull requests, 12 closed issues credited</summary>
+<summary><strong>epesnel</strong> — 14 merged pull requests, 12 closed issues credited</summary>
 
 **Challenge.** Searching the notebook had to match « élodie » against
 « Élodie » (#198), and SQLite's own `lower()` only folds ASCII — closed by
@@ -1952,12 +1956,12 @@ does, which is this project's chosen way of disclosing it: auditable in the
 one place contributions are already tracked, rather than a separate claim in
 this file that could drift from what actually happened.
 
-| Account | Commits on `main` | Co-authored with Claude |
+| 42 login | Commits on `main` | Co-authored with Claude |
 |---|---:|---:|
-| `JeromeBarthelemy` | 107 | 3 |
-| `quentinbourinet-max` | 27 | 27 |
-| `Nitwee` | 17 | 2 |
-| `Enelsep` | 14 | 1 |
+| jbarthel | 107 | 3 |
+| qbourine | 27 | 27 |
+| qrios | 17 | 2 |
+| epesnel | 14 | 1 |
 
 The Project Manager/Scrum Master's merged work is produced with Claude Code
 throughout: implementing issues end to end, resolving merge conflicts
