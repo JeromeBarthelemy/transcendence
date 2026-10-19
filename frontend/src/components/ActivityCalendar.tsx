@@ -21,9 +21,13 @@ function adjacentMonth(month: string, offset: number) {
 export function ActivityCalendar({
   teamSeasonId,
   day,
+  className = "",
+  onSelect,
 }: {
   teamSeasonId: number;
   day: string;
+  className?: string;
+  onSelect?: (day: string) => void;
 }) {
   const { t } = useTranslation();
   const { monthFormatter, formatWorkdayDate, formatNumber } = useFormatters();
@@ -31,6 +35,9 @@ export function ActivityCalendar({
   const calendar = useQuery({
     queryKey: ["team-seasons", teamSeasonId, "calendar", month],
     queryFn: () => getActivityCalendar(teamSeasonId, month),
+    // The summary already reads this month to identify today's workday.
+    // Reuse its failure when opening the picker; retry stays an explicit action.
+    retryOnMount: false,
   });
   const first = new Date(`${month}-01T12:00:00Z`);
   const last = new Date(first);
@@ -55,7 +62,7 @@ export function ActivityCalendar({
     <Panel
       as="section"
       aria-labelledby="activity-calendar-title"
-      className="mt-6 max-w-lg"
+      className={className}
     >
       <Heading as="h2" size="small" id="activity-calendar-title">
         {t("calendar.title")}
@@ -138,6 +145,7 @@ export function ActivityCalendar({
                 <li key={date}>
                   <Link
                     to={`/team-seasons/${teamSeasonId}/days/${date}`}
+                    onClick={() => onSelect?.(date)}
                     aria-current={isToday ? "date" : undefined}
                     aria-label={label}
                     title={label}

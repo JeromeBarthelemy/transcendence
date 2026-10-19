@@ -25,6 +25,7 @@ from rest_framework.fields import empty
 from rest_framework.settings import api_settings
 
 from club import attachments, images
+from club.data_emails import DATA_EMAIL_LANGUAGES, DEFAULT_DATA_EMAIL_LANGUAGE
 from club.export import CATEGORY_KEYS
 from club.models import (
     DISPLAY_NAME_TAKEN,
@@ -226,7 +227,15 @@ class LoginSerializer(serializers.Serializer[dict[str, Any]]):
         return attrs
 
 
-class DeleteAccountSerializer(serializers.Serializer[None]):
+class DataEmailSerializer(serializers.Serializer[None]):
+    """A per-request mail language, not an editable account preference."""
+
+    language = serializers.ChoiceField(
+        choices=DATA_EMAIL_LANGUAGES, default=DEFAULT_DATA_EMAIL_LANGUAGE
+    )
+
+
+class DeleteAccountSerializer(DataEmailSerializer):
     """Just enough to read `password` out of `request.data` typed — the
     check against the account itself lives in `club/gdpr.py`'s
     `request_deletion`, the same place the rest of what deletion refuses

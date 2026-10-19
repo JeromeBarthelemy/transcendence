@@ -463,8 +463,11 @@ HTTPS stack below serves phones too.
 cp backend/.env.example backend/.env
 # Fill in DJANGO_SECRET_KEY, set DJANGO_DEBUG=false, and read FIELDNOTES_HOST
 # below if the club needs this from a phone, not just the machine itself.
-docker compose -f compose.prod.yml up --build
+make up
 ```
+
+`make up` runs `docker compose -f compose.prod.yml up --build -d`; `make down`
+stops the stack.
 
 Open <https://localhost/>. The browser warns once per device — the
 certificate is a static, self-signed one `cert-init` generates the first time
@@ -483,7 +486,7 @@ names, and the Caddyfile's `default_sni` hands it out even to a browser that
 sends none, which is what every browser does for a bare IP (RFC 6066
 excludes IP literals from the SNI extension). Changing the address after the
 first run requires removing the `tls_certs` volume
-(`docker volume rm transcendence_tls_certs`) so a new certificate gets
+(`docker volume rm fieldnotes_tls_certs`) so a new certificate gets
 generated for the new one — `cert-init` runs from the backend's own image,
 already local by then, so this needs no connection even if the room has
 none, which is exactly when the club is most likely to be setting this for
@@ -602,7 +605,6 @@ fill it with a demo club — before creating any account of your own:
 ```sh
 python backend/manage.py migrate
 python backend/manage.py seed_demo
-python backend/manage.py createsuperuser   # afterwards, for the Django admin
 ```
 
 It creates the current season (BioBuzz) with its Wednesday and Friday
@@ -615,10 +617,28 @@ student has refused image rights and one is not yet matched with AssoConnect,
 since a real club has both.
 
 Every demo account signs in with its display name and the password
-`rouage-demo-2026`. The command refuses a database that already holds
+`rouage-demo-2026`. Paul also opens the Django admin.
+
+Fieldbot needs the season's rulebook. Give the manual's and the Q&A board's
+pages on FIRST's own site, and the demo ingests both into its season, as the
+sources screen would. This call replaces the plain `seed_demo` above, on the
+same empty database; it is not a second step after it. On the production
+stack, `make demo` runs it with this season's two pages (see the `Makefile`):
+
+```sh
+docker compose -f compose.prod.yml exec backend python manage.py seed_demo \
+  --manual-url "https://ftc-resources.firstinspires.org/ftc/game/cm-html/BIOBUZZ%20Competition%20Manual%20-%20TU05.htm" \
+  --qa-url "https://game-qa.firstinspires.org/boards/2027/FTC/QA"
+```
+
+Both are optional, and checked against FIRST's sites before anything is
+written. A page that cannot be fetched leaves the database empty, so the
+command can simply be run again. The command refuses a database that already holds
 accounts, teams or seasons: it never overwrites anything, and it is never
 meant for the club's own instance. To start over, delete
-`backend/db.sqlite3` and migrate again.
+`backend/db.sqlite3` and migrate again; on the production stack, `make reset`
+removes the database and media volumes, keeping the downloaded models and the
+certificate, and `make up` then `make demo` fill it again.
 
 ## Accounts and sessions
 
@@ -765,6 +785,19 @@ here as anywhere else.
 | --- | --- |
 | `POST /api/auth/me/export/` | `202` with `sent_to` — a JSON copy of the account, plus the avatar, by e-mail to that address |
 | `DELETE /api/auth/me/` | `200` with `sent_to` — `password` confirms it; anonymizes the account, confirmed by e-mail to that address |
+
+Both routes accept an optional `language` (`fr`, `en` or `es`) in their JSON
+body. The frontend sends the currently selected interface language when the
+member requests the operation, not a language captured when the page loaded.
+Both the mail subject and its plain-text body follow this language; user names,
+the JSON export and avatar attachments stay unchanged. Unsupported languages
+are refused before sending mail or changing the account. Omitting `language`
+keeps French for older clients and internal callers. The interface preference
+remains browser-local, not a stored account field: administrative deletions
+use the club's French default, not the administrator's interface language.
+The complete mail copy lives in `club/data_emails.py`. Deletion captures the
+chosen message and original identity before its after-commit send, so neither
+anonymization nor a later locale change can change the confirmation.
 
 Neither goes to the login address: it identifies an account without being
 assumed to deliver, and the youngest members have none that does. Both go to
@@ -913,15 +946,20 @@ are never required. The member table keeps the API's neutral order and wording:
 it describes days, traces and distinct work items, without scores or rankings.
 
 The day-summary screen keeps the previous/next recorded-session links and
-adds a permanent Today action and a native date picker. A valid, changed date
-opens its URL on Enter or when the field loses focus, including empty days.
-Typing intermediate values does not navigate. Today opens `/days/today` and
+adds a permanent Today action and an "Ouvrir le calendrier" button. The button
+opens the existing activity calendar in a popover; no calendar occupies the
+summary until requested. Selecting a day opens its URL, including empty days,
+and closes the popover. Once the selected summary loads, focus returns to the
+calendar button. Escape also returns focus to the button; clicking outside,
+tabbing out, or clicking "Fermer le calendrier" also closes it.
+Today opens `/days/today` and
 is marked beside the heading; an explicit date matching today is marked too. The
 calendar's `today` field resolves the club's 4 a.m. workday rather than the
 browser's clock or time zone, without fetching a separate today summary.
-The monthly activity calendar sits alongside this navigation. Its month
+The monthly activity calendar opens from this navigation. Its month
 arrows browse without changing the displayed summary; selecting any day,
-including an empty one, opens its summary and updates the date picker.
+including an empty one, opens its summary. Reopening the calendar starts on
+the displayed session's month.
 Monday-first cells mark today, the selected date and days with recorded
 activity separately. Counts are available in each link's accessible label
 and tooltip; an active day can hold progress, a note or a decision, not just

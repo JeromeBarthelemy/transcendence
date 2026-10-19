@@ -99,6 +99,7 @@ from .serializers import (
     AvatarSerializer,
     CorrectionSerializer,
     CreateTeamSerializer,
+    DataEmailSerializer,
     DaySerializer,
     DecisionSerializer,
     DeleteAccountSerializer,
@@ -229,7 +230,11 @@ class MeView(APIView):
         assert isinstance(user, User)
         serializer = DeleteAccountSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        sent_to = request_deletion(user, password=serializer.validated_data["password"])
+        sent_to = request_deletion(
+            user,
+            password=serializer.validated_data["password"],
+            language=serializer.validated_data["language"],
+        )
         logout(request)
         return Response({"sent_to": sent_to})
 
@@ -241,7 +246,10 @@ class MemberDataExportView(APIView):
     def post(self, request: Request) -> Response:
         user = request.user
         assert isinstance(user, User)
-        return Response({"sent_to": send_export(user)}, status=status.HTTP_202_ACCEPTED)
+        serializer = DataEmailSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        sent_to = send_export(user, language=serializer.validated_data["language"])
+        return Response({"sent_to": sent_to}, status=status.HTTP_202_ACCEPTED)
 
 
 def _identity(user: User) -> dict[str, object]:

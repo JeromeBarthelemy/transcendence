@@ -1,5 +1,6 @@
 import { z } from "zod/mini";
 
+import i18n from "../i18n";
 import { del, get, patch, post, upload } from "./client";
 
 const teamSeasonSchema = z.object({
@@ -163,16 +164,23 @@ export async function deleteAvatar(): Promise<void> {
 
 /** The right of access: a copy of the account, sent by e-mail to its contact
  * address — never shown on screen, since the confirmation is the point.
- * Returns that address: a guardian's, for a minor. */
+ * Uses the interface language at the time of the request. Returns that
+ * address: a guardian's, for a minor. */
 export async function requestDataExport(): Promise<string> {
-  const { body } = await post("/api/auth/me/export/");
+  const { body } = await post("/api/auth/me/export/", {
+    language: i18n.resolvedLanguage ?? "fr",
+  });
   return parseSentTo(body, "export");
 }
 
 /** The right to erasure. The account's own password confirms it; the server
  * then anonymizes the account, e-mails the confirmation and ends the
- * session. Returns the address the confirmation went to. */
+ * session. The mail uses the current interface language, captured in this
+ * request before sign-out. Returns the address the confirmation went to. */
 export async function deleteAccount(password: string): Promise<string> {
-  const { body } = await del("/api/auth/me/", { password });
+  const { body } = await del("/api/auth/me/", {
+    password,
+    language: i18n.resolvedLanguage ?? "fr",
+  });
   return parseSentTo(body, "deletion");
 }

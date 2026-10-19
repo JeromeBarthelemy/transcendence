@@ -5,7 +5,7 @@ import { createMemoryRouter, RouterProvider } from "react-router-dom";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
 import { routes } from "../app/router";
-import "../i18n";
+import i18n, { languageStorageKey, supportedLanguages } from "../i18n";
 
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -82,10 +82,12 @@ beforeEach(() => {
   setDocumentCookie("csrftoken=test-token; path=/");
 });
 
-afterEach(() => {
+afterEach(async () => {
   cleanup();
   vi.unstubAllGlobals();
   setDocumentCookie("csrftoken=; Max-Age=0; path=/");
+  localStorage.removeItem(languageStorageKey);
+  await i18n.changeLanguage("fr");
 });
 
 it("sends the data export by e-mail and says so", async () => {
@@ -107,6 +109,7 @@ it("sends the data export by e-mail and says so", async () => {
     fetchMock.mock.calls.find(([path]) => path === "/api/auth/me/export/") ??
     [];
   expect(new Headers(init?.headers).get("X-CSRFToken")).toBe("test-token");
+  expect(JSON.parse(String(init?.body))).toEqual({ language: "fr" });
 });
 
 it("shows why an export cannot be sent", async () => {
@@ -188,6 +191,81 @@ it("deletes the account with its password and lands on the home page", async () 
     ) ?? [];
   expect(JSON.parse(String(init?.body))).toEqual({
     password: "rouage-demo-2026",
+    language: "fr",
   });
   expect(new Headers(init?.headers).get("X-CSRFToken")).toBe("test-token");
 });
+
+it.each(supportedLanguages)(
+  "requests the export in the selected interface language (%s)",
+  async (language) => {
+    const user = userEvent.setup();
+    const fetchMock = stubApi((path) =>
+      path === "/api/auth/me/export/"
+        ? json({ sent_to: "parent.marie@club.fr" }, 202)
+        : undefined,
+    );
+    renderProfile();
+    await section();
+
+    await user.selectOptions(
+      screen.getByRole("combobox", { name: i18n.t("language.label") }),
+      language,
+    );
+    const data = screen.getByRole("region", {
+      name: i18n.t("personalData.title"),
+    });
+    await user.click(
+      within(data).getByRole("button", { name: i18n.t("personalData.export") }),
+    );
+
+    expect(await within(data).findByRole("status")).toBeTruthy();
+    const [, init] =
+      fetchMock.mock.calls.find(([path]) => path === "/api/auth/me/export/") ??
+      [];
+    expect(JSON.parse(String(init?.body))).toEqual({ language });
+  },
+);
+
+it.each(supportedLanguages)(
+  "uses the language chosen just before deletion without losing the password (%s)",
+  async (language) => {
+    const user = userEvent.setup();
+    const fetchMock = stubApi((path, init) =>
+      path === "/api/auth/me/" && init?.method === "DELETE"
+        ? json({ sent_to: "parent.marie@club.fr" })
+        : undefined,
+    );
+    const router = renderProfile();
+    const data = await section();
+    await user.click(within(data).getByRole("button", { name: "Supprimer" }));
+    await user.type(
+      within(data).getByLabelText("Mot de passe"),
+      "rouage-demo-2026",
+    );
+
+    await user.selectOptions(
+      screen.getByRole("combobox", { name: i18n.t("language.label") }),
+      language,
+    );
+    await user.click(
+      within(data).getByRole("button", {
+        name: i18n.t("personalData.confirmDelete"),
+      }),
+    );
+    await screen.findByText(
+      i18n.t("personalData.deleted", { address: "parent.marie@club.fr" }),
+    );
+
+    const [, init] =
+      fetchMock.mock.calls.find(
+        ([path, options]) =>
+          path === "/api/auth/me/" && options?.method === "DELETE",
+      ) ?? [];
+    expect(JSON.parse(String(init?.body))).toEqual({
+      password: "rouage-demo-2026",
+      language,
+    });
+    expect(router.state.location.pathname).toBe("/");
+  },
+);
