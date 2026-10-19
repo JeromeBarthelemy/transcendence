@@ -1,12 +1,16 @@
 import json
 
+import numpy as np
 import pytest
 
 from club.generation import GenerationError
 from club.models import Document, Season, User
 from club.rag import (
+    DIMENSIONS,
     GENERATION_UNAVAILABLE,
     NO_ANSWER,
+    _embed_many,
+    _unpack,
     ask,
     chunk_manual,
     chunk_qa,
@@ -135,6 +139,37 @@ def document(
 
 
 # --- embedding ---
+
+
+@pytest.mark.parametrize(("is_query", "count"), [(False, 11), (True, 1)])
+def test_embedding_uses_small_batches_without_dropping_or_reordering_texts(
+    monkeypatch, is_query, count
+):
+    texts = [f"text {index}" for index in range(count)]
+    received: list[str] = []
+
+    class Model:
+        def embed(self, documents, *, batch_size):
+            # Guard against omitting the explicit bound and silently using
+            # FastEmbed's memory-hungry default of 256 again.
+            assert batch_size == 4
+            received.extend(documents)
+            return (
+                np.full(DIMENSIONS, index, dtype=np.float32)
+                for index in range(len(documents))
+            )
+
+    monkeypatch.setattr("club.rag._get_model", lambda: Model())
+
+    embeddings = _embed_many(texts, is_query=is_query)
+
+    prefix = "query" if is_query else "passage"
+    assert received == [f"{prefix}: {text}" for text in texts]
+    assert len(embeddings) == count
+    for index, vector in enumerate(embeddings):
+        np.testing.assert_array_equal(
+            _unpack(vector), np.full(DIMENSIONS, index, dtype=np.float32)
+        )
 
 
 def test_embedding_is_deterministic():

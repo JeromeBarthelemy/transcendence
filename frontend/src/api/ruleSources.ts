@@ -1,5 +1,5 @@
 import { z } from "zod/mini";
-import { get, post } from "./client";
+import { get, post, upload } from "./client";
 
 const changeSummarySchema = z.object({
   added: z.number(),
@@ -35,6 +35,35 @@ const sourcesSchema = z.array(sourceRowSchema);
 export type SourceRow = z.infer<typeof sourceRowSchema>;
 
 export const ruleSourcesQueryKey = ["rules", "sources"] as const;
+export const SOURCE_MAX_BYTES = 5 * 1024 * 1024;
+
+export interface SourceImport {
+  source: SourceRow["source"];
+  title?: string;
+  url?: string;
+  file?: File;
+}
+
+export async function importRuleSource(
+  input: SourceImport,
+): Promise<SourceRow[]> {
+  if (input.file) {
+    const form = new FormData();
+    form.append("source", input.source);
+    form.append("file", input.file);
+    if (input.title) form.append("title", input.title);
+    if (input.url) form.append("url", input.url);
+    const { body } = await upload(
+      "POST",
+      "/api/rules/sources/",
+      form,
+      () => {},
+    );
+    return parseSources(body);
+  }
+  const { body } = await post("/api/rules/sources/", input);
+  return parseSources(body);
+}
 
 function parseSources(body: unknown): SourceRow[] {
   const result = sourcesSchema.safeParse(body);
@@ -51,9 +80,8 @@ export async function getRuleSources(): Promise<SourceRow[]> {
   return parseSources(body);
 }
 
-/** Checks the game manual against its page now — the same check the
- * `sources-check` service runs every 24 hours (the Q&A is not checked
- * automatically). */
+/** Checks sources with an official URL against their page now — the same
+ * check the `sources-check` service runs every 24 hours. */
 export async function checkRuleSources(): Promise<SourceRow[]> {
   const { body } = await post("/api/rules/sources/check/");
   return parseSources(body);

@@ -976,17 +976,21 @@ closing the gap at its source rather than translating around it every
 time.
 
 Memory is the other real constraint, not just CPU: `qwen2.5:3b` resident
-in Ollama measures about 2.1 GB on this machine, and the embedding
-model's own cache on disk is another 1.1 GB — before Django, an ingest,
-or anything else running alongside. Comfortable here; likely tight on a
-laptop nearer the lower end of what the club has.
+in Ollama measures about 2.1 GB on this machine. The embedding model's
+1.1 GB download is a disk size, not its runtime RAM requirement: inference
+also allocates working memory. Full-manual indexing explicitly uses
+four passages per embedding batch instead of FastEmbed's default 256:
+large batches can exhaust an 8 GB development machine. Smaller batches
+trade throughput for lower inference-memory peaks without changing the
+model or dropping passages. This is not a total-memory limit: leave room
+for Django, both models and any other work running alongside.
 
 | route | does |
 | --- | --- |
 | `POST /api/rules/ask/` | a question, answered with a generated English answer and up to ten cited passages from this season's ingested documents |
 | `GET /api/rules/glossary/` | the current season's glossary — its latest manual's own terms and definitions, read at ingestion (#136); quietly `[]` without one |
 | `GET /api/rules/sources/` | administrators only: per source, the copy searched, when it was checked, and any change waiting for acceptance with its summary |
-| `POST /api/rules/sources/` | administrators only: `source` (`game_manual` or `official_qa`) and `url` on FIRST's own site for that source (`https`, `ftc-resources.firstinspires.org` for the manual, `game-qa.firstinspires.org` for the Q&A board) — fetches the page, ingests it as the new copy, and the checks follow that URL from now on; `400` with `source_not_allowed`, `fetch_failed` (also when a redirect leaves FIRST's site) or `no_passage` (a page with nothing to index) otherwise |
+| `POST /api/rules/sources/` | administrators only: `source` (`game_manual` or `official_qa`), optional `title`, and either an official `url` (JSON), or a `file` (multipart HTML, `.htm`/`.html`, at most 5 MiB). File imports may include an official URL for citation links and future checks; it is not fetched during upload. URLs must use `https` on `ftc-resources.firstinspires.org` (manual) or `game-qa.firstinspires.org` (Q&A). Imports replace the searched copy and discard its superseded pending update, but keep old passages for existing citations. `400` with `source_required`, `source_file_type`, `source_file_size`, `source_file_content`, `source_not_allowed`, `fetch_failed`, `source_import_failed` or `no_passage` on refusal. |
 | `POST /api/rules/sources/check/` | administrators only: check every source's page against its searched copy now, the same check the `sources-check` service runs every 24 hours |
 | `POST /api/rules/sources/{source}/accept/` | administrators only: replace the searched copy with the fetched change; `404` when nothing is waiting |
 
@@ -999,8 +1003,12 @@ up to the first 20 references touched), with "Accepter la mise à jour" and
 dismissing writes nothing to the server, only to the browser's own
 storage, keyed by the change's own `detected_at` — a newer change brings
 the badge and the review back by themselves, with nothing to clear by
-hand. Adding a source's very first URL still needs the management command
-below, run once a season.
+hand. The same screen includes an administrator-only import form: choose
+the source, upload its official HTML or enter its official URL, and optionally
+name the document. Replacing an existing source requires confirmation in the
+form. A file without a URL is searchable but cannot be checked online and has
+no citation links. Adding a URL enables those checks; automatic checks still
+only propose updates, never silently replace the searched version.
 
 "Current season" here means `Season.objects.first()` — the whole route has
 no `team_season_id` to read it from, unlike everything else in this API, so
@@ -1009,10 +1017,8 @@ one asked. A season with nothing ingested yet is refused by name ("Le manuel
 de la saison 2026-2027 n'est pas encore chargé"), distinct from an ingested
 manual simply not answering a question.
 
-Ingesting a document for the first time is a management command, not a
-route — there is no screen for uploading a brand-new manual, only for
-asking it questions and reviewing the updates to one already ingested
-(above):
+The management command remains available as an alternative to the import
+screen, for example when bootstrapping a season from the server:
 
 ```sh
 python manage.py ingest_document "BIOBUZZ Competition Manual - TU02.htm" \

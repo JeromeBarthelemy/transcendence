@@ -46,6 +46,7 @@ from .models import (
     QueryCitation,
     RuleQuery,
     Season,
+    SourceUpdate,
     User,
 )
 
@@ -84,6 +85,10 @@ if MODEL_NAME not in {m["model"] for m in TextEmbedding.list_supported_models()}
 # "downloaded once", the whole point of caching it at all.
 FASTEMBED_CACHE_DIR = str(Path(settings.BASE_DIR) / ".cache" / "fastembed")
 DIMENSIONS = 768
+# FastEmbed defaults to 256 passages per batch. With this fp32 model,
+# full-manual imports can exhaust a laptop's RAM; bound inference memory
+# without changing the model, truncating passages or dropping any of them.
+EMBEDDING_BATCH_SIZE = 4
 # How many passages a question keeps. A narrower cut (tried down to 1,
 # then 3) saves real time but costs something worse: with only the top
 # few candidates, the right passage sometimes isn't among them, and the
@@ -160,12 +165,13 @@ def embed(text: str, *, is_query: bool = False) -> bytes:
 
 
 def _embed_many(texts: list[str], *, is_query: bool) -> list[bytes]:
-    """Batched: one forward pass for every passage in a document rather
-    than one per passage, which is what makes ingesting a 173-page manual
-    take seconds instead of minutes on a CPU."""
+    """Small inference batches keep full-manual imports within laptop RAM.
+    Every passage is still embedded, in input order, with the same model."""
     model = _get_model()
     prefix = "query" if is_query else "passage"
-    vectors = model.embed([f"{prefix}: {text}" for text in texts])
+    vectors = model.embed(
+        [f"{prefix}: {text}" for text in texts], batch_size=EMBEDDING_BATCH_SIZE
+    )
     return [
         struct.pack(f"{DIMENSIONS}f", *vector.astype(np.float32)) for vector in vectors
     ]
@@ -583,6 +589,7 @@ def ingest_document(
     text: str,
     url: str = "",
     content_hash: str = "",
+    checked: bool = True,
 ) -> Document:
     """All or nothing where it counts: a document without its passages
     would never be found, and passages without their document would cite
@@ -610,7 +617,7 @@ def ingest_document(
             title=title,
             url=url,
             content_hash=content_hash,
-            checked_at=timezone.now() if content_hash else None,
+            checked_at=timezone.now() if checked and content_hash and url else None,
         )
         Chunk.objects.bulk_create(
             Chunk(
@@ -631,6 +638,9 @@ def ingest_document(
             )
             for ordinal, (term, definition) in enumerate(glossary, start=1)
         )
+        # An explicitly imported copy supersedes any previously detected
+        # candidate. Never leave an old update able to replace this new copy.
+        SourceUpdate.objects.filter(season=season, source=source).delete()
     return document
 
 

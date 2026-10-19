@@ -7,6 +7,7 @@ side is the one that decides.
 from collections.abc import Callable
 from datetime import date
 from io import BytesIO
+from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
@@ -46,7 +47,7 @@ from club.models import (
     remove_after_commit,
 )
 from club.signup import reserved_email
-from club.sources import check_source_url
+from club.sources import MAX_SOURCE_BYTES, check_source_url, read_source_upload
 
 
 def recheck(checks: dict[str, Callable[[], object]]) -> None:
@@ -827,17 +828,45 @@ class UserRoleSerializer(serializers.Serializer[User]):
 class AddSourceSerializer(serializers.Serializer[None]):
     # `source` is also a Field attribute in DRF; the typing clash is harmless here.
     source = serializers.ChoiceField(choices=Document.Source.choices)  # type: ignore[assignment]
-    url = serializers.URLField(max_length=500)
+    url = serializers.URLField(max_length=500, required=False, allow_blank=True)
+    title = serializers.CharField(max_length=200, required=False)
+    file = serializers.FileField(required=False)
+
+    def validate_file(self, value: UploadedFile) -> UploadedFile:
+        if Path(value.name or "").suffix.lower() not in {".htm", ".html"}:
+            raise serializers.ValidationError(
+                "Choisissez l'export HTML officiel (.htm ou .html), pas un PDF.",
+                code="source_file_type",
+            )
+        if value.size is None or value.size > MAX_SOURCE_BYTES:
+            raise serializers.ValidationError(
+                "Le fichier ne doit pas dépasser 5 Mio.", code="source_file_size"
+            )
+        return value
 
     def validate(self, attrs: dict[str, Any]) -> dict[str, Any]:
         # Which host is allowed depends on `source` — a per-field
         # `validate_url` has no way to read it, only `attrs` here does.
-        try:
-            check_source_url(attrs["url"], attrs["source"])
-        except ValueError as error:
+        url = attrs.get("url", "")
+        if not url and "file" not in attrs:
             raise serializers.ValidationError(
-                {"url": str(error)}, code="source_not_allowed"
-            ) from error
+                "Choisissez un fichier HTML ou indiquez une adresse officielle.",
+                code="source_required",
+            )
+        if url:
+            try:
+                check_source_url(url, attrs["source"])
+            except ValueError as error:
+                raise serializers.ValidationError(
+                    {"url": str(error)}, code="source_not_allowed"
+                ) from error
+        if "file" in attrs:
+            try:
+                attrs["text"] = read_source_upload(attrs["file"], attrs["source"])
+            except ValueError as error:
+                raise serializers.ValidationError(
+                    {"file": str(error)}, code="source_file_content"
+                ) from error
         return attrs
 
 
