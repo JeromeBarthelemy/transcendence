@@ -286,12 +286,14 @@ over `compose.prod.yml`, for the two limits of the school's machines:
 
 `make down`, `make demo` and `make reset` work unchanged.
 
-**From another workstation**: set `FIELDNOTES_HOST` to this one's name
-(`hostname -f`), add it to `DJANGO_ALLOWED_HOSTS` and as
-`https://<name>:8443` to `DJANGO_CSRF_TRUSTED_ORIGINS`, remove
-`fieldnotes_tls_certs` as above, and open `https://<name>:8443/`. Caddy only
-serves the site under that name: neither the IP address nor `localhost`
-reaches it any more.
+**From another workstation**: set `FIELDNOTES_HOST` to this one's IP address
+(the first of `hostname -I`), add it to `DJANGO_ALLOWED_HOSTS` and as
+`https://<address>:8443` to `DJANGO_CSRF_TRUSTED_ORIGINS`, remove
+`fieldnotes_tls_certs` as above, and open `https://<address>:8443/`. The
+address, not the workstation's name: `42nice.fr` sends HSTS with
+`includeSubDomains`, so browsers refuse any exception for a self-signed
+certificate under it. Caddy only serves the site under `FIELDNOTES_HOST`:
+`localhost` no longer reaches it.
 
 #### Backups
 
