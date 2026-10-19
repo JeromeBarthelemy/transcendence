@@ -284,7 +284,16 @@ over `compose.prod.yml`, for the two limits of the school's machines:
   sgoinfre can't hold Docker's own data (NFS refuses its image layers), but
   it takes these files.
 
-`make down`, `make demo` and `make reset` work unchanged.
+`make down`, `make demo` and `make reset` work unchanged. Three differences
+remain:
+
+- **Generated answers take 20 to 30 seconds** on the CPU: reading the
+  rulebook passages is most of it.
+- **`make e2e` doesn't apply**: it binds 80 and 443, and Playwright's
+  browsers need `sudo` to install their system dependencies. Run the
+  [`e2e.yml`](.github/workflows/e2e.yml) workflow on GitHub Actions instead.
+- **Switching between `make up` and `make up-campus` downloads the models
+  again**: one keeps them in named volumes, the other on sgoinfre.
 
 **From another workstation**: set `FIELDNOTES_HOST` to this one's IP address
 (the first of `hostname -I`), add it to `DJANGO_ALLOWED_HOSTS` and as

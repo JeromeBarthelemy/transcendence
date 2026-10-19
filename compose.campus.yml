@@ -12,10 +12,11 @@ services:
 
   backend:
     volumes:
-      # Same target as compose.prod.yml's fastembed_cache, so it replaces it.
-      # sgoinfre is NFS, which refuses Docker's image layers but accepts
-      # these plain files: the container's root is the user on the host.
-      - /sgoinfre/${USER}/fieldnotes-models/fastembed:/app/.cache
+      # Same target as compose.prod.yml's fastembed_cache, so it replaces it;
+      # fastembed adds its own fastembed/ below it (club/rag.py). sgoinfre is
+      # NFS, which refuses Docker's image layers but accepts these plain
+      # files: the container's root is the user on the host.
+      - /sgoinfre/${USER}/fieldnotes-models:/app/.cache
 
   ollama:
     # No CUDA libraries: half the CUDA image's size. No GPU either — rootless
@@ -26,8 +27,10 @@ services:
     ports: !reset []
     # compose.prod.yml's flash attention and q8_0 cache were measured on a
     # GPU; on this CPU they slow reading the prompt by a third (85 against
-    # 118 tokens/s).
-    environment: !reset {}
+    # 118 tokens/s). Ollama's defaults instead.
+    environment:
+      OLLAMA_FLASH_ATTENTION: "0"
+      OLLAMA_KV_CACHE_TYPE: f16
     volumes:
       - /sgoinfre/${USER}/fieldnotes-models/ollama:/root/.ollama
 
