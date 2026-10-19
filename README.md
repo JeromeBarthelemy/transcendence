@@ -1948,7 +1948,7 @@ against it instead of the stored text directly.
 
 ### AI usage
 
-Concretely, across the team, it was used for:
+Concretely, across the team, AI was used for:
 
 - **Documentation** — drafting and keeping current this README and the
   rest of `docs/` (see [Documentation](#documentation)).
