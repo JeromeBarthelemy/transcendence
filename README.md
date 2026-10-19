@@ -265,6 +265,27 @@ embedding model cache across a `down` and `up`; `db.sqlite3` moves under one
 of them because this container, unlike the dev one, has no bind mount to keep
 it on the host instead.
 
+#### On a 42 workstation
+
+```sh
+# In backend/.env, as above, plus:
+#   DJANGO_CSRF_TRUSTED_ORIGINS=https://localhost:8443
+make up-campus
+```
+
+Open <https://localhost:8443/>. `make up-campus` layers `compose.campus.yml`
+over `compose.prod.yml`, for the two limits of the school's machines:
+
+- **Rootless Docker** can't publish ports below 1024: the proxy listens on
+  8443 only, with no plain-HTTP port.
+- **goinfre**, which holds Docker's data, has a few GB free: Ollama runs
+  from its `-rocm` image (4.6 GB against 9.4 GB), on the CPU, and the models
+  go to `/sgoinfre/$USER/fieldnotes-models` instead of named volumes.
+  sgoinfre can't hold Docker's own data (NFS refuses its image layers), but
+  it takes these files.
+
+`make down`, `make demo` and `make reset` work unchanged.
+
 #### Backups
 
 The database and media live in named volumes, not on the host, so copying
